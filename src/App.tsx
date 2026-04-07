@@ -67,7 +67,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   LINKUSD: 1.2,
   US30: 120,
   US100: 80,
-  US500: 12,
+  US500: 20,
   DE40: 35,
   J225: 180,
   UK100: 18,
