@@ -52,6 +52,7 @@ const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
     "GOLD",
     "SILVER",
     "OIL_CRUDE",
+    "CORN",
   ],
 };
 
@@ -78,8 +79,9 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSDT: 580.05,
   ETHUSDT: 45,
   BNBUSDT: 15,
-  XRPUSDT: 0.03,
+  XRPUSDT: 0.02,
   SOLUSDT: 1.2,
+  CORN: 0.6
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -102,6 +104,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   BNBUSDT: 3,
   XRPUSDT: 3,
   SOLUSDT: 3,
+  CORN: 3,
 };
 
 const SPREAD_BY_SYMBOL: Record<string, number> = {
@@ -124,6 +127,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   BNBUSDT: 0.3,
   XRPUSDT: 0.01,
   SOLUSDT: 0.08,
+  CORN: 0.7
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -146,6 +150,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   BNBUSDT: 0.08,
   XRPUSDT: 0.002,
   SOLUSDT: 0.02,
+  CORN: 0.3
 };
 
 export default function App() {
