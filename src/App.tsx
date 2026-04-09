@@ -69,19 +69,19 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   US30: 120,
   US100: 80,
   US500: 20,
-  DE40: 35,
-  J225: 180,
-  UK100: 18,
-  GOLD: 8,
-  SILVER: 0.25,
-  OIL_CRUDE: 1.2,
+  DE40: 80,
+  J225: 470,
+  UK100: 40,
+  GOLD: 30,
+  SILVER: 0.9,
+  OIL_CRUDE: 2.0,
 
   BTCUSDT: 580.05,
   ETHUSDT: 45,
   BNBUSDT: 15,
   XRPUSDT: 0.02,
   SOLUSDT: 1.2,
-  CORN: 0.6
+  CORN: 2.0,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
