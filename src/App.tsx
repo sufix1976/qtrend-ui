@@ -91,26 +91,26 @@ const PROVIDER_INTERVALS: Record<Provider, string[]> = {
 };
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 470.05,
+  BTCUSD: 330.05,
   ETHUSD: 45,
-  XRPUSD: 0.02,
+  XRPUSD: 0.015,
   SHIBUSD: 0.01,
   US30: 120,
   US100: 80,
   US500: 20,
-  DE40: 80,
-  J225: 470,
+  DE40: 35,
+  J225: 330,
   UK100: 40,
-  GOLD: 30,
-  SILVER: 0.9,
-  OIL_CRUDE: 2.0,
+  GOLD: 22,
+  SILVER: 0.22,
+  OIL_CRUDE: 1.4,
 
   BTCUSDT: 580.05,
   ETHUSDT: 45,
   BNBUSDT: 15,
   XRPUSDT: 0.02,
-  SOLUSD: 1.2,
-  CORN: 2.0,
+  SOLUSD: 1.0,
+  CORN: 1.4,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
