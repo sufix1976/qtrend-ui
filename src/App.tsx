@@ -66,7 +66,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 470.05,
   ETHUSD: 45,
   XRPUSD: 0.02,
-  SHIBUSD: 0.11,
+  SHIBUSD: 0.01,
   US30: 120,
   US100: 80,
   US500: 20,
