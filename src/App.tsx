@@ -42,7 +42,7 @@ const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
     "BTCUSD",
     "ETHUSD",
     "XRPUSD",
-    "LINKUSD",
+    "SHIBUSD",
     "US30",
     "US100",
     "US500",
@@ -54,7 +54,6 @@ const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
     "OIL_CRUDE",
     "CORN",
     "SOLUSD",
-    "SHIBUSD",
   ],
 };
 
