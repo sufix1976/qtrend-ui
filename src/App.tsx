@@ -92,7 +92,7 @@ const PROVIDER_INTERVALS: Record<Provider, string[]> = {
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 330.05,
-  ETHUSD: 45,
+  ETHUSD: 25,
   XRPUSD: 0.015,
   SHIBUSD: 0.01,
   US30: 120,
