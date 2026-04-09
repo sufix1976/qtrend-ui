@@ -53,6 +53,7 @@ const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
     "SILVER",
     "OIL_CRUDE",
     "CORN",
+    "SOLUSD",
   ],
 };
 
@@ -80,7 +81,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   ETHUSDT: 45,
   BNBUSDT: 15,
   XRPUSDT: 0.02,
-  SOLUSDT: 1.2,
+  SOLUSD: 1.2,
   CORN: 2.0,
 };
 
@@ -103,7 +104,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   ETHUSDT: 4,
   BNBUSDT: 3,
   XRPUSDT: 3,
-  SOLUSDT: 3,
+  SOLUSD: 3,
   CORN: 3,
 };
 
@@ -126,7 +127,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   ETHUSDT: 1.0,
   BNBUSDT: 0.3,
   XRPUSDT: 0.01,
-  SOLUSDT: 0.08,
+  SOLUSD: 0.08,
   CORN: 0.7
 };
 
@@ -149,7 +150,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   ETHUSDT: 0.2,
   BNBUSDT: 0.08,
   XRPUSDT: 0.002,
-  SOLUSDT: 0.02,
+  SOLUSD: 0.02,
   CORN: 0.3
 };
 
