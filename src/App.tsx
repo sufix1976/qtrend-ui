@@ -33,8 +33,36 @@ type CapitalKlineResponse = {
   info?: string;
 };
 
+type AggTradeRow = {
+  signal_id: string;
+  received_at: string | null;
+  epic: string;
+  tf: string | null;
+  action: string;
+  size: number | null;
+  exec_id: string | null;
+  executed_at: string | null;
+  deal_reference: string | null;
+  confirm_status: number | null;
+  confirm: any;
+  position?: {
+    state?: string | null;
+    deal_id?: string | null;
+    last_update?: string | null;
+    source?: string | null;
+  } | null;
+};
+
+type AggTradesResponse = {
+  ok: boolean;
+  epic: string | null;
+  limit: number;
+  rows: AggTradeRow[];
+};
+
 const LIMIT = 5000;
 const AUTO_REFRESH_MS = 20000;
+const AGG_LIMIT = 200;
 
 const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
   binance: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT"],
@@ -59,7 +87,7 @@ const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
 
 const PROVIDER_INTERVALS: Record<Provider, string[]> = {
   binance: ["1m", "5m", "15m", "30m", "1h", "4h"],
-  capital: ["1m", "5m","10m", "15m", "23m", "30m", "1h", "4h"],
+  capital: ["1m", "5m", "10m", "15m", "23m", "30m", "1h", "4h"],
 };
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
@@ -128,7 +156,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   BNBUSDT: 0.3,
   XRPUSDT: 0.01,
   SOLUSD: 0.08,
-  CORN: 0.7
+  CORN: 0.7,
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -151,7 +179,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   BNBUSDT: 0.08,
   XRPUSDT: 0.002,
   SOLUSD: 0.02,
-  CORN: 0.3
+  CORN: 0.3,
 };
 
 export default function App() {
@@ -165,10 +193,17 @@ export default function App() {
   const candlesSeriesRef = useRef<any>(null);
   const sma10SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const sma100SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const longEntrySeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const shortEntrySeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const longExitSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const shortExitSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+
+  const strategyLongEntrySeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const strategyShortEntrySeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const strategyLongExitSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const strategyShortExitSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+
+  const blockedLongSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const blockedShortSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const realBuySeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const realSellSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const realCloseSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   const distSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const zeroSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
@@ -188,6 +223,7 @@ export default function App() {
   const [chartReady, setChartReady] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [liveState, setLiveState] = useState<PositionSide>("flat");
+  const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [lastTime, setLastTime] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -197,7 +233,13 @@ export default function App() {
   const [shortSignalCount, setShortSignalCount] = useState(0);
   const [longExitCount, setLongExitCount] = useState(0);
   const [shortExitCount, setShortExitCount] = useState(0);
+  const [blockedLongCount, setBlockedLongCount] = useState(0);
+  const [blockedShortCount, setBlockedShortCount] = useState(0);
+  const [realBuyCount, setRealBuyCount] = useState(0);
+  const [realSellCount, setRealSellCount] = useState(0);
+  const [realCloseCount, setRealCloseCount] = useState(0);
   const [lastSignalText, setLastSignalText] = useState("-");
+  const [lastRealTradeText, setLastRealTradeText] = useState("-");
   const [tradeCount, setTradeCount] = useState(0);
   const [winCount, setWinCount] = useState(0);
   const [lossCount, setLossCount] = useState(0);
@@ -217,6 +259,12 @@ export default function App() {
       liveState === "long" ? "#22c55e" : liveState === "short" ? "#ef4444" : "#cbd5e1";
     return { color: stateColor, label: liveState.toUpperCase() };
   }, [liveState]);
+
+  const brokerHeaderText = useMemo(() => {
+    const stateColor =
+      brokerState === "long" ? "#00ff88" : brokerState === "short" ? "#ff4d6d" : "#cbd5e1";
+    return { color: stateColor, label: brokerState.toUpperCase() };
+  }, [brokerState]);
 
   const displayStatus = errorMsg ? "error" : lastPrice !== null ? "ready" : isLoading ? "loading" : "idle";
 
@@ -243,15 +291,7 @@ export default function App() {
       timeScale: { visible: true, timeVisible: true, secondsVisible: false, borderColor: "#334155" },
       localization: {
         locale: "de-DE",
-        timeFormatter: (time: number) => {
-          const d = new Date(time * 1000);
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yy = String(d.getFullYear()).slice(-2);
-          const hh = String(d.getHours()).padStart(2, "0");
-          const mi = String(d.getMinutes()).padStart(2, "0");
-          return `${dd}.${mm}.${yy} ${hh}:${mi}`;
-        },
+        timeFormatter: (time: number) => formatTime(time),
       },
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -268,15 +308,7 @@ export default function App() {
       timeScale: { visible: true, timeVisible: true, secondsVisible: false, borderColor: "#334155" },
       localization: {
         locale: "de-DE",
-        timeFormatter: (time: number) => {
-          const d = new Date(time * 1000);
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yy = String(d.getFullYear()).slice(-2);
-          const hh = String(d.getHours()).padStart(2, "0");
-          const mi = String(d.getMinutes()).padStart(2, "0");
-          return `${dd}.${mm}.${yy} ${hh}:${mi}`;
-        },
+        timeFormatter: (time: number) => formatTime(time),
       },
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -306,7 +338,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    longEntrySeriesRef.current = priceChart.addSeries(LineSeries, {
+    strategyLongEntrySeriesRef.current = priceChart.addSeries(LineSeries, {
       color: "#22c55e",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -315,7 +347,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    shortEntrySeriesRef.current = priceChart.addSeries(LineSeries, {
+    strategyShortEntrySeriesRef.current = priceChart.addSeries(LineSeries, {
       color: "#ef4444",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -324,7 +356,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    longExitSeriesRef.current = priceChart.addSeries(LineSeries, {
+    strategyLongExitSeriesRef.current = priceChart.addSeries(LineSeries, {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -333,11 +365,56 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    shortExitSeriesRef.current = priceChart.addSeries(LineSeries, {
+    strategyShortExitSeriesRef.current = priceChart.addSeries(LineSeries, {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
       pointMarkersRadius: 5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    blockedLongSeriesRef.current = priceChart.addSeries(LineSeries, {
+      color: "#94a3b8",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    blockedShortSeriesRef.current = priceChart.addSeries(LineSeries, {
+      color: "#64748b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    realBuySeriesRef.current = priceChart.addSeries(LineSeries, {
+      color: "#00ff88",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    realSellSeriesRef.current = priceChart.addSeries(LineSeries, {
+      color: "#ff4d6d",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    realCloseSeriesRef.current = priceChart.addSeries(LineSeries, {
+      color: "#c084fc",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -394,10 +471,15 @@ export default function App() {
       candlesSeriesRef.current = null;
       sma10SeriesRef.current = null;
       sma100SeriesRef.current = null;
-      longEntrySeriesRef.current = null;
-      shortEntrySeriesRef.current = null;
-      longExitSeriesRef.current = null;
-      shortExitSeriesRef.current = null;
+      strategyLongEntrySeriesRef.current = null;
+      strategyShortEntrySeriesRef.current = null;
+      strategyLongExitSeriesRef.current = null;
+      strategyShortExitSeriesRef.current = null;
+      blockedLongSeriesRef.current = null;
+      blockedShortSeriesRef.current = null;
+      realBuySeriesRef.current = null;
+      realSellSeriesRef.current = null;
+      realCloseSeriesRef.current = null;
       distSeriesRef.current = null;
       zeroSeriesRef.current = null;
       upperBandSeriesRef.current = null;
@@ -430,7 +512,7 @@ export default function App() {
 
     let aborted = false;
 
-    const renderAll = () => {
+    const renderAll = (aggRows: AggTradeRow[]) => {
       const candles = candlesDataRef.current;
       if (!candles.length) return;
 
@@ -449,13 +531,12 @@ export default function App() {
       const candleMap = new Map<number, Candle>();
       for (const c of candles) candleMap.set(c.time, c);
 
-      let nextState: PositionSide = "flat";
       const longSignals: number[] = [];
       const shortSignals: number[] = [];
-      const longEntryPoints: LinePoint[] = [];
-      const shortEntryPoints: LinePoint[] = [];
-      const longExitPoints: LinePoint[] = [];
-      const shortExitPoints: LinePoint[] = [];
+      const strategyLongEntryPoints: LinePoint[] = [];
+      const strategyShortEntryPoints: LinePoint[] = [];
+      const strategyLongExitPoints: LinePoint[] = [];
+      const strategyShortExitPoints: LinePoint[] = [];
       const entryEvents: SignalEvent[] = [];
 
       let inLongZone = false;
@@ -480,7 +561,7 @@ export default function App() {
             const c = candleMap.get(t);
             if (c) {
               longSignals.push(t);
-              longEntryPoints.push({ time: t, value: c.low });
+              strategyLongEntryPoints.push({ time: t, value: c.low });
               entryEvents.push({ index: best, time: t, side: "long", price: c.low });
             }
           }
@@ -499,7 +580,7 @@ export default function App() {
             const c = candleMap.get(t);
             if (c) {
               shortSignals.push(t);
-              shortEntryPoints.push({ time: t, value: c.high });
+              strategyShortEntryPoints.push({ time: t, value: c.high });
               entryEvents.push({ index: best, time: t, side: "short", price: c.high });
             }
           }
@@ -515,7 +596,7 @@ export default function App() {
           const c = candleMap.get(t);
           if (c) {
             longSignals.push(t);
-            longEntryPoints.push({ time: t, value: c.low });
+            strategyLongEntryPoints.push({ time: t, value: c.low });
             entryEvents.push({ index: best, time: t, side: "long", price: c.low });
           }
         }
@@ -528,14 +609,13 @@ export default function App() {
           const c = candleMap.get(t);
           if (c) {
             shortSignals.push(t);
-            shortEntryPoints.push({ time: t, value: c.high });
+            strategyShortEntryPoints.push({ time: t, value: c.high });
             entryEvents.push({ index: best, time: t, side: "short", price: c.high });
           }
         }
       }
 
-      const orderedEntries = entryEvents
-        .sort((a, b) => (a.index - b.index) || (a.side === "short" ? 1 : -1));
+      const orderedEntries = entryEvents.sort((a, b) => (a.index - b.index) || (a.side === "short" ? 1 : -1));
 
       let closedTradeCount = 0;
       let closedWinCount = 0;
@@ -627,7 +707,7 @@ export default function App() {
             const lineReturn = p.value >= entryBand;
 
             if (!strongTrend && kinkUp) {
-              shortExitPoints.push({ time: p.time, value: candle.high });
+              strategyShortExitPoints.push({ time: p.time, value: candle.high });
               closeOpenTrade(realisticExitPrice("short", candle));
               position = "flat";
               shortEmergencyArmed = false;
@@ -637,7 +717,7 @@ export default function App() {
             }
 
             if (strongTrend && lineReturn) {
-              shortExitPoints.push({ time: p.time, value: candle.high });
+              strategyShortExitPoints.push({ time: p.time, value: candle.high });
               closeOpenTrade(realisticExitPrice("short", candle));
               position = "flat";
               shortEmergencyArmed = false;
@@ -660,7 +740,7 @@ export default function App() {
             const lineReturn = p.value <= -entryBand;
 
             if (!strongTrend && kinkDown) {
-              longExitPoints.push({ time: p.time, value: candle.low });
+              strategyLongExitPoints.push({ time: p.time, value: candle.low });
               closeOpenTrade(realisticExitPrice("long", candle));
               position = "flat";
               longEmergencyArmed = false;
@@ -670,7 +750,7 @@ export default function App() {
             }
 
             if (strongTrend && lineReturn) {
-              longExitPoints.push({ time: p.time, value: candle.low });
+              strategyLongExitPoints.push({ time: p.time, value: candle.low });
               closeOpenTrade(realisticExitPrice("long", candle));
               position = "flat";
               longEmergencyArmed = false;
@@ -684,18 +764,16 @@ export default function App() {
         prevDistValue = p.value;
       }
 
-      nextState = position;
+      strategyLongEntrySeriesRef.current?.setData(dedupePoints(strategyLongEntryPoints) as any);
+      strategyShortEntrySeriesRef.current?.setData(dedupePoints(strategyShortEntryPoints) as any);
+      strategyLongExitSeriesRef.current?.setData(dedupePoints(strategyLongExitPoints) as any);
+      strategyShortExitSeriesRef.current?.setData(dedupePoints(strategyShortExitPoints) as any);
 
-      longEntrySeriesRef.current?.setData(dedupePoints(longEntryPoints) as any);
-      shortEntrySeriesRef.current?.setData(dedupePoints(shortEntryPoints) as any);
-      longExitSeriesRef.current?.setData(dedupePoints(longExitPoints) as any);
-      shortExitSeriesRef.current?.setData(dedupePoints(shortExitPoints) as any);
-
-      setLiveState(nextState);
+      setLiveState(position);
       setLongSignalCount(longSignals.length);
       setShortSignalCount(shortSignals.length);
-      setLongExitCount(longExitPoints.length);
-      setShortExitCount(shortExitPoints.length);
+      setLongExitCount(strategyLongExitPoints.length);
+      setShortExitCount(strategyShortExitPoints.length);
       setTradeCount(closedTradeCount);
       setWinCount(closedWinCount);
       setLossCount(closedLossCount);
@@ -717,6 +795,68 @@ export default function App() {
         setLastSignalText("-");
       }
 
+      const realBuyPoints: LinePoint[] = [];
+      const realSellPoints: LinePoint[] = [];
+      const realClosePoints: LinePoint[] = [];
+      const blockedLongPoints: LinePoint[] = [];
+      const blockedShortPoints: LinePoint[] = [];
+
+      let lastRealText = "-";
+      let nextBrokerState: PositionSide = "flat";
+
+      const sortedRows = [...aggRows].sort((a, b) => toUnixSec(a.received_at ?? a.executed_at) - toUnixSec(b.received_at ?? b.executed_at));
+      for (const row of sortedRows) {
+        const baseTime = toUnixSec(row.executed_at ?? row.received_at);
+        if (!baseTime) continue;
+
+        const executed = Boolean(row.exec_id || row.executed_at);
+        const candleNear = findNearestCandle(candles, baseTime);
+        const price = extractTradePrice(row, candleNear);
+
+        if ((row.action === "buy" || row.action === "sell") && !executed) {
+          if (row.action === "buy") {
+            blockedLongPoints.push({ time: baseTime, value: candleNear?.low ?? price });
+          } else {
+            blockedShortPoints.push({ time: baseTime, value: candleNear?.high ?? price });
+          }
+          continue;
+        }
+
+        if (!executed) continue;
+
+        if (row.action === "buy") {
+          realBuyPoints.push({ time: baseTime, value: price });
+          lastRealText = `BUY ${formatTime(baseTime)}`;
+          nextBrokerState = "long";
+        } else if (row.action === "sell") {
+          realSellPoints.push({ time: baseTime, value: price });
+          lastRealText = `SELL ${formatTime(baseTime)}`;
+          nextBrokerState = "short";
+        } else if (row.action === "close") {
+          realClosePoints.push({ time: baseTime, value: price });
+          lastRealText = `CLOSE ${formatTime(baseTime)}`;
+          nextBrokerState = "flat";
+        }
+      }
+
+      const latestRow = sortedRows.length ? sortedRows[sortedRows.length - 1] : null;
+      const latestPositionState = normalizeBrokerState(latestRow?.position?.state ?? null);
+      if (latestPositionState) nextBrokerState = latestPositionState;
+
+      realBuySeriesRef.current?.setData(dedupePoints(realBuyPoints) as any);
+      realSellSeriesRef.current?.setData(dedupePoints(realSellPoints) as any);
+      realCloseSeriesRef.current?.setData(dedupePoints(realClosePoints) as any);
+      blockedLongSeriesRef.current?.setData(dedupePoints(blockedLongPoints) as any);
+      blockedShortSeriesRef.current?.setData(dedupePoints(blockedShortPoints) as any);
+
+      setBlockedLongCount(blockedLongPoints.length);
+      setBlockedShortCount(blockedShortPoints.length);
+      setRealBuyCount(realBuyPoints.length);
+      setRealSellCount(realSellPoints.length);
+      setRealCloseCount(realClosePoints.length);
+      setLastRealTradeText(lastRealText);
+      setBrokerState(nextBrokerState);
+
       const last = candles[candles.length - 1];
       setLastPrice(last.close);
       setLastTime(last.time);
@@ -729,7 +869,11 @@ export default function App() {
       setErrorMsg("");
 
       try {
-        const candles = await fetchCandles({ provider, symbol, interval, limit: LIMIT, backendBase });
+        const [candles, aggRows] = await Promise.all([
+          fetchCandles({ provider, symbol, interval, limit: LIMIT, backendBase }),
+          fetchAggTrades({ provider, symbol, backendBase, limit: AGG_LIMIT }),
+        ]);
+
         if (aborted) return;
 
         if (!candles.length) {
@@ -740,7 +884,7 @@ export default function App() {
 
         const hadNoDataBefore = candlesDataRef.current.length === 0;
         candlesDataRef.current = candles;
-        renderAll();
+        renderAll(aggRows);
 
         if (hadNoDataBefore || isAutoFollowRef.current) {
           suppressLogicalRangeRef.current = true;
@@ -798,7 +942,8 @@ export default function App() {
           fontFamily: "Arial, sans-serif",
           fontSize: 13,
           lineHeight: 1.35,
-          minWidth: 390,
+          minWidth: 400,
+          maxWidth: 430,
         }}
       >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -848,7 +993,10 @@ export default function App() {
           {provider.toUpperCase()} · {symbol} · {interval}
         </div>
         <div>
-          State: <span style={{ color: headerText.color, fontWeight: 700 }}>{headerText.label}</span>
+          Strategy: <span style={{ color: headerText.color, fontWeight: 700 }}>{headerText.label}</span>
+        </div>
+        <div>
+          Broker: <span style={{ color: brokerHeaderText.color, fontWeight: 700 }}>{brokerHeaderText.label}</span>
         </div>
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
@@ -862,6 +1010,11 @@ export default function App() {
         <div>Short signals: {shortSignalCount}</div>
         <div>Long exits: {longExitCount}</div>
         <div>Short exits: {shortExitCount}</div>
+        <div>Blocked longs: {blockedLongCount}</div>
+        <div>Blocked shorts: {blockedShortCount}</div>
+        <div>Real buys: {realBuyCount}</div>
+        <div>Real sells: {realSellCount}</div>
+        <div>Real closes: {realCloseCount}</div>
         <div>Trades: {tradeCount}</div>
         <div>Wins / Losses: {winCount} / {lossCount}</div>
         <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
@@ -869,6 +1022,19 @@ export default function App() {
         <div>Net PnL: {netPnL.toFixed(2)}</div>
         <div>PF: {profitFactor === null ? "-" : (Number.isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞")}</div>
         <div>Last signal: {lastSignalText}</div>
+        <div>Last real trade: {lastRealTradeText}</div>
+
+        <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8, fontSize: 12 }}>
+          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long</div>
+          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short</div>
+          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit</div>
+          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip</div>
+          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip</div>
+          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
+          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
+          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
+        </div>
+
         {errorMsg && <div style={{ color: "#fca5a5", marginTop: 6 }}>{errorMsg}</div>}
       </div>
 
@@ -1001,6 +1167,31 @@ async function fetchCandles(args: {
   return payload.candles;
 }
 
+async function fetchAggTrades(args: {
+  provider: Provider;
+  symbol: string;
+  backendBase: string;
+  limit: number;
+}): Promise<AggTradeRow[]> {
+  const { provider, symbol, backendBase, limit } = args;
+  if (provider !== "capital") return [];
+
+  const url = new URL("/agg/trades", backendBase);
+  url.searchParams.set("epic", symbol);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("_ts", String(Date.now()));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) {
+    const txt = await safeReadText(res);
+    throw new Error(`agg/trades failed: ${res.status} ${txt}`);
+  }
+
+  const payload = (await res.json()) as AggTradesResponse;
+  if (!payload.ok) throw new Error("agg/trades response not ok");
+  return Array.isArray(payload.rows) ? payload.rows : [];
+}
+
 async function safeReadText(res: Response): Promise<string> {
   try {
     return await res.text();
@@ -1098,4 +1289,72 @@ function formatTime(unixSec: number): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${dd}.${mm}.${yy} ${hh}:${mi}`;
+}
+
+function toUnixSec(input: string | null | undefined): number {
+  if (!input) return 0;
+  const t = Date.parse(input);
+  return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
+}
+
+function normalizeBrokerState(state: string | null | undefined): PositionSide | null {
+  const s = String(state || "").trim().toUpperCase();
+  if (!s) return null;
+  if (s === "LONG") return "long";
+  if (s === "SHORT") return "short";
+  if (s === "FLAT") return "flat";
+  return null;
+}
+
+function findNearestCandle(candles: Candle[], targetTime: number): Candle | null {
+  if (!candles.length || !targetTime) return null;
+  let best: Candle | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const c of candles) {
+    const diff = Math.abs(c.time - targetTime);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function extractTradePrice(row: AggTradeRow, candle: Candle | null): number {
+  const fromConfirm = deepFindNumeric(row.confirm, [
+    "level",
+    "price",
+    "fillPrice",
+    "filledPrice",
+    "stopLevel",
+    "limitLevel",
+    "affectedDealConfirmationLevel",
+  ]);
+  if (fromConfirm !== null) return fromConfirm;
+
+  if (candle) {
+    if (row.action === "buy") return candle.low;
+    if (row.action === "sell") return candle.high;
+    return candle.close;
+  }
+  return 0;
+}
+
+function deepFindNumeric(input: any, preferredKeys: string[]): number | null {
+  if (input === null || input === undefined) return null;
+  if (typeof input !== "object") return null;
+
+  for (const key of preferredKeys) {
+    const value = input?.[key];
+    const num = Number(value);
+    if (Number.isFinite(num) && num !== 0) return num;
+  }
+
+  for (const value of Object.values(input)) {
+    if (value && typeof value === "object") {
+      const nested = deepFindNumeric(value, preferredKeys);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
 }
