@@ -108,7 +108,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSDT: 580.05,
   ETHUSDT: 45,
   BNBUSDT: 15,
-  XRPUSDT: 0.02,
+  XRPUSDT: 0.015,
   SOLUSD: 1.0,
   CORN: 1.4,
 };
