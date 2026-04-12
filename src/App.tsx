@@ -817,6 +817,10 @@ export default function App() {
         const candleNear = findNearestCandle(candles, baseTime);
         const price = extractTradePrice(row, candleNear);
 
+        if (price === null || !Number.isFinite(price) || price <= 0) {
+          continue;
+        }
+
         if ((row.action === "buy" || row.action === "sell") && !executed) {
           if (row.action === "buy") {
             blockedLongPoints.push({ time: baseTime, value: candleNear?.low ?? price });
@@ -1269,7 +1273,7 @@ function dedupePoints(points: LinePoint[]): LinePoint[] {
   const seen = new Set<string>();
 
   for (const p of points) {
-    if (!Number.isFinite(p.time) || !Number.isFinite(p.value)) continue;
+    if (!Number.isFinite(p.time) || !Number.isFinite(p.value) || p.value <= 0) continue;
     const key = `${p.time}-${p.value}`;
     if (!seen.has(key)) {
       seen.add(key);
@@ -1378,7 +1382,7 @@ function findNearestCandle(candles: Candle[], targetTime: number): Candle | null
   return best;
 }
 
-function extractTradePrice(row: AggTradeRow, candle: Candle | null): number {
+function extractTradePrice(row: AggTradeRow, candle: Candle | null): number | null {
   const fromConfirm = deepFindNumeric(row.confirm, [
     "level",
     "price",
@@ -1395,7 +1399,8 @@ function extractTradePrice(row: AggTradeRow, candle: Candle | null): number {
     if (row.action === "sell") return candle.high;
     return candle.close;
   }
-  return 0;
+
+  return null;
 }
 
 function deepFindNumeric(input: any, preferredKeys: string[]): number | null {
