@@ -29,8 +29,38 @@ type WhitespaceLinePoint = {
   value?: number;
 };
 
+type PositionSide = "flat" | "long" | "short";
+
+type AggTradeRow = {
+  signal_id: string;
+  received_at: string | null;
+  epic: string;
+  tf: string | null;
+  action: string;
+  size: number | null;
+  exec_id: string | null;
+  executed_at: string | null;
+  deal_reference: string | null;
+  confirm_status: number | null;
+  confirm: any;
+  position?: {
+    state?: string | null;
+    deal_id?: string | null;
+    last_update?: string | null;
+    source?: string | null;
+  } | null;
+};
+
+type AggTradesResponse = {
+  ok: boolean;
+  epic: string | null;
+  limit: number;
+  rows: AggTradeRow[];
+};
+
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 500;
+const AGG_LIMIT = 200;
 const INTERVAL = "15m";
 const PRICE_SCALE_WIDTH = 90;
 
@@ -90,6 +120,34 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.08,
 };
 
+const SPREAD_BY_SYMBOL: Record<string, number> = {
+  BTCUSD: 25,
+  ETHUSD: 1.2,
+  XRPUSD: 0.01,
+  DE40: 1.5,
+  US100: 3,
+  US500: 0.8,
+  GOLD: 0.35,
+  SILVER: 0.05,
+  OIL_CRUDE: 0.04,
+  CORN: 0.7,
+  SOLUSD: 0.08,
+};
+
+const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
+  BTCUSD: 5,
+  ETHUSD: 0.25,
+  XRPUSD: 0.002,
+  DE40: 0.3,
+  US100: 0.5,
+  US500: 0.2,
+  GOLD: 0.08,
+  SILVER: 0.01,
+  OIL_CRUDE: 0.01,
+  CORN: 0.3,
+  SOLUSD: 0.02,
+};
+
 export default function App() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
@@ -101,10 +159,38 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [lastPrice, setLastPrice] = useState<number | null>(null);
+  const [lastTime, setLastTime] = useState<number | null>(null);
+
+  const [liveState, setLiveState] = useState<PositionSide>("flat");
+  const [brokerState, setBrokerState] = useState<PositionSide>("flat");
+
+  const [longSignalCount, setLongSignalCount] = useState(0);
+  const [shortSignalCount, setShortSignalCount] = useState(0);
+  const [longExitCount, setLongExitCount] = useState(0);
+  const [shortExitCount, setShortExitCount] = useState(0);
+
+  const [blockedLongCount, setBlockedLongCount] = useState(0);
+  const [blockedShortCount, setBlockedShortCount] = useState(0);
+  const [realBuyCount, setRealBuyCount] = useState(0);
+  const [realSellCount, setRealSellCount] = useState(0);
+  const [realCloseCount, setRealCloseCount] = useState(0);
+
+  const [lastSignalText, setLastSignalText] = useState("-");
+  const [lastRealTradeText, setLastRealTradeText] = useState("-");
+
+  const [tradeCount, setTradeCount] = useState(0);
+  const [winCount, setWinCount] = useState(0);
+  const [lossCount, setLossCount] = useState(0);
+  const [grossProfit, setGrossProfit] = useState(0);
+  const [grossLoss, setGrossLoss] = useState(0);
+  const [profitFactor, setProfitFactor] = useState<number | null>(null);
+  const [netPnL, setNetPnL] = useState(0);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
+  const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
+  const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
 
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
@@ -212,7 +298,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    const longMarkerSeries = priceChart.addSeries(LineSeries, {
+    const strategyLongSeries = priceChart.addSeries(LineSeries, {
       color: "#22c55e",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -221,11 +307,74 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    const shortMarkerSeries = priceChart.addSeries(LineSeries, {
+    const strategyShortSeries = priceChart.addSeries(LineSeries, {
       color: "#ef4444",
       lineVisible: false,
       pointMarkersVisible: true,
       pointMarkersRadius: 6,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const blockedLongSeries = priceChart.addSeries(LineSeries, {
+      color: "#94a3b8",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const blockedShortSeries = priceChart.addSeries(LineSeries, {
+      color: "#64748b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const realBuySeries = priceChart.addSeries(LineSeries, {
+      color: "#00ff88",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const realSellSeries = priceChart.addSeries(LineSeries, {
+      color: "#ff4d6d",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const realCloseSeries = priceChart.addSeries(LineSeries, {
+      color: "#c084fc",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 8,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -263,36 +412,19 @@ export default function App() {
         setStatus("loading");
         setError("");
 
-        const url = new URL("/api/market-data/klines", BACKEND_BASE);
-        url.searchParams.set("provider", "capital");
-        url.searchParams.set("symbol", symbol);
-        url.searchParams.set("interval", INTERVAL);
-        url.searchParams.set("limit", String(LIMIT));
+        const [candles, aggRows] = await Promise.all([
+          fetchCandles(symbol),
+          fetchAggTrades(symbol),
+        ]);
 
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        const txt = await res.text();
-
-        let json: any;
-        try {
-          json = JSON.parse(txt);
-        } catch {
-          throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
-        }
-
-        if (!res.ok || !json?.ok) {
-          throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
-        }
-
-        const candles = sanitizeCandles(json.candles || []);
-        if (!candles.length) {
-          throw new Error("No valid candles returned");
-        }
+        if (cancelled) return;
+        if (!candles.length) throw new Error("No valid candles returned");
 
         const sma10 = sanitizeLinePoints(calcSMA(candles, 10));
         const sma100 = sanitizeLinePoints(calcSMA(candles, 100));
         const dist = sanitizeLinePoints(calcDistance(sma10, sma100));
 
-        const longMarkers = buildStableLongSignals(
+        const strategyLongPoints = buildStableLongSignals(
           candles,
           dist,
           entryBand,
@@ -300,26 +432,45 @@ export default function App() {
           minKinkMove
         );
 
-        const shortMarkers = buildStableShortSignals(
+        const strategyShortPoints = buildStableShortSignals(
           candles,
           dist,
           entryBand,
           peakLookback,
           minKinkMove
         );
+
+        const sim = simulateStrategy(
+          candles,
+          dist,
+          strategyLongPoints,
+          strategyShortPoints,
+          entryBand,
+          assumedSpread,
+          assumedSlippage
+        );
+
+        const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
         const upperBand = buildFlatLineFromCandles(candles, entryBand);
         const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
-        if (cancelled) return;
-
         candleSeries.setData(candles as any);
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
-        longMarkerSeries.setData(longMarkers as any);
-        shortMarkerSeries.setData(shortMarkers as any);
+
+        strategyLongSeries.setData(strategyLongPoints as any);
+        strategyShortSeries.setData(strategyShortPoints as any);
+        strategyLongExitSeries.setData(sim.longExitPoints as any);
+        strategyShortExitSeries.setData(sim.shortExitPoints as any);
+
+        blockedLongSeries.setData(real.blockedLongPoints as any);
+        blockedShortSeries.setData(real.blockedShortPoints as any);
+        realBuySeries.setData(real.realBuyPoints as any);
+        realSellSeries.setData(real.realSellPoints as any);
+        realCloseSeries.setData(real.realClosePoints as any);
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -328,11 +479,42 @@ export default function App() {
 
         priceChart.timeScale().fitContent();
         const range = priceChart.timeScale().getVisibleLogicalRange();
-        if (range) {
-          distChart.timeScale().setVisibleLogicalRange(range);
-        }
+        if (range) distChart.timeScale().setVisibleLogicalRange(range);
 
-        setLastPrice(candles[candles.length - 1]?.close ?? null);
+        const last = candles[candles.length - 1];
+        setLastPrice(last.close);
+        setLastTime(last.time);
+
+        setLiveState(sim.position);
+        setLongSignalCount(strategyLongPoints.length);
+        setShortSignalCount(strategyShortPoints.length);
+        setLongExitCount(sim.longExitPoints.length);
+        setShortExitCount(sim.shortExitPoints.length);
+
+        setTradeCount(sim.tradeCount);
+        setWinCount(sim.winCount);
+        setLossCount(sim.lossCount);
+        setGrossProfit(sim.grossProfit);
+        setGrossLoss(sim.grossLoss);
+        setNetPnL(sim.netPnL);
+        setProfitFactor(
+          sim.grossLoss > 0
+            ? sim.grossProfit / sim.grossLoss
+            : sim.grossProfit > 0
+            ? Number.POSITIVE_INFINITY
+            : null
+        );
+
+        setLastSignalText(sim.lastSignalText);
+
+        setBlockedLongCount(real.blockedLongPoints.length);
+        setBlockedShortCount(real.blockedShortPoints.length);
+        setRealBuyCount(real.realBuyPoints.length);
+        setRealSellCount(real.realSellPoints.length);
+        setRealCloseCount(real.realClosePoints.length);
+        setLastRealTradeText(real.lastRealTradeText);
+        setBrokerState(real.brokerState);
+
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
@@ -350,15 +532,23 @@ export default function App() {
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
         priceChart.removeSeries(sma100Series);
-        priceChart.removeSeries(longMarkerSeries);
-        priceChart.removeSeries(shortMarkerSeries);
+        priceChart.removeSeries(strategyLongSeries);
+        priceChart.removeSeries(strategyShortSeries);
+        priceChart.removeSeries(strategyLongExitSeries);
+        priceChart.removeSeries(strategyShortExitSeries);
+        priceChart.removeSeries(blockedLongSeries);
+        priceChart.removeSeries(blockedShortSeries);
+        priceChart.removeSeries(realBuySeries);
+        priceChart.removeSeries(realSellSeries);
+        priceChart.removeSeries(realCloseSeries);
+
         distChart.removeSeries(distSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, entryBand, peakLookback, minKinkMove]);
+  }, [symbol, entryBand, peakLookback, minKinkMove, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -369,26 +559,121 @@ export default function App() {
         color: "#fff",
         display: "flex",
         flexDirection: "column",
+        position: "relative",
       }}
     >
-      <div style={{ padding: 8, display: "flex", gap: 12, alignItems: "center" }}>
-        <label>
-          Symbol{" "}
-          <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-            {SYMBOLS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 12,
+          zIndex: 20,
+          padding: "10px 12px",
+          border: "1px solid #334155",
+          borderRadius: 10,
+          background: "rgba(2, 6, 23, 0.9)",
+          color: "#e2e8f0",
+          fontFamily: "Arial, sans-serif",
+          fontSize: 13,
+          lineHeight: 1.35,
+          minWidth: 360,
+          maxWidth: 430,
+        }}
+      >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <label>
+            Symbol{" "}
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+              {SYMBOLS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <div>Status: {status}</div>
+        <div>
+          Strategy:{" "}
+          <span
+            style={{
+              color:
+                liveState === "long"
+                  ? "#22c55e"
+                  : liveState === "short"
+                  ? "#ef4444"
+                  : "#cbd5e1",
+              fontWeight: 700,
+            }}
+          >
+            {liveState.toUpperCase()}
+          </span>
+        </div>
+        <div>
+          Broker:{" "}
+          <span
+            style={{
+              color:
+                brokerState === "long"
+                  ? "#00ff88"
+                  : brokerState === "short"
+                  ? "#ff4d6d"
+                  : "#cbd5e1",
+              fontWeight: 700,
+            }}
+          >
+            {brokerState.toUpperCase()}
+          </span>
+        </div>
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
-        <div>Band: {entryBand}</div>
-        <div>Lookback: {peakLookback}</div>
+        <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
+        <div>Entry band: {entryBand}</div>
+        <div>Peak lookback: {peakLookback}</div>
         <div>Min kink: {minKinkMove}</div>
-        {error ? <div style={{ color: "#fca5a5" }}>{error}</div> : null}
+        <div>Assumed spread: {assumedSpread}</div>
+        <div>Assumed slippage: {assumedSlippage}</div>
+
+        <div>Long signals: {longSignalCount}</div>
+        <div>Short signals: {shortSignalCount}</div>
+        <div>Long exits: {longExitCount}</div>
+        <div>Short exits: {shortExitCount}</div>
+
+        <div>Blocked longs: {blockedLongCount}</div>
+        <div>Blocked shorts: {blockedShortCount}</div>
+        <div>Real buys: {realBuyCount}</div>
+        <div>Real sells: {realSellCount}</div>
+        <div>Real closes: {realCloseCount}</div>
+
+        <div>Trades: {tradeCount}</div>
+        <div>Wins / Losses: {winCount} / {lossCount}</div>
+        <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
+        <div>Gross Loss (net of costs): {grossLoss.toFixed(2)}</div>
+        <div>Net PnL: {netPnL.toFixed(2)}</div>
+        <div>
+          PF:{" "}
+          {profitFactor === null
+            ? "-"
+            : Number.isFinite(profitFactor)
+            ? profitFactor.toFixed(2)
+            : "∞"}
+        </div>
+
+        <div>Last signal: {lastSignalText}</div>
+        <div>Last real trade: {lastRealTradeText}</div>
+
+        <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8, fontSize: 12 }}>
+          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long</div>
+          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short</div>
+          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit</div>
+          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip</div>
+          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip</div>
+          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
+          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
+          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
+        </div>
+
+        {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
       </div>
 
       <div ref={priceRef} style={{ flex: "0 0 72%", minHeight: 0 }} />
@@ -402,6 +687,52 @@ export default function App() {
       />
     </div>
   );
+}
+
+async function fetchCandles(symbol: string): Promise<Candle[]> {
+  const url = new URL("/api/market-data/klines", BACKEND_BASE);
+  url.searchParams.set("provider", "capital");
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("interval", INTERVAL);
+  url.searchParams.set("limit", String(LIMIT));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
+  }
+
+  return sanitizeCandles(json.candles || []);
+}
+
+async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
+  const url = new URL("/agg/trades", BACKEND_BASE);
+  url.searchParams.set("epic", symbol);
+  url.searchParams.set("limit", String(AGG_LIMIT));
+  url.searchParams.set("_ts", String(Date.now()));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) return [];
+
+  const txt = await res.text();
+
+  let json: AggTradesResponse | null = null;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    return [];
+  }
+
+  if (!json?.ok || !Array.isArray(json.rows)) return [];
+  return json.rows;
 }
 
 function syncCharts(chartA: IChartApi, chartB: IChartApi) {
@@ -492,20 +823,13 @@ function calcDistance(a: LinePoint[], b: LinePoint[]): LinePoint[] {
     .filter(Boolean) as LinePoint[];
 }
 
-function alignLineToCandles(
-  candles: Candle[],
-  line: LinePoint[]
-): WhitespaceLinePoint[] {
+function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLinePoint[] {
   const map = new Map<number, number>();
-  for (const p of line) {
-    map.set(p.time, p.value);
-  }
+  for (const p of line) map.set(p.time, p.value);
 
   return candles.map((c) => {
     const value = map.get(c.time);
-    if (value == null || !Number.isFinite(value)) {
-      return { time: c.time };
-    }
+    if (value == null || !Number.isFinite(value)) return { time: c.time };
     return { time: c.time, value };
   });
 }
@@ -539,13 +863,7 @@ function buildStableLongSignals(
 
     if (inZone && p.value >= -entryBand) {
       const zoneEnd = i - 1;
-      const best = findBestLongIndexStable(
-        dist,
-        zoneStart,
-        zoneEnd,
-        peakLookback,
-        minKinkMove
-      );
+      const best = findBestLongIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
       if (best >= 0) {
         const t = dist[best].time;
         const c = candleMap.get(t);
@@ -599,13 +917,7 @@ function buildStableShortSignals(
 
     if (inZone && p.value <= entryBand) {
       const zoneEnd = i - 1;
-      const best = findBestShortIndexStable(
-        dist,
-        zoneStart,
-        zoneEnd,
-        peakLookback,
-        minKinkMove
-      );
+      const best = findBestShortIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
       if (best >= 0) {
         const t = dist[best].time;
         const c = candleMap.get(t);
@@ -758,4 +1070,326 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
+}
+
+function simulateStrategy(
+  candles: Candle[],
+  dist: LinePoint[],
+  longEntries: MarkerPoint[],
+  shortEntries: MarkerPoint[],
+  entryBand: number,
+  assumedSpread: number,
+  assumedSlippage: number
+) {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const distMapIndex = new Map<number, number>();
+  dist.forEach((p, i) => distMapIndex.set(p.time, i));
+
+  const longExitPoints: MarkerPoint[] = [];
+  const shortExitPoints: MarkerPoint[] = [];
+
+  const entryEvents = [
+    ...longEntries.map((p) => ({ time: p.time, side: "long" as const, index: distMapIndex.get(p.time) ?? -1 })),
+    ...shortEntries.map((p) => ({ time: p.time, side: "short" as const, index: distMapIndex.get(p.time) ?? -1 })),
+  ]
+    .filter((x) => x.index >= 0)
+    .sort((a, b) => a.index - b.index);
+
+  let position: PositionSide = "flat";
+  let openTrade: { side: "long" | "short"; entryPrice: number } | null = null;
+
+  let tradeCount = 0;
+  let winCount = 0;
+  let lossCount = 0;
+  let grossProfit = 0;
+  let grossLoss = 0;
+
+  let currentEntryPtr = 0;
+  let prevDistValue: number | null = null;
+
+  let shortEmergencyArmed = false;
+  let longEmergencyArmed = false;
+  let shortBestAfterArm = Number.POSITIVE_INFINITY;
+  let longBestAfterArm = Number.NEGATIVE_INFINITY;
+
+  const perSideCost = assumedSpread / 2 + assumedSlippage;
+
+  const realisticEntryPrice = (side: "long" | "short", candle: Candle) =>
+    side === "long" ? candle.close + perSideCost : candle.close - perSideCost;
+
+  const realisticExitPrice = (side: "long" | "short", candle: Candle) =>
+    side === "long" ? candle.close - perSideCost : candle.close + perSideCost;
+
+  const closeTrade = (candle: Candle, side: "long" | "short") => {
+    if (!openTrade) return;
+    const exitPrice = realisticExitPrice(side, candle);
+    const pnl =
+      openTrade.side === "long"
+        ? exitPrice - openTrade.entryPrice
+        : openTrade.entryPrice - exitPrice;
+
+    tradeCount += 1;
+    if (pnl >= 0) {
+      winCount += 1;
+      grossProfit += pnl;
+    } else {
+      lossCount += 1;
+      grossLoss += Math.abs(pnl);
+    }
+    openTrade = null;
+  };
+
+  for (let i = 0; i < dist.length; i++) {
+    while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
+      const evt = entryEvents[currentEntryPtr];
+      const candle = candleMap.get(evt.time);
+      if (candle) {
+        if (openTrade) {
+          closeTrade(candle, openTrade.side);
+        }
+        openTrade = {
+          side: evt.side,
+          entryPrice: realisticEntryPrice(evt.side, candle),
+        };
+        position = evt.side;
+        shortEmergencyArmed = false;
+        longEmergencyArmed = false;
+        shortBestAfterArm = Number.POSITIVE_INFINITY;
+        longBestAfterArm = Number.NEGATIVE_INFINITY;
+        prevDistValue = null;
+      }
+      currentEntryPtr += 1;
+    }
+
+    const p = dist[i];
+    const candle = candleMap.get(p.time);
+    if (!candle) {
+      prevDistValue = p.value;
+      continue;
+    }
+
+    if (position === "short") {
+      if (!shortEmergencyArmed) {
+        if (p.value < entryBand) {
+          shortEmergencyArmed = true;
+          shortBestAfterArm = p.value;
+        }
+      } else {
+        if (p.value < shortBestAfterArm) shortBestAfterArm = p.value;
+
+        const strongTrend = shortBestAfterArm <= entryBand * 0.5;
+        const kinkUp = prevDistValue !== null && p.value > prevDistValue;
+        const lineReturn = p.value >= entryBand;
+
+        if ((!strongTrend && kinkUp) || (strongTrend && lineReturn)) {
+          shortExitPoints.push({ time: p.time, value: candle.high });
+          closeTrade(candle, "short");
+          position = "flat";
+          shortEmergencyArmed = false;
+          shortBestAfterArm = Number.POSITIVE_INFINITY;
+          prevDistValue = p.value;
+          continue;
+        }
+      }
+    }
+
+    if (position === "long") {
+      if (!longEmergencyArmed) {
+        if (p.value > -entryBand) {
+          longEmergencyArmed = true;
+          longBestAfterArm = p.value;
+        }
+      } else {
+        if (p.value > longBestAfterArm) longBestAfterArm = p.value;
+
+        const strongTrend = longBestAfterArm >= -entryBand * 0.5;
+        const kinkDown = prevDistValue !== null && p.value < prevDistValue;
+        const lineReturn = p.value <= -entryBand;
+
+        if ((!strongTrend && kinkDown) || (strongTrend && lineReturn)) {
+          longExitPoints.push({ time: p.time, value: candle.low });
+          closeTrade(candle, "long");
+          position = "flat";
+          longEmergencyArmed = false;
+          longBestAfterArm = Number.NEGATIVE_INFINITY;
+          prevDistValue = p.value;
+          continue;
+        }
+      }
+    }
+
+    prevDistValue = p.value;
+  }
+
+  const netPnL = grossProfit - grossLoss;
+
+  let lastSignalText = "-";
+  const lastLong = longEntries.length ? longEntries[longEntries.length - 1].time : null;
+  const lastShort = shortEntries.length ? shortEntries[shortEntries.length - 1].time : null;
+
+  if (lastLong && lastShort) {
+    lastSignalText = lastLong > lastShort ? `LONG ${formatTime(lastLong)}` : `SHORT ${formatTime(lastShort)}`;
+  } else if (lastLong) {
+    lastSignalText = `LONG ${formatTime(lastLong)}`;
+  } else if (lastShort) {
+    lastSignalText = `SHORT ${formatTime(lastShort)}`;
+  }
+
+  return {
+    position,
+    longExitPoints: dedupeMarkers(longExitPoints),
+    shortExitPoints: dedupeMarkers(shortExitPoints),
+    tradeCount,
+    winCount,
+    lossCount,
+    grossProfit,
+    grossLoss,
+    netPnL,
+    lastSignalText,
+  };
+}
+
+function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
+  const realBuyPoints: MarkerPoint[] = [];
+  const realSellPoints: MarkerPoint[] = [];
+  const realClosePoints: MarkerPoint[] = [];
+  const blockedLongPoints: MarkerPoint[] = [];
+  const blockedShortPoints: MarkerPoint[] = [];
+
+  let lastRealTradeText = "-";
+  let brokerState: PositionSide = "flat";
+
+  const sorted = [...rows].sort(
+    (a, b) => toUnixSec(a.received_at ?? a.executed_at) - toUnixSec(b.received_at ?? b.executed_at)
+  );
+
+  for (const row of sorted) {
+    const baseTime = toUnixSec(row.executed_at ?? row.received_at);
+    if (!baseTime) continue;
+
+    const candleNear = findNearestCandle(candles, baseTime);
+    const price = extractTradePrice(row, candleNear);
+    if (price === null || !Number.isFinite(price) || price <= 0) continue;
+
+    const executed = Boolean(row.exec_id || row.executed_at);
+
+    if ((row.action === "buy" || row.action === "sell") && !executed) {
+      if (row.action === "buy") {
+        blockedLongPoints.push({ time: baseTime, value: candleNear?.low ?? price });
+      } else {
+        blockedShortPoints.push({ time: baseTime, value: candleNear?.high ?? price });
+      }
+      continue;
+    }
+
+    if (!executed) continue;
+
+    if (row.action === "buy") {
+      realBuyPoints.push({ time: baseTime, value: price });
+      lastRealTradeText = `BUY ${formatTime(baseTime)}`;
+      brokerState = "long";
+    } else if (row.action === "sell") {
+      realSellPoints.push({ time: baseTime, value: price });
+      lastRealTradeText = `SELL ${formatTime(baseTime)}`;
+      brokerState = "short";
+    } else if (row.action === "close") {
+      realClosePoints.push({ time: baseTime, value: price });
+      lastRealTradeText = `CLOSE ${formatTime(baseTime)}`;
+      brokerState = "flat";
+    }
+  }
+
+  const latestRow = sorted.length ? sorted[sorted.length - 1] : null;
+  const latestPositionState = normalizeBrokerState(latestRow?.position?.state ?? null);
+  if (latestPositionState) brokerState = latestPositionState;
+
+  return {
+    realBuyPoints: dedupeMarkers(realBuyPoints),
+    realSellPoints: dedupeMarkers(realSellPoints),
+    realClosePoints: dedupeMarkers(realClosePoints),
+    blockedLongPoints: dedupeMarkers(blockedLongPoints),
+    blockedShortPoints: dedupeMarkers(blockedShortPoints),
+    lastRealTradeText,
+    brokerState,
+  };
+}
+
+function findNearestCandle(candles: Candle[], targetTime: number): Candle | null {
+  if (!candles.length || !targetTime) return null;
+  let best: Candle | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const c of candles) {
+    const diff = Math.abs(c.time - targetTime);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function extractTradePrice(row: AggTradeRow, candle: Candle | null): number | null {
+  const fromConfirm = deepFindNumeric(row.confirm, [
+    "level",
+    "price",
+    "fillPrice",
+    "filledPrice",
+    "stopLevel",
+    "limitLevel",
+    "affectedDealConfirmationLevel",
+  ]);
+  if (fromConfirm !== null) return fromConfirm;
+
+  if (candle) {
+    if (row.action === "buy") return candle.low;
+    if (row.action === "sell") return candle.high;
+    return candle.close;
+  }
+
+  return null;
+}
+
+function deepFindNumeric(input: any, preferredKeys: string[]): number | null {
+  if (input === null || input === undefined) return null;
+  if (typeof input !== "object") return null;
+
+  for (const key of preferredKeys) {
+    const value = input?.[key];
+    const num = Number(value);
+    if (Number.isFinite(num) && num !== 0) return num;
+  }
+
+  for (const value of Object.values(input)) {
+    if (value && typeof value === "object") {
+      const nested = deepFindNumeric(value, preferredKeys);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
+}
+
+function normalizeBrokerState(state: string | null | undefined): PositionSide | null {
+  const s = String(state || "").trim().toUpperCase();
+  if (s === "LONG") return "long";
+  if (s === "SHORT") return "short";
+  if (s === "FLAT") return "flat";
+  return null;
+}
+
+function toUnixSec(input: string | null | undefined): number {
+  if (!input) return 0;
+  const t = Date.parse(input);
+  return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
+}
+
+function formatTime(unixSec: number): string {
+  const d = new Date(unixSec * 1000);
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}.${mm}.${yy} ${hh}:${mi}`;
 }
