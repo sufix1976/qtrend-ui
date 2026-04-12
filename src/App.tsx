@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   type IChartApi,
@@ -429,7 +430,7 @@ export default function App() {
         const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
         candleSeries.setData(candles as any);
-        candleSeries.setMarkers(strategyMarkers as any);
+        createSeriesMarkers(candleSeries, strategyMarkers as any);
 
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
@@ -469,8 +470,8 @@ export default function App() {
           sim.grossLoss > 0
             ? sim.grossProfit / sim.grossLoss
             : sim.grossProfit > 0
-            ? Number.POSITIVE_INFINITY
-            : null
+              ? Number.POSITIVE_INFINITY
+              : null
         );
 
         setLastSignalText(sim.lastSignalText);
@@ -497,7 +498,7 @@ export default function App() {
     return () => {
       cancelled = true;
       try {
-        candleSeries.setMarkers([]);
+        createSeriesMarkers(candleSeries, []);
 
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
@@ -568,8 +569,8 @@ export default function App() {
                 liveState === "long"
                   ? "#22c55e"
                   : liveState === "short"
-                  ? "#ef4444"
-                  : "#cbd5e1",
+                    ? "#ef4444"
+                    : "#cbd5e1",
               fontWeight: 700,
             }}
           >
@@ -584,8 +585,8 @@ export default function App() {
                 brokerState === "long"
                   ? "#00ff88"
                   : brokerState === "short"
-                  ? "#ff4d6d"
-                  : "#cbd5e1",
+                    ? "#ff4d6d"
+                    : "#cbd5e1",
               fontWeight: 700,
             }}
           >
@@ -621,8 +622,8 @@ export default function App() {
           {profitFactor === null
             ? "-"
             : Number.isFinite(profitFactor)
-            ? profitFactor.toFixed(2)
-            : "∞"}
+              ? profitFactor.toFixed(2)
+              : "∞"}
         </div>
 
         <div>Last signal: {lastSignalText}</div>
