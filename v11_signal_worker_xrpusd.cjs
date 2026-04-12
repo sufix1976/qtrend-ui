@@ -57,6 +57,7 @@ const ENTRY_BAND_BY_SYMBOL = {
   UK100: 18,
   DE40: 35,
   J225: 180,
+  XRPUSD: 0.015
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL = {
@@ -76,13 +77,14 @@ const PEAK_LOOKBACK_BY_SYMBOL = {
   UK100: 3,
   DE40: 3,
   J225: 3,
+  XRPUSD: 3,
 };
 
 const MIN_VALID_INDEX = 120;
 const EXIT_STRENGTH_FACTOR = Number(process.env.EXIT_STRENGTH_FACTOR || 0.5);
 
 function getEntryBand(symbol) {
-  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 100);
+  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 0.015);
 }
 
 function getPeakLookback(symbol) {
