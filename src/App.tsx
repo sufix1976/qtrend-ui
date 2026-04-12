@@ -60,9 +60,9 @@ type AggTradesResponse = {
   rows: AggTradeRow[];
 };
 
-const LIMIT = 10000;
+const LIMIT = 5000;
 const AUTO_REFRESH_MS = 20000;
-const AGG_LIMIT = 2000;
+const AGG_LIMIT = 200;
 
 const PROVIDER_SYMBOLS: Record<Provider, string[]> = {
   binance: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT"],
