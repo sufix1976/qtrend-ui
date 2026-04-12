@@ -513,12 +513,16 @@ export default function App() {
     let aborted = false;
 
     const renderAll = (aggRows: AggTradeRow[]) => {
-      const candles = candlesDataRef.current;
-      if (!candles.length) return;
+      const candles = sanitizeCandles(candlesDataRef.current);
+      if (!candles.length) {
+        setErrorMsg("No valid candles after sanitize");
+        setIsLoading(false);
+        return;
+      }
 
-      const sma10 = calcSMA(candles, 10);
-      const sma100 = calcSMA(candles, 100);
-      const dist = calcDistance(sma10, sma100);
+      const sma10 = sanitizeLinePoints(calcSMA(candles, 10));
+      const sma100 = sanitizeLinePoints(calcSMA(candles, 100));
+      const dist = sanitizeLinePoints(calcDistance(sma10, sma100));
 
       candlesSeriesRef.current.setData(candles as any);
       sma10SeriesRef.current!.setData(sma10 as any);
@@ -883,7 +887,7 @@ export default function App() {
         }
 
         const hadNoDataBefore = candlesDataRef.current.length === 0;
-        candlesDataRef.current = candles;
+        candlesDataRef.current = sanitizeCandles(candles);
         renderAll(aggRows);
 
         if (hadNoDataBefore || isAutoFollowRef.current) {
@@ -1140,13 +1144,15 @@ async function fetchCandles(args: {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`Binance history failed: ${res.status}`);
     const raw = (await res.json()) as BinanceKlineRow[];
-    return raw.map((k) => ({
-      time: Math.floor(k[0] / 1000),
-      open: Number(k[1]),
-      high: Number(k[2]),
-      low: Number(k[3]),
-      close: Number(k[4]),
-    }));
+    return sanitizeCandles(
+      raw.map((k) => ({
+        time: Math.floor(k[0] / 1000),
+        open: Number(k[1]),
+        high: Number(k[2]),
+        low: Number(k[3]),
+        close: Number(k[4]),
+      }))
+    );
   }
 
   const url = new URL("/api/market-data/klines", backendBase);
@@ -1164,7 +1170,16 @@ async function fetchCandles(args: {
 
   const payload = (await res.json()) as CapitalKlineResponse;
   if (!payload.ok) throw new Error(payload.error || payload.info || "Capital response not ok");
-  return payload.candles;
+
+  return sanitizeCandles(
+    (payload.candles || []).map((c) => ({
+      time: Number(c.time),
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close),
+    }))
+  );
 }
 
 async function fetchAggTrades(args: {
@@ -1205,7 +1220,10 @@ function calcSMA(data: Candle[], len: number): LinePoint[] {
   for (let i = len - 1; i < data.length; i++) {
     let sum = 0;
     for (let j = 0; j < len; j++) sum += data[i - j].close;
-    res.push({ time: data[i].time, value: sum / len });
+    const value = sum / len;
+    if (Number.isFinite(value)) {
+      res.push({ time: data[i].time, value });
+    }
   }
   return res;
 }
@@ -1217,36 +1235,76 @@ function calcDistance(a: LinePoint[], b: LinePoint[]): LinePoint[] {
     .map((x) => {
       const y = map.get(x.time);
       if (y === undefined) return null;
-      return { time: x.time, value: x.value - y };
+      const value = x.value - y;
+      if (!Number.isFinite(value)) return null;
+      return { time: x.time, value };
     })
     .filter(Boolean) as LinePoint[];
 }
 
 function alignLineToCandles(candles: Candle[], line: LinePoint[]): LineOrWhitespace[] {
   const lineMap = new Map<number, number>();
-  line.forEach((p) => lineMap.set(p.time, p.value));
+  line.forEach((p) => {
+    if (Number.isFinite(p.time) && Number.isFinite(p.value)) {
+      lineMap.set(p.time, p.value);
+    }
+  });
+
   return candles.map((c) => {
     const value = lineMap.get(c.time);
-    if (value === undefined) return { time: c.time };
+    if (value === undefined || !Number.isFinite(value)) return { time: c.time };
     return { time: c.time, value };
   });
 }
 
 function buildFlatLine(candles: Candle[], value: number): LinePoint[] {
-  return candles.map((c) => ({ time: c.time, value }));
+  if (!Number.isFinite(value)) return [];
+  return candles
+    .map((c) => ({ time: c.time, value }))
+    .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
 }
 
 function dedupePoints(points: LinePoint[]): LinePoint[] {
   const out: LinePoint[] = [];
   const seen = new Set<string>();
+
   for (const p of points) {
+    if (!Number.isFinite(p.time) || !Number.isFinite(p.value)) continue;
     const key = `${p.time}-${p.value}`;
     if (!seen.has(key)) {
       seen.add(key);
       out.push(p);
     }
   }
+
   return out;
+}
+
+function sanitizeCandles(candles: Candle[]): Candle[] {
+  return (candles || [])
+    .map((c) => ({
+      time: Number(c.time),
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close),
+    }))
+    .filter((c) =>
+      Number.isFinite(c.time) &&
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.high) &&
+      Number.isFinite(c.low) &&
+      Number.isFinite(c.close)
+    );
+}
+
+function sanitizeLinePoints(points: LinePoint[]): LinePoint[] {
+  return (points || [])
+    .map((p) => ({
+      time: Number(p.time),
+      value: Number(p.value),
+    }))
+    .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
 }
 
 function syncCharts(
