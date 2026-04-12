@@ -27,8 +27,21 @@ type MarkerPoint = {
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 500;
 const INTERVAL = "15m";
+const PRICE_SCALE_WIDTH = 90;
 
-const SYMBOLS = ["BTCUSD", "ETHUSD", "XRPUSD", "DE40", "US100", "US500", "GOLD", "SILVER", "OIL_CRUDE", "CORN", "SOLUSD"];
+const SYMBOLS = [
+  "BTCUSD",
+  "ETHUSD",
+  "XRPUSD",
+  "DE40",
+  "US100",
+  "US500",
+  "GOLD",
+  "SILVER",
+  "OIL_CRUDE",
+  "CORN",
+  "SOLUSD",
+];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 330.05,
@@ -96,8 +109,15 @@ export default function App() {
       height: priceRef.current.clientHeight,
       layout: { background: { color: "#0f172a" }, textColor: "#fff" },
       grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
-      rightPriceScale: { borderColor: "#334155" },
-      timeScale: { borderColor: "#334155", timeVisible: true, secondsVisible: false },
+      rightPriceScale: {
+        borderColor: "#334155",
+        minimumWidth: PRICE_SCALE_WIDTH,
+      },
+      timeScale: {
+        borderColor: "#334155",
+        timeVisible: true,
+        secondsVisible: false,
+      },
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
         horzLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -109,8 +129,15 @@ export default function App() {
       height: distRef.current.clientHeight,
       layout: { background: { color: "#0f172a" }, textColor: "#fff" },
       grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
-      rightPriceScale: { borderColor: "#334155" },
-      timeScale: { borderColor: "#334155", timeVisible: true, secondsVisible: false },
+      rightPriceScale: {
+        borderColor: "#334155",
+        minimumWidth: PRICE_SCALE_WIDTH,
+      },
+      timeScale: {
+        borderColor: "#334155",
+        timeVisible: true,
+        secondsVisible: false,
+      },
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
         horzLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -260,8 +287,21 @@ export default function App() {
         const sma100 = sanitizeLinePoints(calcSMA(candles, 100));
         const dist = sanitizeLinePoints(calcDistance(sma10, sma100));
 
-        const longMarkers = buildStableLongSignals(candles, dist, entryBand, peakLookback, minKinkMove);
-        const shortMarkers = buildStableShortSignals(candles, dist, entryBand, peakLookback, minKinkMove);
+        const longMarkers = buildStableLongSignals(
+          candles,
+          dist,
+          entryBand,
+          peakLookback,
+          minKinkMove
+        );
+
+        const shortMarkers = buildStableShortSignals(
+          candles,
+          dist,
+          entryBand,
+          peakLookback,
+          minKinkMove
+        );
 
         if (cancelled) return;
 
@@ -277,7 +317,10 @@ export default function App() {
         lowerBandSeries.setData(buildFlatLineFromLine(dist, -entryBand) as any);
 
         priceChart.timeScale().fitContent();
-        distChart.timeScale().fitContent();
+        const range = priceChart.timeScale().getVisibleLogicalRange();
+        if (range) {
+          distChart.timeScale().setVisibleLogicalRange(range);
+        }
 
         setLastPrice(candles[candles.length - 1]?.close ?? null);
         setStatus("ready");
@@ -339,7 +382,14 @@ export default function App() {
       </div>
 
       <div ref={priceRef} style={{ flex: "0 0 72%", minHeight: 0 }} />
-      <div ref={distRef} style={{ flex: "0 0 28%", minHeight: 0, borderTop: "1px solid #334155" }} />
+      <div
+        ref={distRef}
+        style={{
+          flex: "0 0 28%",
+          minHeight: 0,
+          borderTop: "1px solid #334155",
+        }}
+      />
     </div>
   );
 }
@@ -461,7 +511,13 @@ function buildStableLongSignals(
 
     if (inZone && p.value >= -entryBand) {
       const zoneEnd = i - 1;
-      const best = findBestLongIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
+      const best = findBestLongIndexStable(
+        dist,
+        zoneStart,
+        zoneEnd,
+        peakLookback,
+        minKinkMove
+      );
       if (best >= 0) {
         const t = dist[best].time;
         const c = candleMap.get(t);
@@ -473,7 +529,13 @@ function buildStableLongSignals(
   }
 
   if (inZone) {
-    const best = findBestLongIndexStable(dist, zoneStart, dist.length - 1, peakLookback, minKinkMove);
+    const best = findBestLongIndexStable(
+      dist,
+      zoneStart,
+      dist.length - 1,
+      peakLookback,
+      minKinkMove
+    );
     if (best >= 0) {
       const t = dist[best].time;
       const c = candleMap.get(t);
@@ -509,7 +571,13 @@ function buildStableShortSignals(
 
     if (inZone && p.value <= entryBand) {
       const zoneEnd = i - 1;
-      const best = findBestShortIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
+      const best = findBestShortIndexStable(
+        dist,
+        zoneStart,
+        zoneEnd,
+        peakLookback,
+        minKinkMove
+      );
       if (best >= 0) {
         const t = dist[best].time;
         const c = candleMap.get(t);
@@ -521,7 +589,13 @@ function buildStableShortSignals(
   }
 
   if (inZone) {
-    const best = findBestShortIndexStable(dist, zoneStart, dist.length - 1, peakLookback, minKinkMove);
+    const best = findBestShortIndexStable(
+      dist,
+      zoneStart,
+      dist.length - 1,
+      peakLookback,
+      minKinkMove
+    );
     if (best >= 0) {
       const t = dist[best].time;
       const c = candleMap.get(t);
