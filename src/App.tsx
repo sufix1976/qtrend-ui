@@ -44,16 +44,33 @@ export default function App() {
 
 async function loadData(candleSeries: any, smaSeries: any, symbol: string) {
   try {
-    const res = await fetch(`/api/market-data/klines?provider=capital&symbol=${symbol}&interval=15m&limit=500`);
-    const json = await res.json();
+    const backendBase = "https://qtrend-trading-engine.onrender.com";
+
+    const url = new URL("/api/market-data/klines", backendBase);
+    url.searchParams.set("provider", "capital");
+    url.searchParams.set("symbol", symbol);
+    url.searchParams.set("interval", "15m");
+    url.searchParams.set("limit", "500");
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const txt = await res.text();
+
+    let json: any;
+    try {
+      json = JSON.parse(txt);
+    } catch {
+      throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
+    }
+
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
+    }
 
     const candles = sanitizeCandles(json.candles || []);
-
     candleSeries.setData(candles);
 
     const sma = calcSMA(candles, 10);
     smaSeries.setData(sma);
-
   } catch (err) {
     console.error("LOAD ERROR", err);
   }
