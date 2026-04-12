@@ -1286,7 +1286,20 @@ function dedupePoints(points: LinePoint[]): LinePoint[] {
 
 function sanitizeCandles(candles: Candle[]): Candle[] {
   return (candles || [])
-    .map((c) => ({
+    .filter((c: any) =>
+      c &&
+      c.time !== null &&
+      c.time !== undefined &&
+      c.open !== null &&
+      c.open !== undefined &&
+      c.high !== null &&
+      c.high !== undefined &&
+      c.low !== null &&
+      c.low !== undefined &&
+      c.close !== null &&
+      c.close !== undefined
+    )
+    .map((c: any) => ({
       time: Number(c.time),
       open: Number(c.open),
       high: Number(c.high),
@@ -1298,13 +1311,24 @@ function sanitizeCandles(candles: Candle[]): Candle[] {
       Number.isFinite(c.open) &&
       Number.isFinite(c.high) &&
       Number.isFinite(c.low) &&
-      Number.isFinite(c.close)
+      Number.isFinite(c.close) &&
+      c.open > 0 &&
+      c.high > 0 &&
+      c.low > 0 &&
+      c.close > 0
     );
 }
 
 function sanitizeLinePoints(points: LinePoint[]): LinePoint[] {
   return (points || [])
-    .map((p) => ({
+    .filter((p: any) =>
+      p &&
+      p.time !== null &&
+      p.time !== undefined &&
+      p.value !== null &&
+      p.value !== undefined
+    )
+    .map((p: any) => ({
       time: Number(p.time),
       value: Number(p.value),
     }))
