@@ -461,16 +461,7 @@ export default function App() {
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        strategyLongSeries.setData(strategyLongPoints as any);
-        strategyShortSeries.setData(strategyShortPoints as any);
-        strategyLongExitSeries.setData(sim.longExitPoints as any);
-        strategyShortExitSeries.setData(sim.shortExitPoints as any);
-
-        blockedLongSeries.setData(real.blockedLongPoints as any);
-        blockedShortSeries.setData(real.blockedShortPoints as any);
-        realBuySeries.setData(real.realBuyPoints as any);
-        realSellSeries.setData(real.realSellPoints as any);
-        realCloseSeries.setData(real.realClosePoints as any);
+        
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
