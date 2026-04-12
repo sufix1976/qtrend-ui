@@ -148,8 +148,7 @@ export default function App() {
     const priceChart = priceChartRef.current;
     const distChart = distChartRef.current;
 
-    priceChart.removeSeries?.;
-    distChart.removeSeries?.;
+    
 
     const candleSeries = priceChart.addSeries(CandlestickSeries, {
       upColor: "#00e5ff",
