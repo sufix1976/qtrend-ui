@@ -98,6 +98,10 @@ export default function App() {
       grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
       rightPriceScale: { borderColor: "#334155" },
       timeScale: { borderColor: "#334155", timeVisible: true, secondsVisible: false },
+      crosshair: {
+        vertLine: { color: "#94a3b8", width: 1, style: 2 },
+        horzLine: { color: "#94a3b8", width: 1, style: 2 },
+      },
     });
 
     const distChart = createChart(distRef.current, {
@@ -107,7 +111,13 @@ export default function App() {
       grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
       rightPriceScale: { borderColor: "#334155" },
       timeScale: { borderColor: "#334155", timeVisible: true, secondsVisible: false },
+      crosshair: {
+        vertLine: { color: "#94a3b8", width: 1, style: 2 },
+        horzLine: { color: "#94a3b8", width: 1, style: 2 },
+      },
     });
+
+    syncCharts(priceChart, distChart);
 
     priceChartRef.current = priceChart;
     distChartRef.current = distChart;
@@ -147,8 +157,6 @@ export default function App() {
 
     const priceChart = priceChartRef.current;
     const distChart = distChartRef.current;
-
-    
 
     const candleSeries = priceChart.addSeries(CandlestickSeries, {
       upColor: "#00e5ff",
@@ -285,6 +293,17 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      try {
+        priceChart.removeSeries(candleSeries);
+        priceChart.removeSeries(sma10Series);
+        priceChart.removeSeries(sma100Series);
+        priceChart.removeSeries(longMarkerSeries);
+        priceChart.removeSeries(shortMarkerSeries);
+        distChart.removeSeries(distSeries);
+        distChart.removeSeries(zeroSeries);
+        distChart.removeSeries(upperBandSeries);
+        distChart.removeSeries(lowerBandSeries);
+      } catch {}
     };
   }, [symbol, entryBand, peakLookback, minKinkMove]);
 
@@ -323,6 +342,27 @@ export default function App() {
       <div ref={distRef} style={{ flex: "0 0 28%", minHeight: 0, borderTop: "1px solid #334155" }} />
     </div>
   );
+}
+
+function syncCharts(chartA: IChartApi, chartB: IChartApi) {
+  let isUpdating = false;
+
+  const syncFromA = (range: any) => {
+    if (!range || isUpdating) return;
+    isUpdating = true;
+    chartB.timeScale().setVisibleLogicalRange(range);
+    isUpdating = false;
+  };
+
+  const syncFromB = (range: any) => {
+    if (!range || isUpdating) return;
+    isUpdating = true;
+    chartA.timeScale().setVisibleLogicalRange(range);
+    isUpdating = false;
+  };
+
+  chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
+  chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
 }
 
 function sanitizeCandles(data: any[]): Candle[] {
