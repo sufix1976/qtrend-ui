@@ -42,7 +42,7 @@ const STATE_FILE = path.join(
 
 const ENTRY_BAND_BY_SYMBOL = {
   BTCUSD: 470.05,
-  ETHUSD: 45,
+  ETHUSD: 25,
   US100: 80,
   US500: 12,
   GOLD: 8,
@@ -82,7 +82,7 @@ const MIN_VALID_INDEX = 120;
 const EXIT_STRENGTH_FACTOR = Number(process.env.EXIT_STRENGTH_FACTOR || 0.5);
 
 function getEntryBand(symbol) {
-  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 100);
+  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 25);
 }
 
 function getPeakLookback(symbol) {
