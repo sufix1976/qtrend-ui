@@ -1271,7 +1271,9 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
 
     const candleNear = findNearestCandle(candles, baseTime);
     const price = extractTradePrice(row, candleNear);
+
     if (price === null || !Number.isFinite(price) || price <= 0) continue;
+    if (candleNear && Math.abs(price - candleNear.close) / candleNear.close > 0.2) continue;
 
     const executed = Boolean(row.exec_id || row.executed_at);
 
@@ -1331,43 +1333,25 @@ function findNearestCandle(candles: Candle[], targetTime: number): Candle | null
 }
 
 function extractTradePrice(row: AggTradeRow, candle: Candle | null): number | null {
-  const fromConfirm = deepFindNumeric(row.confirm, [
-    "level",
-    "price",
-    "fillPrice",
-    "filledPrice",
-    "stopLevel",
-    "limitLevel",
-    "affectedDealConfirmationLevel",
-  ]);
-  if (fromConfirm !== null) return fromConfirm;
+  if (!candle) return null;
 
-  if (candle) {
-    if (row.action === "buy") return candle.low;
-    if (row.action === "sell") return candle.high;
-    return candle.close;
-  }
+  const candidates = [
+    row?.confirm?.level,
+    row?.confirm?.price,
+    row?.confirm?.fillPrice,
+    row?.confirm?.filledPrice,
+    row?.confirm?.affectedDealConfirmationLevel,
+  ]
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v) && v > 0);
 
-  return null;
-}
+  const close = candle.close;
+  const plausible = candidates.find((v) => Math.abs(v - close) / close <= 0.2);
+  if (plausible) return plausible;
 
-function deepFindNumeric(input: any, preferredKeys: string[]): number | null {
-  if (input === null || input === undefined) return null;
-  if (typeof input !== "object") return null;
-
-  for (const key of preferredKeys) {
-    const value = input?.[key];
-    const num = Number(value);
-    if (Number.isFinite(num) && num !== 0) return num;
-  }
-
-  for (const value of Object.values(input)) {
-    if (value && typeof value === "object") {
-      const nested = deepFindNumeric(value, preferredKeys);
-      if (nested !== null) return nested;
-    }
-  }
-  return null;
+  if (row.action === "buy") return candle.low;
+  if (row.action === "sell") return candle.high;
+  return candle.close;
 }
 
 function normalizeBrokerState(state: string | null | undefined): PositionSide | null {
