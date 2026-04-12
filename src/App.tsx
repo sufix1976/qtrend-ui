@@ -24,6 +24,11 @@ type MarkerPoint = {
   value: number;
 };
 
+type WhitespaceLinePoint = {
+  time: number;
+  value?: number;
+};
+
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 500;
 const INTERVAL = "15m";
@@ -303,6 +308,11 @@ export default function App() {
           minKinkMove
         );
 
+        const alignedDist = alignLineToCandles(candles, dist);
+        const zeroLine = buildFlatLineFromCandles(candles, 0);
+        const upperBand = buildFlatLineFromCandles(candles, entryBand);
+        const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
+
         if (cancelled) return;
 
         candleSeries.setData(candles as any);
@@ -311,10 +321,10 @@ export default function App() {
         longMarkerSeries.setData(longMarkers as any);
         shortMarkerSeries.setData(shortMarkers as any);
 
-        distSeries.setData(dist as any);
-        zeroSeries.setData(buildFlatLineFromLine(dist, 0) as any);
-        upperBandSeries.setData(buildFlatLineFromLine(dist, entryBand) as any);
-        lowerBandSeries.setData(buildFlatLineFromLine(dist, -entryBand) as any);
+        distSeries.setData(alignedDist as any);
+        zeroSeries.setData(zeroLine as any);
+        upperBandSeries.setData(upperBand as any);
+        lowerBandSeries.setData(lowerBand as any);
 
         priceChart.timeScale().fitContent();
         const range = priceChart.timeScale().getVisibleLogicalRange();
@@ -482,8 +492,26 @@ function calcDistance(a: LinePoint[], b: LinePoint[]): LinePoint[] {
     .filter(Boolean) as LinePoint[];
 }
 
-function buildFlatLineFromLine(base: LinePoint[], value: number): LinePoint[] {
-  return base.map((p) => ({ time: p.time, value }));
+function alignLineToCandles(
+  candles: Candle[],
+  line: LinePoint[]
+): WhitespaceLinePoint[] {
+  const map = new Map<number, number>();
+  for (const p of line) {
+    map.set(p.time, p.value);
+  }
+
+  return candles.map((c) => {
+    const value = map.get(c.time);
+    if (value == null || !Number.isFinite(value)) {
+      return { time: c.time };
+    }
+    return { time: c.time, value };
+  });
+}
+
+function buildFlatLineFromCandles(candles: Candle[], value: number): LinePoint[] {
+  return candles.map((c) => ({ time: c.time, value }));
 }
 
 function buildStableLongSignals(
