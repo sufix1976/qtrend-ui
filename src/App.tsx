@@ -298,42 +298,6 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    const strategyLongSeries = priceChart.addSeries(LineSeries, {
-      color: "#22c55e",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 6,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    const strategyShortSeries = priceChart.addSeries(LineSeries, {
-      color: "#ef4444",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 6,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
-      color: "#f59e0b",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 5,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
-      color: "#f59e0b",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 5,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
     const blockedLongSeries = priceChart.addSeries(LineSeries, {
       color: "#94a3b8",
       lineVisible: false,
@@ -452,19 +416,29 @@ export default function App() {
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
+        const strategyMarkers = buildCandleMarkers(
+          strategyLongPoints,
+          strategyShortPoints,
+          sim.longExitPoints,
+          sim.shortExitPoints
+        );
+
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
         const upperBand = buildFlatLineFromCandles(candles, entryBand);
         const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
         candleSeries.setData(candles as any);
+        candleSeries.setMarkers(strategyMarkers as any);
+
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        strategyLongSeries.setData(strategyLongPoints as any);
-        strategyShortSeries.setData(strategyShortPoints as any);
-        strategyLongExitSeries.setData(sim.longExitPoints as any);
-        strategyShortExitSeries.setData(sim.shortExitPoints as any);
+        blockedLongSeries.setData(real.blockedLongPoints as any);
+        blockedShortSeries.setData(real.blockedShortPoints as any);
+        realBuySeries.setData(real.realBuyPoints as any);
+        realSellSeries.setData(real.realSellPoints as any);
+        realCloseSeries.setData(real.realClosePoints as any);
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -523,13 +497,11 @@ export default function App() {
     return () => {
       cancelled = true;
       try {
+        candleSeries.setMarkers([]);
+
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
         priceChart.removeSeries(sma100Series);
-        priceChart.removeSeries(strategyLongSeries);
-        priceChart.removeSeries(strategyShortSeries);
-        priceChart.removeSeries(strategyLongExitSeries);
-        priceChart.removeSeries(strategyShortExitSeries);
         priceChart.removeSeries(blockedLongSeries);
         priceChart.removeSeries(blockedShortSeries);
         priceChart.removeSeries(realBuySeries);
@@ -1064,6 +1036,44 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
+}
+
+function buildCandleMarkers(
+  longPoints: MarkerPoint[],
+  shortPoints: MarkerPoint[],
+  longExitPoints: MarkerPoint[],
+  shortExitPoints: MarkerPoint[]
+) {
+  return [
+    ...longPoints.map((p) => ({
+      time: p.time,
+      position: "belowBar" as const,
+      color: "#22c55e",
+      shape: "circle" as const,
+      text: "L",
+    })),
+    ...shortPoints.map((p) => ({
+      time: p.time,
+      position: "aboveBar" as const,
+      color: "#ef4444",
+      shape: "circle" as const,
+      text: "S",
+    })),
+    ...longExitPoints.map((p) => ({
+      time: p.time,
+      position: "belowBar" as const,
+      color: "#f59e0b",
+      shape: "circle" as const,
+      text: "X",
+    })),
+    ...shortExitPoints.map((p) => ({
+      time: p.time,
+      position: "aboveBar" as const,
+      color: "#f59e0b",
+      shape: "circle" as const,
+      text: "X",
+    })),
+  ].sort((a, b) => a.time - b.time);
 }
 
 function simulateStrategy(
