@@ -82,7 +82,7 @@ const MIN_VALID_INDEX = 120;
 const EXIT_STRENGTH_FACTOR = Number(process.env.EXIT_STRENGTH_FACTOR || 0.5);
 
 function getEntryBand(symbol) {
-  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 100);
+  return ENTRY_BAND_BY_SYMBOL[symbol] ?? Number(process.env.ENTRY_BAND || 180);
 }
 
 function getPeakLookback(symbol) {
