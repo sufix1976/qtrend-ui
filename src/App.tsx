@@ -878,6 +878,10 @@ export default function App() {
 
       try {
         const [candles, aggRows] = await Promise.all([
+          if (symbol === "BTCUSD" || symbol === "ETHUSD") {
+  console.log("RAW CANDLES", candles.slice(-20));
+  console.log("SANITIZED CANDLES", sanitizeCandles(candles).slice(-20));
+}
           fetchCandles({ provider, symbol, interval, limit: LIMIT, backendBase }),
           fetchAggTrades({ provider, symbol, backendBase, limit: AGG_LIMIT }),
         ]);
