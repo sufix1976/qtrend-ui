@@ -934,7 +934,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
   return out;
 }
-
+/*
 function buildCandleMarkers(
   longPoints: MarkerPoint[],
   shortPoints: MarkerPoint[],
@@ -972,7 +972,7 @@ function buildCandleMarkers(
     })),
   ].sort((a, b) => a.time - b.time);
 }
-
+*/
 function simulateStrategy(
   candles: Candle[],
   dist: LinePoint[],
