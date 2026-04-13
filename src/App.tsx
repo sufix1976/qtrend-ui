@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
-  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   type IChartApi,
@@ -417,22 +416,56 @@ export default function App() {
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
-        const strategyMarkers = buildSafeEntryMarkers(
-  strategyLongPoints,
-  strategyShortPoints,
-  candles
-);
-
-const alignedDist = alignLineToCandles(candles, dist);
+        const alignedDist = alignLineToCandles(candles, dist);
 const zeroLine = buildFlatLineFromCandles(candles, 0);
 const upperBand = buildFlatLineFromCandles(candles, entryBand);
 const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
 candleSeries.setData(candles as any);
-createSeriesMarkers(candleSeries, strategyMarkers as any);
 
-        sma10Series.setData(sma10 as any);
-        sma100Series.setData(sma100 as any);
+sma10Series.setData(sma10 as any);
+sma100Series.setData(sma100 as any);
+
+strategyLongSeries.setData(strategyLongPoints as any);
+strategyShortSeries.setData(strategyShortPoints as any);
+strategyLongExitSeries.setData(sim.longExitPoints as any);
+strategyShortExitSeries.setData(sim.shortExitPoints as any);
+
+        const strategyLongSeries = priceChart.addSeries(LineSeries, {
+  color: "#22c55e",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 7,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const strategyShortSeries = priceChart.addSeries(LineSeries, {
+  color: "#ef4444",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 7,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
+  color: "#f59e0b",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
+  color: "#f59e0b",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
         blockedLongSeries.setData(real.blockedLongPoints as any);
         blockedShortSeries.setData(real.blockedShortPoints as any);
@@ -497,11 +530,13 @@ createSeriesMarkers(candleSeries, strategyMarkers as any);
     return () => {
       cancelled = true;
       try {
-        createSeriesMarkers(candleSeries, []);
-
-        priceChart.removeSeries(candleSeries);
-        priceChart.removeSeries(sma10Series);
-        priceChart.removeSeries(sma100Series);
+  priceChart.removeSeries(candleSeries);
+  priceChart.removeSeries(sma10Series);
+  priceChart.removeSeries(sma100Series);
+  priceChart.removeSeries(strategyLongSeries);
+  priceChart.removeSeries(strategyShortSeries);
+  priceChart.removeSeries(strategyLongExitSeries);
+  priceChart.removeSeries(strategyShortExitSeries);
         priceChart.removeSeries(blockedLongSeries);
         priceChart.removeSeries(blockedShortSeries);
         priceChart.removeSeries(realBuySeries);
