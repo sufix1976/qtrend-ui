@@ -752,14 +752,19 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     url.searchParams.set("_ts", String(Date.now()));
 
     const res = await fetch(url.toString(), { cache: "no-store" });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log("[broker] /cap/positions HTTP error:", res.status);
+      return null;
+    }
 
     const txt = await res.text();
+    console.log("[broker] raw response:", txt);
 
     let json: any;
     try {
       json = JSON.parse(txt);
-    } catch {
+    } catch (e) {
+      console.log("[broker] JSON parse failed:", e);
       return null;
     }
 
@@ -773,6 +778,9 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
             ? json
             : [];
 
+    console.log("[broker] symbol:", symbol);
+    console.log("[broker] rows found:", rows.length);
+
     const normalizedSymbol = String(symbol).toUpperCase();
 
     for (const row of rows) {
@@ -784,8 +792,6 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
         ""
       ).toUpperCase();
 
-      if (epic !== normalizedSymbol) continue;
-
       const sideRaw =
         row?.position?.direction ??
         row?.direction ??
@@ -795,14 +801,27 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
         row?.state ??
         "";
 
+      console.log("[broker] check row epic/side:", epic, sideRaw);
+
+      if (epic !== normalizedSymbol) continue;
+
       const side = String(sideRaw).toUpperCase();
 
-      if (side === "BUY" || side === "LONG") return "long";
-      if (side === "SELL" || side === "SHORT") return "short";
+      if (side === "BUY" || side === "LONG") {
+        console.log("[broker] MATCH -> long");
+        return "long";
+      }
+
+      if (side === "SELL" || side === "SHORT") {
+        console.log("[broker] MATCH -> short");
+        return "short";
+      }
     }
 
+    console.log("[broker] no matching open position -> flat");
     return "flat";
-  } catch {
+  } catch (e) {
+    console.log("[broker] fetchBrokerPositionState crashed:", e);
     return null;
   }
 }
