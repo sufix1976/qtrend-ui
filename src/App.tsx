@@ -74,22 +74,22 @@ const PRICE_SCALE_WIDTH = 90;
 const INTERVALS = ["5m", "15m", "30m"] as const;
 type IntervalOption = typeof INTERVALS[number];
 
-const SYMBOLS = [
-  "BTCUSD",
-  "ETHUSD",
-  "XRPUSD",
-  "DE40",
-  "US100",
-  "US500",
-  "US30",
-  "J225",
-  "UK100",
-  "GOLD",
-  "SILVER",
-  "OIL_CRUDE",
-  "CORN",
-  "SOLUSD",
-];
+const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
+  BTCUSD: 330.05,
+  ETHUSD: 20,
+  XRPUSD: 0.01,
+  DE40: 150,
+  US100: 80,
+  US500: 12,
+  US30: 80,
+  J225: 160,
+  UK100: 30,
+  GOLD: 22,
+  SILVER: 0.22,
+  OIL_CRUDE: 1.4,
+  CORN: 1.4,
+  SOLUSD: 0.8,
+};
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 330.05,
