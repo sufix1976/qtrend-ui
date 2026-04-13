@@ -809,50 +809,55 @@ function buildStableLongSignals(
   candles: Candle[],
   dist: LinePoint[],
   entryBand: number,
-  peakLookback: number,
+  _peakLookback: number,
   minKinkMove: number
 ): MarkerPoint[] {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
+
   let inZone = false;
-  let zoneStart = -1;
+  let candidateIndex = -1;
+  let candidateValue = Number.POSITIVE_INFINITY;
+  let fired = false;
 
   for (let i = 1; i < dist.length; i++) {
-    const p = dist[i];
+    const d = dist[i].value;
+    const inLowerZone = d < -entryBand;
 
-    if (!inZone && p.value < -entryBand) {
+    if (!inZone && inLowerZone) {
       inZone = true;
-      zoneStart = i;
+      candidateIndex = i;
+      candidateValue = d;
+      fired = false;
       continue;
     }
 
-    if (inZone && p.value >= -entryBand) {
-      const zoneEnd = i - 1;
-      const best = findBestLongIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
-      if (best >= 0) {
-        const t = dist[best].time;
-        const c = candleMap.get(t);
-        if (c) markers.push({ time: t, value: c.low });
-      }
+    if (inZone && !inLowerZone) {
       inZone = false;
-      zoneStart = -1;
+      candidateIndex = -1;
+      candidateValue = Number.POSITIVE_INFINITY;
+      fired = false;
+      continue;
     }
-  }
 
-  if (inZone) {
-    const best = findBestLongIndexStable(
-      dist,
-      zoneStart,
-      dist.length - 1,
-      peakLookback,
-      minKinkMove
-    );
-    if (best >= 0) {
-      const t = dist[best].time;
+    if (!inZone) continue;
+
+    if (d <= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = d - candidateValue;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
       const c = candleMap.get(t);
-      if (c) markers.push({ time: t, value: c.low });
+      if (c) {
+        markers.push({ time: t, value: c.low });
+        fired = true;
+      }
     }
   }
 
@@ -863,50 +868,55 @@ function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
   entryBand: number,
-  peakLookback: number,
+  _peakLookback: number,
   minKinkMove: number
 ): MarkerPoint[] {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
+
   let inZone = false;
-  let zoneStart = -1;
+  let candidateIndex = -1;
+  let candidateValue = Number.NEGATIVE_INFINITY;
+  let fired = false;
 
   for (let i = 1; i < dist.length; i++) {
-    const p = dist[i];
+    const d = dist[i].value;
+    const inUpperZone = d > entryBand;
 
-    if (!inZone && p.value > entryBand) {
+    if (!inZone && inUpperZone) {
       inZone = true;
-      zoneStart = i;
+      candidateIndex = i;
+      candidateValue = d;
+      fired = false;
       continue;
     }
 
-    if (inZone && p.value <= entryBand) {
-      const zoneEnd = i - 1;
-      const best = findBestShortIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
-      if (best >= 0) {
-        const t = dist[best].time;
-        const c = candleMap.get(t);
-        if (c) markers.push({ time: t, value: c.high });
-      }
+    if (inZone && !inUpperZone) {
       inZone = false;
-      zoneStart = -1;
+      candidateIndex = -1;
+      candidateValue = Number.NEGATIVE_INFINITY;
+      fired = false;
+      continue;
     }
-  }
 
-  if (inZone) {
-    const best = findBestShortIndexStable(
-      dist,
-      zoneStart,
-      dist.length - 1,
-      peakLookback,
-      minKinkMove
-    );
-    if (best >= 0) {
-      const t = dist[best].time;
+    if (!inZone) continue;
+
+    if (d >= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = candidateValue - d;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
       const c = candleMap.get(t);
-      if (c) markers.push({ time: t, value: c.high });
+      if (c) {
+        markers.push({ time: t, value: c.high });
+        fired = true;
+      }
     }
   }
 
