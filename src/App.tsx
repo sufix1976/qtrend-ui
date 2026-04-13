@@ -23,7 +23,7 @@ type LinePoint = {
 type MarkerPoint = {
   time: number;
   value: number;
-  label?: string;
+  text?: string;
   color?: string;
 };
 
