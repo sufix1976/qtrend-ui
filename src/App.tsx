@@ -91,22 +91,6 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.8,
 };
 
-const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 330.05,
-  ETHUSD: 25,
-  XRPUSD: 0.015,
-  DE40: 35,
-  US100: 80,
-  US500: 20,
-  US30: 140,
-  J225: 160,
-  UK100: 45,
-  GOLD: 22,
-  SILVER: 0.22,
-  OIL_CRUDE: 1.4,
-  CORN: 1.4,
-  SOLUSD: 1.0,
-};
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 4,
