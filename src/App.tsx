@@ -752,17 +752,13 @@ async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
 
 async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | null> {
   try {
-    const url = new URL("/cap/positions", BACKEND_BASE);
-    url.searchParams.set("_ts", String(Date.now()));
+    const url = `${BACKEND_BASE}/ui/broker-state?symbol=${symbol}&_ts=${Date.now()}`;
+    console.log("[broker] URL:", url);
 
-    console.log("[broker] URL:", url.toString());
+    const res = await fetch(url, { cache: "no-store" });
 
-   const res = await fetch(
-  `${BACKEND_BASE}/ui/broker-state?symbol=${symbol}&_ts=${Date.now()}`,
-  { cache: "no-store" }
-);
     if (!res.ok) {
-      console.log("[broker] /cap/positions HTTP error:", res.status);
+      console.log("[broker] /ui/broker-state HTTP error:", res.status);
       return null;
     }
 
@@ -771,10 +767,25 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     let json: any;
     try {
       json = JSON.parse(txt);
-    } catch (e) {
-      console.log("[broker] JSON parse failed:", e);
+    } catch {
+      console.log("[broker] invalid JSON:", txt);
       return null;
     }
+
+    console.log("[broker] response:", json);
+
+    const side = String(json?.side || "").toLowerCase();
+
+    if (side === "long") return "long";
+    if (side === "short") return "short";
+    if (side === "flat") return "flat";
+
+    return null;
+  } catch (e) {
+    console.log("[broker] fetchBrokerPositionState crashed:", e);
+    return null;
+  }
+}
 
     const rows = Array.isArray(json?.data?.positions)
       ? json.data.positions
