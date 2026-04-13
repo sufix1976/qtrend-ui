@@ -299,6 +299,7 @@ export default function App() {
     });
 
     const strategyLongSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#22c55e",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -308,6 +309,7 @@ export default function App() {
     });
 
     const strategyShortSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#ef4444",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -317,6 +319,7 @@ export default function App() {
     });
 
     const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -326,6 +329,7 @@ export default function App() {
     });
 
     const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -335,6 +339,7 @@ export default function App() {
     });
 
     const blockedLongSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#94a3b8",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -344,6 +349,7 @@ export default function App() {
     });
 
     const blockedShortSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#64748b",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -353,6 +359,7 @@ export default function App() {
     });
 
     const realBuySeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#00ff88",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -362,6 +369,7 @@ export default function App() {
     });
 
     const realSellSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#ff4d6d",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -371,6 +379,7 @@ export default function App() {
     });
 
     const realCloseSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
       color: "#c084fc",
       lineVisible: false,
       pointMarkersVisible: true,
@@ -462,16 +471,16 @@ export default function App() {
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        strategyLongSeries.setData(strategyLongPoints as any);
-        strategyShortSeries.setData(strategyShortPoints as any);
-        strategyLongExitSeries.setData(sim.longExitPoints as any);
-        strategyShortExitSeries.setData(sim.shortExitPoints as any);
+        strategyLongSeries.setData(limitMarkerPointsToCandles(strategyLongPoints, candles) as any);
+        strategyShortSeries.setData(limitMarkerPointsToCandles(strategyShortPoints, candles) as any);
+        strategyLongExitSeries.setData(limitMarkerPointsToCandles(sim.longExitPoints, candles) as any);
+        strategyShortExitSeries.setData(limitMarkerPointsToCandles(sim.shortExitPoints, candles) as any);
 
-        blockedLongSeries.setData(real.blockedLongPoints as any);
-        blockedShortSeries.setData(real.blockedShortPoints as any);
-        realBuySeries.setData(real.realBuyPoints as any);
-        realSellSeries.setData(real.realSellPoints as any);
-        realCloseSeries.setData(real.realClosePoints as any);
+        blockedLongSeries.setData(limitMarkerPointsToCandles(real.blockedLongPoints, candles) as any);
+        blockedShortSeries.setData(limitMarkerPointsToCandles(real.blockedShortPoints, candles) as any);
+        realBuySeries.setData(limitMarkerPointsToCandles(real.realBuyPoints, candles) as any);
+        realSellSeries.setData(limitMarkerPointsToCandles(real.realSellPoints, candles) as any);
+        realCloseSeries.setData(limitMarkerPointsToCandles(real.realClosePoints, candles) as any);
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -956,7 +965,6 @@ function buildStableShortSignals(
 
   return dedupeMarkers(markers);
 }
-
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
   const seen = new Set<string>();
@@ -971,6 +979,27 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
+}
+
+function limitMarkerPointsToCandles(points: MarkerPoint[], candles: Candle[]): MarkerPoint[] {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const out: MarkerPoint[] = [];
+
+  for (const p of points) {
+    const candle = candleMap.get(p.time);
+    if (!candle) continue;
+    if (!Number.isFinite(p.value) || p.value <= 0) continue;
+
+    const minAllowed = candle.low * 0.98;
+    const maxAllowed = candle.high * 1.02;
+    const clamped = Math.min(Math.max(p.value, minAllowed), maxAllowed);
+
+    out.push({ time: p.time, value: clamped });
+  }
+
+  return dedupeMarkers(out);
 }
 
 function simulateStrategy(
