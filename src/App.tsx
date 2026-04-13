@@ -1118,7 +1118,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
   for (const p of points) {
     if (!Number.isFinite(p.time) || !Number.isFinite(p.value) || p.value <= 0) continue;
-    const key = `${p.time}-${p.value}-${p.label ?? ""}`;
+    const key = `${p.time}-${p.value}-${p.text ?? ""}`;
     if (!seen.has(key)) {
       seen.add(key);
       out.push(p);
@@ -1187,13 +1187,13 @@ function projectMarkerValue(
 
 function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBar") {
   return points
-    .filter((p) => p.label)
+    .filter((p) => p.text)
     .map((p) => ({
       time: p.time,
       position,
       color: p.color ?? "#9ca3af",
       shape: "circle",
-      text: p.label ?? "",
+      text: p.text ?? "",
     })) as any;
 }
 
@@ -1423,14 +1423,14 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
         blockedLongPoints.push({
           time: baseTime,
           value: candleNear?.low ?? price,
-          label: "BL",
+          text: "BL",
           color: "#9ca3af",
         });
       } else {
         blockedShortPoints.push({
           time: baseTime,
           value: candleNear?.high ?? price,
-          label: "BS",
+          text: "BS",
           color: "#9ca3af",
         });
       }
