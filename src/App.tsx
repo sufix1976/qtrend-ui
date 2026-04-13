@@ -298,6 +298,42 @@ export default function App() {
       lastValueVisible: false,
     });
 
+    const strategyLongSeries = priceChart.addSeries(LineSeries, {
+      color: "#22c55e",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const strategyShortSeries = priceChart.addSeries(LineSeries, {
+      color: "#ef4444",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 7,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 6,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 6,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
     const blockedLongSeries = priceChart.addSeries(LineSeries, {
       color: "#94a3b8",
       lineVisible: false,
@@ -417,55 +453,19 @@ export default function App() {
         const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(candles, dist);
-const zeroLine = buildFlatLineFromCandles(candles, 0);
-const upperBand = buildFlatLineFromCandles(candles, entryBand);
-const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
+        const zeroLine = buildFlatLineFromCandles(candles, 0);
+        const upperBand = buildFlatLineFromCandles(candles, entryBand);
+        const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
-candleSeries.setData(candles as any);
+        candleSeries.setData(candles as any);
 
-sma10Series.setData(sma10 as any);
-sma100Series.setData(sma100 as any);
+        sma10Series.setData(sma10 as any);
+        sma100Series.setData(sma100 as any);
 
-strategyLongSeries.setData(strategyLongPoints as any);
-strategyShortSeries.setData(strategyShortPoints as any);
-strategyLongExitSeries.setData(sim.longExitPoints as any);
-strategyShortExitSeries.setData(sim.shortExitPoints as any);
-
-        const strategyLongSeries = priceChart.addSeries(LineSeries, {
-  color: "#22c55e",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 7,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const strategyShortSeries = priceChart.addSeries(LineSeries, {
-  color: "#ef4444",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 7,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const strategyLongExitSeries = priceChart.addSeries(LineSeries, {
-  color: "#f59e0b",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
-  color: "#f59e0b",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+        strategyLongSeries.setData(strategyLongPoints as any);
+        strategyShortSeries.setData(strategyShortPoints as any);
+        strategyLongExitSeries.setData(sim.longExitPoints as any);
+        strategyShortExitSeries.setData(sim.shortExitPoints as any);
 
         blockedLongSeries.setData(real.blockedLongPoints as any);
         blockedShortSeries.setData(real.blockedShortPoints as any);
@@ -530,13 +530,13 @@ const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
     return () => {
       cancelled = true;
       try {
-  priceChart.removeSeries(candleSeries);
-  priceChart.removeSeries(sma10Series);
-  priceChart.removeSeries(sma100Series);
-  priceChart.removeSeries(strategyLongSeries);
-  priceChart.removeSeries(strategyShortSeries);
-  priceChart.removeSeries(strategyLongExitSeries);
-  priceChart.removeSeries(strategyShortExitSeries);
+        priceChart.removeSeries(candleSeries);
+        priceChart.removeSeries(sma10Series);
+        priceChart.removeSeries(sma100Series);
+        priceChart.removeSeries(strategyLongSeries);
+        priceChart.removeSeries(strategyShortSeries);
+        priceChart.removeSeries(strategyLongExitSeries);
+        priceChart.removeSeries(strategyShortExitSeries);
         priceChart.removeSeries(blockedLongSeries);
         priceChart.removeSeries(blockedShortSeries);
         priceChart.removeSeries(realBuySeries);
@@ -563,7 +563,7 @@ const strategyShortExitSeries = priceChart.addSeries(LineSeries, {
         position: "relative",
       }}
     >
-      <div
+            <div
         style={{
           position: "absolute",
           top: 10,
@@ -957,8 +957,6 @@ function buildStableShortSignals(
   return dedupeMarkers(markers);
 }
 
-
-
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
   const seen = new Set<string>();
@@ -975,42 +973,12 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
-function buildSafeEntryMarkers(
-  longPoints: MarkerPoint[],
-  shortPoints: MarkerPoint[],
-  candles: Candle[]
-) {
-  const candleTimes = new Set(candles.map((c) => c.time));
-
-  const longMarkers = longPoints
-    .filter((p) => Number.isFinite(p.time) && candleTimes.has(p.time))
-    .map((p) => ({
-      time: p.time,
-      position: "belowBar" as const,
-      color: "#22c55e",
-      shape: "circle" as const,
-      text: "L",
-    }));
-
-  const shortMarkers = shortPoints
-    .filter((p) => Number.isFinite(p.time) && candleTimes.has(p.time))
-    .map((p) => ({
-      time: p.time,
-      position: "aboveBar" as const,
-      color: "#ef4444",
-      shape: "circle" as const,
-      text: "S",
-    }));
-
-  return [...longMarkers, ...shortMarkers].sort((a, b) => a.time - b.time);
-}
-
 function simulateStrategy(
   candles: Candle[],
   dist: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
-  entryBand: number,
+  _entryBand: number,
   assumedSpread: number,
   assumedSlippage: number
 ) {
@@ -1024,8 +992,16 @@ function simulateStrategy(
   const shortExitPoints: MarkerPoint[] = [];
 
   const entryEvents = [
-    ...longEntries.map((p) => ({ time: p.time, side: "long" as const, index: distMapIndex.get(p.time) ?? -1 })),
-    ...shortEntries.map((p) => ({ time: p.time, side: "short" as const, index: distMapIndex.get(p.time) ?? -1 })),
+    ...longEntries.map((p) => ({
+      time: p.time,
+      side: "long" as const,
+      index: distMapIndex.get(p.time) ?? -1,
+    })),
+    ...shortEntries.map((p) => ({
+      time: p.time,
+      side: "short" as const,
+      index: distMapIndex.get(p.time) ?? -1,
+    })),
   ]
     .filter((x) => x.index >= 0)
     .sort((a, b) => a.index - b.index);
@@ -1057,6 +1033,7 @@ function simulateStrategy(
 
   const closeTrade = (candle: Candle, side: "long" | "short") => {
     if (!openTrade) return;
+
     const exitPrice = realisticExitPrice(side, candle);
     const pnl =
       openTrade.side === "long"
@@ -1064,6 +1041,7 @@ function simulateStrategy(
         : openTrade.entryPrice - exitPrice;
 
     tradeCount += 1;
+
     if (pnl >= 0) {
       winCount += 1;
       grossProfit += pnl;
@@ -1071,84 +1049,90 @@ function simulateStrategy(
       lossCount += 1;
       grossLoss += Math.abs(pnl);
     }
+
     openTrade = null;
+    position = "flat";
   };
 
   for (let i = 0; i < dist.length; i++) {
+    const p = dist[i];
+    const candle = candleMap.get(p.time);
+    if (!candle) continue;
+
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
-      const evt = entryEvents[currentEntryPtr];
-      const candle = candleMap.get(evt.time);
-      if (candle) {
-        if (openTrade) {
-          closeTrade(candle, openTrade.side);
+      const event = entryEvents[currentEntryPtr];
+
+      if (event.side === "long") {
+        if (position === "short" && openTrade) {
+          shortExitPoints.push({ time: candle.time, value: candle.high });
+          closeTrade(candle, "short");
         }
-        openTrade = {
-          side: evt.side,
-          entryPrice: realisticEntryPrice(evt.side, candle),
-        };
-        position = evt.side;
-        shortEmergencyArmed = false;
-        longEmergencyArmed = false;
-        shortBestAfterArm = Number.POSITIVE_INFINITY;
-        longBestAfterArm = Number.NEGATIVE_INFINITY;
-        prevDistValue = null;
+
+        if (position === "flat") {
+          openTrade = {
+            side: "long",
+            entryPrice: realisticEntryPrice("long", candle),
+          };
+          position = "long";
+          longEmergencyArmed = false;
+          longBestAfterArm = Number.NEGATIVE_INFINITY;
+        }
+      } else {
+        if (position === "long" && openTrade) {
+          longExitPoints.push({ time: candle.time, value: candle.low });
+          closeTrade(candle, "long");
+        }
+
+        if (position === "flat") {
+          openTrade = {
+            side: "short",
+            entryPrice: realisticEntryPrice("short", candle),
+          };
+          position = "short";
+          shortEmergencyArmed = false;
+          shortBestAfterArm = Number.POSITIVE_INFINITY;
+        }
       }
+
       currentEntryPtr += 1;
     }
 
-    const p = dist[i];
-    const candle = candleMap.get(p.time);
-    if (!candle) {
-      prevDistValue = p.value;
-      continue;
-    }
-
-    if (position === "short") {
-      if (!shortEmergencyArmed) {
-        if (p.value < entryBand) {
-          shortEmergencyArmed = true;
-          shortBestAfterArm = p.value;
-        }
-      } else {
-        if (p.value < shortBestAfterArm) shortBestAfterArm = p.value;
-
-        const strongTrend = shortBestAfterArm <= entryBand * 0.5;
-        const kinkUp = prevDistValue !== null && p.value > prevDistValue;
-        const lineReturn = p.value >= entryBand;
-
-        if ((!strongTrend && kinkUp) || (strongTrend && lineReturn)) {
-          shortExitPoints.push({ time: p.time, value: candle.high });
-          closeTrade(candle, "short");
-          position = "flat";
-          shortEmergencyArmed = false;
-          shortBestAfterArm = Number.POSITIVE_INFINITY;
-          prevDistValue = p.value;
-          continue;
-        }
-      }
-    }
-
-    if (position === "long") {
-      if (!longEmergencyArmed) {
-        if (p.value > -entryBand) {
+    if (prevDistValue !== null) {
+      if (position === "long" && openTrade) {
+        if (!longEmergencyArmed && prevDistValue < 0 && p.value >= 0) {
           longEmergencyArmed = true;
           longBestAfterArm = p.value;
         }
-      } else {
-        if (p.value > longBestAfterArm) longBestAfterArm = p.value;
 
-        const strongTrend = longBestAfterArm >= -entryBand * 0.5;
-        const kinkDown = prevDistValue !== null && p.value < prevDistValue;
-        const lineReturn = p.value <= -entryBand;
+        if (longEmergencyArmed) {
+          if (p.value > longBestAfterArm) longBestAfterArm = p.value;
 
-        if ((!strongTrend && kinkDown) || (strongTrend && lineReturn)) {
-          longExitPoints.push({ time: p.time, value: candle.low });
-          closeTrade(candle, "long");
-          position = "flat";
-          longEmergencyArmed = false;
-          longBestAfterArm = Number.NEGATIVE_INFINITY;
-          prevDistValue = p.value;
-          continue;
+          const rollback = longBestAfterArm - p.value;
+          if (rollback > 0 && rollback >= Math.max(0.000001, Math.abs(longBestAfterArm) * 0.15)) {
+            longExitPoints.push({ time: candle.time, value: candle.low });
+            closeTrade(candle, "long");
+            longEmergencyArmed = false;
+            longBestAfterArm = Number.NEGATIVE_INFINITY;
+          }
+        }
+      }
+
+      if (position === "short" && openTrade) {
+        if (!shortEmergencyArmed && prevDistValue > 0 && p.value <= 0) {
+          shortEmergencyArmed = true;
+          shortBestAfterArm = p.value;
+        }
+
+        if (shortEmergencyArmed) {
+          if (p.value < shortBestAfterArm) shortBestAfterArm = p.value;
+
+          const rollback = p.value - shortBestAfterArm;
+          if (rollback > 0 && rollback >= Math.max(0.000001, Math.abs(shortBestAfterArm) * 0.15)) {
+            shortExitPoints.push({ time: candle.time, value: candle.high });
+            closeTrade(candle, "short");
+            shortEmergencyArmed = false;
+            shortBestAfterArm = Number.POSITIVE_INFINITY;
+          }
         }
       }
     }
@@ -1251,62 +1235,75 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
   };
 }
 
-function findNearestCandle(candles: Candle[], targetTime: number): Candle | null {
-  if (!candles.length || !targetTime) return null;
+function toUnixSec(v: string | null | undefined): number {
+  if (!v) return 0;
+  const ms = Date.parse(v);
+  if (Number.isFinite(ms) && ms > 0) return Math.floor(ms / 1000);
+
+  const normalized = v.replace(" ", "T");
+  const ms2 = Date.parse(normalized);
+  if (Number.isFinite(ms2) && ms2 > 0) return Math.floor(ms2 / 1000);
+
+  return 0;
+}
+
+function findNearestCandle(candles: Candle[], ts: number): Candle | null {
+  if (!candles.length || !ts) return null;
+
   let best: Candle | null = null;
   let bestDiff = Number.POSITIVE_INFINITY;
+
   for (const c of candles) {
-    const diff = Math.abs(c.time - targetTime);
+    const diff = Math.abs(c.time - ts);
     if (diff < bestDiff) {
       bestDiff = diff;
       best = c;
     }
   }
+
   return best;
 }
 
-function extractTradePrice(row: AggTradeRow, candle: Candle | null): number | null {
-  if (!candle) return null;
-
-  const candidates = [
-    row?.confirm?.level,
-    row?.confirm?.price,
-    row?.confirm?.fillPrice,
-    row?.confirm?.filledPrice,
-    row?.confirm?.affectedDealConfirmationLevel,
-  ]
-    .map((v) => Number(v))
-    .filter((v) => Number.isFinite(v) && v > 0);
-
-  const close = candle.close;
-  const plausible = candidates.find((v) => Math.abs(v - close) / close <= 0.2);
-  if (plausible) return plausible;
-
-  if (row.action === "buy") return candle.low;
-  if (row.action === "sell") return candle.high;
-  return candle.close;
-}
-
-function normalizeBrokerState(state: string | null | undefined): PositionSide | null {
-  const s = String(state || "").trim().toUpperCase();
-  if (s === "LONG") return "long";
-  if (s === "SHORT") return "short";
-  if (s === "FLAT") return "flat";
+function pickNumber(...values: any[]): number | null {
+  for (const v of values) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
   return null;
 }
 
-function toUnixSec(input: string | null | undefined): number {
-  if (!input) return 0;
-  const t = Date.parse(input);
-  return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
+function extractTradePrice(row: AggTradeRow, candleNear: Candle | null): number | null {
+  const confirm = row.confirm ?? {};
+
+  return pickNumber(
+    confirm?.level,
+    confirm?.price,
+    confirm?.fillPrice,
+    confirm?.filledPrice,
+    confirm?.stopLevel,
+    confirm?.limitLevel,
+    candleNear?.close,
+    candleNear?.open
+  );
 }
 
-function formatTime(unixSec: number): string {
-  const d = new Date(unixSec * 1000);
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}.${mm}.${yy} ${hh}:${mi}`;
+function normalizeBrokerState(v: string | null): PositionSide | null {
+  if (!v) return null;
+  const s = String(v).toLowerCase();
+
+  if (s.includes("buy") || s.includes("long")) return "long";
+  if (s.includes("sell") || s.includes("short")) return "short";
+  if (s.includes("flat") || s.includes("closed") || s.includes("close")) return "flat";
+
+  return null;
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleString("de-DE", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
