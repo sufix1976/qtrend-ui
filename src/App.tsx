@@ -1202,7 +1202,7 @@ function simulateStrategy(
   dist: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
-  _entryBand: number,
+  entryBand: number,
   assumedSpread: number,
   assumedSlippage: number
 ) {
@@ -1242,10 +1242,11 @@ function simulateStrategy(
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
 
-  let shortEmergencyArmed = false;
-  let longEmergencyArmed = false;
-  let shortBestAfterArm = Number.POSITIVE_INFINITY;
-  let longBestAfterArm = Number.NEGATIVE_INFINITY;
+  // Neue Exit-Logik:
+  // long: erst lower-band retest, später ggf. midline retest
+  // short: erst upper-band retest, später ggf. midline retest
+  let longRetestLevel: number | null = null;   // -entryBand oder 0
+  let shortRetestLevel: number | null = null;  // entryBand oder 0
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -1276,14 +1277,15 @@ function simulateStrategy(
 
     openTrade = null;
     position = "flat";
+    longRetestLevel = null;
+    shortRetestLevel = null;
   };
 
   for (let i = 0; i < dist.length; i++) {
     const p = dist[i];
     const candle = candleMap.get(p.time);
     if (!candle) continue;
-
-    while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
+        while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const event = entryEvents[currentEntryPtr];
 
       if (event.side === "long") {
@@ -1298,8 +1300,10 @@ function simulateStrategy(
             entryPrice: realisticEntryPrice("long", candle),
           };
           position = "long";
-          longEmergencyArmed = false;
-          longBestAfterArm = Number.NEGATIVE_INFINITY;
+
+          // Neue Long-Exit-Überwachung zurücksetzen
+          longRetestLevel = null;
+          shortRetestLevel = null;
         }
       } else {
         if (position === "long" && openTrade) {
@@ -1313,65 +1317,71 @@ function simulateStrategy(
             entryPrice: realisticEntryPrice("short", candle),
           };
           position = "short";
-          shortEmergencyArmed = false;
-          shortBestAfterArm = Number.POSITIVE_INFINITY;
+
+          // Neue Short-Exit-Überwachung zurücksetzen
+          shortRetestLevel = null;
+          longRetestLevel = null;
         }
       }
 
       currentEntryPtr += 1;
     }
 
-    if (prevDistValue !== null) {
-      if (position === "long" && openTrade) {
-        if (!longEmergencyArmed && prevDistValue < 0 && p.value >= 0) {
-          longEmergencyArmed = true;
-          longBestAfterArm = p.value;
-        }
-
-        if (longEmergencyArmed) {
-          if (p.value > longBestAfterArm) longBestAfterArm = p.value;
-
-          const rollback = longBestAfterArm - p.value;
-          if (rollback > 0 && rollback >= Math.max(0.000001, Math.abs(longBestAfterArm) * 0.15)) {
-            longExitPoints.push({ time: candle.time, value: candle.low });
-            closeTrade(candle, "long");
-            longEmergencyArmed = false;
-            longBestAfterArm = Number.NEGATIVE_INFINITY;
-          }
-        }
+    if (position === "long" && openTrade && prevDistValue !== null) {
+      // Fall 1: Distanz läuft über die untere rote Linie -> Exit-Level = untere rote Linie
+      if (p.value > -entryBand && longRetestLevel === null) {
+        longRetestLevel = -entryBand;
       }
 
-      if (position === "short" && openTrade) {
-        if (!shortEmergencyArmed && prevDistValue > 0 && p.value <= 0) {
-          shortEmergencyArmed = true;
-          shortBestAfterArm = p.value;
-        }
+      // Fall 2: Distanz läuft sogar über die Mittellinie -> Exit-Level = Mittellinie
+      if (p.value > 0) {
+        longRetestLevel = 0;
+      }
 
-        if (shortEmergencyArmed) {
-          if (p.value < shortBestAfterArm) shortBestAfterArm = p.value;
+      // Exit sobald die aktive Linie von oben wieder berührt/gebrochen wird
+      if (
+        longRetestLevel !== null &&
+        prevDistValue > longRetestLevel &&
+        p.value <= longRetestLevel
+      ) {
+        longExitPoints.push({ time: candle.time, value: candle.low });
+        closeTrade(candle, "long");
+      }
+    }
 
-          const rollback = p.value - shortBestAfterArm;
-          if (rollback > 0 && rollback >= Math.max(0.000001, Math.abs(shortBestAfterArm) * 0.15)) {
-            shortExitPoints.push({ time: candle.time, value: candle.high });
-            closeTrade(candle, "short");
-            shortEmergencyArmed = false;
-            shortBestAfterArm = Number.POSITIVE_INFINITY;
-          }
-        }
+    if (position === "short" && openTrade && prevDistValue !== null) {
+      // Fall 1: Distanz läuft unter die obere rote Linie -> Exit-Level = obere rote Linie
+      if (p.value < entryBand && shortRetestLevel === null) {
+        shortRetestLevel = entryBand;
+      }
+
+      // Fall 2: Distanz läuft sogar unter die Mittellinie -> Exit-Level = Mittellinie
+      if (p.value < 0) {
+        shortRetestLevel = 0;
+      }
+
+      // Exit sobald die aktive Linie von unten wieder berührt/gebrochen wird
+      if (
+        shortRetestLevel !== null &&
+        prevDistValue < shortRetestLevel &&
+        p.value >= shortRetestLevel
+      ) {
+        shortExitPoints.push({ time: candle.time, value: candle.high });
+        closeTrade(candle, "short");
       }
     }
 
     prevDistValue = p.value;
   }
-
-  const netPnL = grossProfit - grossLoss;
+    const netPnL = grossProfit - grossLoss;
 
   let lastSignalText = "-";
   const lastLong = longEntries.length ? longEntries[longEntries.length - 1].time : null;
   const lastShort = shortEntries.length ? shortEntries[shortEntries.length - 1].time : null;
 
   if (lastLong && lastShort) {
-    lastSignalText = lastLong > lastShort ? `LONG ${formatTime(lastLong)}` : `SHORT ${formatTime(lastShort)}`;
+    lastSignalText =
+      lastLong > lastShort ? `LONG ${formatTime(lastLong)}` : `SHORT ${formatTime(lastShort)}`;
   } else if (lastLong) {
     lastSignalText = `LONG ${formatTime(lastLong)}`;
   } else if (lastShort) {
