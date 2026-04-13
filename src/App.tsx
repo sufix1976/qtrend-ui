@@ -1084,9 +1084,9 @@ function projectMarkerPointsToCandles(
 
 function projectMarkerValue(candle: Candle, placement: MarkerPlacement): number {
   const range = Math.max(candle.high - candle.low, Math.abs(candle.close) * 0.0012);
-  const far = range * 0.42;
-  const mid = range * 0.26;
-  const near = range * 0.14;
+  const far = range * 0.32;
+  const mid = range * 0.20;
+  const near = range * 0.10;
   const bodyMid = (candle.open + candle.close) / 2;
 
   switch (placement) {
