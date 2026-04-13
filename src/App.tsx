@@ -755,6 +755,8 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     const url = new URL("/cap/positions", BACKEND_BASE);
     url.searchParams.set("_ts", String(Date.now()));
 
+    console.log("[broker] URL:", url.toString());
+
     const res = await fetch(url.toString(), { cache: "no-store" });
     if (!res.ok) {
       console.log("[broker] /cap/positions HTTP error:", res.status);
