@@ -739,7 +739,7 @@ export default function App() {
         <div>Assumed slippage: {assumedSlippage}</div>
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙ Parameter</div>
 
           <div>Entry Band: {entryBandUI}</div>
           <input
@@ -1251,7 +1251,7 @@ function simulateStrategy(
   dist: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
-  _entryBand: number,
+  entryBand: number,
   assumedSpread: number,
   assumedSlippage: number
 ) {
@@ -1289,6 +1289,10 @@ function simulateStrategy(
   let grossLoss = 0;
 
   let currentEntryPtr = 0;
+  let prevDistValue: number | null = null;
+
+  let longRetestLevel: number | null = null;
+  let shortRetestLevel: number | null = null;
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -1319,32 +1323,96 @@ function simulateStrategy(
 
     openTrade = null;
     position = "flat";
+    longRetestLevel = null;
+    shortRetestLevel = null;
   };
 
   for (let i = 0; i < dist.length; i++) {
+    const p = dist[i];
+    const candle = candleMap.get(p.time);
+    if (!candle) continue;
+
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
-      const candle = candleMap.get(evt.time);
 
-      if (candle) {
-        if (openTrade) {
-          if (openTrade.side === "long") {
-            longExitPoints.push({ time: candle.time, value: candle.low });
-          } else {
-            shortExitPoints.push({ time: candle.time, value: candle.high });
-          }
-          closeTrade(candle, openTrade.side);
+      if (evt.side === "long") {
+        if (position === "short" && openTrade) {
+          shortExitPoints.push({ time: candle.time, value: candle.high });
+          closeTrade(candle, "short");
         }
 
-        openTrade = {
-          side: evt.side,
-          entryPrice: realisticEntryPrice(evt.side, candle),
-        };
-        position = evt.side;
+        if (position === "flat") {
+          openTrade = {
+            side: "long",
+            entryPrice: realisticEntryPrice("long", candle),
+          };
+          position = "long";
+          longRetestLevel = null;
+          shortRetestLevel = null;
+        }
+      } else {
+        if (position === "long" && openTrade) {
+          longExitPoints.push({ time: candle.time, value: candle.low });
+          closeTrade(candle, "long");
+        }
+
+        if (position === "flat") {
+          openTrade = {
+            side: "short",
+            entryPrice: realisticEntryPrice("short", candle),
+          };
+          position = "short";
+          shortRetestLevel = null;
+          longRetestLevel = null;
+        }
       }
 
       currentEntryPtr += 1;
     }
+
+    if (position === "long" && openTrade && prevDistValue !== null) {
+      if (p.value > -entryBand && longRetestLevel === null) {
+        longRetestLevel = -entryBand;
+      }
+
+      if (p.value > 0) {
+        longRetestLevel = 0;
+      }
+
+      if (
+        longRetestLevel !== null &&
+        prevDistValue > longRetestLevel &&
+        p.value <= longRetestLevel
+      ) {
+        longExitPoints.push({ time: candle.time, value: candle.low });
+        closeTrade(candle, "long");
+        prevDistValue = p.value;
+        continue;
+      }
+    }
+
+    if (position === "short" && openTrade && prevDistValue !== null) {
+      if (p.value < entryBand && shortRetestLevel === null) {
+        shortRetestLevel = entryBand;
+      }
+
+      if (p.value < 0) {
+        shortRetestLevel = 0;
+      }
+
+      if (
+        shortRetestLevel !== null &&
+        prevDistValue < shortRetestLevel &&
+        p.value >= shortRetestLevel
+      ) {
+        shortExitPoints.push({ time: candle.time, value: candle.high });
+        closeTrade(candle, "short");
+        prevDistValue = p.value;
+        continue;
+      }
+    }
+
+    prevDistValue = p.value;
   }
 
   const netPnL = grossProfit - grossLoss;
