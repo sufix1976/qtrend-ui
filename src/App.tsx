@@ -763,23 +763,25 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
       return null;
     }
 
-    const rows = Array.isArray(json?.positions)
-      ? json.positions
-      : Array.isArray(json?.rows)
-        ? json.rows
-        : Array.isArray(json)
-          ? json
-          : [];
+    const rows = Array.isArray(json?.data?.positions)
+      ? json.data.positions
+      : Array.isArray(json?.positions)
+        ? json.positions
+        : Array.isArray(json?.rows)
+          ? json.rows
+          : Array.isArray(json)
+            ? json
+            : [];
 
     const normalizedSymbol = String(symbol).toUpperCase();
 
     for (const row of rows) {
       const epic = String(
+        row?.market?.epic ??
         row?.epic ??
-          row?.instrumentSymbol ??
-          row?.symbol ??
-          row?.market?.epic ??
-          ""
+        row?.instrumentSymbol ??
+        row?.symbol ??
+        ""
       ).toUpperCase();
 
       if (epic !== normalizedSymbol) continue;
@@ -793,10 +795,10 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
         row?.state ??
         "";
 
-      const side = String(sideRaw).toLowerCase();
+      const side = String(sideRaw).toUpperCase();
 
-      if (side.includes("buy") || side.includes("long")) return "long";
-      if (side.includes("sell") || side.includes("short")) return "short";
+      if (side === "BUY" || side === "LONG") return "long";
+      if (side === "SELL" || side === "SHORT") return "short";
     }
 
     return "flat";
