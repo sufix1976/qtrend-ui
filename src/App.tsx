@@ -24,6 +24,15 @@ type MarkerPoint = {
   value: number;
 };
 
+type MarkerPlacement =
+  | "below-far"
+  | "below-mid"
+  | "below-near"
+  | "above-far"
+  | "above-mid"
+  | "above-near"
+  | "inside-mid";
+
 type WhitespaceLinePoint = {
   time: number;
   value?: number;
@@ -324,7 +333,7 @@ export default function App() {
       color: "#22c55e",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 5,
+      pointMarkersRadius: 6,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -334,7 +343,7 @@ export default function App() {
       color: "#ef4444",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 5,
+      pointMarkersRadius: 6,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -344,7 +353,7 @@ export default function App() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -354,7 +363,7 @@ export default function App() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -364,7 +373,7 @@ export default function App() {
       color: "#94a3b8",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 3,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -374,7 +383,7 @@ export default function App() {
       color: "#64748b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 3,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -384,7 +393,7 @@ export default function App() {
       color: "#00ff88",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -394,7 +403,7 @@ export default function App() {
       color: "#ff4d6d",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -404,7 +413,7 @@ export default function App() {
       color: "#c084fc",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -493,16 +502,16 @@ export default function App() {
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        strategyLongSeries.setData(limitMarkerPointsToCandles(strategyLongPoints, candles) as any);
-        strategyShortSeries.setData(limitMarkerPointsToCandles(strategyShortPoints, candles) as any);
-        strategyLongExitSeries.setData(limitMarkerPointsToCandles(sim.longExitPoints, candles) as any);
-        strategyShortExitSeries.setData(limitMarkerPointsToCandles(sim.shortExitPoints, candles) as any);
+        strategyLongSeries.setData(projectMarkerPointsToCandles(strategyLongPoints, candles, "below-far") as any);
+        strategyShortSeries.setData(projectMarkerPointsToCandles(strategyShortPoints, candles, "above-far") as any);
+        strategyLongExitSeries.setData(projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near") as any);
+        strategyShortExitSeries.setData(projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near") as any);
 
-        blockedLongSeries.setData(limitMarkerPointsToCandles(real.blockedLongPoints, candles) as any);
-        blockedShortSeries.setData(limitMarkerPointsToCandles(real.blockedShortPoints, candles) as any);
-        realBuySeries.setData(limitMarkerPointsToCandles(real.realBuyPoints, candles) as any);
-        realSellSeries.setData(limitMarkerPointsToCandles(real.realSellPoints, candles) as any);
-        realCloseSeries.setData(limitMarkerPointsToCandles(real.realClosePoints, candles) as any);
+        blockedLongSeries.setData(projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid") as any);
+        blockedShortSeries.setData(projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid") as any);
+        realBuySeries.setData(projectMarkerPointsToCandles(real.realBuyPoints, candles, "below-near") as any);
+        realSellSeries.setData(projectMarkerPointsToCandles(real.realSellPoints, candles, "above-near") as any);
+        realCloseSeries.setData(projectMarkerPointsToCandles(real.realClosePoints, candles, "inside-mid") as any);
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -707,14 +716,14 @@ export default function App() {
         <div>Last real trade: {lastRealTradeText}</div>
 
         <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8, fontSize: 12 }}>
-          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long</div>
-          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short</div>
-          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit</div>
-          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip</div>
-          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip</div>
-          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
-          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
-          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
+          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long (weiter unter Kerze)</div>
+          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short (weiter über Kerze)</div>
+          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit (nah an Kerze)</div>
+          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip (mittig unten)</div>
+          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip (mittig oben)</div>
+          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy (nah unten)</div>
+          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell (nah oben)</div>
+          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close (in Kerze)</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
@@ -1046,6 +1055,14 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 }
 
 function limitMarkerPointsToCandles(points: MarkerPoint[], candles: Candle[]): MarkerPoint[] {
+  return projectMarkerPointsToCandles(points, candles, "inside-mid");
+}
+
+function projectMarkerPointsToCandles(
+  points: MarkerPoint[],
+  candles: Candle[],
+  placement: MarkerPlacement
+): MarkerPoint[] {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
@@ -1056,14 +1073,43 @@ function limitMarkerPointsToCandles(points: MarkerPoint[], candles: Candle[]): M
     if (!candle) continue;
     if (!Number.isFinite(p.value) || p.value <= 0) continue;
 
-    const minAllowed = candle.low * 0.98;
-    const maxAllowed = candle.high * 1.02;
-    const clamped = Math.min(Math.max(p.value, minAllowed), maxAllowed);
+    const projected = projectMarkerValue(candle, placement);
+    if (!Number.isFinite(projected) || projected <= 0) continue;
+
+    const minAllowed = candle.low * 0.985;
+    const maxAllowed = candle.high * 1.015;
+    const clamped = Math.min(Math.max(projected, minAllowed), maxAllowed);
 
     out.push({ time: p.time, value: clamped });
   }
 
   return dedupeMarkers(out);
+}
+
+function projectMarkerValue(candle: Candle, placement: MarkerPlacement): number {
+  const range = Math.max(candle.high - candle.low, Math.abs(candle.close) * 0.0012);
+  const far = range * 0.42;
+  const mid = range * 0.26;
+  const near = range * 0.14;
+  const bodyMid = (candle.open + candle.close) / 2;
+
+  switch (placement) {
+    case "below-far":
+      return candle.low - far;
+    case "below-mid":
+      return candle.low - mid;
+    case "below-near":
+      return candle.low - near;
+    case "above-far":
+      return candle.high + far;
+    case "above-mid":
+      return candle.high + mid;
+    case "above-near":
+      return candle.high + near;
+    case "inside-mid":
+    default:
+      return bodyMid;
+  }
 }
 
 function simulateStrategy(
