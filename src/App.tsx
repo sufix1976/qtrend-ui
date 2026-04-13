@@ -1054,10 +1054,6 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
-function limitMarkerPointsToCandles(points: MarkerPoint[], candles: Candle[]): MarkerPoint[] {
-  return projectMarkerPointsToCandles(points, candles, "inside-mid");
-}
-
 function projectMarkerPointsToCandles(
   points: MarkerPoint[],
   candles: Candle[],
