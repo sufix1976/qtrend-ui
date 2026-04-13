@@ -67,7 +67,7 @@ type AggTradesResponse = {
 };
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const LIMIT = 5000;
+const LIMIT = 10000;
 const AGG_LIMIT = 200;
 const PRICE_SCALE_WIDTH = 90;
 
