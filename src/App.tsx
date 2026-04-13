@@ -61,8 +61,10 @@ type AggTradesResponse = {
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 500;
 const AGG_LIMIT = 200;
-const INTERVAL = "15m";
 const PRICE_SCALE_WIDTH = 90;
+
+const INTERVALS = ["5m", "15m", "30m"] as const;
+type IntervalOption = typeof INTERVALS[number];
 
 const SYMBOLS = [
   "BTCUSD",
@@ -71,6 +73,9 @@ const SYMBOLS = [
   "DE40",
   "US100",
   "US500",
+  "US30",
+  "J225",
+  "UK100",
   "GOLD",
   "SILVER",
   "OIL_CRUDE",
@@ -85,6 +90,9 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   DE40: 35,
   US100: 80,
   US500: 20,
+  US30: 140,
+  J225: 160,
+  UK100: 45,
   GOLD: 22,
   SILVER: 0.22,
   OIL_CRUDE: 1.4,
@@ -99,6 +107,9 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   DE40: 3,
   US100: 3,
   US500: 3,
+  US30: 3,
+  J225: 3,
+  UK100: 3,
   GOLD: 3,
   SILVER: 3,
   OIL_CRUDE: 3,
@@ -113,6 +124,9 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   DE40: 2,
   US100: 4,
   US500: 1,
+  US30: 8,
+  J225: 10,
+  UK100: 3,
   GOLD: 0.8,
   SILVER: 0.03,
   OIL_CRUDE: 0.08,
@@ -127,6 +141,9 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   DE40: 1.5,
   US100: 3,
   US500: 0.8,
+  US30: 4,
+  J225: 6,
+  UK100: 2,
   GOLD: 0.35,
   SILVER: 0.05,
   OIL_CRUDE: 0.04,
@@ -141,6 +158,9 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   DE40: 0.3,
   US100: 0.5,
   US500: 0.2,
+  US30: 0.8,
+  J225: 1.0,
+  UK100: 0.4,
   GOLD: 0.08,
   SILVER: 0.01,
   OIL_CRUDE: 0.01,
@@ -156,6 +176,7 @@ export default function App() {
   const distChartRef = useRef<IChartApi | null>(null);
 
   const [symbol, setSymbol] = useState("BTCUSD");
+  const [interval, setInterval] = useState<IntervalOption>("15m");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [lastPrice, setLastPrice] = useState<number | null>(null);
@@ -422,7 +443,7 @@ export default function App() {
         setError("");
 
         const [candles, aggRows, liveBrokerState] = await Promise.all([
-          fetchCandles(symbol),
+          fetchCandles(symbol, interval),
           fetchAggTrades(symbol),
           fetchBrokerPositionState(symbol),
         ]);
@@ -559,7 +580,7 @@ export default function App() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, entryBand, peakLookback, minKinkMove, assumedSpread, assumedSlippage]);
+  }, [symbol, interval, entryBand, peakLookback, minKinkMove, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -602,6 +623,17 @@ export default function App() {
               ))}
             </select>
           </label>
+
+          <label>
+            TF{" "}
+            <select value={interval} onChange={(e) => setInterval(e.target.value as IntervalOption)}>
+              {INTERVALS.map((tf) => (
+                <option key={tf} value={tf}>
+                  {tf}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div>Status: {status}</div>
@@ -639,6 +671,7 @@ export default function App() {
         </div>
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
+        <div>TF: {interval}</div>
         <div>Entry band: {entryBand}</div>
         <div>Peak lookback: {peakLookback}</div>
         <div>Min kink: {minKinkMove}</div>
@@ -700,11 +733,11 @@ export default function App() {
   );
 }
 
-async function fetchCandles(symbol: string): Promise<Candle[]> {
+async function fetchCandles(symbol: string, interval: string): Promise<Candle[]> {
   const url = new URL("/api/market-data/klines", BACKEND_BASE);
   url.searchParams.set("provider", "capital");
   url.searchParams.set("symbol", symbol);
-  url.searchParams.set("interval", INTERVAL);
+  url.searchParams.set("interval", interval);
   url.searchParams.set("limit", String(LIMIT));
 
   const res = await fetch(url.toString(), { cache: "no-store" });
