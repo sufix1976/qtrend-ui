@@ -426,8 +426,6 @@ export default function App() {
           fetchAggTrades(symbol),
           fetchBrokerPositionState(symbol),
         ]);
-        console.log("[loadData] symbol:", symbol);
-console.log("[loadData] liveBrokerState:", liveBrokerState);
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -526,8 +524,6 @@ console.log("[loadData] liveBrokerState:", liveBrokerState);
         setRealSellCount(real.realSellPoints.length);
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
-        console.log("[loadData] fallback real.brokerState:", real.brokerState);
-        console.log("[loadData] final broker state:", liveBrokerState ?? real.brokerState);
         setBrokerState(liveBrokerState ?? real.brokerState);
 
         setStatus("ready");
@@ -753,14 +749,8 @@ async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
 async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | null> {
   try {
     const url = `${BACKEND_BASE}/ui/broker-state?symbol=${symbol}&_ts=${Date.now()}`;
-    console.log("[broker] URL:", url);
-
     const res = await fetch(url, { cache: "no-store" });
-
-    if (!res.ok) {
-      console.log("[broker] /ui/broker-state HTTP error:", res.status);
-      return null;
-    }
+    if (!res.ok) return null;
 
     const txt = await res.text();
 
@@ -768,11 +758,8 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     try {
       json = JSON.parse(txt);
     } catch {
-      console.log("[broker] invalid JSON:", txt);
       return null;
     }
-
-    console.log("[broker] response:", json);
 
     const side = String(json?.side || "").toLowerCase();
 
@@ -781,65 +768,7 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     if (side === "flat") return "flat";
 
     return null;
-  } catch (e) {
-    console.log("[broker] fetchBrokerPositionState crashed:", e);
-    return null;
-  }
-}
-
-    const rows = Array.isArray(json?.data?.positions)
-      ? json.data.positions
-      : Array.isArray(json?.positions)
-        ? json.positions
-        : Array.isArray(json?.rows)
-          ? json.rows
-          : Array.isArray(json)
-            ? json
-            : [];
-
-    const normalizedSymbol = String(symbol).toUpperCase();
-    console.log("[broker] symbol:", normalizedSymbol);
-    console.log("[broker] rows found:", rows.length);
-
-    for (const row of rows) {
-      const epic = String(
-        row?.market?.epic ??
-        row?.epic ??
-        row?.instrumentSymbol ??
-        row?.symbol ??
-        ""
-      ).toUpperCase();
-
-      const sideRaw =
-        row?.position?.direction ??
-        row?.direction ??
-        row?.side ??
-        row?.position?.side ??
-        row?.position?.state ??
-        row?.state ??
-        "";
-
-      const side = String(sideRaw).toUpperCase();
-
-      console.log("[broker] check row epic/side:", epic, side);
-
-      if (epic !== normalizedSymbol) continue;
-
-      if (side === "BUY" || side === "LONG") {
-        console.log("[broker] MATCH -> long");
-        return "long";
-      }
-
-      if (side === "SELL" || side === "SHORT") {
-        console.log("[broker] MATCH -> short");
-        return "short";
-      }
-    }
-
-    console.log("[broker] no match -> flat");
-    return "flat";
-  } catch (e) {
-    console.log("[broker] fetchBrokerPositionState crashed:", e);
+  } catch {
     return null;
   }
 }
