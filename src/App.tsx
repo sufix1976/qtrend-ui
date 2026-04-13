@@ -426,6 +426,8 @@ export default function App() {
           fetchAggTrades(symbol),
           fetchBrokerPositionState(symbol),
         ]);
+        console.log("[loadData] symbol:", symbol);
+console.log("[loadData] liveBrokerState:", liveBrokerState);
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -524,6 +526,8 @@ export default function App() {
         setRealSellCount(real.realSellPoints.length);
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
+        console.log("[loadData] fallback real.brokerState:", real.brokerState);
+        console.log("[loadData] final broker state:", liveBrokerState ?? real.brokerState);
         setBrokerState(liveBrokerState ?? real.brokerState);
 
         setStatus("ready");
