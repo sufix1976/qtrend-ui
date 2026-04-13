@@ -762,7 +762,6 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     }
 
     const txt = await res.text();
-    console.log("[broker] raw response:", txt);
 
     let json: any;
     try {
@@ -782,10 +781,9 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
             ? json
             : [];
 
-    console.log("[broker] symbol:", symbol);
-    console.log("[broker] rows found:", rows.length);
-
     const normalizedSymbol = String(symbol).toUpperCase();
+    console.log("[broker] symbol:", normalizedSymbol);
+    console.log("[broker] rows found:", rows.length);
 
     for (const row of rows) {
       const epic = String(
@@ -805,11 +803,11 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
         row?.state ??
         "";
 
-      console.log("[broker] check row epic/side:", epic, sideRaw);
+      const side = String(sideRaw).toUpperCase();
+
+      console.log("[broker] check row epic/side:", epic, side);
 
       if (epic !== normalizedSymbol) continue;
-
-      const side = String(sideRaw).toUpperCase();
 
       if (side === "BUY" || side === "LONG") {
         console.log("[broker] MATCH -> long");
@@ -822,7 +820,7 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
       }
     }
 
-    console.log("[broker] no matching open position -> flat");
+    console.log("[broker] no match -> flat");
     return "flat";
   } catch (e) {
     console.log("[broker] fetchBrokerPositionState crashed:", e);
