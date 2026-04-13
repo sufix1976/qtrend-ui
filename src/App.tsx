@@ -303,7 +303,7 @@ export default function App() {
       color: "#22c55e",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 7,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -313,7 +313,7 @@ export default function App() {
       color: "#ef4444",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 7,
+      pointMarkersRadius: 5,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -323,7 +323,7 @@ export default function App() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 6,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -333,7 +333,7 @@ export default function App() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 6,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -343,7 +343,7 @@ export default function App() {
       color: "#94a3b8",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 7,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -353,7 +353,7 @@ export default function App() {
       color: "#64748b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 7,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -363,7 +363,7 @@ export default function App() {
       color: "#00ff88",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 8,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -373,7 +373,7 @@ export default function App() {
       color: "#ff4d6d",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 8,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -383,7 +383,7 @@ export default function App() {
       color: "#c084fc",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 8,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -421,9 +421,10 @@ export default function App() {
         setStatus("loading");
         setError("");
 
-        const [candles, aggRows] = await Promise.all([
+        const [candles, aggRows, liveBrokerState] = await Promise.all([
           fetchCandles(symbol),
           fetchAggTrades(symbol),
+          fetchBrokerPositionState(symbol),
         ]);
 
         if (cancelled) return;
@@ -523,7 +524,7 @@ export default function App() {
         setRealSellCount(real.realSellPoints.length);
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
-        setBrokerState(real.brokerState);
+        setBrokerState(liveBrokerState ?? real.brokerState);
 
         setStatus("ready");
       } catch (err) {
@@ -745,6 +746,65 @@ async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
   return json.rows;
 }
 
+async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | null> {
+  try {
+    const url = new URL("/cap/positions", BACKEND_BASE);
+    url.searchParams.set("_ts", String(Date.now()));
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return null;
+
+    const txt = await res.text();
+
+    let json: any;
+    try {
+      json = JSON.parse(txt);
+    } catch {
+      return null;
+    }
+
+    const rows = Array.isArray(json?.positions)
+      ? json.positions
+      : Array.isArray(json?.rows)
+        ? json.rows
+        : Array.isArray(json)
+          ? json
+          : [];
+
+    const normalizedSymbol = String(symbol).toUpperCase();
+
+    for (const row of rows) {
+      const epic = String(
+        row?.epic ??
+          row?.instrumentSymbol ??
+          row?.symbol ??
+          row?.market?.epic ??
+          ""
+      ).toUpperCase();
+
+      if (epic !== normalizedSymbol) continue;
+
+      const sideRaw =
+        row?.position?.direction ??
+        row?.direction ??
+        row?.side ??
+        row?.position?.side ??
+        row?.position?.state ??
+        row?.state ??
+        "";
+
+      const side = String(sideRaw).toLowerCase();
+
+      if (side.includes("buy") || side.includes("long")) return "long";
+      if (side.includes("sell") || side.includes("short")) return "short";
+    }
+
+    return "flat";
+  } catch {
+    return null;
+  }
+}
+
 function syncCharts(chartA: IChartApi, chartB: IChartApi) {
   let isUpdating = false;
 
@@ -906,7 +966,6 @@ function buildStableLongSignals(
 
   return dedupeMarkers(markers);
 }
-
 function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
@@ -965,6 +1024,7 @@ function buildStableShortSignals(
 
   return dedupeMarkers(markers);
 }
+
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
   const seen = new Set<string>();
