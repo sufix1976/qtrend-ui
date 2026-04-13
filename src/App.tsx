@@ -187,21 +187,11 @@ export default function App() {
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
   const [netPnL, setNetPnL] = useState(0);
 
-  const baseEntryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
-  const basePeakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
-  const baseMinKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
+  const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
+  const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
+  const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
   const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
   const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
-
-  const [entryBandUI, setEntryBandUI] = useState(baseEntryBand);
-  const [minKinkUI, setMinKinkUI] = useState(baseMinKinkMove);
-  const [peakUI, setPeakUI] = useState(basePeakLookback);
-
-  useEffect(() => {
-    setEntryBandUI(baseEntryBand);
-    setMinKinkUI(baseMinKinkMove);
-    setPeakUI(basePeakLookback);
-  }, [symbol, baseEntryBand, baseMinKinkMove, basePeakLookback]);
 
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
@@ -402,17 +392,17 @@ export default function App() {
         const strategyLongPoints = buildStableLongSignals(
           candles,
           dist,
-          entryBandUI,
-          peakUI,
-          minKinkUI
+          entryBand,
+          peakLookback,
+          minKinkMove
         );
 
         const strategyShortPoints = buildStableShortSignals(
           candles,
           dist,
-          entryBandUI,
-          peakUI,
-          minKinkUI
+          entryBand,
+          peakLookback,
+          minKinkMove
         );
 
         const sim = simulateStrategy(
@@ -420,7 +410,7 @@ export default function App() {
           dist,
           strategyLongPoints,
           strategyShortPoints,
-          entryBandUI,
+          entryBand,
           assumedSpread,
           assumedSlippage
         );
@@ -436,8 +426,8 @@ export default function App() {
 
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
-        const upperBand = buildFlatLineFromCandles(candles, entryBandUI);
-        const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
+        const upperBand = buildFlatLineFromCandles(candles, entryBand);
+        const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
         candleSeries.setData(candles as any);
         createSeriesMarkers(candleSeries, strategyMarkers as any);
@@ -525,7 +515,7 @@ export default function App() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, entryBandUI, peakUI, minKinkUI, assumedSpread, assumedSlippage]);
+  }, [symbol, entryBand, peakLookback, minKinkMove, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -555,8 +545,6 @@ export default function App() {
           lineHeight: 1.35,
           minWidth: 360,
           maxWidth: 430,
-          maxHeight: "92vh",
-          overflowY: "auto",
         }}
       >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -607,49 +595,11 @@ export default function App() {
         </div>
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
-        <div>TF: {INTERVAL}</div>
-        <div>Entry band: {entryBandUI}</div>
-        <div>Peak lookback: {peakUI}</div>
-        <div>Min kink: {minKinkUI}</div>
+        <div>Entry band: {entryBand}</div>
+        <div>Peak lookback: {peakLookback}</div>
+        <div>Min kink: {minKinkMove}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-
-        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter</div>
-
-          <div>Entry Band: {entryBandUI}</div>
-          <input
-            type="range"
-            min={0}
-            max={symbol === "XRPUSD" ? 1 : symbol === "SILVER" ? 5 : 500}
-            step={symbol === "XRPUSD" || symbol === "SILVER" ? 0.001 : 1}
-            value={entryBandUI}
-            onChange={(e) => setEntryBandUI(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-
-          <div style={{ marginTop: 6 }}>Min Kink: {minKinkUI}</div>
-          <input
-            type="range"
-            min={0}
-            max={symbol === "XRPUSD" || symbol === "SILVER" ? 1 : 50}
-            step={symbol === "XRPUSD" || symbol === "SILVER" ? 0.001 : 0.1}
-            value={minKinkUI}
-            onChange={(e) => setMinKinkUI(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-
-          <div style={{ marginTop: 6 }}>Peak Lookback: {peakUI}</div>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            step={1}
-            value={peakUI}
-            onChange={(e) => setPeakUI(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-        </div>
 
         <div>Long signals: {longSignalCount}</div>
         <div>Short signals: {shortSignalCount}</div>
@@ -1283,6 +1233,7 @@ function simulateStrategy(
   let lastSignalText = "-";
   const lastLong = longEntries.length ? longEntries[longEntries.length - 1].time : null;
   const lastShort = shortEntries.length ? shortEntries[shortEntries.length - 1].time : null;
+
   if (lastLong && lastShort) {
     lastSignalText = lastLong > lastShort ? `LONG ${formatTime(lastLong)}` : `SHORT ${formatTime(lastShort)}`;
   } else if (lastLong) {
@@ -1323,15 +1274,20 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
     const baseTime = toUnixSec(row.executed_at ?? row.received_at);
     if (!baseTime) continue;
 
-    const candle = findNearestCandle(candles, baseTime);
-    const price = extractTradePrice(row, candle);
+    const candleNear = findNearestCandle(candles, baseTime);
+    const price = extractTradePrice(row, candleNear);
 
     if (price === null || !Number.isFinite(price) || price <= 0) continue;
+    if (candleNear && Math.abs(price - candleNear.close) / candleNear.close > 0.2) continue;
 
     const executed = Boolean(row.exec_id || row.executed_at);
+
     if ((row.action === "buy" || row.action === "sell") && !executed) {
-      if (row.action === "buy") blockedLongPoints.push({ time: baseTime, value: candle?.low ?? price });
-      else blockedShortPoints.push({ time: baseTime, value: candle?.high ?? price });
+      if (row.action === "buy") {
+        blockedLongPoints.push({ time: baseTime, value: candleNear?.low ?? price });
+      } else {
+        blockedShortPoints.push({ time: baseTime, value: candleNear?.high ?? price });
+      }
       continue;
     }
 
