@@ -809,55 +809,50 @@ function buildStableLongSignals(
   candles: Candle[],
   dist: LinePoint[],
   entryBand: number,
-  _peakLookback: number,
+  peakLookback: number,
   minKinkMove: number
 ): MarkerPoint[] {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
-
   let inZone = false;
-  let candidateIndex = -1;
-  let candidateValue = Number.POSITIVE_INFINITY;
-  let fired = false;
+  let zoneStart = -1;
 
   for (let i = 1; i < dist.length; i++) {
-    const d = dist[i].value;
-    const inLowerZone = d < -entryBand;
+    const p = dist[i];
 
-    if (!inZone && inLowerZone) {
+    if (!inZone && p.value < -entryBand) {
       inZone = true;
-      candidateIndex = i;
-      candidateValue = d;
-      fired = false;
+      zoneStart = i;
       continue;
     }
 
-    if (inZone && !inLowerZone) {
-      inZone = false;
-      candidateIndex = -1;
-      candidateValue = Number.POSITIVE_INFINITY;
-      fired = false;
-      continue;
-    }
-
-    if (!inZone) continue;
-
-    if (d <= candidateValue) {
-      candidateValue = d;
-      candidateIndex = i;
-    }
-
-    const move = d - candidateValue;
-
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
-      const c = candleMap.get(t);
-      if (c) {
-        markers.push({ time: t, value: c.low });
-        fired = true;
+    if (inZone && p.value >= -entryBand) {
+      const zoneEnd = i - 1;
+      const best = findBestLongIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
+      if (best >= 0) {
+        const t = dist[best].time;
+        const c = candleMap.get(t);
+        if (c) markers.push({ time: t, value: c.low });
       }
+      inZone = false;
+      zoneStart = -1;
+    }
+  }
+
+  if (inZone) {
+    const best = findBestLongIndexStable(
+      dist,
+      zoneStart,
+      dist.length - 1,
+      peakLookback,
+      minKinkMove
+    );
+    if (best >= 0) {
+      const t = dist[best].time;
+      const c = candleMap.get(t);
+      if (c) markers.push({ time: t, value: c.low });
     }
   }
 
@@ -868,62 +863,165 @@ function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
   entryBand: number,
-  _peakLookback: number,
+  peakLookback: number,
   minKinkMove: number
 ): MarkerPoint[] {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
-
   let inZone = false;
-  let candidateIndex = -1;
-  let candidateValue = Number.NEGATIVE_INFINITY;
-  let fired = false;
+  let zoneStart = -1;
 
   for (let i = 1; i < dist.length; i++) {
-    const d = dist[i].value;
-    const inUpperZone = d > entryBand;
+    const p = dist[i];
 
-    if (!inZone && inUpperZone) {
+    if (!inZone && p.value > entryBand) {
       inZone = true;
-      candidateIndex = i;
-      candidateValue = d;
-      fired = false;
+      zoneStart = i;
       continue;
     }
 
-    if (inZone && !inUpperZone) {
-      inZone = false;
-      candidateIndex = -1;
-      candidateValue = Number.NEGATIVE_INFINITY;
-      fired = false;
-      continue;
-    }
-
-    if (!inZone) continue;
-
-    if (d >= candidateValue) {
-      candidateValue = d;
-      candidateIndex = i;
-    }
-
-    const move = candidateValue - d;
-
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
-      const c = candleMap.get(t);
-      if (c) {
-        markers.push({ time: t, value: c.high });
-        fired = true;
+    if (inZone && p.value <= entryBand) {
+      const zoneEnd = i - 1;
+      const best = findBestShortIndexStable(dist, zoneStart, zoneEnd, peakLookback, minKinkMove);
+      if (best >= 0) {
+        const t = dist[best].time;
+        const c = candleMap.get(t);
+        if (c) markers.push({ time: t, value: c.high });
       }
+      inZone = false;
+      zoneStart = -1;
+    }
+  }
+
+  if (inZone) {
+    const best = findBestShortIndexStable(
+      dist,
+      zoneStart,
+      dist.length - 1,
+      peakLookback,
+      minKinkMove
+    );
+    if (best >= 0) {
+      const t = dist[best].time;
+      const c = candleMap.get(t);
+      if (c) markers.push({ time: t, value: c.high });
     }
   }
 
   return dedupeMarkers(markers);
 }
 
+function findBestLongIndexStable(
+  dist: LinePoint[],
+  start: number,
+  end: number,
+  lookback: number,
+  minKinkMove: number
+): number {
+  if (start < 0 || end < start) return -1;
 
+  let bestIndex = -1;
+  let bestValue = Number.POSITIVE_INFINITY;
+
+  for (let i = start; i <= end; i++) {
+    const p = dist[i];
+    if (!p) continue;
+
+    const left = Math.max(start, i - lookback);
+    const right = Math.min(end, i + lookback);
+
+    let isLocalMin = true;
+    for (let j = left; j <= right; j++) {
+      if (j === i) continue;
+      if (dist[j] && dist[j].value < p.value) {
+        isLocalMin = false;
+        break;
+      }
+    }
+
+    if (!isLocalMin) continue;
+
+    const prev = dist[i - 1];
+    const next = dist[i + 1];
+    const leftMove = prev ? prev.value - p.value : 0;
+    const rightMove = next ? next.value - p.value : 0;
+    const kinkStrength = Math.max(leftMove, rightMove);
+
+    if (kinkStrength >= minKinkMove && p.value < bestValue) {
+      bestValue = p.value;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex >= 0) return bestIndex;
+
+  for (let i = start; i <= end; i++) {
+    const p = dist[i];
+    if (p && p.value < bestValue) {
+      bestValue = p.value;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
+function findBestShortIndexStable(
+  dist: LinePoint[],
+  start: number,
+  end: number,
+  lookback: number,
+  minKinkMove: number
+): number {
+  if (start < 0 || end < start) return -1;
+
+  let bestIndex = -1;
+  let bestValue = Number.NEGATIVE_INFINITY;
+
+  for (let i = start; i <= end; i++) {
+    const p = dist[i];
+    if (!p) continue;
+
+    const left = Math.max(start, i - lookback);
+    const right = Math.min(end, i + lookback);
+
+    let isLocalMax = true;
+    for (let j = left; j <= right; j++) {
+      if (j === i) continue;
+      if (dist[j] && dist[j].value > p.value) {
+        isLocalMax = false;
+        break;
+      }
+    }
+
+    if (!isLocalMax) continue;
+
+    const prev = dist[i - 1];
+    const next = dist[i + 1];
+    const leftMove = prev ? p.value - prev.value : 0;
+    const rightMove = next ? p.value - next.value : 0;
+    const kinkStrength = Math.max(leftMove, rightMove);
+
+    if (kinkStrength >= minKinkMove && p.value > bestValue) {
+      bestValue = p.value;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex >= 0) return bestIndex;
+
+  for (let i = start; i <= end; i++) {
+    const p = dist[i];
+    if (p && p.value > bestValue) {
+      bestValue = p.value;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
