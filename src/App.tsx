@@ -502,11 +502,9 @@ export default function App() {
         const sim = simulateStrategy(
           candles,
           dist,
-          sma100,
           strategyLongPoints,
           strategyShortPoints,
           entryBand,
-          minKinkMove,
           assumedSpread,
           assumedSlippage
         );
@@ -1200,46 +1198,12 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
     })) as any;
 }
 
-function buildTrendMap(
-  sma100: LinePoint[],
-  lookback = 4
-): Map<number, "up" | "down" | "flat"> {
-  const trendMap = new Map<number, "up" | "down" | "flat">();
-
-  for (let i = 0; i < sma100.length; i++) {
-    if (i < lookback) {
-      trendMap.set(sma100[i].time, "flat");
-      continue;
-    }
-
-    const now = sma100[i].value;
-    const prev = sma100[i - lookback].value;
-
-    if (!Number.isFinite(now) || !Number.isFinite(prev)) {
-      trendMap.set(sma100[i].time, "flat");
-      continue;
-    }
-
-    if (now > prev) trendMap.set(sma100[i].time, "up");
-    else if (now < prev) trendMap.set(sma100[i].time, "down");
-    else trendMap.set(sma100[i].time, "flat");
-  }
-
-  return trendMap;
-}
-
-function getCountertrendKinkThreshold(minKinkMove: number): number {
-  return Math.max(minKinkMove * 0.5, 0.000001);
-}
-
 function simulateStrategy(
   candles: Candle[],
   dist: LinePoint[],
-  sma100: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
   entryBand: number,
-  minKinkMove: number,
   assumedSpread: number,
   assumedSlippage: number
 ) {
@@ -1248,9 +1212,6 @@ function simulateStrategy(
 
   const distMapIndex = new Map<number, number>();
   dist.forEach((p, i) => distMapIndex.set(p.time, i));
-
-  const trendMap = buildTrendMap(sma100);
-  const countertrendKinkThreshold = getCountertrendKinkThreshold(minKinkMove);
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
@@ -1282,11 +1243,11 @@ function simulateStrategy(
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
 
-  let longRetestLevel: number | null = null;
-  let shortRetestLevel: number | null = null;
-
-  let countertrendShortLow: number | null = null;
-  let countertrendLongHigh: number | null = null;
+  // Neue Exit-Logik:
+  // long: erst lower-band retest, später ggf. midline retest
+  // short: erst upper-band retest, später ggf. midline retest
+  let longRetestLevel: number | null = null;   // -entryBand oder 0
+  let shortRetestLevel: number | null = null;  // entryBand oder 0
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -1317,19 +1278,15 @@ function simulateStrategy(
 
     openTrade = null;
     position = "flat";
-
     longRetestLevel = null;
     shortRetestLevel = null;
-    countertrendShortLow = null;
-    countertrendLongHigh = null;
   };
 
   for (let i = 0; i < dist.length; i++) {
     const p = dist[i];
     const candle = candleMap.get(p.time);
     if (!candle) continue;
-
-    while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
+        while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const event = entryEvents[currentEntryPtr];
 
       if (event.side === "long") {
@@ -1345,10 +1302,9 @@ function simulateStrategy(
           };
           position = "long";
 
+          // Neue Long-Exit-Überwachung zurücksetzen
           longRetestLevel = null;
           shortRetestLevel = null;
-          countertrendShortLow = null;
-          countertrendLongHigh = null;
         }
       } else {
         if (position === "long" && openTrade) {
@@ -1363,77 +1319,27 @@ function simulateStrategy(
           };
           position = "short";
 
+          // Neue Short-Exit-Überwachung zurücksetzen
           shortRetestLevel = null;
           longRetestLevel = null;
-          countertrendShortLow = null;
-          countertrendLongHigh = null;
         }
       }
 
       currentEntryPtr += 1;
     }
 
-    const currentTrend = trendMap.get(p.time) ?? "flat";
-
-    if (position === "short" && openTrade && currentTrend === "up") {
-      if (p.value > entryBand) {
-        if (countertrendShortLow === null || p.value < countertrendShortLow) {
-          countertrendShortLow = p.value;
-        }
-
-        const moveUpFromLow =
-          countertrendShortLow !== null ? p.value - countertrendShortLow : 0;
-
-        if (
-          countertrendShortLow !== null &&
-          moveUpFromLow >= countertrendKinkThreshold
-        ) {
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
-          prevDistValue = p.value;
-          continue;
-        }
-      } else {
-        countertrendShortLow = null;
-      }
-    } else {
-      countertrendShortLow = null;
-    }
-
-    if (position === "long" && openTrade && currentTrend === "down") {
-      if (p.value < -entryBand) {
-        if (countertrendLongHigh === null || p.value > countertrendLongHigh) {
-          countertrendLongHigh = p.value;
-        }
-
-        const moveDownFromHigh =
-          countertrendLongHigh !== null ? countertrendLongHigh - p.value : 0;
-
-        if (
-          countertrendLongHigh !== null &&
-          moveDownFromHigh >= countertrendKinkThreshold
-        ) {
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-          prevDistValue = p.value;
-          continue;
-        }
-      } else {
-        countertrendLongHigh = null;
-      }
-    } else {
-      countertrendLongHigh = null;
-    }
-
     if (position === "long" && openTrade && prevDistValue !== null) {
+      // Fall 1: Distanz läuft über die untere rote Linie -> Exit-Level = untere rote Linie
       if (p.value > -entryBand && longRetestLevel === null) {
         longRetestLevel = -entryBand;
       }
 
+      // Fall 2: Distanz läuft sogar über die Mittellinie -> Exit-Level = Mittellinie
       if (p.value > 0) {
         longRetestLevel = 0;
       }
 
+      // Exit sobald die aktive Linie von oben wieder berührt/gebrochen wird
       if (
         longRetestLevel !== null &&
         prevDistValue > longRetestLevel &&
@@ -1445,14 +1351,17 @@ function simulateStrategy(
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
+      // Fall 1: Distanz läuft unter die obere rote Linie -> Exit-Level = obere rote Linie
       if (p.value < entryBand && shortRetestLevel === null) {
         shortRetestLevel = entryBand;
       }
 
+      // Fall 2: Distanz läuft sogar unter die Mittellinie -> Exit-Level = Mittellinie
       if (p.value < 0) {
         shortRetestLevel = 0;
       }
 
+      // Exit sobald die aktive Linie von unten wieder berührt/gebrochen wird
       if (
         shortRetestLevel !== null &&
         prevDistValue < shortRetestLevel &&
@@ -1465,8 +1374,7 @@ function simulateStrategy(
 
     prevDistValue = p.value;
   }
-
-  const netPnL = grossProfit - grossLoss;
+    const netPnL = grossProfit - grossLoss;
 
   let lastSignalText = "-";
   const lastLong = longEntries.length ? longEntries[longEntries.length - 1].time : null;
