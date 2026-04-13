@@ -33,6 +33,11 @@ type MarkerPlacement =
   | "above-near"
   | "inside-mid";
 
+type SignalBuildResult = {
+  entries: MarkerPoint[];
+  candidates: MarkerPoint[];
+};
+
 type WhitespaceLinePoint = {
   time: number;
   value?: number;
@@ -328,6 +333,26 @@ export default function App() {
       lastValueVisible: false,
     });
 
+    const candidateLongSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
+      color: "#38bdf8",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 3,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const candidateShortSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
+      color: "#a78bfa",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 3,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
     const strategyLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
@@ -464,7 +489,7 @@ export default function App() {
         const sma100 = sanitizeLinePoints(calcSMA(candles, 100));
         const dist = sanitizeLinePoints(calcDistance(sma10, sma100));
 
-        const strategyLongPoints = buildStableLongSignals(
+        const longData = buildStableLongSignals(
           candles,
           dist,
           entryBand,
@@ -472,13 +497,16 @@ export default function App() {
           minKinkMove
         );
 
-        const strategyShortPoints = buildStableShortSignals(
+        const shortData = buildStableShortSignals(
           candles,
           dist,
           entryBand,
           peakLookback,
           minKinkMove
         );
+
+        const strategyLongPoints = longData.entries;
+        const strategyShortPoints = shortData.entries;
 
         const sim = simulateStrategy(
           candles,
@@ -489,8 +517,7 @@ export default function App() {
           assumedSpread,
           assumedSlippage
         );
-
-        const real = buildRealTradeMarkers(candles, aggRows);
+                const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
@@ -502,16 +529,41 @@ export default function App() {
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        strategyLongSeries.setData(projectMarkerPointsToCandles(strategyLongPoints, candles, "below-far") as any);
-        strategyShortSeries.setData(projectMarkerPointsToCandles(strategyShortPoints, candles, "above-far") as any);
-        strategyLongExitSeries.setData(projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near") as any);
-        strategyShortExitSeries.setData(projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near") as any);
+        candidateLongSeries.setData(
+          projectMarkerPointsToCandles(longData.candidates, candles, "below-mid") as any
+        );
+        candidateShortSeries.setData(
+          projectMarkerPointsToCandles(shortData.candidates, candles, "above-mid") as any
+        );
 
-        blockedLongSeries.setData(projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid") as any);
-        blockedShortSeries.setData(projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid") as any);
-        realBuySeries.setData(projectMarkerPointsToCandles(real.realBuyPoints, candles, "below-near") as any);
-        realSellSeries.setData(projectMarkerPointsToCandles(real.realSellPoints, candles, "above-near") as any);
-        realCloseSeries.setData(projectMarkerPointsToCandles(real.realClosePoints, candles, "inside-mid") as any);
+        strategyLongSeries.setData(
+          projectMarkerPointsToCandles(strategyLongPoints, candles, "below-far") as any
+        );
+        strategyShortSeries.setData(
+          projectMarkerPointsToCandles(strategyShortPoints, candles, "above-far") as any
+        );
+        strategyLongExitSeries.setData(
+          projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near") as any
+        );
+        strategyShortExitSeries.setData(
+          projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near") as any
+        );
+
+        blockedLongSeries.setData(
+          projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid") as any
+        );
+        blockedShortSeries.setData(
+          projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid") as any
+        );
+        realBuySeries.setData(
+          projectMarkerPointsToCandles(real.realBuyPoints, candles, "below-near") as any
+        );
+        realSellSeries.setData(
+          projectMarkerPointsToCandles(real.realSellPoints, candles, "above-near") as any
+        );
+        realCloseSeries.setData(
+          projectMarkerPointsToCandles(real.realClosePoints, candles, "inside-mid") as any
+        );
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -573,6 +625,8 @@ export default function App() {
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
         priceChart.removeSeries(sma100Series);
+        priceChart.removeSeries(candidateLongSeries);
+        priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(strategyLongSeries);
         priceChart.removeSeries(strategyShortSeries);
         priceChart.removeSeries(strategyLongExitSeries);
@@ -603,7 +657,7 @@ export default function App() {
         position: "relative",
       }}
     >
-            <div
+      <div
         style={{
           position: "absolute",
           top: 10,
@@ -716,14 +770,16 @@ export default function App() {
         <div>Last real trade: {lastRealTradeText}</div>
 
         <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8, fontSize: 12 }}>
-          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long (weiter unter Kerze)</div>
-          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short (weiter über Kerze)</div>
-          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit (nah an Kerze)</div>
-          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip (mittig unten)</div>
-          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip (mittig oben)</div>
-          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy (nah unten)</div>
-          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell (nah oben)</div>
-          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close (in Kerze)</div>
+          <div><span style={{ color: "#38bdf8", fontWeight: 700 }}>●</span> Candidate long</div>
+          <div><span style={{ color: "#a78bfa", fontWeight: 700 }}>●</span> Candidate short</div>
+          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>●</span> Strategy long</div>
+          <div><span style={{ color: "#ef4444", fontWeight: 700 }}>●</span> Strategy short</div>
+          <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>●</span> Strategy exit</div>
+          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>●</span> Blocked long / skip</div>
+          <div><span style={{ color: "#64748b", fontWeight: 700 }}>●</span> Blocked short / skip</div>
+          <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
+          <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
+          <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
@@ -870,7 +926,6 @@ function sanitizeCandles(data: any[]): Candle[] {
         c.close > 0
     );
 }
-
 function sanitizeLinePoints(points: any[]): LinePoint[] {
   return (points || [])
     .filter((p) => p && p.time != null && p.value != null)
@@ -927,11 +982,12 @@ function buildStableLongSignals(
   entryBand: number,
   _peakLookback: number,
   minKinkMove: number
-): MarkerPoint[] {
+): SignalBuildResult {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
 
   let inZone = false;
   let candidateIndex = -1;
@@ -947,6 +1003,10 @@ function buildStableLongSignals(
       candidateIndex = i;
       candidateValue = d;
       fired = false;
+
+      const t = dist[i].time;
+      const c = candleMap.get(t);
+      if (c) candidateMarkers.push({ time: t, value: c.low });
       continue;
     }
 
@@ -963,6 +1023,10 @@ function buildStableLongSignals(
     if (d <= candidateValue) {
       candidateValue = d;
       candidateIndex = i;
+
+      const t = dist[i].time;
+      const c = candleMap.get(t);
+      if (c) candidateMarkers.push({ time: t, value: c.low });
     }
 
     const move = d - candidateValue;
@@ -977,19 +1041,24 @@ function buildStableLongSignals(
     }
   }
 
-  return dedupeMarkers(markers);
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
 }
+
 function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
   entryBand: number,
   _peakLookback: number,
   minKinkMove: number
-): MarkerPoint[] {
+): SignalBuildResult {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
 
   let inZone = false;
   let candidateIndex = -1;
@@ -1005,6 +1074,10 @@ function buildStableShortSignals(
       candidateIndex = i;
       candidateValue = d;
       fired = false;
+
+      const t = dist[i].time;
+      const c = candleMap.get(t);
+      if (c) candidateMarkers.push({ time: t, value: c.high });
       continue;
     }
 
@@ -1021,6 +1094,10 @@ function buildStableShortSignals(
     if (d >= candidateValue) {
       candidateValue = d;
       candidateIndex = i;
+
+      const t = dist[i].time;
+      const c = candleMap.get(t);
+      if (c) candidateMarkers.push({ time: t, value: c.high });
     }
 
     const move = candidateValue - d;
@@ -1035,7 +1112,10 @@ function buildStableShortSignals(
     }
   }
 
-  return dedupeMarkers(markers);
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
 }
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
