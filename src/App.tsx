@@ -430,7 +430,7 @@ export default function App() {
         const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
 
         candleSeries.setData(candles as any);
-        createSeriesMarkers(candleSeries, strategyMarkers as any);
+        // createSeriesMarkers(candleSeries, strategyMarkers as any);
 
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
@@ -494,7 +494,7 @@ export default function App() {
     return () => {
       cancelled = true;
       try {
-        createSeriesMarkers(candleSeries, []);
+        // createSeriesMarkers(candleSeries, []);
 
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
