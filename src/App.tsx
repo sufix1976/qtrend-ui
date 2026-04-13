@@ -989,9 +989,6 @@ function buildStableLongSignals(
       candidateIndex = i;
       candidateValue = d;
       fired = false;
-      const t = dist[i].time;
-      const c = candleMap.get(t);
-      if (c) candidateMarkers.push({ time: t, value: c.low, label: "KL", color: "#22c55e" });
       continue;
     }
 
@@ -1008,9 +1005,6 @@ function buildStableLongSignals(
     if (d <= candidateValue) {
       candidateValue = d;
       candidateIndex = i;
-      const t = dist[i].time;
-      const c = candleMap.get(t);
-      if (c) candidateMarkers.push({ time: t, value: c.low, label: "KL", color: "#22c55e" });
     }
 
     const move = d - candidateValue;
@@ -1018,8 +1012,20 @@ function buildStableLongSignals(
     if (!fired && move >= minKinkMove && candidateIndex >= 0) {
       const t = dist[candidateIndex].time;
       const c = candleMap.get(t);
+
       if (c) {
-        markers.push({ time: t, value: c.low });
+        candidateMarkers.push({
+          time: t,
+          value: c.low,
+          text: "KL",
+          color: "#22c55e",
+        });
+
+        markers.push({
+          time: t,
+          value: c.low,
+        });
+
         fired = true;
       }
     }
@@ -1030,6 +1036,7 @@ function buildStableLongSignals(
     candidates: dedupeMarkers(candidateMarkers),
   };
 }
+
 function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
@@ -1057,9 +1064,6 @@ function buildStableShortSignals(
       candidateIndex = i;
       candidateValue = d;
       fired = false;
-      const t = dist[i].time;
-      const c = candleMap.get(t);
-      if (c) candidateMarkers.push({ time: t, value: c.high, label: "KS", color: "#ef4444" });
       continue;
     }
 
@@ -1076,9 +1080,6 @@ function buildStableShortSignals(
     if (d >= candidateValue) {
       candidateValue = d;
       candidateIndex = i;
-      const t = dist[i].time;
-      const c = candleMap.get(t);
-      if (c) candidateMarkers.push({ time: t, value: c.high, label: "KS", color: "#ef4444" });
     }
 
     const move = candidateValue - d;
@@ -1086,8 +1087,20 @@ function buildStableShortSignals(
     if (!fired && move >= minKinkMove && candidateIndex >= 0) {
       const t = dist[candidateIndex].time;
       const c = candleMap.get(t);
+
       if (c) {
-        markers.push({ time: t, value: c.high });
+        candidateMarkers.push({
+          time: t,
+          value: c.high,
+          text: "KS",
+          color: "#ef4444",
+        });
+
+        markers.push({
+          time: t,
+          value: c.high,
+        });
+
         fired = true;
       }
     }
