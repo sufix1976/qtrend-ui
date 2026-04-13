@@ -757,7 +757,10 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
 
     console.log("[broker] URL:", url.toString());
 
-    const res = await fetch(url.toString(), { cache: "no-store" });
+    const res = await fetch(
+  "https://qtrend-trading-engine.onrender.com/cap/ping?_ts=" + Date.now(),
+  { cache: "no-store" }
+);
     if (!res.ok) {
       console.log("[broker] /cap/positions HTTP error:", res.status);
       return null;
