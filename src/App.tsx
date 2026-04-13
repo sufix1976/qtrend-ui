@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   type IChartApi,
@@ -416,24 +417,28 @@ export default function App() {
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
-        // const strategyMarkers = buildCandleMarkers(
-//   strategyLongPoints,
-//   strategyShortPoints,
-//   sim.longExitPoints,
-//   sim.shortExitPoints
-// );
-        const alignedDist = alignLineToCandles(candles, dist);
-        const zeroLine = buildFlatLineFromCandles(candles, 0);
-        const upperBand = buildFlatLineFromCandles(candles, entryBand);
-        const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
+        const strategyMarkers = buildSafeEntryMarkers(
+  strategyLongPoints,
+  strategyShortPoints,
+  candles
+);
 
-        candleSeries.setData(candles as any);
-        // createSeriesMarkers(candleSeries, strategyMarkers as any);
+const alignedDist = alignLineToCandles(candles, dist);
+const zeroLine = buildFlatLineFromCandles(candles, 0);
+const upperBand = buildFlatLineFromCandles(candles, entryBand);
+const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
+
+candleSeries.setData(candles as any);
+createSeriesMarkers(candleSeries, strategyMarkers as any);
 
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
-        
+        blockedLongSeries.setData(real.blockedLongPoints as any);
+        blockedShortSeries.setData(real.blockedShortPoints as any);
+        realBuySeries.setData(real.realBuyPoints as any);
+        realSellSeries.setData(real.realSellPoints as any);
+        realCloseSeries.setData(real.realClosePoints as any);
 
         distSeries.setData(alignedDist as any);
         zeroSeries.setData(zeroLine as any);
@@ -492,7 +497,7 @@ export default function App() {
     return () => {
       cancelled = true;
       try {
-        // createSeriesMarkers(candleSeries, []);
+        createSeriesMarkers(candleSeries, []);
 
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(sma10Series);
@@ -934,45 +939,37 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
   return out;
 }
-/*
-function buildCandleMarkers(
+
+function buildSafeEntryMarkers(
   longPoints: MarkerPoint[],
   shortPoints: MarkerPoint[],
-  longExitPoints: MarkerPoint[],
-  shortExitPoints: MarkerPoint[]
+  candles: Candle[]
 ) {
-  return [
-    ...longPoints.map((p) => ({
+  const candleTimes = new Set(candles.map((c) => c.time));
+
+  const longMarkers = longPoints
+    .filter((p) => Number.isFinite(p.time) && candleTimes.has(p.time))
+    .map((p) => ({
       time: p.time,
       position: "belowBar" as const,
       color: "#22c55e",
       shape: "circle" as const,
       text: "L",
-    })),
-    ...shortPoints.map((p) => ({
+    }));
+
+  const shortMarkers = shortPoints
+    .filter((p) => Number.isFinite(p.time) && candleTimes.has(p.time))
+    .map((p) => ({
       time: p.time,
       position: "aboveBar" as const,
       color: "#ef4444",
       shape: "circle" as const,
       text: "S",
-    })),
-    ...longExitPoints.map((p) => ({
-      time: p.time,
-      position: "belowBar" as const,
-      color: "#f59e0b",
-      shape: "circle" as const,
-      text: "X",
-    })),
-    ...shortExitPoints.map((p) => ({
-      time: p.time,
-      position: "aboveBar" as const,
-      color: "#f59e0b",
-      shape: "circle" as const,
-      text: "X",
-    })),
-  ].sort((a, b) => a.time - b.time);
+    }));
+
+  return [...longMarkers, ...shortMarkers].sort((a, b) => a.time - b.time);
 }
-*/
+
 function simulateStrategy(
   candles: Candle[],
   dist: LinePoint[],
