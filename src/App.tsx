@@ -526,6 +526,7 @@ export default function App() {
         const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
 
         candleSeries.setData(candles as any);
+
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
@@ -547,6 +548,7 @@ export default function App() {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
+
         blockedLongSeries.setData(blockedLongProjected as any);
         blockedShortSeries.setData(blockedShortProjected as any);
         realBuySeries.setData(realBuyProjected as any);
@@ -576,6 +578,7 @@ export default function App() {
         setShortSignalCount(strategyShortPoints.length);
         setLongExitCount(sim.longExitPoints.length);
         setShortExitCount(sim.shortExitPoints.length);
+
         setTradeCount(sim.tradeCount);
         setWinCount(sim.winCount);
         setLossCount(sim.lossCount);
@@ -589,7 +592,9 @@ export default function App() {
               ? Number.POSITIVE_INFINITY
               : null
         );
+
         setLastSignalText(sim.lastSignalText);
+
         setBlockedLongCount(real.blockedLongPoints.length);
         setBlockedShortCount(real.blockedShortPoints.length);
         setRealBuyCount(real.realBuyPoints.length);
@@ -597,6 +602,7 @@ export default function App() {
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
         setBrokerState(liveBrokerState ?? real.brokerState);
+
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
@@ -625,6 +631,7 @@ export default function App() {
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
+
         distChart.removeSeries(distSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
@@ -772,11 +779,13 @@ export default function App() {
         <div>Short signals: {shortSignalCount}</div>
         <div>Long exits: {longExitCount}</div>
         <div>Short exits: {shortExitCount}</div>
+
         <div>Blocked longs: {blockedLongCount}</div>
         <div>Blocked shorts: {blockedShortCount}</div>
         <div>Real buys: {realBuyCount}</div>
         <div>Real sells: {realSellCount}</div>
         <div>Real closes: {realCloseCount}</div>
+
         <div>Trades: {tradeCount}</div>
         <div>Wins / Losses: {winCount} / {lossCount}</div>
         <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
@@ -790,6 +799,7 @@ export default function App() {
               ? profitFactor.toFixed(2)
               : "∞"}
         </div>
+
         <div>Last signal: {lastSignalText}</div>
         <div>Last real trade: {lastRealTradeText}</div>
 
@@ -1279,7 +1289,6 @@ function simulateStrategy(
   let grossLoss = 0;
 
   let currentEntryPtr = 0;
-  let prevDistValue: number | null = null;
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -1332,34 +1341,10 @@ function simulateStrategy(
           entryPrice: realisticEntryPrice(evt.side, candle),
         };
         position = evt.side;
-        prevDistValue = null;
       }
 
       currentEntryPtr += 1;
     }
-
-    const p = dist[i];
-    const candle = candleMap.get(p.time);
-    if (!candle) {
-      prevDistValue = p.value;
-      continue;
-    }
-
-    if (position === "short" && prevDistValue !== null && p.value > prevDistValue) {
-      shortExitPoints.push({ time: p.time, value: candle.high });
-      closeTrade(candle, "short");
-      prevDistValue = p.value;
-      continue;
-    }
-
-    if (position === "long" && prevDistValue !== null && p.value < prevDistValue) {
-      longExitPoints.push({ time: p.time, value: candle.low });
-      closeTrade(candle, "long");
-      prevDistValue = p.value;
-      continue;
-    }
-
-    prevDistValue = p.value;
   }
 
   const netPnL = grossProfit - grossLoss;
