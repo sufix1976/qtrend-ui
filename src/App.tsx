@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
-  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   type IChartApi,
@@ -417,13 +416,12 @@ export default function App() {
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
-        const strategyMarkers = buildCandleMarkers(
-          strategyLongPoints,
-          strategyShortPoints,
-          sim.longExitPoints,
-          sim.shortExitPoints
-        );
-
+        // const strategyMarkers = buildCandleMarkers(
+//   strategyLongPoints,
+//   strategyShortPoints,
+//   sim.longExitPoints,
+//   sim.shortExitPoints
+// );
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
         const upperBand = buildFlatLineFromCandles(candles, entryBand);
