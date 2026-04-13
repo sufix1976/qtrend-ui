@@ -748,8 +748,11 @@ async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
 
 async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | null> {
   try {
-    const url = `${BACKEND_BASE}/ui/broker-state?symbol=${symbol}&_ts=${Date.now()}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(
+      `${BACKEND_BASE}/ui/broker-state?symbol=${symbol}&_ts=${Date.now()}`,
+      { cache: "no-store" }
+    );
+
     if (!res.ok) return null;
 
     const txt = await res.text();
