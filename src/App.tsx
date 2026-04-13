@@ -108,7 +108,6 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.8,
 };
 
-
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 4,
   ETHUSD: 4,
@@ -221,6 +220,16 @@ export default function App() {
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
   const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
   const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
+
+  const [entryBandUI, setEntryBandUI] = useState(entryBand);
+  const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
+  const [peakUI, setPeakUI] = useState(peakLookback);
+
+  useEffect(() => {
+    setEntryBandUI(entryBand);
+    setMinKinkUI(minKinkMove);
+    setPeakUI(peakLookback);
+  }, [symbol, entryBand, minKinkMove, peakLookback]);
 
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
@@ -483,17 +492,17 @@ export default function App() {
         const longData = buildStableLongSignals(
           candles,
           dist,
-          entryBand,
-          peakLookback,
-          minKinkMove
+          entryBandUI,
+          peakUI,
+          minKinkUI
         );
 
         const shortData = buildStableShortSignals(
           candles,
           dist,
-          entryBand,
-          peakLookback,
-          minKinkMove
+          entryBandUI,
+          peakUI,
+          minKinkUI
         );
 
         const strategyLongPoints = longData.entries;
@@ -502,11 +511,9 @@ export default function App() {
         const sim = simulateStrategy(
           candles,
           dist,
-          sma100,
           strategyLongPoints,
           strategyShortPoints,
-          entryBand,
-          minKinkMove,
+          entryBandUI,
           assumedSpread,
           assumedSlippage
         );
@@ -515,11 +522,10 @@ export default function App() {
 
         const alignedDist = alignLineToCandles(candles, dist);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
-        const upperBand = buildFlatLineFromCandles(candles, entryBand);
-        const lowerBand = buildFlatLineFromCandles(candles, -entryBand);
+        const upperBand = buildFlatLineFromCandles(candles, entryBandUI);
+        const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
 
         candleSeries.setData(candles as any);
-
         sma10Series.setData(sma10 as any);
         sma100Series.setData(sma100 as any);
 
@@ -541,7 +547,6 @@ export default function App() {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
-
         blockedLongSeries.setData(blockedLongProjected as any);
         blockedShortSeries.setData(blockedShortProjected as any);
         realBuySeries.setData(realBuyProjected as any);
@@ -571,7 +576,6 @@ export default function App() {
         setShortSignalCount(strategyShortPoints.length);
         setLongExitCount(sim.longExitPoints.length);
         setShortExitCount(sim.shortExitPoints.length);
-
         setTradeCount(sim.tradeCount);
         setWinCount(sim.winCount);
         setLossCount(sim.lossCount);
@@ -585,9 +589,7 @@ export default function App() {
               ? Number.POSITIVE_INFINITY
               : null
         );
-
         setLastSignalText(sim.lastSignalText);
-
         setBlockedLongCount(real.blockedLongPoints.length);
         setBlockedShortCount(real.blockedShortPoints.length);
         setRealBuyCount(real.realBuyPoints.length);
@@ -595,7 +597,6 @@ export default function App() {
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
         setBrokerState(liveBrokerState ?? real.brokerState);
-
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
@@ -624,14 +625,13 @@ export default function App() {
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
-
         distChart.removeSeries(distSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, interval, entryBand, peakLookback, minKinkMove, assumedSpread, assumedSlippage]);
+  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -645,7 +645,7 @@ export default function App() {
         position: "relative",
       }}
     >
-            <div
+      <div
         style={{
           position: "absolute",
           top: 10,
@@ -661,6 +661,8 @@ export default function App() {
           lineHeight: 1.35,
           minWidth: 360,
           maxWidth: 430,
+          maxHeight: "92vh",
+          overflowY: "auto",
         }}
       >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -723,23 +725,58 @@ export default function App() {
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
-        <div>Entry band: {entryBand}</div>
-        <div>Peak lookback: {peakLookback}</div>
-        <div>Min kink: {minKinkMove}</div>
+        <div>Entry band: {entryBandUI}</div>
+        <div>Peak lookback: {peakUI}</div>
+        <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter</div>
+
+          <div>Entry Band: {entryBandUI}</div>
+          <input
+            type="range"
+            min={Math.max(0, entryBand * 0.5)}
+            max={entryBand * 2}
+            step={entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
+            value={entryBandUI}
+            onChange={(e) => setEntryBandUI(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+
+          <div style={{ marginTop: 6 }}>Min Kink: {minKinkUI}</div>
+          <input
+            type="range"
+            min={0}
+            max={Math.max(minKinkMove * 3, minKinkMove + 1)}
+            step={minKinkMove < 1 ? 0.001 : 0.1}
+            value={minKinkUI}
+            onChange={(e) => setMinKinkUI(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+
+          <div style={{ marginTop: 6 }}>Peak Lookback: {peakUI}</div>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            step={1}
+            value={peakUI}
+            onChange={(e) => setPeakUI(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+        </div>
 
         <div>Long signals: {longSignalCount}</div>
         <div>Short signals: {shortSignalCount}</div>
         <div>Long exits: {longExitCount}</div>
         <div>Short exits: {shortExitCount}</div>
-
         <div>Blocked longs: {blockedLongCount}</div>
         <div>Blocked shorts: {blockedShortCount}</div>
         <div>Real buys: {realBuyCount}</div>
         <div>Real sells: {realSellCount}</div>
         <div>Real closes: {realCloseCount}</div>
-
         <div>Trades: {tradeCount}</div>
         <div>Wins / Losses: {winCount} / {lossCount}</div>
         <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
@@ -753,7 +790,6 @@ export default function App() {
               ? profitFactor.toFixed(2)
               : "∞"}
         </div>
-
         <div>Last signal: {lastSignalText}</div>
         <div>Last real trade: {lastRealTradeText}</div>
 
@@ -1200,46 +1236,12 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
     })) as any;
 }
 
-function buildTrendMap(
-  sma100: LinePoint[],
-  lookback = 4
-): Map<number, "up" | "down" | "flat"> {
-  const trendMap = new Map<number, "up" | "down" | "flat">();
-
-  for (let i = 0; i < sma100.length; i++) {
-    if (i < lookback) {
-      trendMap.set(sma100[i].time, "flat");
-      continue;
-    }
-
-    const now = sma100[i].value;
-    const prev = sma100[i - lookback].value;
-
-    if (!Number.isFinite(now) || !Number.isFinite(prev)) {
-      trendMap.set(sma100[i].time, "flat");
-      continue;
-    }
-
-    if (now > prev) trendMap.set(sma100[i].time, "up");
-    else if (now < prev) trendMap.set(sma100[i].time, "down");
-    else trendMap.set(sma100[i].time, "flat");
-  }
-
-  return trendMap;
-}
-
-function getCountertrendKinkThreshold(minKinkMove: number): number {
-  return Math.max(minKinkMove * 0.5, 0.000001);
-}
-
 function simulateStrategy(
   candles: Candle[],
   dist: LinePoint[],
-  sma100: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
-  entryBand: number,
-  minKinkMove: number,
+  _entryBand: number,
   assumedSpread: number,
   assumedSlippage: number
 ) {
@@ -1248,9 +1250,6 @@ function simulateStrategy(
 
   const distMapIndex = new Map<number, number>();
   dist.forEach((p, i) => distMapIndex.set(p.time, i));
-
-  const trendMap = buildTrendMap(sma100);
-  const countertrendKinkThreshold = getCountertrendKinkThreshold(minKinkMove);
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
@@ -1282,12 +1281,6 @@ function simulateStrategy(
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
 
-  let longRetestLevel: number | null = null;
-  let shortRetestLevel: number | null = null;
-
-  let countertrendShortLow: number | null = null;
-  let countertrendLongHigh: number | null = null;
-
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
   const realisticEntryPrice = (side: "long" | "short", candle: Candle) =>
@@ -1317,150 +1310,53 @@ function simulateStrategy(
 
     openTrade = null;
     position = "flat";
-
-    longRetestLevel = null;
-    shortRetestLevel = null;
-    countertrendShortLow = null;
-    countertrendLongHigh = null;
   };
 
   for (let i = 0; i < dist.length; i++) {
-    const p = dist[i];
-    const candle = candleMap.get(p.time);
-    if (!candle) continue;
-
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
-      const event = entryEvents[currentEntryPtr];
+      const evt = entryEvents[currentEntryPtr];
+      const candle = candleMap.get(evt.time);
 
-      if (event.side === "long") {
-        if (position === "short" && openTrade) {
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
+      if (candle) {
+        if (openTrade) {
+          if (openTrade.side === "long") {
+            longExitPoints.push({ time: candle.time, value: candle.low });
+          } else {
+            shortExitPoints.push({ time: candle.time, value: candle.high });
+          }
+          closeTrade(candle, openTrade.side);
         }
 
-        if (position === "flat") {
-          openTrade = {
-            side: "long",
-            entryPrice: realisticEntryPrice("long", candle),
-          };
-          position = "long";
-
-          longRetestLevel = null;
-          shortRetestLevel = null;
-          countertrendShortLow = null;
-          countertrendLongHigh = null;
-        }
-      } else {
-        if (position === "long" && openTrade) {
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-        }
-
-        if (position === "flat") {
-          openTrade = {
-            side: "short",
-            entryPrice: realisticEntryPrice("short", candle),
-          };
-          position = "short";
-
-          shortRetestLevel = null;
-          longRetestLevel = null;
-          countertrendShortLow = null;
-          countertrendLongHigh = null;
-        }
+        openTrade = {
+          side: evt.side,
+          entryPrice: realisticEntryPrice(evt.side, candle),
+        };
+        position = evt.side;
+        prevDistValue = null;
       }
 
       currentEntryPtr += 1;
     }
 
-    const currentTrend = trendMap.get(p.time) ?? "flat";
-
-    if (position === "short" && openTrade && currentTrend === "up") {
-      if (p.value > entryBand) {
-        if (countertrendShortLow === null || p.value < countertrendShortLow) {
-          countertrendShortLow = p.value;
-        }
-
-        const moveUpFromLow =
-          countertrendShortLow !== null ? p.value - countertrendShortLow : 0;
-
-        if (
-          countertrendShortLow !== null &&
-          moveUpFromLow >= countertrendKinkThreshold
-        ) {
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
-          prevDistValue = p.value;
-          continue;
-        }
-      } else {
-        countertrendShortLow = null;
-      }
-    } else {
-      countertrendShortLow = null;
+    const p = dist[i];
+    const candle = candleMap.get(p.time);
+    if (!candle) {
+      prevDistValue = p.value;
+      continue;
     }
 
-    if (position === "long" && openTrade && currentTrend === "down") {
-      if (p.value < -entryBand) {
-        if (countertrendLongHigh === null || p.value > countertrendLongHigh) {
-          countertrendLongHigh = p.value;
-        }
-
-        const moveDownFromHigh =
-          countertrendLongHigh !== null ? countertrendLongHigh - p.value : 0;
-
-        if (
-          countertrendLongHigh !== null &&
-          moveDownFromHigh >= countertrendKinkThreshold
-        ) {
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-          prevDistValue = p.value;
-          continue;
-        }
-      } else {
-        countertrendLongHigh = null;
-      }
-    } else {
-      countertrendLongHigh = null;
+    if (position === "short" && prevDistValue !== null && p.value > prevDistValue) {
+      shortExitPoints.push({ time: p.time, value: candle.high });
+      closeTrade(candle, "short");
+      prevDistValue = p.value;
+      continue;
     }
 
-    if (position === "long" && openTrade && prevDistValue !== null) {
-      if (p.value > -entryBand && longRetestLevel === null) {
-        longRetestLevel = -entryBand;
-      }
-
-      if (p.value > 0) {
-        longRetestLevel = 0;
-      }
-
-      if (
-        longRetestLevel !== null &&
-        prevDistValue > longRetestLevel &&
-        p.value <= longRetestLevel
-      ) {
-        longExitPoints.push({ time: candle.time, value: candle.low });
-        closeTrade(candle, "long");
-      }
-    }
-
-    if (position === "short" && openTrade && prevDistValue !== null) {
-      if (p.value < entryBand && shortRetestLevel === null) {
-        shortRetestLevel = entryBand;
-      }
-
-      if (p.value < 0) {
-        shortRetestLevel = 0;
-      }
-
-      if (
-        shortRetestLevel !== null &&
-        prevDistValue < shortRetestLevel &&
-        p.value >= shortRetestLevel
-      ) {
-        shortExitPoints.push({ time: candle.time, value: candle.high });
-        closeTrade(candle, "short");
-      }
+    if (position === "long" && prevDistValue !== null && p.value < prevDistValue) {
+      longExitPoints.push({ time: p.time, value: candle.low });
+      closeTrade(candle, "long");
+      prevDistValue = p.value;
+      continue;
     }
 
     prevDistValue = p.value;
