@@ -66,10 +66,21 @@ type AggTradesResponse = {
   rows: AggTradeRow[];
 };
 
+type SymbolPreset = {
+  entryBand: number;
+  minKink: number;
+  peakLookback: number;
+  smaFast: number;
+  smaSlow: number;
+};
+
+type PresetMap = Record<string, SymbolPreset>;
+
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 10000;
 const AGG_LIMIT = 200;
 const PRICE_SCALE_WIDTH = 90;
+const PRESET_STORAGE_KEY = "qtrend_symbol_presets_v1";
 
 const INTERVALS = ["5m", "15m", "30m"] as const;
 type IntervalOption = typeof INTERVALS[number];
@@ -176,6 +187,21 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.02,
 };
 
+function readPresets(): PresetMap {
+  try {
+    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePresets(presets: PresetMap) {
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+}
+
 export default function App() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
@@ -215,6 +241,8 @@ export default function App() {
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
   const [netPnL, setNetPnL] = useState(0);
 
+  const [presetMessage, setPresetMessage] = useState("");
+
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
@@ -229,9 +257,24 @@ export default function App() {
   const [smaSlowUI, setSmaSlowUI] = useState(100);
 
   useEffect(() => {
-    setEntryBandUI(entryBand);
-    setMinKinkUI(minKinkMove);
-    setPeakUI(peakLookback);
+    const presets = readPresets();
+    const preset = presets[symbol];
+
+    if (preset) {
+      setEntryBandUI(preset.entryBand);
+      setMinKinkUI(preset.minKink);
+      setPeakUI(preset.peakLookback);
+      setSmaFastUI(preset.smaFast);
+      setSmaSlowUI(preset.smaSlow);
+      setPresetMessage(`Preset geladen für ${symbol}`);
+    } else {
+      setEntryBandUI(entryBand);
+      setMinKinkUI(minKinkMove);
+      setPeakUI(peakLookback);
+      setSmaFastUI(10);
+      setSmaSlowUI(100);
+      setPresetMessage(`Default geladen für ${symbol}`);
+    }
   }, [symbol, entryBand, minKinkMove, peakLookback]);
 
   useEffect(() => {
@@ -239,6 +282,38 @@ export default function App() {
       setSmaSlowUI(Math.max(smaFastUI + 1, 100));
     }
   }, [smaFastUI, smaSlowUI]);
+
+  useEffect(() => {
+    if (!presetMessage) return;
+    const t = setTimeout(() => setPresetMessage(""), 1800);
+    return () => clearTimeout(t);
+  }, [presetMessage]);
+
+  function savePreset() {
+    const presets = readPresets();
+    presets[symbol] = {
+      entryBand: entryBandUI,
+      minKink: minKinkUI,
+      peakLookback: peakUI,
+      smaFast: smaFastUI,
+      smaSlow: smaSlowUI,
+    };
+    writePresets(presets);
+    setPresetMessage(`Preset gespeichert für ${symbol}`);
+  }
+
+  function resetPreset() {
+    const presets = readPresets();
+    delete presets[symbol];
+    writePresets(presets);
+
+    setEntryBandUI(entryBand);
+    setMinKinkUI(minKinkMove);
+    setPeakUI(peakLookback);
+    setSmaFastUI(10);
+    setSmaSlowUI(100);
+    setPresetMessage(`Preset gelöscht für ${symbol}`);
+  }
 
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
@@ -746,7 +821,8 @@ export default function App() {
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-                <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter</div>
 
           <div>Entry Band: {entryBandUI}</div>
@@ -819,6 +895,46 @@ export default function App() {
           <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
             Aktiv: SMA {smaFastUI} / {smaSlowUI}
           </div>
+        </div>
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={savePreset}
+              style={{
+                flex: 1,
+                background: "#1d4ed8",
+                color: "#fff",
+                border: "1px solid #3b82f6",
+                borderRadius: 6,
+                padding: "6px 8px",
+                cursor: "pointer",
+              }}
+            >
+              💾 Save Preset
+            </button>
+
+            <button
+              onClick={resetPreset}
+              style={{
+                flex: 1,
+                background: "#334155",
+                color: "#fff",
+                border: "1px solid #475569",
+                borderRadius: 6,
+                padding: "6px 8px",
+                cursor: "pointer",
+              }}
+            >
+              ↺ Reset Preset
+            </button>
+          </div>
+
+          {presetMessage ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#93c5fd" }}>
+              {presetMessage}
+            </div>
+          ) : null}
         </div>
 
         <div>Long signals: {longSignalCount}</div>
@@ -1057,6 +1173,7 @@ function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLin
 function buildFlatLineFromCandles(candles: Candle[], value: number): LinePoint[] {
   return candles.map((c) => ({ time: c.time, value }));
 }
+
 function buildStableLongSignals(
   candles: Candle[],
   dist: LinePoint[],
