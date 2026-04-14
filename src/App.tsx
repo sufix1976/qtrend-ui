@@ -225,11 +225,20 @@ export default function App() {
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
+  const [smaFastUI, setSmaFastUI] = useState(10);
+  const [smaSlowUI, setSmaSlowUI] = useState(100);
+
   useEffect(() => {
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setPeakUI(peakLookback);
   }, [symbol, entryBand, minKinkMove, peakLookback]);
+
+  useEffect(() => {
+    if (smaFastUI >= smaSlowUI) {
+      setSmaSlowUI(Math.max(smaFastUI + 1, 100));
+    }
+  }, [smaFastUI, smaSlowUI]);
 
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
@@ -323,14 +332,14 @@ export default function App() {
       wickDownColor: "#ef4444",
     });
 
-    const sma10Series = priceChart.addSeries(LineSeries, {
+    const smaFastSeries = priceChart.addSeries(LineSeries, {
       color: "#ffff00",
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
     });
 
-    const sma100Series = priceChart.addSeries(LineSeries, {
+    const smaSlowSeries = priceChart.addSeries(LineSeries, {
       color: "#ffffff",
       lineWidth: 2,
       priceLineVisible: false,
@@ -485,9 +494,9 @@ export default function App() {
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
 
-        const sma10 = sanitizeLinePoints(calcSMA(candles, 10));
-        const sma100 = sanitizeLinePoints(calcSMA(candles, 100));
-        const dist = sanitizeLinePoints(calcDistance(sma10, sma100));
+        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
+        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+        const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
         const longData = buildStableLongSignals(
           candles,
@@ -527,8 +536,8 @@ export default function App() {
 
         candleSeries.setData(candles as any);
 
-        sma10Series.setData(sma10 as any);
-        sma100Series.setData(sma100 as any);
+        smaFastSeries.setData(smaFast as any);
+        smaSlowSeries.setData(smaSlow as any);
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
@@ -618,8 +627,8 @@ export default function App() {
       cancelled = true;
       try {
         priceChart.removeSeries(candleSeries);
-        priceChart.removeSeries(sma10Series);
-        priceChart.removeSeries(sma100Series);
+        priceChart.removeSeries(smaFastSeries);
+        priceChart.removeSeries(smaSlowSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(strategyLongSeries);
@@ -638,7 +647,7 @@ export default function App() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, assumedSpread, assumedSlippage]);
+  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -737,9 +746,8 @@ export default function App() {
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-
-        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙ Parameter</div>
+                <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter</div>
 
           <div>Entry Band: {entryBandUI}</div>
           <input
@@ -773,6 +781,44 @@ export default function App() {
             onChange={(e) => setPeakUI(Number(e.target.value))}
             style={{ width: "100%" }}
           />
+        </div>
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <label style={{ flex: 1 }}>
+              Fast
+              <select
+                value={smaFastUI}
+                onChange={(e) => setSmaFastUI(Number(e.target.value))}
+                style={{ width: "100%" }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={40}>40</option>
+              </select>
+            </label>
+
+            <label style={{ flex: 1 }}>
+              Slow
+              <select
+                value={smaSlowUI}
+                onChange={(e) => setSmaSlowUI(Number(e.target.value))}
+                style={{ width: "100%" }}
+              >
+                <option value={100}>100</option>
+                <option value={120}>120</option>
+                <option value={150}>150</option>
+                <option value={200}>200</option>
+              </select>
+            </label>
+          </div>
+
+          <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
+            Aktiv: SMA {smaFastUI} / {smaSlowUI}
+          </div>
         </div>
 
         <div>Long signals: {longSignalCount}</div>
@@ -973,6 +1019,7 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
 
 function calcSMA(data: Candle[], len: number): LinePoint[] {
   const out: LinePoint[] = [];
+  if (len <= 0) return out;
   for (let i = len - 1; i < data.length; i++) {
     let sum = 0;
     for (let j = 0; j < len; j++) sum += data[i - j].close;
@@ -1010,7 +1057,6 @@ function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLin
 function buildFlatLineFromCandles(candles: Candle[], value: number): LinePoint[] {
   return candles.map((c) => ({ time: c.time, value }));
 }
-
 function buildStableLongSignals(
   candles: Candle[],
   dist: LinePoint[],
