@@ -588,7 +588,7 @@ export default function App() {
           close: p.value,
         }));
 
-        const distSma500 = sanitizeLinePoints(calcSMA(distAsCandles, 500));
+        const distSma300 = sanitizeLinePoints(calcSMA(distAsCandles, 300));
 
         const longData = buildStableLongSignals(
           candles,
