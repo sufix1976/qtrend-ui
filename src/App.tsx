@@ -534,7 +534,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    const distSma500Series = distChart.addSeries(LineSeries, {
+    const distSma300Series = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
       lineWidth: 2,
       priceLineVisible: false,
@@ -622,7 +622,7 @@ export default function App() {
         const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(candles, dist);
-        const alignedDistSma500 = alignLineToCandles(candles, distSma500);
+        const alignedDistSma300 = alignLineToCandles(candles, distSma300);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
         const upperBand = buildFlatLineFromCandles(candles, entryBandUI);
         const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
@@ -663,7 +663,7 @@ export default function App() {
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
-        distSma500Series.setData(alignedDistSma500 as any);
+        distSma300Series.setData(alignedDistSma300 as any);
         zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(upperBand as any);
         lowerBandSeries.setData(lowerBand as any);
@@ -736,7 +736,7 @@ export default function App() {
         priceChart.removeSeries(realCloseSeries);
 
         distChart.removeSeries(distSeries);
-        distChart.removeSeries(distSma500Series);
+        distChart.removeSeries(distSma300Series);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
@@ -999,7 +999,7 @@ export default function App() {
           <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
           <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
           <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
-          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Dist SMA500</div>
+          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Dist SMA300</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
