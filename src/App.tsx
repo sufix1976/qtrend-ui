@@ -583,6 +583,7 @@ export default function App() {
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         const chartDist = chartifyLinePoints(dist);
+        const chartDistSma500 = chartifyLinePoints(distSma500);
 
         const distAsCandles = dist.map((p) => ({
           time: p.time,
