@@ -77,7 +77,7 @@ type SymbolPreset = {
 type PresetMap = Record<string, SymbolPreset>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const LIMIT = 50000;
+const LIMIT = 10000;
 const AGG_LIMIT = 200;
 const PRICE_SCALE_WIDTH = 90;
 const PRESET_STORAGE_KEY = "qtrend_symbol_presets_v1";
@@ -202,40 +202,6 @@ function writePresets(presets: PresetMap) {
   localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
 }
 
-function getDefaultPreset(symbol: string): SymbolPreset {
-  return {
-    entryBand: ENTRY_BAND_BY_SYMBOL[symbol] ?? 100,
-    minKink: MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1,
-    peakLookback: PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3,
-    smaFast: 10,
-    smaSlow: 100,
-  };
-}
-
-function getEffectivePreset(symbol: string, savedPresets: PresetMap): SymbolPreset {
-  return savedPresets[symbol] ?? getDefaultPreset(symbol);
-}
-
-function buildPresetTableRows(savedPresets: PresetMap) {
-  return SYMBOLS.map((sym) => {
-    const saved = Boolean(savedPresets[sym]);
-    const preset = getEffectivePreset(sym, savedPresets);
-    return {
-      symbol: sym,
-      source: saved ? "saved" : "default",
-      ...preset,
-    };
-  });
-}
-
-function formatPresetNumber(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  if (Math.abs(value) >= 100) return value.toFixed(0);
-  if (Math.abs(value) >= 10) return value.toFixed(2);
-  if (Math.abs(value) >= 1) return value.toFixed(3);
-  return value.toFixed(4);
-}
-
 export default function App() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
@@ -276,7 +242,6 @@ export default function App() {
   const [netPnL, setNetPnL] = useState(0);
 
   const [presetMessage, setPresetMessage] = useState("");
-  const [presetRefreshKey, setPresetRefreshKey] = useState(0);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
@@ -290,11 +255,6 @@ export default function App() {
 
   const [smaFastUI, setSmaFastUI] = useState(10);
   const [smaSlowUI, setSmaSlowUI] = useState(100);
-
-  const presetTableRows = useMemo(() => {
-    const saved = readPresets();
-    return buildPresetTableRows(saved);
-  }, [presetRefreshKey]);
 
   useEffect(() => {
     const presets = readPresets();
@@ -339,7 +299,6 @@ export default function App() {
       smaSlow: smaSlowUI,
     };
     writePresets(presets);
-    setPresetRefreshKey((v) => v + 1);
     setPresetMessage(`Preset gespeichert für ${symbol}`);
   }
 
@@ -353,7 +312,6 @@ export default function App() {
     setPeakUI(peakLookback);
     setSmaFastUI(10);
     setSmaSlowUI(100);
-    setPresetRefreshKey((v) => v + 1);
     setPresetMessage(`Preset gelöscht für ${symbol}`);
   }
 
@@ -432,7 +390,8 @@ export default function App() {
       distChartRef.current = null;
     };
   }, []);
-    useEffect(() => {
+
+  useEffect(() => {
     if (!priceChartRef.current || !distChartRef.current) return;
 
     let cancelled = false;
@@ -575,6 +534,13 @@ export default function App() {
       lastValueVisible: false,
     });
 
+    const distSma500Series = distChart.addSeries(LineSeries, {
+      color: "rgba(180,180,180,0.75)",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
     const zeroSeries = distChart.addSeries(LineSeries, {
       color: "#94a3b8",
       lineWidth: 1,
@@ -614,6 +580,16 @@ export default function App() {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
+        const distAsCandles = dist.map((p) => ({
+          time: p.time,
+          open: p.value,
+          high: p.value,
+          low: p.value,
+          close: p.value,
+        }));
+
+        const distSma500 = sanitizeLinePoints(calcSMA(distAsCandles, 500));
+
         const longData = buildStableLongSignals(
           candles,
           dist,
@@ -646,6 +622,7 @@ export default function App() {
         const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(candles, dist);
+        const alignedDistSma500 = alignLineToCandles(candles, distSma500);
         const zeroLine = buildFlatLineFromCandles(candles, 0);
         const upperBand = buildFlatLineFromCandles(candles, entryBandUI);
         const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
@@ -686,6 +663,7 @@ export default function App() {
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
+        distSma500Series.setData(alignedDistSma500 as any);
         zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(upperBand as any);
         lowerBandSeries.setData(lowerBand as any);
@@ -758,6 +736,7 @@ export default function App() {
         priceChart.removeSeries(realCloseSeries);
 
         distChart.removeSeries(distSeries);
+        distChart.removeSeries(distSma500Series);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
@@ -792,7 +771,7 @@ export default function App() {
           fontSize: 13,
           lineHeight: 1.35,
           minWidth: 360,
-          maxWidth: 500,
+          maxWidth: 430,
           maxHeight: "92vh",
           overflowY: "auto",
         }}
@@ -899,7 +878,8 @@ export default function App() {
             style={{ width: "100%" }}
           />
         </div>
-                <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
 
           <div style={{ display: "flex", gap: 8 }}>
@@ -914,7 +894,6 @@ export default function App() {
                 <option value={20}>20</option>
                 <option value={30}>30</option>
                 <option value={40}>40</option>
-                <option value={45}>45</option>
               </select>
             </label>
 
@@ -935,6 +914,9 @@ export default function App() {
 
           <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
             Aktiv: SMA {smaFastUI} / {smaSlowUI}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
+            Dist SMA: 500
           </div>
         </div>
 
@@ -978,126 +960,33 @@ export default function App() {
           ) : null}
         </div>
 
-        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>📋 Preset Tabelle</div>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
-            Klick auf Symbol lädt das Instrument. "saved" = eigenes Preset gespeichert.
-          </div>
+        <div>Long signals: {longSignalCount}</div>
+        <div>Short signals: {shortSignalCount}</div>
+        <div>Long exits: {longExitCount}</div>
+        <div>Short exits: {shortExitCount}</div>
 
-          <div
-            style={{
-              border: "1px solid #334155",
-              borderRadius: 8,
-              overflow: "hidden",
-              background: "#0b1220",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 12,
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#172033" }}>
-                  <th style={{ textAlign: "left", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Symbol</th>
-                  <th style={{ textAlign: "right", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Band</th>
-                  <th style={{ textAlign: "right", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Kink</th>
-                  <th style={{ textAlign: "right", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Peak</th>
-                  <th style={{ textAlign: "right", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Fast</th>
-                  <th style={{ textAlign: "right", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Slow</th>
-                  <th style={{ textAlign: "center", padding: "6px 6px", borderBottom: "1px solid #334155" }}>Src</th>
-                </tr>
-              </thead>
-              <tbody>
-                {presetTableRows.map((row) => {
-                  const active = row.symbol === symbol;
-                  return (
-                    <tr
-                      key={row.symbol}
-                      style={{
-                        background: active ? "rgba(29, 78, 216, 0.18)" : "transparent",
-                      }}
-                    >
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b" }}>
-                        <button
-                          onClick={() => setSymbol(row.symbol)}
-                          style={{
-                            background: "transparent",
-                            color: active ? "#93c5fd" : "#e2e8f0",
-                            border: "none",
-                            padding: 0,
-                            cursor: "pointer",
-                            fontWeight: active ? 700 : 400,
-                          }}
-                        >
-                          {row.symbol}
-                        </button>
-                      </td>
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b", textAlign: "right" }}>
-                        {formatPresetNumber(row.entryBand)}
-                      </td>
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b", textAlign: "right" }}>
-                        {formatPresetNumber(row.minKink)}
-                      </td>
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b", textAlign: "right" }}>
-                        {row.peakLookback}
-                      </td>
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b", textAlign: "right" }}>
-                        {row.smaFast}
-                      </td>
-                      <td style={{ padding: "5px 6px", borderBottom: "1px solid #1e293b", textAlign: "right" }}>
-                        {row.smaSlow}
-                      </td>
-                      <td
-                        style={{
-                          padding: "5px 6px",
-                          borderBottom: "1px solid #1e293b",
-                          textAlign: "center",
-                          color: row.source === "saved" ? "#22c55e" : "#94a3b8",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {row.source === "saved" ? "S" : "D"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div>Blocked longs: {blockedLongCount}</div>
+        <div>Blocked shorts: {blockedShortCount}</div>
+        <div>Real buys: {realBuyCount}</div>
+        <div>Real sells: {realSellCount}</div>
+        <div>Real closes: {realCloseCount}</div>
+
+        <div>Trades: {tradeCount}</div>
+        <div>Wins / Losses: {winCount} / {lossCount}</div>
+        <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
+        <div>Gross Loss (net of costs): {grossLoss.toFixed(2)}</div>
+        <div>Net PnL: {netPnL.toFixed(2)}</div>
+        <div>
+          PF:{" "}
+          {profitFactor === null
+            ? "-"
+            : Number.isFinite(profitFactor)
+              ? profitFactor.toFixed(2)
+              : "∞"}
         </div>
 
-        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
-          <div>Long signals: {longSignalCount}</div>
-          <div>Short signals: {shortSignalCount}</div>
-          <div>Long exits: {longExitCount}</div>
-          <div>Short exits: {shortExitCount}</div>
-
-          <div>Blocked longs: {blockedLongCount}</div>
-          <div>Blocked shorts: {blockedShortCount}</div>
-          <div>Real buys: {realBuyCount}</div>
-          <div>Real sells: {realSellCount}</div>
-          <div>Real closes: {realCloseCount}</div>
-
-          <div>Trades: {tradeCount}</div>
-          <div>Wins / Losses: {winCount} / {lossCount}</div>
-          <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
-          <div>Gross Loss (net of costs): {grossLoss.toFixed(2)}</div>
-          <div>Net PnL: {netPnL.toFixed(2)}</div>
-          <div>
-            PF:{" "}
-            {profitFactor === null
-              ? "-"
-              : Number.isFinite(profitFactor)
-                ? profitFactor.toFixed(2)
-                : "∞"}
-          </div>
-
-          <div>Last signal: {lastSignalText}</div>
-          <div>Last real trade: {lastRealTradeText}</div>
-        </div>
+        <div>Last signal: {lastSignalText}</div>
+        <div>Last real trade: {lastRealTradeText}</div>
 
         <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8, fontSize: 12 }}>
           <div><span style={{ color: "#22c55e", fontWeight: 700 }}>KL</span> Kandidat long</div>
@@ -1110,8 +999,7 @@ export default function App() {
           <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
           <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
           <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
-          <div><span style={{ color: "#22c55e", fontWeight: 700 }}>S</span> Saved preset</div>
-          <div><span style={{ color: "#94a3b8", fontWeight: 700 }}>D</span> Default preset</div>
+          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Dist SMA500</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
@@ -1258,6 +1146,7 @@ function sanitizeCandles(data: any[]): Candle[] {
         c.close > 0
     );
 }
+
 function sanitizeLinePoints(points: any[]): LinePoint[] {
   return (points || [])
     .filter((p) => p && p.time != null && p.value != null)
