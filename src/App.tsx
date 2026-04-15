@@ -579,12 +579,7 @@ export default function App() {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        const chartCandles = chartifyCandles(candles);
-        const chartSmaFast = chartifyLinePoints(smaFast);
-        const chartSmaSlow = chartifyLinePoints(smaSlow);
-        const chartDist = chartifyLinePoints(dist);
-        const chartDistSma500 = chartifyLinePoints(distSma500);
-
+        
         const distAsCandles = dist.map((p) => ({
           time: p.time,
           open: p.value,
@@ -594,6 +589,12 @@ export default function App() {
         }));
 
         const distSma500 = sanitizeLinePoints(calcSMA(distAsCandles, 500));
+
+        const chartCandles = chartifyCandles(candles);
+        const chartSmaFast = chartifyLinePoints(smaFast);
+        const chartSmaSlow = chartifyLinePoints(smaSlow);
+        const chartDist = chartifyLinePoints(dist);
+        const chartDistSma500 = chartifyLinePoints(distSma500);
 
         const longData = buildStableLongSignals(
           candles,
