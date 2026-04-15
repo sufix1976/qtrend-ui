@@ -1773,6 +1773,7 @@ function normalizeBrokerState(v: string | null): PositionSide | null {
 
 function formatTime(ts: number): string {
   return new Date(ts * 1000).toLocaleString("de-DE", {
+    timeZone: "Europe/Berlin",
     year: "2-digit",
     month: "2-digit",
     day: "2-digit",
