@@ -77,12 +77,12 @@ type SymbolPreset = {
 type PresetMap = Record<string, SymbolPreset>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const LIMIT = 10000;
+const LIMIT = 50000;
 const AGG_LIMIT = 200;
 const PRICE_SCALE_WIDTH = 90;
 const PRESET_STORAGE_KEY = "qtrend_symbol_presets_v1";
 
-const INTERVALS = ["5m", "15m", "30m"] as const;
+const INTERVALS = ["5m", "15m", "30m", "1h"] as const;
 type IntervalOption = typeof INTERVALS[number];
 
 const SYMBOLS = [
