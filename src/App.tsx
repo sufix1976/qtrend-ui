@@ -534,7 +534,7 @@ export default function App() {
       lastValueVisible: false,
     });
 
-    const distSma70Series = distChart.addSeries(LineSeries, {
+    const distSma500Series = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
       lineWidth: 2,
       priceLineVisible: false,
@@ -588,7 +588,7 @@ export default function App() {
           close: p.value,
         }));
 
-        const distSma70 = sanitizeLinePoints(calcSMA(distAsCandles, 70));
+        const distSma500 = sanitizeLinePoints(calcSMA(distAsCandles, 500));
 
         const longData = buildStableLongSignals(
           candles,
