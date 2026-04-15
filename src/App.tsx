@@ -579,6 +579,10 @@ export default function App() {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+        const chartCandles = chartifyCandles(candles);
+        const chartSmaFast = chartifyLinePoints(smaFast);
+        const chartSmaSlow = chartifyLinePoints(smaSlow);
+        const chartDist = chartifyLinePoints(dist);
 
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -621,16 +625,16 @@ export default function App() {
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
-        const alignedDist = alignLineToCandles(candles, dist);
-        const alignedDistSma500 = alignLineToCandles(candles, distSma500);
-        const zeroLine = buildFlatLineFromCandles(candles, 0);
-        const upperBand = buildFlatLineFromCandles(candles, entryBandUI);
-        const lowerBand = buildFlatLineFromCandles(candles, -entryBandUI);
+        const alignedDist = alignLineToCandles(chartCandles, chartDist);
+        const alignedDistSma500 = alignLineToCandles(chartCandles, chartDistSma500);
+        const zeroLine = buildFlatLineFromCandles(chartCandles, 0);
+        const upperBand = buildFlatLineFromCandles(chartCandles, entryBandUI);
+        const lowerBand = buildFlatLineFromCandles(chartCandles, -entryBandUI);
 
-        candleSeries.setData(candles as any);
+        candleSeries.setData(chartCandles as any);
 
-        smaFastSeries.setData(smaFast as any);
-        smaSlowSeries.setData(smaSlow as any);
+        smaFastSeries.setData(chartSmaFast as any);
+        smaSlowSeries.setData(chartSmaSlow as any);
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
@@ -1769,6 +1773,23 @@ function normalizeBrokerState(v: string | null): PositionSide | null {
   if (s.includes("flat") || s.includes("closed") || s.includes("close")) return "flat";
 
   return null;
+}
+function toChartTime(ts: number): number {
+  return ts - new Date(ts * 1000).getTimezoneOffset() * 60;
+}
+
+function chartifyCandles(candles: Candle[]): Candle[] {
+  return candles.map((c) => ({
+    ...c,
+    time: toChartTime(c.time),
+  }));
+}
+
+function chartifyLinePoints<T extends { time: number }>(points: T[]): T[] {
+  return points.map((p) => ({
+    ...p,
+    time: toChartTime(p.time),
+  }));
 }
 
 function formatTime(ts: number): string {
