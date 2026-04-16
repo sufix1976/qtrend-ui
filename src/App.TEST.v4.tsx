@@ -1626,7 +1626,7 @@ function simulateStrategyTESTv4(
 
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
-  let prevMiddleValue: number | null = null;
+
 
   let longRetestLevel: number | null = null;
   let shortRetestLevel: number | null = null;
