@@ -155,6 +155,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.08,
 };
 
+
 const SPREAD_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 25,
   ETHUSD: 1.2,
@@ -250,7 +251,7 @@ export default function AppTESTv4() {
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
   const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
   const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
-
+  
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
   const [peakUI, setPeakUI] = useState(peakLookback);
@@ -776,7 +777,7 @@ export default function AppTESTv4() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, adaptiveBandUI, adaptiveBandMultUI, assumedSpread, assumedSlippage]);
+  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, assumedSpread, assumedSlippage, adaptiveBandUI, adaptiveBandMultUI]);
 
   return (
     <div
@@ -1583,7 +1584,7 @@ function simulateStrategyTESTv4(
   shortEntries: MarkerPoint[],
   bandLine: LinePoint[],
   assumedSpread: number,
-  assumedSlippage: number,
+  assumedSlippage: number
 ) {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
@@ -1626,7 +1627,6 @@ function simulateStrategyTESTv4(
 
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
-
 
   let longRetestLevel: number | null = null;
   let shortRetestLevel: number | null = null;
@@ -1679,7 +1679,6 @@ function simulateStrategyTESTv4(
     const band = bandMap.get(p.time) ?? null;
     if (band === null) {
       prevDistValue = p.value;
-      prevMiddleValue = middle;
       continue;
     }
 
@@ -1703,7 +1702,7 @@ function simulateStrategyTESTv4(
           position = "long";
           longRetestLevel = null;
           shortRetestLevel = null;
-        }
+                }
       } else {
         if (position === "long" && openTrade) {
           longExitPoints.push({ time: candle.time, value: candle.low });
@@ -1718,7 +1717,7 @@ function simulateStrategyTESTv4(
           position = "short";
           shortRetestLevel = null;
           longRetestLevel = null;
-        }
+                }
       }
 
       currentEntryPtr += 1;
@@ -1741,10 +1740,8 @@ function simulateStrategyTESTv4(
         longExitPoints.push({ time: candle.time, value: candle.low });
         closeTrade(candle, "long");
         prevDistValue = p.value;
-        prevMiddleValue = middle;
-        continue;
+          continue;
       }
-
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
@@ -1764,14 +1761,11 @@ function simulateStrategyTESTv4(
         shortExitPoints.push({ time: candle.time, value: candle.high });
         closeTrade(candle, "short");
         prevDistValue = p.value;
-        prevMiddleValue = middle;
-        continue;
+          continue;
       }
-
     }
 
     prevDistValue = p.value;
-    prevMiddleValue = middle;
   }
 
   const netPnL = grossProfit - grossLoss;
