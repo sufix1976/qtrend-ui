@@ -312,7 +312,7 @@ export default function AppTESTv4() {
       smaFast: smaFastUI,
       smaSlow: smaSlowUI,
       smaMiddle: smaMiddleUI,
-      counterTrendExitKink: counterTrendExitKinkUI,
+      counterTrendExitKink: 18,
       adaptiveBand: adaptiveBandUI,
       adaptiveBandMult: adaptiveBandMultUI,
     };
