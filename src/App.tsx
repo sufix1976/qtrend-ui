@@ -78,7 +78,7 @@ type PresetMap = Record<string, SymbolPreset>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 50000;
-const AGG_LIMIT = 200;
+const AGG_LIMIT = 1000;
 const PRICE_SCALE_WIDTH = 90;
 const PRESET_STORAGE_KEY = "qtrend_symbol_presets_v1";
 
