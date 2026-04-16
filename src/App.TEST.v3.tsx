@@ -1240,10 +1240,6 @@ function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLin
   });
 }
 
-function buildFlatLineFromCandles(candles: Candle[], value: number): LinePoint[] {
-  return candles.map((c) => ({ time: c.time, value }));
-}
-
 function buildOffsetLine(base: LinePoint[], offset: number): LinePoint[] {
   return base.map((p) => ({ time: p.time, value: p.value + offset }));
 }
