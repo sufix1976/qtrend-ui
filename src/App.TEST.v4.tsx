@@ -785,8 +785,21 @@ export default function AppTESTv4() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, assumedSpread, assumedSlippage, adaptiveBandUI, adaptiveBandMultUI]);
-
+    }, [
+    symbol,
+    interval,
+    entryBandUI,
+    peakUI,
+    minKinkUI,
+    smaFastUI,
+    smaSlowUI,
+    smaMiddleUI,
+    assumedSpread,
+    assumedSlippage,
+    adaptiveBandUI,
+    adaptiveBandMultUI,
+  ]);
+  
   return (
     <div
       style={{
@@ -982,6 +995,10 @@ export default function AppTESTv4() {
           </div>
 
           <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
+  Aktiv: SMA {smaFastUI} / {smaSlowUI}
+</div>
+
+<div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
   Middle SMA: {smaMiddleUI}
 </div>
 
@@ -994,9 +1011,6 @@ export default function AppTESTv4() {
   onChange={(e) => setSmaMiddleUI(Number(e.target.value))}
   style={{ width: "100%" }}
 />
-          <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
-            Middle SMA: 100
-          </div>
         </div>
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
@@ -1079,7 +1093,7 @@ export default function AppTESTv4() {
           <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
           <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
           <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
-          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Middle SMA100 / Dynamic Band</div>
+          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Middle SMA {smaMiddleUI} / Dynamic Band</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
