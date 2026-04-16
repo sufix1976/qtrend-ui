@@ -558,7 +558,7 @@ export default function AppTESTv3() {
       lastValueVisible: false,
     });
 
-    const distSma500Series = distChart.addSeries(LineSeries, {
+    const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
       lineWidth: 2,
       priceLineVisible: false,
@@ -612,17 +612,18 @@ export default function AppTESTv3() {
           close: p.value,
         }));
 
-        const distSma500 = sanitizeLinePoints(calcSMA(distAsCandles, 500));
+        const distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, 100));
 
         const chartCandles = chartifyCandles(candles);
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         const chartDist = chartifyLinePoints(dist);
-        const chartDistSma500 = chartifyLinePoints(distSma500);
+        const chartDistMiddle = chartifyLinePoints(distMiddle);
 
         const longData = buildStableLongSignals(
           candles,
           dist,
+          distMiddle,
           entryBandUI,
           peakUI,
           minKinkUI
@@ -631,6 +632,7 @@ export default function AppTESTv3() {
         const shortData = buildStableShortSignals(
           candles,
           dist,
+          distMiddle,
           entryBandUI,
           peakUI,
           minKinkUI
@@ -642,7 +644,7 @@ export default function AppTESTv3() {
         const sim = simulateStrategyTESTv3(
           candles,
           dist,
-          distSma500,
+          distMiddle,
           strategyLongPoints,
           strategyShortPoints,
           entryBandUI,
@@ -654,10 +656,9 @@ export default function AppTESTv3() {
         const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
-        const alignedDistSma500 = alignLineToCandles(chartCandles, chartDistSma500);
-        const zeroLine = buildFlatLineFromCandles(chartCandles, 0);
-        const upperBand = buildFlatLineFromCandles(chartCandles, entryBandUI);
-        const lowerBand = buildFlatLineFromCandles(chartCandles, -entryBandUI);
+        const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
+        const dynamicUpperBand = alignLineToCandles(chartCandles, chartifyLinePoints(buildOffsetLine(distMiddle, entryBandUI)));
+        const dynamicLowerBand = alignLineToCandles(chartCandles, chartifyLinePoints(buildOffsetLine(distMiddle, -entryBandUI)));
 
         candleSeries.setData(chartCandles as any);
 
@@ -695,10 +696,10 @@ export default function AppTESTv3() {
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
-        distSma500Series.setData(alignedDistSma500 as any);
-        zeroSeries.setData(zeroLine as any);
-        upperBandSeries.setData(upperBand as any);
-        lowerBandSeries.setData(lowerBand as any);
+        distMiddleSeries.setData(alignedDistMiddle as any);
+        zeroSeries.setData([] as any);
+        upperBandSeries.setData(dynamicUpperBand as any);
+        lowerBandSeries.setData(dynamicLowerBand as any);
 
         priceChart.timeScale().fitContent();
         const range = priceChart.timeScale().getVisibleLogicalRange();
@@ -768,7 +769,7 @@ export default function AppTESTv3() {
         priceChart.removeSeries(realCloseSeries);
 
         distChart.removeSeries(distSeries);
-        distChart.removeSeries(distSma500Series);
+        distChart.removeSeries(distMiddleSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
@@ -960,7 +961,7 @@ export default function AppTESTv3() {
             Aktiv: SMA {smaFastUI} / {smaSlowUI}
           </div>
           <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
-            Dist SMA: 500
+            Middle SMA: 100
           </div>
         </div>
 
@@ -1044,7 +1045,7 @@ export default function AppTESTv3() {
           <div><span style={{ color: "#00ff88", fontWeight: 700 }}>●</span> Real buy</div>
           <div><span style={{ color: "#ff4d6d", fontWeight: 700 }}>●</span> Real sell</div>
           <div><span style={{ color: "#c084fc", fontWeight: 700 }}>●</span> Real close</div>
-          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Dist SMA500</div>
+          <div><span style={{ color: "#b4b4b4", fontWeight: 700 }}>—</span> Middle SMA100</div>
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
@@ -1243,15 +1244,23 @@ function buildFlatLineFromCandles(candles: Candle[], value: number): LinePoint[]
   return candles.map((c) => ({ time: c.time, value }));
 }
 
+function buildOffsetLine(base: LinePoint[], offset: number): LinePoint[] {
+  return base.map((p) => ({ time: p.time, value: p.value + offset }));
+}
+
 function buildStableLongSignals(
   candles: Candle[],
   dist: LinePoint[],
+  distMiddle: LinePoint[],
   entryBand: number,
   _peakLookback: number,
   minKinkMove: number
 ): SignalBuildResult {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
+
+  const middleMap = new Map<number, number>();
+  for (const p of distMiddle) middleMap.set(p.time, p.value);
 
   const markers: MarkerPoint[] = [];
   const candidateMarkers: MarkerPoint[] = [];
@@ -1263,7 +1272,11 @@ function buildStableLongSignals(
 
   for (let i = 1; i < dist.length; i++) {
     const d = dist[i].value;
-    const inLowerZone = d < -entryBand;
+    const middle = middleMap.get(dist[i].time);
+    if (middle == null) continue;
+
+    const lowerBand = middle - entryBand;
+    const inLowerZone = d < lowerBand;
 
     if (!inZone && inLowerZone) {
       inZone = true;
@@ -1321,12 +1334,16 @@ function buildStableLongSignals(
 function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
+  distMiddle: LinePoint[],
   entryBand: number,
   _peakLookback: number,
   minKinkMove: number
 ): SignalBuildResult {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
+
+  const middleMap = new Map<number, number>();
+  for (const p of distMiddle) middleMap.set(p.time, p.value);
 
   const markers: MarkerPoint[] = [];
   const candidateMarkers: MarkerPoint[] = [];
@@ -1338,7 +1355,11 @@ function buildStableShortSignals(
 
   for (let i = 1; i < dist.length; i++) {
     const d = dist[i].value;
-    const inUpperZone = d > entryBand;
+    const middle = middleMap.get(dist[i].time);
+    if (middle == null) continue;
+
+    const upperBand = middle + entryBand;
+    const inUpperZone = d > upperBand;
 
     if (!inZone && inUpperZone) {
       inZone = true;
@@ -1481,7 +1502,7 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
 function simulateStrategyTESTv3(
   candles: Candle[],
   dist: LinePoint[],
-  distSma500: LinePoint[],
+  distMiddle: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
   entryBand: number,
@@ -1495,8 +1516,8 @@ function simulateStrategyTESTv3(
   const distMapIndex = new Map<number, number>();
   dist.forEach((p, i) => distMapIndex.set(p.time, i));
 
-  const distSmaMap = new Map<number, number>();
-  for (const p of distSma500) distSmaMap.set(p.time, p.value);
+  const middleMap = new Map<number, number>();
+  for (const p of distMiddle) middleMap.set(p.time, p.value);
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
@@ -1527,7 +1548,7 @@ function simulateStrategyTESTv3(
 
   let currentEntryPtr = 0;
   let prevDistValue: number | null = null;
-  let prevTrendValue: number | null = null;
+  let prevMiddleValue: number | null = null;
 
   let longRetestLevel: number | null = null;
   let shortRetestLevel: number | null = null;
@@ -1575,11 +1596,18 @@ function simulateStrategyTESTv3(
     const candle = candleMap.get(p.time);
     if (!candle) continue;
 
-    const trendValue = distSmaMap.get(p.time) ?? null;
-    const trendSlope =
-      trendValue !== null && prevTrendValue !== null ? trendValue - prevTrendValue : null;
-    const isBroadUptrend = trendSlope !== null && trendSlope > 0;
-    const isBroadDowntrend = trendSlope !== null && trendSlope < 0;
+    const middle = middleMap.get(p.time) ?? null;
+    if (middle === null) {
+      prevDistValue = p.value;
+      continue;
+    }
+
+    const upperBand = middle + entryBand;
+    const lowerBand = middle - entryBand;
+    const middleSlope =
+      prevMiddleValue !== null ? middle - prevMiddleValue : null;
+    const isBroadUptrend = middleSlope !== null && middleSlope > 0;
+    const isBroadDowntrend = middleSlope !== null && middleSlope < 0;
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
@@ -1624,12 +1652,12 @@ function simulateStrategyTESTv3(
     }
 
     if (position === "long" && openTrade && prevDistValue !== null) {
-      if (p.value > -entryBand && longRetestLevel === null) {
-        longRetestLevel = -entryBand;
+      if (p.value > lowerBand && longRetestLevel === null) {
+        longRetestLevel = lowerBand;
       }
 
-      if (p.value > 0) {
-        longRetestLevel = 0;
+      if (p.value > middle) {
+        longRetestLevel = middle;
       }
 
       if (
@@ -1640,11 +1668,11 @@ function simulateStrategyTESTv3(
         longExitPoints.push({ time: candle.time, value: candle.low });
         closeTrade(candle, "long");
         prevDistValue = p.value;
-        prevTrendValue = trendValue;
+        prevMiddleValue = middle;
         continue;
       }
 
-      if (isBroadDowntrend && p.value < -entryBand) {
+      if (isBroadDowntrend && p.value < lowerBand) {
         counterLongPeak =
           counterLongPeak === null ? p.value : Math.max(counterLongPeak, p.value);
 
@@ -1654,7 +1682,7 @@ function simulateStrategyTESTv3(
           longExitPoints.push({ time: candle.time, value: candle.low });
           closeTrade(candle, "long");
           prevDistValue = p.value;
-          prevTrendValue = trendValue;
+          prevMiddleValue = middle;
           continue;
         }
       } else {
@@ -1663,12 +1691,12 @@ function simulateStrategyTESTv3(
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
-      if (p.value < entryBand && shortRetestLevel === null) {
-        shortRetestLevel = entryBand;
+      if (p.value < upperBand && shortRetestLevel === null) {
+        shortRetestLevel = upperBand;
       }
 
-      if (p.value < 0) {
-        shortRetestLevel = 0;
+      if (p.value < middle) {
+        shortRetestLevel = middle;
       }
 
       if (
@@ -1679,11 +1707,11 @@ function simulateStrategyTESTv3(
         shortExitPoints.push({ time: candle.time, value: candle.high });
         closeTrade(candle, "short");
         prevDistValue = p.value;
-        prevTrendValue = trendValue;
+        prevMiddleValue = middle;
         continue;
       }
 
-      if (isBroadUptrend && p.value > entryBand) {
+      if (isBroadUptrend && p.value > upperBand) {
         counterShortLow =
           counterShortLow === null ? p.value : Math.min(counterShortLow, p.value);
 
@@ -1693,7 +1721,7 @@ function simulateStrategyTESTv3(
           shortExitPoints.push({ time: candle.time, value: candle.high });
           closeTrade(candle, "short");
           prevDistValue = p.value;
-          prevTrendValue = trendValue;
+          prevMiddleValue = middle;
           continue;
         }
       } else {
@@ -1702,7 +1730,7 @@ function simulateStrategyTESTv3(
     }
 
     prevDistValue = p.value;
-    prevTrendValue = trendValue;
+    prevMiddleValue = middle;
   }
 
   const netPnL = grossProfit - grossLoss;
