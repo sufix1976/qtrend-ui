@@ -72,7 +72,6 @@ type SymbolPreset = {
   peakLookback: number;
   smaFast: number;
   smaSlow: number;
-  counterTrendExitKink: number;
   adaptiveBand?: boolean;
   adaptiveBandMult?: number;
 };
@@ -156,7 +155,6 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.08,
 };
 
-const COUNTER_EXIT_KINK_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 18,
   ETHUSD: 1.0,
   XRPUSD: 0.0012,
@@ -268,7 +266,6 @@ export default function AppTESTv4() {
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
   const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
   const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
-  const counterTrendExitKink = useMemo(() => COUNTER_EXIT_KINK_BY_SYMBOL[symbol] ?? Math.max(minKinkMove * 0.75, 0.01), [symbol, minKinkMove]);
 
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
@@ -276,7 +273,6 @@ export default function AppTESTv4() {
 
   const [smaFastUI, setSmaFastUI] = useState(10);
   const [smaSlowUI, setSmaSlowUI] = useState(100);
-  const [counterTrendExitKinkUI, setCounterTrendExitKinkUI] = useState(counterTrendExitKink);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
@@ -290,7 +286,6 @@ export default function AppTESTv4() {
       setPeakUI(preset.peakLookback);
       setSmaFastUI(preset.smaFast);
       setSmaSlowUI(preset.smaSlow);
-      setCounterTrendExitKinkUI(preset.counterTrendExitKink ?? counterTrendExitKink);
       setAdaptiveBandUI(Boolean(preset.adaptiveBand ?? false));
       setAdaptiveBandMultUI(Number(preset.adaptiveBandMult ?? 1));
       setPresetMessage(`Preset geladen für ${symbol}`);
@@ -300,12 +295,10 @@ export default function AppTESTv4() {
       setPeakUI(peakLookback);
       setSmaFastUI(10);
       setSmaSlowUI(100);
-      setCounterTrendExitKinkUI(counterTrendExitKink);
       setAdaptiveBandUI(false);
       setAdaptiveBandMultUI(1);
       setPresetMessage(`Default geladen für ${symbol}`);
     }
-  }, [symbol, entryBand, minKinkMove, peakLookback, counterTrendExitKink]);
 
   useEffect(() => {
     if (smaFastUI >= smaSlowUI) {
@@ -327,7 +320,6 @@ export default function AppTESTv4() {
       peakLookback: peakUI,
       smaFast: smaFastUI,
       smaSlow: smaSlowUI,
-      counterTrendExitKink: counterTrendExitKinkUI,
       adaptiveBand: adaptiveBandUI,
       adaptiveBandMult: adaptiveBandMultUI,
     };
@@ -345,7 +337,6 @@ export default function AppTESTv4() {
     setPeakUI(peakLookback);
     setSmaFastUI(10);
     setSmaSlowUI(100);
-    setCounterTrendExitKinkUI(counterTrendExitKink);
     setAdaptiveBandUI(false);
     setAdaptiveBandMultUI(1);
     setPresetMessage(`Preset gelöscht für ${symbol}`);
@@ -670,7 +661,6 @@ export default function AppTESTv4() {
           dynamicBand,
           assumedSpread,
           assumedSlippage,
-          counterTrendExitKinkUI
         );
 
         const real = buildRealTradeMarkers(candles, aggRows);
@@ -801,7 +791,6 @@ export default function AppTESTv4() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
-  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, assumedSpread, assumedSlippage, counterTrendExitKinkUI, adaptiveBandUI, adaptiveBandMultUI]);
 
   return (
     <div
@@ -900,7 +889,6 @@ export default function AppTESTv4() {
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-        <div>Counter-trend exit kink: {counterTrendExitKinkUI}</div>
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
 
@@ -940,14 +928,9 @@ export default function AppTESTv4() {
             style={{ width: "100%" }}
           />
 
-          <div style={{ marginTop: 6 }}>Counter-Trend Exit Kink: {counterTrendExitKinkUI}</div>
           <input
             type="range"
             min={0}
-            max={Math.max(counterTrendExitKink * 3, counterTrendExitKink + 1)}
-            step={counterTrendExitKink < 1 ? 0.001 : 0.1}
-            value={counterTrendExitKinkUI}
-            onChange={(e) => setCounterTrendExitKinkUI(Number(e.target.value))}
             style={{ width: "100%" }}
           />
 
@@ -1620,7 +1603,6 @@ function simulateStrategyTESTv4(
   bandLine: LinePoint[],
   assumedSpread: number,
   assumedSlippage: number,
-  counterTrendExitKink: number
 ) {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
@@ -1668,8 +1650,6 @@ function simulateStrategyTESTv4(
   let longRetestLevel: number | null = null;
   let shortRetestLevel: number | null = null;
 
-  let counterLongPeak: number | null = null;
-  let counterShortLow: number | null = null;
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -1702,8 +1682,6 @@ function simulateStrategyTESTv4(
     position = "flat";
     longRetestLevel = null;
     shortRetestLevel = null;
-    counterLongPeak = null;
-    counterShortLow = null;
   };
 
   for (let i = 0; i < dist.length; i++) {
@@ -1748,8 +1726,6 @@ function simulateStrategyTESTv4(
           position = "long";
           longRetestLevel = null;
           shortRetestLevel = null;
-          counterLongPeak = p.value;
-          counterShortLow = null;
         }
       } else {
         if (position === "long" && openTrade) {
@@ -1765,8 +1741,6 @@ function simulateStrategyTESTv4(
           position = "short";
           shortRetestLevel = null;
           longRetestLevel = null;
-          counterShortLow = p.value;
-          counterLongPeak = null;
         }
       }
 
@@ -1795,12 +1769,8 @@ function simulateStrategyTESTv4(
       }
 
       if (isBroadDowntrend && p.value < lowerBand) {
-        counterLongPeak =
-          counterLongPeak === null ? p.value : Math.max(counterLongPeak, p.value);
 
-        const adverseMove = counterLongPeak - p.value;
 
-        if (adverseMove >= counterTrendExitKink) {
           longExitPoints.push({ time: candle.time, value: candle.low });
           closeTrade(candle, "long");
           prevDistValue = p.value;
@@ -1808,7 +1778,6 @@ function simulateStrategyTESTv4(
           continue;
         }
       } else {
-        counterLongPeak = p.value;
       }
     }
 
@@ -1834,12 +1803,8 @@ function simulateStrategyTESTv4(
       }
 
       if (isBroadUptrend && p.value > upperBand) {
-        counterShortLow =
-          counterShortLow === null ? p.value : Math.min(counterShortLow, p.value);
 
-        const adverseMove = p.value - counterShortLow;
 
-        if (adverseMove >= counterTrendExitKink) {
           shortExitPoints.push({ time: candle.time, value: candle.high });
           closeTrade(candle, "short");
           prevDistValue = p.value;
@@ -1847,7 +1812,6 @@ function simulateStrategyTESTv4(
           continue;
         }
       } else {
-        counterShortLow = p.value;
       }
     }
 
