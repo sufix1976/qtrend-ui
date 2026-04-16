@@ -155,22 +155,6 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.08,
 };
 
-  BTCUSD: 18,
-  ETHUSD: 1.0,
-  XRPUSD: 0.0012,
-  DE40: 1.5,
-  US100: 3,
-  US500: 0.7,
-  US30: 6,
-  J225: 8,
-  UK100: 2,
-  GOLD: 0.55,
-  SILVER: 0.02,
-  OIL_CRUDE: 0.05,
-  CORN: 0.05,
-  SOLUSD: 0.05,
-};
-
 const SPREAD_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 25,
   ETHUSD: 1.2,
@@ -299,6 +283,7 @@ export default function AppTESTv4() {
       setAdaptiveBandMultUI(1);
       setPresetMessage(`Default geladen für ${symbol}`);
     }
+  }, [symbol, entryBand, minKinkMove, peakLookback]);
 
   useEffect(() => {
     if (smaFastUI >= smaSlowUI) {
@@ -791,6 +776,7 @@ export default function AppTESTv4() {
         distChart.removeSeries(lowerBandSeries);
       } catch {}
     };
+  }, [symbol, interval, entryBandUI, peakUI, minKinkUI, smaFastUI, smaSlowUI, adaptiveBandUI, adaptiveBandMultUI, assumedSpread, assumedSlippage]);
 
   return (
     <div
@@ -928,11 +914,6 @@ export default function AppTESTv4() {
             style={{ width: "100%" }}
           />
 
-          <input
-            type="range"
-            min={0}
-            style={{ width: "100%" }}
-          />
 
           <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
             <input
@@ -1704,10 +1685,6 @@ function simulateStrategyTESTv4(
 
     const upperBand = middle + band;
     const lowerBand = middle - band;
-    const middleSlope =
-      prevMiddleValue !== null ? middle - prevMiddleValue : null;
-    const isBroadUptrend = middleSlope !== null && middleSlope > 0;
-    const isBroadDowntrend = middleSlope !== null && middleSlope < 0;
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
@@ -1768,17 +1745,6 @@ function simulateStrategyTESTv4(
         continue;
       }
 
-      if (isBroadDowntrend && p.value < lowerBand) {
-
-
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-          prevDistValue = p.value;
-          prevMiddleValue = middle;
-          continue;
-        }
-      } else {
-      }
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
@@ -1802,17 +1768,6 @@ function simulateStrategyTESTv4(
         continue;
       }
 
-      if (isBroadUptrend && p.value > upperBand) {
-
-
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
-          prevDistValue = p.value;
-          prevMiddleValue = middle;
-          continue;
-        }
-      } else {
-      }
     }
 
     prevDistValue = p.value;
