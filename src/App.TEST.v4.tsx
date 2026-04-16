@@ -72,6 +72,8 @@ type SymbolPreset = {
   peakLookback: number;
   smaFast: number;
   smaSlow: number;
+  smaMiddle: number;
+  counterTrendExitKink: number;
   adaptiveBand?: boolean;
   adaptiveBandMult?: number;
 };
@@ -258,6 +260,7 @@ export default function AppTESTv4() {
 
   const [smaFastUI, setSmaFastUI] = useState(10);
   const [smaSlowUI, setSmaSlowUI] = useState(100);
+  const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
@@ -271,6 +274,7 @@ export default function AppTESTv4() {
       setPeakUI(preset.peakLookback);
       setSmaFastUI(preset.smaFast);
       setSmaSlowUI(preset.smaSlow);
+      setSmaMiddleUI(Number(preset.smaMiddle ?? 100));
       setAdaptiveBandUI(Boolean(preset.adaptiveBand ?? false));
       setAdaptiveBandMultUI(Number(preset.adaptiveBandMult ?? 1));
       setPresetMessage(`Preset geladen für ${symbol}`);
@@ -280,6 +284,7 @@ export default function AppTESTv4() {
       setPeakUI(peakLookback);
       setSmaFastUI(10);
       setSmaSlowUI(100);
+      setSmaMiddleUI(100);
       setAdaptiveBandUI(false);
       setAdaptiveBandMultUI(1);
       setPresetMessage(`Default geladen für ${symbol}`);
@@ -306,6 +311,7 @@ export default function AppTESTv4() {
       peakLookback: peakUI,
       smaFast: smaFastUI,
       smaSlow: smaSlowUI,
+      smaMiddle: smaMiddleUI,
       adaptiveBand: adaptiveBandUI,
       adaptiveBandMult: adaptiveBandMultUI,
     };
@@ -323,6 +329,7 @@ export default function AppTESTv4() {
     setPeakUI(peakLookback);
     setSmaFastUI(10);
     setSmaSlowUI(100);
+    setSmaMiddleUI(100);
     setAdaptiveBandUI(false);
     setAdaptiveBandMultUI(1);
     setPresetMessage(`Preset gelöscht für ${symbol}`);
@@ -601,7 +608,7 @@ export default function AppTESTv4() {
           close: p.value,
         }));
 
-        const distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, 100));
+        const distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
         const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
         const dynamicBand = buildAdaptiveBandLine(
           distMiddle,
@@ -974,8 +981,18 @@ export default function AppTESTv4() {
           </div>
 
           <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
-            Aktiv: SMA {smaFastUI} / {smaSlowUI}
-          </div>
+  Middle SMA: {smaMiddleUI}
+</div>
+
+<input
+  type="range"
+  min={20}
+  max={250}
+  step={1}
+  value={smaMiddleUI}
+  onChange={(e) => setSmaMiddleUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
           <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
             Middle SMA: 100
           </div>
