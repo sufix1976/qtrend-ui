@@ -66,19 +66,22 @@ type AggTradesResponse = {
   rows: AggTradeRow[];
 };
 
-type SymbolPreset = {
-  entryBand: number;
-  minKink: number;
-  peakLookback: number;
-  smaFast: number;
-  smaSlow: number;
-  smaMiddle: number;
-  counterTrendExitKink: number;
-  adaptiveBand?: boolean;
-  adaptiveBandMult?: number;
+type SymbolConfigRow = {
+  symbol: string;
+  entry_band: number | null;
+  min_kink: number | null;
+  peak_lookback: number | null;
+  sma_fast: number | null;
+  sma_slow: number | null;
+  sma_middle: number | null;
+  adaptive_band: number | boolean | null;
+  adaptive_band_mult: number | null;
+  size: number | null;
+  updated_at?: string;
 };
 
-type PresetMap = Record<string, SymbolPreset>;
+type SymbolConfigMap = Record<string, SymbolConfigRow>;
+
 
 type SymbolSizeRow = {
   symbol: string;
@@ -92,7 +95,6 @@ const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
 const AGG_LIMIT = 2000;
 const PRICE_SCALE_WIDTH = 90;
-const PRESET_STORAGE_KEY = "qtrend_symbol_presets_v1";
 
 const INTERVALS = ["5m", "15m", "30m", "1h"] as const;
 type IntervalOption = typeof INTERVALS[number];
@@ -200,20 +202,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.02,
 };
 
-function readPresets(): PresetMap {
-  try {
-    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
 
-function writePresets(presets: PresetMap) {
-  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
-}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -259,6 +248,8 @@ export default function AppTESTv4() {
   const [symbolSizes, setSymbolSizes] = useState<SymbolSizeMap>({});
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeLoading, setSizeLoading] = useState(false);
+  const [symbolConfigMap, setSymbolConfigMap] = useState<SymbolConfigMap>({});
+  const [configLoading, setConfigLoading] = useState(false);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
@@ -318,28 +309,41 @@ export default function AppTESTv4() {
   useEffect(() => {
   let cancelled = false;
 
-  async function loadSizes() {
+  async function loadBackendConfig() {
     try {
-      setSizeLoading(true);
-      const data = await fetchSymbolSizes();
-      if (!cancelled) setSymbolSizes(data);
+      setConfigLoading(true);
+
+      const cfgMap = await fetchSymbolConfig();
+      if (cancelled) return;
+
+      setSymbolConfigMap(cfgMap);
+
+      // Sizes daraus ableiten
+      const sizeMap: SymbolSizeMap = {};
+      for (const s of Object.keys(cfgMap)) {
+        const n = Number(cfgMap[s]?.size);
+        if (Number.isFinite(n) && n > 0) {
+          sizeMap[s] = n;
+        }
+      }
+      setSymbolSizes(sizeMap);
+
     } catch (e) {
       if (!cancelled) {
         console.error(e);
-        setSizeMessage(`Size-Laden fehlgeschlagen`);
+        setSizeMessage("Backend-Konfig laden fehlgeschlagen");
       }
     } finally {
-      if (!cancelled) setSizeLoading(false);
+      if (!cancelled) setConfigLoading(false);
     }
   }
 
-  loadSizes();
+  loadBackendConfig();
 
   return () => {
     cancelled = true;
   };
 }, []);
-
   function savePreset() {
     const presets = readPresets();
     presets[symbol] = {
@@ -1394,6 +1398,56 @@ async function saveSymbolSize(symbol: string, size: number): Promise<void> {
       symbol,
       size,
     }),
+  });
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`SAVE ERROR non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `SAVE ERROR ${res.status}: ${txt}`);
+  }
+}
+async function fetchSymbolConfig(): Promise<SymbolConfigMap> {
+  const res = await fetch(`${BACKEND_BASE}/ui/config?_ts=${Date.now()}`, {
+    cache: "no-store",
+  });
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
+  }
+
+  const rows: SymbolConfigRow[] = Array.isArray(json.rows) ? json.rows : [];
+  const out: SymbolConfigMap = {};
+
+  for (const row of rows) {
+    const symbol = String(row.symbol || "").trim();
+    if (symbol) out[symbol] = row;
+  }
+
+  return out;
+}
+async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE}/ui/config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(row),
   });
 
   const txt = await res.text();
