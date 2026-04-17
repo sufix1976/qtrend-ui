@@ -249,7 +249,7 @@ export default function AppTESTv4() {
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeLoading, setSizeLoading] = useState(false);
   const [symbolConfigMap, setSymbolConfigMap] = useState<SymbolConfigMap>({});
-  const [configLoading, setConfigLoading] = useState(false);
+  const [, setConfigLoading] = useState(false);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
@@ -352,22 +352,35 @@ export default function AppTESTv4() {
     cancelled = true;
   };
 }, []);
-  function savePreset() {
-    const presets = readPresets();
-    presets[symbol] = {
-      entryBand: entryBandUI,
-      minKink: minKinkUI,
-      peakLookback: peakUI,
-      smaFast: smaFastUI,
-      smaSlow: smaSlowUI,
-      smaMiddle: smaMiddleUI,
-      counterTrendExitKink: 18,
-      adaptiveBand: adaptiveBandUI,
-      adaptiveBandMult: adaptiveBandMultUI,
+
+  async function savePreset() {
+  try {
+    const row: SymbolConfigRow = {
+      symbol,
+      entry_band: entryBandUI,
+      min_kink: minKinkUI,
+      peak_lookback: peakUI,
+      sma_fast: smaFastUI,
+      sma_slow: smaSlowUI,
+      sma_middle: smaMiddleUI,
+      adaptive_band: adaptiveBandUI ? 1 : 0,
+      adaptive_band_mult: adaptiveBandMultUI,
+      size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
-    writePresets(presets);
-    setPresetMessage(`Preset gespeichert für ${symbol}`);
+
+    await saveSymbolConfig(row);
+
+    setSymbolConfigMap((prev) => ({
+      ...prev,
+      [symbol]: row,
+    }));
+
+    setPresetMessage(`Backend-Konfig gespeichert für ${symbol}`);
+  } catch (e) {
+    console.error(e);
+    setPresetMessage(`Backend-Konfig speichern fehlgeschlagen für ${symbol}`);
   }
+}
 
   async function resetPreset() {
   try {
@@ -1425,63 +1438,8 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     return null;
   }
 }
-async function fetchSymbolSizes(): Promise<SymbolSizeMap> {
-  const res = await fetch(`${BACKEND_BASE}/ui/sizes?_ts=${Date.now()}`, {
-    cache: "no-store",
-  });
 
-  const txt = await res.text();
 
-  let json: any;
-  try {
-    json = JSON.parse(txt);
-  } catch {
-    throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
-  }
-
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
-  }
-
-  const rows: SymbolSizeRow[] = Array.isArray(json.rows) ? json.rows : [];
-  const out: SymbolSizeMap = {};
-
-  for (const row of rows) {
-    const symbol = String(row.symbol || "").trim();
-    const size = Number(row.size);
-    if (symbol && Number.isFinite(size) && size > 0) {
-      out[symbol] = size;
-    }
-  }
-
-  return out;
-}
-
-async function saveSymbolSize(symbol: string, size: number): Promise<void> {
-  const res = await fetch(`${BACKEND_BASE}/ui/size`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      symbol,
-      size,
-    }),
-  });
-
-  const txt = await res.text();
-
-  let json: any;
-  try {
-    json = JSON.parse(txt);
-  } catch {
-    throw new Error(`SAVE ERROR non-JSON response: ${txt}`);
-  }
-
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `SAVE ERROR ${res.status}: ${txt}`);
-  }
-}
 async function fetchSymbolConfig(): Promise<SymbolConfigMap> {
   const res = await fetch(`${BACKEND_BASE}/ui/config?_ts=${Date.now()}`, {
     cache: "no-store",
