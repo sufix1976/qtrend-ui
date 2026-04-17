@@ -83,11 +83,7 @@ type SymbolConfigRow = {
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
 
 
-type SymbolSizeRow = {
-  symbol: string;
-  size: number;
-  updated_at?: string;
-};
+
 
 type SymbolSizeMap = Record<string, number>;
 
