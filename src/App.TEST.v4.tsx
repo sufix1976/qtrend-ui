@@ -91,6 +91,7 @@ const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
 const AGG_LIMIT = 2000;
 const PRICE_SCALE_WIDTH = 90;
+const EURUSD_APPROX = 1.18;
 
 const INTERVALS = ["5m", "15m", "30m", "1h"] as const;
 type IntervalOption = typeof INTERVALS[number];
@@ -234,10 +235,20 @@ export default function AppTESTv4() {
   const [tradeCount, setTradeCount] = useState(0);
   const [winCount, setWinCount] = useState(0);
   const [lossCount, setLossCount] = useState(0);
+
   const [grossProfit, setGrossProfit] = useState(0);
   const [grossLoss, setGrossLoss] = useState(0);
-  const [profitFactor, setProfitFactor] = useState<number | null>(null);
   const [netPnL, setNetPnL] = useState(0);
+
+  const [grossProfitUsd, setGrossProfitUsd] = useState(0);
+  const [grossLossUsd, setGrossLossUsd] = useState(0);
+  const [netPnLUsd, setNetPnLUsd] = useState(0);
+
+  const [grossProfitEur, setGrossProfitEur] = useState(0);
+  const [grossLossEur, setGrossLossEur] = useState(0);
+  const [netPnLEur, setNetPnLEur] = useState(0);
+
+  const [profitFactor, setProfitFactor] = useState<number | null>(null);
 
   const [presetMessage, setPresetMessage] = useState("");
 
@@ -912,18 +923,34 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
         setShortExitCount(sim.shortExitPoints.length);
 
         setTradeCount(sim.tradeCount);
-        setWinCount(sim.winCount);
-        setLossCount(sim.lossCount);
-        setGrossProfit(sim.grossProfit);
-        setGrossLoss(sim.grossLoss);
-        setNetPnL(sim.netPnL);
-        setProfitFactor(
-          sim.grossLoss > 0
-            ? sim.grossProfit / sim.grossLoss
-            : sim.grossProfit > 0
-              ? Number.POSITIVE_INFINITY
-              : null
-        );
+setWinCount(sim.winCount);
+setLossCount(sim.lossCount);
+
+setGrossProfit(sim.grossProfit);
+setGrossLoss(sim.grossLoss);
+setNetPnL(sim.netPnL);
+
+const activeSize = Number(symbolSizes[symbol]) || 0;
+
+const grossProfitUsdVal = sim.grossProfit * activeSize;
+const grossLossUsdVal = sim.grossLoss * activeSize;
+const netPnLUsdVal = sim.netPnL * activeSize;
+
+setGrossProfitUsd(grossProfitUsdVal);
+setGrossLossUsd(grossLossUsdVal);
+setNetPnLUsd(netPnLUsdVal);
+
+setGrossProfitEur(grossProfitUsdVal / EURUSD_APPROX);
+setGrossLossEur(grossLossUsdVal / EURUSD_APPROX);
+setNetPnLEur(netPnLUsdVal / EURUSD_APPROX);
+
+setProfitFactor(
+  sim.grossLoss > 0
+    ? sim.grossProfit / sim.grossLoss
+    : sim.grossProfit > 0
+      ? Number.POSITIVE_INFINITY
+      : null
+);
 
         setLastSignalText(sim.lastSignalText);
 
@@ -972,19 +999,20 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
       } catch {}
     };
     }, [
-    symbol,
-    interval,
-    entryBandUI,
-    peakUI,
-    minKinkUI,
-    smaFastUI,
-    smaSlowUI,
-    smaMiddleUI,
-    assumedSpread,
-    assumedSlippage,
-    adaptiveBandUI,
-    adaptiveBandMultUI,
-  ]);
+  symbol,
+  interval,
+  entryBandUI,
+  peakUI,
+  minKinkUI,
+  smaFastUI,
+  smaSlowUI,
+  smaMiddleUI,
+  assumedSpread,
+  assumedSlippage,
+  adaptiveBandUI,
+  adaptiveBandMultUI,
+  symbolSizes,
+]
   
   return (
     <div
@@ -1335,9 +1363,18 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
 
         <div>Trades: {tradeCount}</div>
         <div>Wins / Losses: {winCount} / {lossCount}</div>
-        <div>Gross Profit (net of costs): {grossProfit.toFixed(2)}</div>
-        <div>Gross Loss (net of costs): {grossLoss.toFixed(2)}</div>
-        <div>Net PnL: {netPnL.toFixed(2)}</div>
+        <div>Gross Profit Punkte: {grossProfit.toFixed(2)}</div>
+        <div>Aktive Size: {(Number(symbolSizes[symbol]) || 0).toString()}</div>
+<div>Gross Loss Punkte: {grossLoss.toFixed(2)}</div>
+<div>Net PnL Punkte: {netPnL.toFixed(2)}</div>
+
+<div>Gross Profit USD: {grossProfitUsd.toFixed(2)}</div>
+<div>Gross Loss USD: {grossLossUsd.toFixed(2)}</div>
+<div>Net PnL USD: {netPnLUsd.toFixed(2)}</div>
+
+<div>Gross Profit EUR: {grossProfitEur.toFixed(2)}</div>
+<div>Gross Loss EUR: {grossLossEur.toFixed(2)}</div>
+<div>Net PnL EUR: {netPnLEur.toFixed(2)}</div>
         <div>
           PF:{" "}
           {profitFactor === null
