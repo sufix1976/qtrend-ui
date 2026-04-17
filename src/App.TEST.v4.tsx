@@ -2289,9 +2289,7 @@ function normalizeBrokerState(v: string | null): PositionSide | null {
 
   return null;
 }
-function toChartTime(ts: number): number {
-  return ts;
-}
+
 
 function chartifyCandles(candles: Candle[]): Candle[] {
   return candles.map((c) => ({
