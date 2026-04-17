@@ -773,7 +773,12 @@ async function saveAllSizes() {
           close: p.value,
         }));
 
-        const distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
+        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
+
+// 🔥 Fallback: wenn leer → nimm dist selbst
+if (!distMiddle.length) {
+  distMiddle = dist;
+}
         const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
         const dynamicBand = buildAdaptiveBandLine(
           distMiddle,
@@ -871,7 +876,12 @@ async function saveAllSizes() {
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
-        zeroSeries.setData([] as any);
+        const zeroLine = chartCandles.map(c => ({
+  time: c.time,
+  value: 0,
+}));
+
+zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
