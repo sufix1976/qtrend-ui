@@ -511,6 +511,7 @@ async function saveAllSizes() {
       rightPriceScale: {
         borderColor: "#334155",
         minimumWidth: PRICE_SCALE_WIDTH,
+        autoScale: true,
       },
       timeScale: {
         borderColor: "#334155",
@@ -531,6 +532,7 @@ async function saveAllSizes() {
       rightPriceScale: {
         borderColor: "#334155",
         minimumWidth: PRICE_SCALE_WIDTH,
+        autoScale: true,
       },
       timeScale: {
         borderColor: "#334155",
@@ -886,8 +888,18 @@ zeroSeries.setData(zeroLine as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
         priceChart.timeScale().fitContent();
-        const range = priceChart.timeScale().getVisibleLogicalRange();
-        if (range) distChart.timeScale().setVisibleLogicalRange(range);
+distChart.timeScale().fitContent();
+
+priceChart.priceScale("right").applyOptions({
+  autoScale: true,
+});
+
+distChart.priceScale("right").applyOptions({
+  autoScale: true,
+});
+
+const range = priceChart.timeScale().getVisibleLogicalRange();
+if (range) distChart.timeScale().setVisibleLogicalRange(range);
 
         const last = candles[candles.length - 1];
         setLastPrice(last.close);
