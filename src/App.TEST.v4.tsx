@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
   createSeriesMarkers,
@@ -79,6 +79,14 @@ type SymbolPreset = {
 };
 
 type PresetMap = Record<string, SymbolPreset>;
+
+type SymbolSizeRow = {
+  symbol: string;
+  size: number;
+  updated_at?: string;
+};
+
+type SymbolSizeMap = Record<string, number>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
@@ -248,6 +256,10 @@ export default function AppTESTv4() {
 
   const [presetMessage, setPresetMessage] = useState("");
 
+  const [symbolSizes, setSymbolSizes] = useState<SymbolSizeMap>({});
+  const [sizeMessage, setSizeMessage] = useState("");
+  const [sizeLoading, setSizeLoading] = useState(false);
+
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
   const peakLookback = useMemo(() => PEAK_LOOKBACK_BY_SYMBOL[symbol] ?? 3, [symbol]);
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
@@ -302,6 +314,31 @@ export default function AppTESTv4() {
     const t = setTimeout(() => setPresetMessage(""), 1800);
     return () => clearTimeout(t);
   }, [presetMessage]);
+  
+  useEffect(() => {
+  let cancelled = false;
+
+  async function loadSizes() {
+    try {
+      setSizeLoading(true);
+      const data = await fetchSymbolSizes();
+      if (!cancelled) setSymbolSizes(data);
+    } catch (e) {
+      if (!cancelled) {
+        console.error(e);
+        setSizeMessage(`Size-Laden fehlgeschlagen`);
+      }
+    } finally {
+      if (!cancelled) setSizeLoading(false);
+    }
+  }
+
+  loadSizes();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   function savePreset() {
     const presets = readPresets();
@@ -336,6 +373,51 @@ export default function AppTESTv4() {
     setPresetMessage(`Preset gelöscht für ${symbol}`);
   }
 
+function updateLocalSize(symbol: string, value: string) {
+  const n = Number(value);
+
+  setSymbolSizes((prev) => ({
+    ...prev,
+    [symbol]: Number.isFinite(n) && n > 0 ? n : 0,
+  }));
+}
+
+async function saveOneSize(symbol: string) {
+  try {
+    const size = Number(symbolSizes[symbol]);
+    if (!Number.isFinite(size) || size <= 0) {
+      setSizeMessage(`Ungültige Size für ${symbol}`);
+      return;
+    }
+
+    await saveSymbolSize(symbol, size);
+    setSizeMessage(`Size gespeichert für ${symbol}`);
+  } catch (e) {
+    console.error(e);
+    setSizeMessage(`Size speichern fehlgeschlagen für ${symbol}`);
+  }
+}
+
+async function saveAllSizes() {
+  try {
+    setSizeLoading(true);
+
+    for (const s of SYMBOLS) {
+      const n = Number(symbolSizes[s]);
+      if (Number.isFinite(n) && n > 0) {
+        await saveSymbolSize(s, n);
+      }
+    }
+
+    setSizeMessage("Alle Sizes gespeichert");
+  } catch (e) {
+    console.error(e);
+    setSizeMessage("Speichern der Sizes fehlgeschlagen");
+  } finally {
+    setSizeLoading(false);
+  }
+}
+  
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
 
@@ -900,6 +982,89 @@ export default function AppTESTv4() {
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
 
+
+        <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+  <div style={{ fontWeight: 700, marginBottom: 6 }}>Size Tabelle</div>
+
+  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+    Diese Werte überschreiben beim nächsten echten Entry die Webhook-Size.
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1.2fr 1fr auto",
+      gap: 6,
+      alignItems: "center",
+      fontSize: 12,
+    }}
+  >
+    <div style={{ color: "#94a3b8" }}>Symbol</div>
+    <div style={{ color: "#94a3b8" }}>Size</div>
+    <div></div>
+
+    {SYMBOLS.map((s) => (
+      <Fragment key={s}>
+        <div>{s}</div>
+
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={symbolSizes[s] ?? ""}
+          onChange={(e) => updateLocalSize(s, e.target.value)}
+          style={{
+            width: "100%",
+            background: "#0f172a",
+            color: "#fff",
+            border: "1px solid #475569",
+            borderRadius: 6,
+            padding: "4px 6px",
+          }}
+        />
+
+        <button
+          onClick={() => saveOneSize(s)}
+          style={{
+            background: "#334155",
+            color: "#fff",
+            border: "1px solid #475569",
+            borderRadius: 6,
+            padding: "4px 8px",
+            cursor: "pointer",
+          }}
+        >
+          Save
+        </button>
+      </Fragment>
+    ))}
+  </div>
+
+  <div style={{ marginTop: 8 }}>
+    <button
+      onClick={saveAllSizes}
+      disabled={sizeLoading}
+      style={{
+        width: "100%",
+        background: "#14532d",
+        color: "#fff",
+        border: "1px solid #22c55e",
+        borderRadius: 6,
+        padding: "6px 8px",
+        cursor: "pointer",
+        opacity: sizeLoading ? 0.7 : 1,
+      }}
+    >
+      {sizeLoading ? "Speichert..." : "Alle Sizes speichern"}
+    </button>
+  </div>
+
+  {sizeMessage ? (
+    <div style={{ marginTop: 6, fontSize: 12, color: "#93c5fd" }}>
+      {sizeMessage}
+    </div>
+  ) : null}
+</div>
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter TEST V4</div>
 
@@ -1185,6 +1350,63 @@ async function fetchBrokerPositionState(symbol: string): Promise<PositionSide | 
     return null;
   } catch {
     return null;
+  }
+}
+async function fetchSymbolSizes(): Promise<SymbolSizeMap> {
+  const res = await fetch(`${BACKEND_BASE}/ui/sizes?_ts=${Date.now()}`, {
+    cache: "no-store",
+  });
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`LOAD ERROR non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
+  }
+
+  const rows: SymbolSizeRow[] = Array.isArray(json.rows) ? json.rows : [];
+  const out: SymbolSizeMap = {};
+
+  for (const row of rows) {
+    const symbol = String(row.symbol || "").trim();
+    const size = Number(row.size);
+    if (symbol && Number.isFinite(size) && size > 0) {
+      out[symbol] = size;
+    }
+  }
+
+  return out;
+}
+
+async function saveSymbolSize(symbol: string, size: number): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE}/ui/size`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      symbol,
+      size,
+    }),
+  });
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`SAVE ERROR non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `SAVE ERROR ${res.status}: ${txt}`);
   }
 }
 
