@@ -1012,7 +1012,7 @@ setProfitFactor(
   adaptiveBandUI,
   adaptiveBandMultUI,
   symbolSizes,
-]
+]);
   
   return (
     <div
