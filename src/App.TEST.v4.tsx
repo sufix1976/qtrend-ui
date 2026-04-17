@@ -268,31 +268,39 @@ export default function AppTESTv4() {
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
   useEffect(() => {
-    const presets = readPresets();
-    const preset = presets[symbol];
+  const cfg = symbolConfigMap[symbol];
 
-    if (preset) {
-      setEntryBandUI(preset.entryBand);
-      setMinKinkUI(preset.minKink);
-      setPeakUI(preset.peakLookback);
-      setSmaFastUI(preset.smaFast);
-      setSmaSlowUI(preset.smaSlow);
-      setSmaMiddleUI(Number(preset.smaMiddle ?? 100));
-      setAdaptiveBandUI(Boolean(preset.adaptiveBand ?? false));
-      setAdaptiveBandMultUI(Number(preset.adaptiveBandMult ?? 1));
-      setPresetMessage(`Preset geladen für ${symbol}`);
-    } else {
-      setEntryBandUI(entryBand);
-      setMinKinkUI(minKinkMove);
-      setPeakUI(peakLookback);
-      setSmaFastUI(10);
-      setSmaSlowUI(100);
-      setSmaMiddleUI(100);
-      setAdaptiveBandUI(false);
-      setAdaptiveBandMultUI(1);
-      setPresetMessage(`Default geladen für ${symbol}`);
+  if (cfg) {
+    setEntryBandUI(Number(cfg.entry_band ?? entryBand));
+    setMinKinkUI(Number(cfg.min_kink ?? minKinkMove));
+    setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
+    setSmaFastUI(Number(cfg.sma_fast ?? 10));
+    setSmaSlowUI(Number(cfg.sma_slow ?? 100));
+    setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
+    setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
+    setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
+
+    if (cfg.size != null && Number.isFinite(Number(cfg.size))) {
+      setSymbolSizes((prev) => ({
+        ...prev,
+        [symbol]: Number(cfg.size),
+      }));
     }
-  }, [symbol, entryBand, minKinkMove, peakLookback]);
+
+    setPresetMessage(`Backend-Konfig geladen für ${symbol}`);
+  } else {
+    setEntryBandUI(entryBand);
+    setMinKinkUI(minKinkMove);
+    setPeakUI(peakLookback);
+    setSmaFastUI(10);
+    setSmaSlowUI(100);
+    setSmaMiddleUI(100);
+    setAdaptiveBandUI(false);
+    setAdaptiveBandMultUI(1);
+
+    setPresetMessage(`Default geladen für ${symbol}`);
+  }
+}, [symbol, entryBand, minKinkMove, peakLookback, symbolConfigMap]);
 
   useEffect(() => {
     if (smaFastUI >= smaSlowUI) {
@@ -361,10 +369,27 @@ export default function AppTESTv4() {
     setPresetMessage(`Preset gespeichert für ${symbol}`);
   }
 
-  function resetPreset() {
-    const presets = readPresets();
-    delete presets[symbol];
-    writePresets(presets);
+  async function resetPreset() {
+  try {
+    const row: SymbolConfigRow = {
+      symbol,
+      entry_band: entryBand,
+      min_kink: minKinkMove,
+      peak_lookback: peakLookback,
+      sma_fast: 10,
+      sma_slow: 100,
+      sma_middle: 100,
+      adaptive_band: 0,
+      adaptive_band_mult: 1,
+      size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
+    };
+
+    await saveSymbolConfig(row);
+
+    setSymbolConfigMap((prev) => ({
+      ...prev,
+      [symbol]: row,
+    }));
 
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
@@ -374,8 +399,13 @@ export default function AppTESTv4() {
     setSmaMiddleUI(100);
     setAdaptiveBandUI(false);
     setAdaptiveBandMultUI(1);
-    setPresetMessage(`Preset gelöscht für ${symbol}`);
+
+    setPresetMessage(`Backend-Konfig zurückgesetzt für ${symbol}`);
+  } catch (e) {
+    console.error(e);
+    setPresetMessage(`Backend-Reset fehlgeschlagen für ${symbol}`);
   }
+}
 
 function updateLocalSize(symbol: string, value: string) {
   const n = Number(value);
@@ -386,19 +416,40 @@ function updateLocalSize(symbol: string, value: string) {
   }));
 }
 
-async function saveOneSize(symbol: string) {
+async function saveOneSize(symbolToSave: string) {
   try {
-    const size = Number(symbolSizes[symbol]);
+    const size = Number(symbolSizes[symbolToSave]);
     if (!Number.isFinite(size) || size <= 0) {
-      setSizeMessage(`Ungültige Size für ${symbol}`);
+      setSizeMessage(`Ungültige Size für ${symbolToSave}`);
       return;
     }
 
-    await saveSymbolSize(symbol, size);
-    setSizeMessage(`Size gespeichert für ${symbol}`);
+    const old = symbolConfigMap[symbolToSave] || null;
+
+    const row: SymbolConfigRow = {
+      symbol: symbolToSave,
+      entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[symbolToSave] ?? null,
+      min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[symbolToSave] ?? null,
+      peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[symbolToSave] ?? null,
+      sma_fast: old?.sma_fast ?? 10,
+      sma_slow: old?.sma_slow ?? 100,
+      sma_middle: old?.sma_middle ?? 100,
+      adaptive_band: old?.adaptive_band ?? 0,
+      adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+      size,
+    };
+
+    await saveSymbolConfig(row);
+
+    setSymbolConfigMap((prev) => ({
+      ...prev,
+      [symbolToSave]: row,
+    }));
+
+    setSizeMessage(`Size gespeichert für ${symbolToSave}`);
   } catch (e) {
     console.error(e);
-    setSizeMessage(`Size speichern fehlgeschlagen für ${symbol}`);
+    setSizeMessage(`Size speichern fehlgeschlagen für ${symbolToSave}`);
   }
 }
 
@@ -408,12 +459,30 @@ async function saveAllSizes() {
 
     for (const s of SYMBOLS) {
       const n = Number(symbolSizes[s]);
-      if (Number.isFinite(n) && n > 0) {
-        await saveSymbolSize(s, n);
-      }
+      if (!Number.isFinite(n) || n <= 0) continue;
+
+      const old = symbolConfigMap[s] || null;
+
+      const row: SymbolConfigRow = {
+        symbol: s,
+        entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? null,
+        min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? null,
+        peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[s] ?? null,
+        sma_fast: old?.sma_fast ?? 10,
+        sma_slow: old?.sma_slow ?? 100,
+        sma_middle: old?.sma_middle ?? 100,
+        adaptive_band: old?.adaptive_band ?? 0,
+        adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+        size: n,
+      };
+
+      await saveSymbolConfig(row);
     }
 
-    setSizeMessage("Alle Sizes gespeichert");
+    const refreshed = await fetchSymbolConfig();
+    setSymbolConfigMap(refreshed);
+
+    setSizeMessage("Alle Sizes im Backend gespeichert");
   } catch (e) {
     console.error(e);
     setSizeMessage("Speichern der Sizes fehlgeschlagen");
