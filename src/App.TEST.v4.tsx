@@ -2290,20 +2290,20 @@ function normalizeBrokerState(v: string | null): PositionSide | null {
   return null;
 }
 function toChartTime(ts: number): number {
-  return ts - new Date(ts * 1000).getTimezoneOffset() * 60;
+  return ts;
 }
 
 function chartifyCandles(candles: Candle[]): Candle[] {
   return candles.map((c) => ({
     ...c,
-    time: toChartTime(c.time),
+    time: Number(c.time),
   }));
 }
 
 function chartifyLinePoints<T extends { time: number }>(points: T[]): T[] {
   return points.map((p) => ({
     ...p,
-    time: toChartTime(p.time),
+    time: Number(p.time),
   }));
 }
 
