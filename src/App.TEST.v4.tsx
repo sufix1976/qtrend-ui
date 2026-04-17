@@ -274,6 +274,9 @@ export default function AppTESTv4() {
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
+  const [manualFlatMessage, setManualFlatMessage] = useState("");
+  const [manualFlatLoading, setManualFlatLoading] = useState(false);
+
   useEffect(() => {
   const cfg = symbolConfigMap[symbol];
 
@@ -389,6 +392,23 @@ export default function AppTESTv4() {
   }
 }
 
+  async function forceManualFlat() {
+  try {
+    setManualFlatLoading(true);
+    setManualFlatMessage("");
+
+    await postManualFlat(symbol);
+
+    setManualFlatMessage(`Manual Flat aktiviert für ${symbol}`);
+    setBrokerState("flat");
+    setLiveState("flat");
+  } catch (e) {
+    console.error(e);
+    setManualFlatMessage(`Manual Flat fehlgeschlagen für ${symbol}`);
+  } finally {
+    setManualFlatLoading(false);
+  }
+}
   async function resetPreset() {
   try {
     const row: SymbolConfigRow = {
@@ -1114,6 +1134,32 @@ setProfitFactor(
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
 
+        <div style={{ marginTop: 10 }}>
+  <button
+    onClick={forceManualFlat}
+    disabled={manualFlatLoading}
+    style={{
+      width: "100%",
+      background: "#7f1d1d",
+      color: "#fff",
+      border: "1px solid #ef4444",
+      borderRadius: 6,
+      padding: "8px 10px",
+      cursor: "pointer",
+      opacity: manualFlatLoading ? 0.7 : 1,
+      fontWeight: 700,
+    }}
+  >
+    {manualFlatLoading ? "Schließt..." : "⛔ Force Exit / Flat"}
+  </button>
+
+  {manualFlatMessage ? (
+    <div style={{ marginTop: 6, fontSize: 12, color: "#fca5a5" }}>
+      {manualFlatMessage}
+    </div>
+  ) : null}
+</div>
+
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <div style={{ fontWeight: 700, marginBottom: 6 }}>Size Tabelle</div>
@@ -1440,6 +1486,29 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
   }
 
   return sanitizeCandles(json.candles || []);
+}
+
+async function postManualFlat(symbol: string): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE}/manual/flat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ symbol }),
+  });
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`MANUAL FLAT non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `MANUAL FLAT ERROR ${res.status}: ${txt}`);
+  }
 }
 
 async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
