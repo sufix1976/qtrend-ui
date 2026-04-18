@@ -276,6 +276,10 @@ export default function AppTESTv4() {
 
   const [manualFlatMessage, setManualFlatMessage] = useState("");
   const [manualFlatLoading, setManualFlatLoading] = useState(false);
+  const ENTRY_BAND_MIN_BY_SYMBOL: Record<string, number> = {
+  GOLD: 2,
+  SILVER: 0.05,
+};
 
   useEffect(() => {
   const cfg = symbolConfigMap[symbol];
