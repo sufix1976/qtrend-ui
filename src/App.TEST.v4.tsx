@@ -314,8 +314,8 @@ export default function AppTESTv4() {
 
   useEffect(() => {
     if (smaFastUI >= smaSlowUI) {
-      setSmaSlowUI(Math.max(smaFastUI + 1, 100));
-    }
+  setSmaSlowUI(smaFastUI + 1);
+}
   }, [smaFastUI, smaSlowUI]);
 
   useEffect(() => {
@@ -1247,15 +1247,16 @@ setProfitFactor(
           <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter TEST V4</div>
 
           <div>Entry Band: {entryBandUI}</div>
-          <input
-            type="range"
-            min={Math.max(0, entryBand * 0.5)}
-            max={entryBand * 2}
-            step={entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
-            value={entryBandUI}
-            onChange={(e) => setEntryBandUI(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
+
+<input
+  type="range"
+  min={(ENTRY_BAND_MIN_BY_SYMBOL[symbol] ?? Math.max(0, entryBand * 0.5))}
+  max={entryBand * 2}
+  step={entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
+  value={entryBandUI}
+  onChange={(e) => setEntryBandUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
 
           <div style={{ marginTop: 6 }}>Min Kink: {minKinkUI}</div>
           <input
@@ -1315,6 +1316,10 @@ setProfitFactor(
                 onChange={(e) => setSmaFastUI(Number(e.target.value))}
                 style={{ width: "100%" }}
               >
+                <option value={7}>7</option>
+                <option value={8}>8</option>
+
+                <option value={9}>9</option>
                 <option value={10}>10</option>
                 <option value={20}>20</option>
                 <option value={30}>30</option>
@@ -1329,6 +1334,9 @@ setProfitFactor(
                 onChange={(e) => setSmaSlowUI(Number(e.target.value))}
                 style={{ width: "100%" }}
               >
+                <option value={70}>70</option>
+                <option value={80}>80</option>
+                <option value={90}>90</option>
                 <option value={100}>100</option>
                 <option value={120}>120</option>
                 <option value={150}>150</option>
