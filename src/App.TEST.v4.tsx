@@ -371,6 +371,8 @@ export default function AppTESTv4() {
   };
 }, []);
 
+  
+
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
@@ -459,6 +461,28 @@ async function setManualOverride(state: "flat" | "long" | "short") {
     setManualOverrideMessage(`Manual Override fehlgeschlagen für ${symbol}`);
   } finally {
     setManualOverrideLoading(false);
+  }
+}
+
+  async function clearManualOverride() {
+  try {
+    const res = await fetch(`${baseUrl}/ui/manual-override/clear`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const json = await res.json();
+    if (!json?.ok) {
+      console.error("clearManualOverride failed:", json);
+      return;
+    }
+
+    await refreshManualOverride();
+    await refreshBrokerState();
+  } catch (err) {
+    console.error("clearManualOverride error:", err);
   }
 }
   
@@ -1256,6 +1280,10 @@ setProfitFactor(
   >
     {manualOverrideLoading ? "Schaltet..." : "🔴 Set SHORT"}
   </button>
+
+          <button onClick={clearManualOverride}>
+  Clear Override
+</button>
 
   {manualOverrideMessage ? (
     <div style={{ marginTop: 6, fontSize: 12, color: "#fca5a5" }}>
