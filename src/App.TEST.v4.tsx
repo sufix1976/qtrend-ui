@@ -429,16 +429,7 @@ async function setManualOverride(state: "flat" | "long" | "short") {
 
     setManualOverrideMessage(`Manual Override ${state.toUpperCase()} aktiviert für ${symbol}`);
 
-    if (state === "flat") {
-      setBrokerState("flat");
-      setLiveState("flat");
-    } else if (state === "long") {
-      setBrokerState("long");
-      setLiveState("long");
-    } else if (state === "short") {
-      setBrokerState("short");
-      setLiveState("short");
-    }
+    
   } catch (e) {
     console.error(e);
     setManualOverrideMessage(`Manual Override fehlgeschlagen für ${symbol}`);
