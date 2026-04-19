@@ -1094,6 +1094,12 @@ setProfitFactor(
   adaptiveBandMultUI,
   symbolSizes,
 ]);
+
+  const displayState =
+  manualOverrideActive && manualOverrideState
+    ? manualOverrideState
+    : liveState;
+
   
   return (
     <div
