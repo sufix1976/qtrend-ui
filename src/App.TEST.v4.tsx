@@ -276,6 +276,9 @@ export default function AppTESTv4() {
 
   const [manualOverrideMessage, setManualOverrideMessage] = useState("");
   const [manualOverrideLoading, setManualOverrideLoading] = useState(false);
+
+  const [manualOverrideState, setManualOverrideState] = useState<"flat" | "long" | "short" | null>(null);
+  const [manualOverrideActive, setManualOverrideActive] = useState(false);
   
   const ENTRY_BAND_MIN_BY_SYMBOL: Record<string, number> = {
   GOLD: 2,
@@ -395,6 +398,27 @@ export default function AppTESTv4() {
     console.error(e);
     setPresetMessage(`Backend-Konfig speichern fehlgeschlagen für ${symbol}`);
   }
+}
+
+  async function fetchManualOverrideState(symbol: string) {
+  const res = await fetch(
+    `${BACKEND_BASE}/manual/override?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`
+  );
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`MANUAL OVERRIDE GET non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `MANUAL OVERRIDE GET ERROR ${res.status}: ${txt}`);
+  }
+
+  return json.state || null;
 }
 
   async function postManualOverride(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
@@ -814,11 +838,19 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, aggRows, liveBrokerState] = await Promise.all([
-          fetchCandles(symbol, interval),
-          fetchAggTrades(symbol),
-          fetchBrokerPositionState(symbol),
-        ]);
+        const [candles, brokerState, runtimeCfg, manualOverrideRes] = await Promise.all([
+  fetchCandles(symbol, interval),
+  fetchBrokerState(symbol),
+  getRuntimeConfig(symbol),
+  fetchManualOverrideState(symbol).catch(() => null),
+]);
+        setManualOverrideActive(Boolean(manualOverrideRes?.is_active));
+
+setManualOverrideState(
+  manualOverrideRes?.is_active
+    ? (manualOverrideRes.override_state as "flat" | "long" | "short")
+    : null
+);
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -1125,15 +1157,19 @@ setProfitFactor(
           <span
             style={{
               color:
-                liveState === "long"
-                  ? "#22c55e"
-                  : liveState === "short"
-                    ? "#ef4444"
-                    : "#cbd5e1",
+  displayState === "long"
+    ? "#22c55e"
+    : displayState === "short"
+    ? "#ef4444"
+    : "#cbd5e1",
               fontWeight: 700,
             }}
           >
-            {liveState.toUpperCase()}
+            {displayState.toUpperCase()}
+            const displayState =
+  manualOverrideActive && manualOverrideState
+    ? manualOverrideState
+    : liveState;
           </span>
         </div>
         <div>
