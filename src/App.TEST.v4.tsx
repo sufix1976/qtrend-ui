@@ -277,8 +277,7 @@ export default function AppTESTv4() {
   const [manualOverrideMessage, setManualOverrideMessage] = useState("");
   const [manualOverrideLoading, setManualOverrideLoading] = useState(false);
 
-  const [manualOverrideState, setManualOverrideState] = useState<"flat" | "long" | "short" | null>(null);
-  const [manualOverrideActive, setManualOverrideActive] = useState(false);
+  
   
   const ENTRY_BAND_MIN_BY_SYMBOL: Record<string, number> = {
   GOLD: 2,
@@ -402,28 +401,7 @@ export default function AppTESTv4() {
   }
 }
 
-  async function fetchManualOverrideState(symbol: string) {
-  const res = await fetch(
-    `${BACKEND_BASE}/manual/override?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`
-  );
-
-  const txt = await res.text();
-
-  let json: any;
-  try {
-    json = JSON.parse(txt);
-  } catch {
-    throw new Error(`MANUAL OVERRIDE GET non-JSON response: ${txt}`);
-  }
-
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `MANUAL OVERRIDE GET ERROR ${res.status}: ${txt}`);
-  }
-
-  return json.state || null;
-}
-
-  async function postManualOverride(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
+  async function postManualCommand(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
   const res = await fetch(`${BACKEND_BASE}/manual/override`, {
     method: "POST",
     headers: {
@@ -438,53 +416,29 @@ export default function AppTESTv4() {
   try {
     json = JSON.parse(txt);
   } catch {
-    throw new Error(`MANUAL OVERRIDE non-JSON response: ${txt}`);
+    throw new Error(`MANUAL COMMAND non-JSON response: ${txt}`);
   }
 
   if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `MANUAL OVERRIDE ERROR ${res.status}: ${txt}`);
+    throw new Error(json?.error || json?.info || `MANUAL COMMAND ERROR ${res.status}: ${txt}`);
   }
 }
 
-async function setManualOverride(state: "flat" | "long" | "short") {
+async function sendManualCommand(state: "flat" | "long" | "short") {
   try {
     setManualOverrideLoading(true);
     setManualOverrideMessage("");
 
-    await postManualOverride(symbol, state);
+    await postManualCommand(symbol, state);
 
-    setManualOverrideMessage(`Manual Override ${state.toUpperCase()} aktiviert für ${symbol}`);
-
-    
+    setManualOverrideMessage(`Manual Command ${state.toUpperCase()} gesendet für ${symbol}`);
   } catch (e) {
     console.error(e);
-    setManualOverrideMessage(`Manual Override fehlgeschlagen für ${symbol}`);
+    setManualOverrideMessage(`Manual Command fehlgeschlagen für ${symbol}`);
   } finally {
     setManualOverrideLoading(false);
   }
 }
-
-  async function clearManualOverride() {
-  try {
-    const res = await fetch("/ui/manual-override/clear", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    const json = await res.json();
-    if (!json?.ok) {
-      console.error("clearManualOverride failed:", json);
-      return;
-    }
-
-    window.location.reload();
-  } catch (err) {
-    console.error("clearManualOverride error:", err);
-  }
-}
-  
   async function resetPreset() {
   try {
     const row: SymbolConfigRow = {
@@ -861,19 +815,12 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows, manualOverrideRes] = await Promise.all([
+        const [candles, liveBrokerState, aggRows] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
-  fetchManualOverrideState(symbol).catch(() => null),
 ]);
-        setManualOverrideActive(Boolean(manualOverrideRes?.is_active));
-
-setManualOverrideState(
-  manualOverrideRes?.is_active
-    ? (manualOverrideRes.override_state as "flat" | "long" | "short")
-    : null
-);
+       
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -1118,17 +1065,7 @@ setProfitFactor(
   symbolSizes,
 ]);
 
-  const displayState =
-  manualOverrideActive && manualOverrideState
-    ? manualOverrideState
-    : liveState;
-
-  
-
-const displayLabel =
-  manualOverrideActive && manualOverrideState
-    ? `MANUAL ${manualOverrideState.toUpperCase()}`
-    : `AUTO ${(liveState ?? "flat").toUpperCase()}`;
+  const displayState = liveState;
   
   return (
     <div
@@ -1200,7 +1137,7 @@ const displayLabel =
               fontWeight: 700,
             }}
           >
-            {displayLabel}
+            {displayState.toUpperCase()}
             
           </span>
         </div>
@@ -1233,7 +1170,7 @@ const displayLabel =
 
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
-    onClick={() => setManualOverride("flat")}
+    onClick={() => sendManualCommand("flat")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
@@ -1251,7 +1188,7 @@ const displayLabel =
   </button>
 
   <button
-    onClick={() => setManualOverride("long")}
+    onClick={() => sendManualCommand("long")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
@@ -1269,7 +1206,7 @@ const displayLabel =
   </button>
 
   <button
-    onClick={() => setManualOverride("short")}
+    onClick={() => sendManualCommand("short")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
@@ -1286,9 +1223,7 @@ const displayLabel =
     {manualOverrideLoading ? "Schaltet..." : "🔴 Set SHORT"}
   </button>
 
-          <button onClick={clearManualOverride}>
-  Clear Override
-</button>
+          
 
   {manualOverrideMessage ? (
     <div style={{ marginTop: 6, fontSize: 12, color: "#fca5a5" }}>
