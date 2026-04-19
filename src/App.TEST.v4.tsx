@@ -215,8 +215,9 @@ export default function AppTESTv4() {
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [lastTime, setLastTime] = useState<number | null>(null);
 
-  const [manualState, setManualState] = useState<PositionSide | null>(null);
-  const [brokerState, setBrokerState] = useState<PositionSide>("flat");
+  const [liveState, setLiveState] = useState<PositionSide>("flat");
+const [manualState, setManualState] = useState<PositionSide | null>(null);
+const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [longSignalCount, setLongSignalCount] = useState(0);
   const [shortSignalCount, setShortSignalCount] = useState(0);
@@ -401,44 +402,9 @@ export default function AppTESTv4() {
   }
 }
 
-  async function postManualCommand(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
-  const res = await fetch(`${BACKEND_BASE}/manual/override`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ symbol, state }),
-  });
+  
 
-  const txt = await res.text();
 
-  let json: any;
-  try {
-    json = JSON.parse(txt);
-  } catch {
-    throw new Error(`MANUAL COMMAND non-JSON response: ${txt}`);
-  }
-
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `MANUAL COMMAND ERROR ${res.status}: ${txt}`);
-  }
-}
-
-async function sendManualCommand(state: "flat" | "long" | "short") {
-  try {
-    setManualOverrideLoading(true);
-    setManualOverrideMessage("");
-
-    await postManualCommand(symbol, state);
-
-    setManualOverrideMessage(`Manual Command ${state.toUpperCase()} gesendet für ${symbol}`);
-  } catch (e) {
-    console.error(e);
-    setManualOverrideMessage(`Manual Command fehlgeschlagen für ${symbol}`);
-  } finally {
-    setManualOverrideLoading(false);
-  }
-}
   async function resetPreset() {
   try {
     const row: SymbolConfigRow = {
