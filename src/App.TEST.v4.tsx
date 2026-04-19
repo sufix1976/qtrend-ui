@@ -1124,6 +1124,15 @@ setProfitFactor(
     ? manualOverrideState
     : liveState;
 
+  const displayState =
+  manualOverrideActive && manualOverrideState
+    ? manualOverrideState
+    : liveState;
+
+const displayLabel =
+  manualOverrideActive && manualOverrideState
+    ? `MANUAL ${manualOverrideState.toUpperCase()}`
+    : `AUTO ${(liveState ?? "flat").toUpperCase()}`;
   
   return (
     <div
@@ -1195,7 +1204,7 @@ setProfitFactor(
               fontWeight: 700,
             }}
           >
-            {displayState.toUpperCase()}
+            {displayLabel}
             
           </span>
         </div>
