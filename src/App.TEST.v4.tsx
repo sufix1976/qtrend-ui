@@ -1570,28 +1570,7 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
   return sanitizeCandles(json.candles || []);
 }
 
-async function postManualFlat(symbol: string): Promise<void> {
-  const res = await fetch(`${BACKEND_BASE}/manual/flat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ symbol }),
-  });
 
-  const txt = await res.text();
-
-  let json: any;
-  try {
-    json = JSON.parse(txt);
-  } catch {
-    throw new Error(`MANUAL FLAT non-JSON response: ${txt}`);
-  }
-
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || json?.info || `MANUAL FLAT ERROR ${res.status}: ${txt}`);
-  }
-}
 
 async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
   const url = new URL("/agg/trades", BACKEND_BASE);
