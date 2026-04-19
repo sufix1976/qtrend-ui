@@ -218,6 +218,14 @@ export default function AppTESTv4() {
   const [liveState, setLiveState] = useState<PositionSide>("flat");
 
 const [brokerState, setBrokerState] = useState<PositionSide>("flat");
+  async function setStrategyState(state: "flat" | "long" | "short") {
+  try {
+    await postStrategyState(symbol, state);
+    setLiveState(state);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
   const [longSignalCount, setLongSignalCount] = useState(0);
   const [shortSignalCount, setShortSignalCount] = useState(0);
