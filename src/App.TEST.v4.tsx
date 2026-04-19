@@ -216,7 +216,7 @@ export default function AppTESTv4() {
   const [lastTime, setLastTime] = useState<number | null>(null);
 
   const [liveState, setLiveState] = useState<PositionSide>("flat");
-const [manualState, setManualState] = useState<PositionSide | null>(null);
+
 const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [longSignalCount, setLongSignalCount] = useState(0);
@@ -780,10 +780,11 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, backendStrategyState] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
+  fetchStrategyState(symbol),
 ]);
        
 
@@ -932,8 +933,8 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
         setLastPrice(last.close);
         setLastTime(last.time);
 
-        setLiveState(sim.position);
-        setManualState(null);
+        setLiveState(backendStrategyState);
+        
         setLongSignalCount(strategyLongPoints.length);
         setShortSignalCount(strategyShortPoints.length);
         setLongExitCount(sim.longExitPoints.length);
@@ -1031,7 +1032,7 @@ setProfitFactor(
   symbolSizes,
 ]);
 
-  const displayState = manualState ?? liveState;
+  const displayState = liveState;
   
   return (
     <div
@@ -1136,7 +1137,7 @@ setProfitFactor(
 
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
-    onClick={() => setManualState("flat")}
+    onClick={() => setStrategyState("flat")}
     style={{
       width: "100%",
       background: "#7f1d1d",
@@ -1152,7 +1153,7 @@ setProfitFactor(
   </button>
 
   <button
-    onClick={() => setManualState("long")}
+    onClick={() => setStrategyState("long")}
     style={{
       width: "100%",
       background: "#14532d",
@@ -1168,7 +1169,7 @@ setProfitFactor(
   </button>
 
   <button
-    onClick={() => setManualState("short")}
+    onClick={() => setStrategyState("short")}
     style={{
       width: "100%",
       background: "#7f1d1d",
@@ -1520,7 +1521,59 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
   return sanitizeCandles(json.candles || []);
 }
 
+async function postStrategyState(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE}/strategy/state`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ symbol, state }),
+  });
 
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`STRATEGY STATE non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `STRATEGY STATE ERROR ${res.status}: ${txt}`);
+  }
+}
+
+async function fetchStrategyState(symbol: string): Promise<"flat" | "long" | "short"> {
+  const res = await fetch(
+    `${BACKEND_BASE}/strategy/state?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`
+  );
+
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`STRATEGY STATE GET non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `STRATEGY STATE GET ERROR ${res.status}: ${txt}`);
+  }
+
+  const state = String(json.state || "flat").toLowerCase();
+  return state === "long" || state === "short" ? state : "flat";
+}
+
+async function setStrategyState(state: "flat" | "long" | "short") {
+  try {
+    await postStrategyState(symbol, state);
+    setLiveState(state);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
   const url = new URL("/agg/trades", BACKEND_BASE);
