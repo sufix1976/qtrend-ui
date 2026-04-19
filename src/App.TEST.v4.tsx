@@ -274,8 +274,9 @@ export default function AppTESTv4() {
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
-  const [manualFlatMessage, setManualFlatMessage] = useState("");
-  const [manualFlatLoading, setManualFlatLoading] = useState(false);
+  const [manualOverrideMessage, setManualOverrideMessage] = useState("");
+  const [manualOverrideLoading, setManualOverrideLoading] = useState(false);
+  
   const ENTRY_BAND_MIN_BY_SYMBOL: Record<string, number> = {
   GOLD: 2,
   SILVER: 0.05,
@@ -396,23 +397,56 @@ export default function AppTESTv4() {
   }
 }
 
-  async function forceManualFlat() {
+  async function postManualOverride(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE}/manual/override`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ symbol, state }),
+  });
+
+  const txt = await res.text();
+
+  let json: any;
   try {
-    setManualFlatLoading(true);
-    setManualFlatMessage("");
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`MANUAL OVERRIDE non-JSON response: ${txt}`);
+  }
 
-    await postManualFlat(symbol);
-
-    setManualFlatMessage(`Manual Flat aktiviert für ${symbol}`);
-    setBrokerState("flat");
-    setLiveState("flat");
-  } catch (e) {
-    console.error(e);
-    setManualFlatMessage(`Manual Flat fehlgeschlagen für ${symbol}`);
-  } finally {
-    setManualFlatLoading(false);
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || json?.info || `MANUAL OVERRIDE ERROR ${res.status}: ${txt}`);
   }
 }
+
+async function setManualOverride(state: "flat" | "long" | "short") {
+  try {
+    setManualOverrideLoading(true);
+    setManualOverrideMessage("");
+
+    await postManualOverride(symbol, state);
+
+    setManualOverrideMessage(`Manual Override ${state.toUpperCase()} aktiviert für ${symbol}`);
+
+    if (state === "flat") {
+      setBrokerState("flat");
+      setLiveState("flat");
+    } else if (state === "long") {
+      setBrokerState("long");
+      setLiveState("long");
+    } else if (state === "short") {
+      setBrokerState("short");
+      setLiveState("short");
+    }
+  } catch (e) {
+    console.error(e);
+    setManualOverrideMessage(`Manual Override fehlgeschlagen für ${symbol}`);
+  } finally {
+    setManualOverrideLoading(false);
+  }
+}
+  
   async function resetPreset() {
   try {
     const row: SymbolConfigRow = {
@@ -1138,10 +1172,10 @@ setProfitFactor(
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
 
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
-    onClick={forceManualFlat}
-    disabled={manualFlatLoading}
+    onClick={() => setManualOverride("flat")}
+    disabled={manualOverrideLoading}
     style={{
       width: "100%",
       background: "#7f1d1d",
@@ -1150,16 +1184,52 @@ setProfitFactor(
       borderRadius: 6,
       padding: "8px 10px",
       cursor: "pointer",
-      opacity: manualFlatLoading ? 0.7 : 1,
+      opacity: manualOverrideLoading ? 0.7 : 1,
       fontWeight: 700,
     }}
   >
-    {manualFlatLoading ? "Schließt..." : "⛔ Force Exit / Flat"}
+    {manualOverrideLoading ? "Schaltet..." : "⛔ Set FLAT"}
   </button>
 
-  {manualFlatMessage ? (
+  <button
+    onClick={() => setManualOverride("long")}
+    disabled={manualOverrideLoading}
+    style={{
+      width: "100%",
+      background: "#14532d",
+      color: "#fff",
+      border: "1px solid #22c55e",
+      borderRadius: 6,
+      padding: "8px 10px",
+      cursor: "pointer",
+      opacity: manualOverrideLoading ? 0.7 : 1,
+      fontWeight: 700,
+    }}
+  >
+    {manualOverrideLoading ? "Schaltet..." : "🟢 Set LONG"}
+  </button>
+
+  <button
+    onClick={() => setManualOverride("short")}
+    disabled={manualOverrideLoading}
+    style={{
+      width: "100%",
+      background: "#7f1d1d",
+      color: "#fff",
+      border: "1px solid #ef4444",
+      borderRadius: 6,
+      padding: "8px 10px",
+      cursor: "pointer",
+      opacity: manualOverrideLoading ? 0.7 : 1,
+      fontWeight: 700,
+    }}
+  >
+    {manualOverrideLoading ? "Schaltet..." : "🔴 Set SHORT"}
+  </button>
+
+  {manualOverrideMessage ? (
     <div style={{ marginTop: 6, fontSize: 12, color: "#fca5a5" }}>
-      {manualFlatMessage}
+      {manualOverrideMessage}
     </div>
   ) : null}
 </div>
