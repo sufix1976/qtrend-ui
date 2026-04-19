@@ -1574,14 +1574,7 @@ async function fetchStrategyState(symbol: string): Promise<"flat" | "long" | "sh
   return state === "long" || state === "short" ? state : "flat";
 }
 
-async function setStrategyState(state: "flat" | "long" | "short") {
-  try {
-    await postStrategyState(symbol, state);
-    setLiveState(state);
-  } catch (e) {
-    console.error(e);
-  }
-}
+
 
 async function fetchAggTrades(symbol: string): Promise<AggTradeRow[]> {
   const url = new URL("/agg/trades", BACKEND_BASE);
