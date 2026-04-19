@@ -1172,10 +1172,7 @@ setProfitFactor(
             }}
           >
             {displayState.toUpperCase()}
-            const displayState =
-  manualOverrideActive && manualOverrideState
-    ? manualOverrideState
-    : liveState;
+            
           </span>
         </div>
         <div>
