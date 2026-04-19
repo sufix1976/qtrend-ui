@@ -466,7 +466,7 @@ async function setManualOverride(state: "flat" | "long" | "short") {
 
   async function clearManualOverride() {
   try {
-    const res = await fetch(`${baseUrl}/ui/manual-override/clear`, {
+    const res = await fetch("/ui/manual-override/clear", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -479,8 +479,7 @@ async function setManualOverride(state: "flat" | "long" | "short") {
       return;
     }
 
-    await refreshManualOverride();
-    await refreshBrokerState();
+    window.location.reload();
   } catch (err) {
     console.error("clearManualOverride error:", err);
   }
@@ -1124,10 +1123,7 @@ setProfitFactor(
     ? manualOverrideState
     : liveState;
 
-  const displayState =
-  manualOverrideActive && manualOverrideState
-    ? manualOverrideState
-    : liveState;
+  
 
 const displayLabel =
   manualOverrideActive && manualOverrideState
