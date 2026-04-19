@@ -838,10 +838,10 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, brokerState, runtimeCfg, manualOverrideRes] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, manualOverrideRes] = await Promise.all([
   fetchCandles(symbol, interval),
-  fetchBrokerState(symbol),
-  getRuntimeConfig(symbol),
+  fetchBrokerPositionState(symbol),
+  fetchAggTrades(symbol, interval),
   fetchManualOverrideState(symbol).catch(() => null),
 ]);
         setManualOverrideActive(Boolean(manualOverrideRes?.is_active));
