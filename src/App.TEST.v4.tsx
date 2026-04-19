@@ -275,8 +275,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
 
-  const [manualOverrideMessage, setManualOverrideMessage] = useState("");
-  const [manualOverrideLoading, setManualOverrideLoading] = useState(false);
+  
 
   
   
