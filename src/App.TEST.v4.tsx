@@ -1137,7 +1137,6 @@ setProfitFactor(
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
     onClick={() => setManualState("flat")}
-    disabled={manualOverrideLoading}
     style={{
       width: "100%",
       background: "#7f1d1d",
@@ -1146,16 +1145,14 @@ setProfitFactor(
       borderRadius: 6,
       padding: "8px 10px",
       cursor: "pointer",
-      opacity: manualOverrideLoading ? 0.7 : 1,
       fontWeight: 700,
     }}
   >
-    {manualOverrideLoading ? "Schaltet..." : "⛔ Set FLAT"}
+    ⛔ Set FLAT
   </button>
 
   <button
     onClick={() => setManualState("long")}
-    disabled={manualOverrideLoading}
     style={{
       width: "100%",
       background: "#14532d",
@@ -1164,16 +1161,14 @@ setProfitFactor(
       borderRadius: 6,
       padding: "8px 10px",
       cursor: "pointer",
-      opacity: manualOverrideLoading ? 0.7 : 1,
       fontWeight: 700,
     }}
   >
-    {manualOverrideLoading ? "Schaltet..." : "🟢 Set LONG"}
+    🟢 Set LONG
   </button>
 
   <button
     onClick={() => setManualState("short")}
-    disabled={manualOverrideLoading}
     style={{
       width: "100%",
       background: "#7f1d1d",
@@ -1182,20 +1177,11 @@ setProfitFactor(
       borderRadius: 6,
       padding: "8px 10px",
       cursor: "pointer",
-      opacity: manualOverrideLoading ? 0.7 : 1,
       fontWeight: 700,
     }}
   >
-    {manualOverrideLoading ? "Schaltet..." : "🔴 Set SHORT"}
+    🔴 Set SHORT
   </button>
-
-          
-
-  {manualOverrideMessage ? (
-    <div style={{ marginTop: 6, fontSize: 12, color: "#fca5a5" }}>
-      {manualOverrideMessage}
-    </div>
-  ) : null}
 </div>
 
 
