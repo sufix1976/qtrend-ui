@@ -215,7 +215,7 @@ export default function AppTESTv4() {
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [lastTime, setLastTime] = useState<number | null>(null);
 
-  const [liveState, setLiveState] = useState<PositionSide>("flat");
+  const [manualState, setManualState] = useState<PositionSide | null>(null);
   const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [longSignalCount, setLongSignalCount] = useState(0);
@@ -968,6 +968,7 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
         setLastTime(last.time);
 
         setLiveState(sim.position);
+        setManualState(null);
         setLongSignalCount(strategyLongPoints.length);
         setShortSignalCount(strategyShortPoints.length);
         setLongExitCount(sim.longExitPoints.length);
@@ -1065,7 +1066,7 @@ setProfitFactor(
   symbolSizes,
 ]);
 
-  const displayState = liveState;
+  const displayState = manualState ?? liveState;
   
   return (
     <div
@@ -1170,7 +1171,7 @@ setProfitFactor(
 
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
-    onClick={() => sendManualCommand("flat")}
+    onClick={() => setManualState("flat")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
@@ -1188,7 +1189,7 @@ setProfitFactor(
   </button>
 
   <button
-    onClick={() => sendManualCommand("long")}
+    onClick={() => setManualState("long")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
@@ -1206,7 +1207,7 @@ setProfitFactor(
   </button>
 
   <button
-    onClick={() => sendManualCommand("short")}
+    onClick={() => setManualState("short")}
     disabled={manualOverrideLoading}
     style={{
       width: "100%",
