@@ -1002,8 +1002,6 @@ setProfitFactor(
 
     loadData();
 
-    loadData();
-
 const poll = setInterval(() => {
   loadData();
 }, 3000);
