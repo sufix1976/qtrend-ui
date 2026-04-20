@@ -112,6 +112,7 @@ const SYMBOLS = [
   "OIL_CRUDE",
   "CORN",
   "SOLUSD",
+  "TSLA",
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
@@ -129,6 +130,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 1.4,
   CORN: 1.4,
   SOLUSD: 0.8,
+  TSLA: 20
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -146,6 +148,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 3,
   CORN: 3,
   SOLUSD: 3,
+  TSLA: 3,
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
@@ -163,6 +166,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.08,
   CORN: 0.08,
   SOLUSD: 0.08,
+  TSLA: 0.08
 };
 
 
@@ -181,6 +185,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.04,
   CORN: 0.7,
   SOLUSD: 0.08,
+  TSLA: 2,
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -198,6 +203,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.01,
   CORN: 0.3,
   SOLUSD: 0.02,
+  TSLA: 0.5
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
