@@ -208,6 +208,7 @@ export default function AppTESTv4() {
   const priceChartRef = useRef<IChartApi | null>(null);
   const distChartRef = useRef<IChartApi | null>(null);
   const loadSeqRef = useRef(0);
+  const lastViewKeyRef = useRef("");
 
   const [symbol, setSymbol] = useState("BTCUSD");
   const [interval, setInterval] = useState<IntervalOption>("15m");
@@ -936,8 +937,22 @@ distChart.priceScale("right").applyOptions({
   autoScale: true,
 });
 
-const range = priceChart.timeScale().getVisibleLogicalRange();
-if (range) distChart.timeScale().setVisibleLogicalRange(range);
+const currentViewKey = `${symbol}|${interval}`;
+
+if (lastViewKeyRef.current !== currentViewKey) {
+  priceChart.timeScale().fitContent();
+  distChart.timeScale().fitContent();
+
+  const range = priceChart.timeScale().getVisibleLogicalRange();
+  if (range) distChart.timeScale().setVisibleLogicalRange(range);
+
+  lastViewKeyRef.current = currentViewKey;
+} else {
+  priceChart.timeScale().scrollToRealTime();
+
+  const range = priceChart.timeScale().getVisibleLogicalRange();
+  if (range) distChart.timeScale().setVisibleLogicalRange(range);
+}
 if (cancelled || mySeq !== loadSeqRef.current) return;
         const last = candles[candles.length - 1];
         setLastPrice(last.close);
