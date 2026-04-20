@@ -209,6 +209,13 @@ export default function AppTESTv4() {
   const distChartRef = useRef<IChartApi | null>(null);
   const loadSeqRef = useRef(0);
   const lastViewKeyRef = useRef("");
+  useEffect(() => {
+  document.body.style.margin = "0";
+  document.body.style.overflow = "hidden";
+  document.documentElement.style.margin = "0";
+  document.documentElement.style.overflow = "hidden";
+}, []);
+  
 
   const [symbol, setSymbol] = useState("BTCUSD");
   const [interval, setInterval] = useState<IntervalOption>("15m");
@@ -1069,8 +1076,9 @@ return () => {
   return (
     <div
       style={{
-        width: "100vw",
+        width: "100%",
         height: "100vh",
+        overflow: "hidden",
         background: "#0f172a",
         color: "#fff",
         display: "flex",
@@ -1516,15 +1524,25 @@ return () => {
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
       </div>
 
-      <div ref={priceRef} style={{ flex: "0 0 72%", minHeight: 0 }} />
       <div
-        ref={distRef}
-        style={{
-          flex: "0 0 28%",
-          minHeight: 0,
-          borderTop: "1px solid #334155",
-        }}
-      />
+  ref={priceRef}
+  style={{
+    flex: "0 0 72%",
+    minHeight: 0,
+    width: "100%",
+    overflow: "hidden",
+  }}
+/>
+      <div
+    ref={distRef}
+    style={{
+    flex: "0 0 28%",
+    minHeight: 0,
+    width: "100%",
+    overflow: "hidden",
+    borderTop: "1px solid #334155",
+  }}
+/>
     </div>
   );
 }
