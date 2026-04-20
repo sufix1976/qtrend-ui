@@ -219,6 +219,23 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
+function getLatestStrategyEventTime(
+  points: MarkerPoint[],
+  exitPoints: MarkerPoint[]
+): number {
+  let t = 0;
+
+  for (const p of points) {
+    if (Number.isFinite(p.time) && p.time > t) t = p.time;
+  }
+
+  for (const p of exitPoints) {
+    if (Number.isFinite(p.time) && p.time > t) t = p.time;
+  }
+
+  return t;
+}
+
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
@@ -227,6 +244,7 @@ export default function AppTESTv4() {
   const distChartRef = useRef<IChartApi | null>(null);
   const loadSeqRef = useRef(0);
   const lastViewKeyRef = useRef("");
+  const autoSignalAnchorRef = useRef<Record<string, number>>({});
   useEffect(() => {
   document.body.style.margin = "0";
   document.body.style.overflow = "hidden";
@@ -245,9 +263,14 @@ export default function AppTESTv4() {
   const [liveState, setLiveState] = useState<PositionSide>("flat");
 
 const [brokerState, setBrokerState] = useState<PositionSide>("flat");
+  
   async function setStrategyState(state: "flat" | "long" | "short") {
   try {
     await postStrategyState(symbol, state);
+
+    const key = `${symbol}|${interval}`;
+    autoSignalAnchorRef.current[key] = Math.floor(Date.now() / 1000);
+
     setLiveState(state);
   } catch (e) {
     console.error(e);
@@ -913,6 +936,29 @@ if (!distMiddle.length) {
         const strategyShortPoints = shortData.entries;
 
         const sim = simulateStrategyTESTv4(
+          const signalKey = `${symbol}|${interval}`;
+const anchorTime = autoSignalAnchorRef.current[signalKey] ?? 0;
+
+const latestStrategyEventTime = getLatestStrategyEventTime(
+  [...strategyLongPoints, ...strategyShortPoints],
+  [...sim.longExitPoints, ...sim.shortExitPoints]
+);
+
+if (latestStrategyEventTime > anchorTime) {
+  const autoDetectedState = sim.position as "flat" | "long" | "short";
+
+  if (autoDetectedState !== backendStrategyState) {
+    try {
+      await postStrategyState(symbol, autoDetectedState);
+      autoSignalAnchorRef.current[signalKey] = latestStrategyEventTime;
+    } catch (e) {
+      console.error("safe auto postStrategyState failed:", e);
+    }
+  } else {
+    autoSignalAnchorRef.current[signalKey] = latestStrategyEventTime;
+  }
+}
+        
           candles,
           dist,
           distMiddle,
