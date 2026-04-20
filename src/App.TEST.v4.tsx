@@ -926,8 +926,7 @@ zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
-        priceChart.timeScale().fitContent();
-distChart.timeScale().fitContent();
+        
 
 priceChart.priceScale("right").applyOptions({
   autoScale: true,
