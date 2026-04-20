@@ -592,7 +592,7 @@ async function saveAllSizes() {
       },
     });
 
-
+    syncCharts(priceChart, distChart);
     priceChartRef.current = priceChart;
     distChartRef.current = distChart;
 
@@ -767,7 +767,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
     
-    syncCharts(priceChart, distChart, candleSeries, distSeries);
+    
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -1799,6 +1799,121 @@ function syncCharts(
       isUpdatingCrosshair = false;
     }
   });
+}
+
+function setupVerticalCrosshairOverlay(
+  priceContainer: HTMLDivElement,
+  distContainer: HTMLDivElement,
+  priceChart: IChartApi,
+  distChart: IChartApi
+) {
+  const makeLine = (host: HTMLDivElement) => {
+    const line = document.createElement("div");
+    line.style.position = "absolute";
+    line.style.top = "0";
+    line.style.bottom = "0";
+    line.style.width = "0";
+    line.style.borderLeft = "1px dashed #94a3b8";
+    line.style.pointerEvents = "none";
+    line.style.zIndex = "15";
+    line.style.display = "none";
+    host.appendChild(line);
+    return line;
+  };
+
+  const ensureRelative = (el: HTMLDivElement) => {
+    const style = window.getComputedStyle(el);
+    if (style.position === "static") {
+      el.style.position = "relative";
+    }
+  };
+
+  ensureRelative(priceContainer);
+  ensureRelative(distContainer);
+
+  const priceLine = makeLine(priceContainer);
+  const distLine = makeLine(distContainer);
+
+  const showAtTime = (time: any, sourceChart: IChartApi) => {
+    if (time == null) {
+      priceLine.style.display = "none";
+      distLine.style.display = "none";
+      return;
+    }
+
+    const sourceX = sourceChart.timeScale().timeToCoordinate(time);
+    if (sourceX == null || !Number.isFinite(sourceX)) {
+      priceLine.style.display = "none";
+      distLine.style.display = "none";
+      return;
+    }
+
+    const logical = sourceChart.timeScale().coordinateToLogical(sourceX);
+    if (logical == null || !Number.isFinite(logical)) {
+      priceLine.style.display = "none";
+      distLine.style.display = "none";
+      return;
+    }
+
+    const priceX = priceChart.timeScale().logicalToCoordinate(logical);
+    const distX = distChart.timeScale().logicalToCoordinate(logical);
+
+    if (priceX == null || distX == null) {
+      priceLine.style.display = "none";
+      distLine.style.display = "none";
+      return;
+    }
+
+    priceLine.style.left = `${Math.round(priceX)}px`;
+    distLine.style.left = `${Math.round(distX)}px`;
+    priceLine.style.display = "block";
+    distLine.style.display = "block";
+  };
+
+  const leave = () => {
+    priceLine.style.display = "none";
+    distLine.style.display = "none";
+  };
+
+  const onPriceMove = (param: any) => {
+    if (!param || param.time == null) {
+      leave();
+      return;
+    }
+    showAtTime(param.time, priceChart);
+  };
+
+  const onDistMove = (param: any) => {
+    if (!param || param.time == null) {
+      leave();
+      return;
+    }
+    showAtTime(param.time, distChart);
+  };
+
+  priceChart.subscribeCrosshairMove(onPriceMove);
+  distChart.subscribeCrosshairMove(onDistMove);
+
+  const onPriceLeave = () => leave();
+  const onDistLeave = () => leave();
+
+  priceContainer.addEventListener("mouseleave", onPriceLeave);
+  distContainer.addEventListener("mouseleave", onDistLeave);
+
+  return () => {
+    try {
+      priceChart.unsubscribeCrosshairMove(onPriceMove);
+      distChart.unsubscribeCrosshairMove(onDistMove);
+    } catch {}
+
+    priceContainer.removeEventListener("mouseleave", onPriceLeave);
+    distContainer.removeEventListener("mouseleave", onDistLeave);
+
+    try {
+      priceLine.remove();
+      distLine.remove();
+    } catch {}
+  };
 }
 
 function sanitizeCandles(data: any[]): Candle[] {
