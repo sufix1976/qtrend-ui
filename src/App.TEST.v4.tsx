@@ -1005,7 +1005,7 @@ setProfitFactor(
 
 const poll = window.setInterval(() => {
   loadData();
-}, 3000);
+}, 15000);
 
 return () => {
   cancelled = true;
