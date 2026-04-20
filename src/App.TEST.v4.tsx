@@ -1012,7 +1012,7 @@ return () => {
   cancelled = true;
   clearInterval(poll);
   try {
-    ...
+
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
