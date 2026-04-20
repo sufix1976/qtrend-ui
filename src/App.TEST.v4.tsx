@@ -942,9 +942,7 @@ if (range) distChart.timeScale().setVisibleLogicalRange(range);
         setLastTime(last.time);
 
         // nur initial sync, danach UI bleibt stabil
-if (liveState === "flat") {
-  setLiveState(backendStrategyState);
-}
+setLiveState(backendStrategyState);
         
         setLongSignalCount(strategyLongPoints.length);
         setShortSignalCount(strategyShortPoints.length);
