@@ -4,6 +4,7 @@ import {
   createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
+  CrosshairMode,
   type IChartApi,
 } from "lightweight-charts";
 
@@ -564,9 +565,10 @@ async function saveAllSizes() {
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
-        vertLine: { color: "#94a3b8", width: 1, style: 2 },
-        horzLine: { color: "#94a3b8", width: 1, style: 2 },
-      },
+  mode: CrosshairMode.Normal,
+  vertLine: { color: "#94a3b8", width: 1, style: 2 },
+  horzLine: { color: "#94a3b8", width: 1, style: 2 },
+},
     });
 
     const distChart = createChart(distRef.current, {
@@ -587,9 +589,10 @@ async function saveAllSizes() {
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
-        vertLine: { color: "#94a3b8", width: 1, style: 2 },
-        horzLine: { color: "#94a3b8", width: 1, style: 2 },
-      },
+  mode: CrosshairMode.Normal,
+  vertLine: { color: "#94a3b8", width: 1, style: 2 },
+  horzLine: { color: "#94a3b8", width: 1, style: 2 },
+},
     });
 
     syncCharts(priceChart, distChart);
