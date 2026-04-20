@@ -560,7 +560,7 @@ async function saveAllSizes() {
   borderColor: "#334155",
   timeVisible: true,
   secondsVisible: false,
-  rightOffset: 0
+  rightOffset: 0,
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
@@ -583,7 +583,7 @@ async function saveAllSizes() {
   borderColor: "#334155",
   timeVisible: true,
   secondsVisible: false,
-  rightOffset: 0,  
+  rightOffset: 0,
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
