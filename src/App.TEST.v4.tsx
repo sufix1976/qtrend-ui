@@ -560,9 +560,7 @@ async function saveAllSizes() {
   borderColor: "#334155",
   timeVisible: true,
   secondsVisible: false,
-  rightOffset: 0,
-  fixLeftEdge: true,
-  fixRightEdge: true,
+  rightOffset: 0
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
@@ -585,9 +583,7 @@ async function saveAllSizes() {
   borderColor: "#334155",
   timeVisible: true,
   secondsVisible: false,
-  rightOffset: 0,
-  fixLeftEdge: true,
-  fixRightEdge: true,
+  rightOffset: 0,  
   lockVisibleTimeRangeOnResize: true,
 },
       crosshair: {
@@ -955,17 +951,12 @@ distChart.priceScale("right").applyOptions({
 const currentViewKey = `${symbol}|${interval}`;
 
 if (lastViewKeyRef.current !== currentViewKey) {
-  priceChart.timeScale().scrollToRealTime();
+  priceChart.timeScale().fitContent();
 
   const range = priceChart.timeScale().getVisibleLogicalRange();
   if (range) distChart.timeScale().setVisibleLogicalRange(range);
 
   lastViewKeyRef.current = currentViewKey;
-} else {
-  priceChart.timeScale().scrollToRealTime();
-
-  const range = priceChart.timeScale().getVisibleLogicalRange();
-  if (range) distChart.timeScale().setVisibleLogicalRange(range);
 }
         
 if (cancelled || mySeq !== loadSeqRef.current) return;
