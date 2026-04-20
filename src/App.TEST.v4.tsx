@@ -593,6 +593,14 @@ async function saveAllSizes() {
     });
 
     syncCharts(priceChart, distChart);
+
+    const cleanupVerticalOverlay = setupVerticalCrosshairOverlay(
+  priceRef.current,
+  distRef.current,
+  priceChart,
+  distChart
+);
+    
     priceChartRef.current = priceChart;
     distChartRef.current = distChart;
 
@@ -617,6 +625,7 @@ async function saveAllSizes() {
 
     return () => {
       ro.disconnect();
+      cleanupVerticalOverlay();
       priceChart.remove();
       distChart.remove();
       priceChartRef.current = null;
