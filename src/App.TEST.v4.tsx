@@ -592,7 +592,6 @@ async function saveAllSizes() {
       },
     });
 
-    syncCharts(priceChart, distChart);
 
     priceChartRef.current = priceChart;
     distChartRef.current = distChart;
@@ -767,6 +766,8 @@ async function saveAllSizes() {
       priceLineVisible: false,
       lastValueVisible: false,
     });
+    
+    syncCharts(priceChart, distChart, candleSeries, distSeries);
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -1721,25 +1722,83 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   }
 }
 
-function syncCharts(chartA: IChartApi, chartB: IChartApi) {
-  let isUpdating = false;
+function syncCharts(
+  chartA: IChartApi,
+  chartB: IChartApi,
+  seriesA?: any,
+  seriesB?: any
+) {
+  let isUpdatingRange = false;
+  let isUpdatingCrosshair = false;
 
   const syncFromA = (range: any) => {
-    if (!range || isUpdating) return;
-    isUpdating = true;
+    if (!range || isUpdatingRange) return;
+    isUpdatingRange = true;
     chartB.timeScale().setVisibleLogicalRange(range);
-    isUpdating = false;
+    isUpdatingRange = false;
   };
 
   const syncFromB = (range: any) => {
-    if (!range || isUpdating) return;
-    isUpdating = true;
+    if (!range || isUpdatingRange) return;
+    isUpdatingRange = true;
     chartA.timeScale().setVisibleLogicalRange(range);
-    isUpdating = false;
+    isUpdatingRange = false;
   };
 
   chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
   chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
+
+  if (!seriesA || !seriesB) return;
+
+  chartA.subscribeCrosshairMove((param: any) => {
+    if (isUpdatingCrosshair) return;
+
+    if (!param || param.time == null) {
+      if (typeof (chartB as any).clearCrosshairPosition === "function") {
+        isUpdatingCrosshair = true;
+        (chartB as any).clearCrosshairPosition();
+        isUpdatingCrosshair = false;
+      }
+      return;
+    }
+
+    const price = param.seriesData?.get?.(seriesA)?.value
+      ?? param.seriesData?.get?.(seriesA)?.close
+      ?? param.seriesPrices?.get?.(seriesA);
+
+    if (price == null || !Number.isFinite(Number(price))) return;
+
+    if (typeof (chartB as any).setCrosshairPosition === "function") {
+      isUpdatingCrosshair = true;
+      (chartB as any).setCrosshairPosition(Number(price), param.time, seriesB);
+      isUpdatingCrosshair = false;
+    }
+  });
+
+  chartB.subscribeCrosshairMove((param: any) => {
+    if (isUpdatingCrosshair) return;
+
+    if (!param || param.time == null) {
+      if (typeof (chartA as any).clearCrosshairPosition === "function") {
+        isUpdatingCrosshair = true;
+        (chartA as any).clearCrosshairPosition();
+        isUpdatingCrosshair = false;
+      }
+      return;
+    }
+
+    const price = param.seriesData?.get?.(seriesB)?.value
+      ?? param.seriesData?.get?.(seriesB)?.close
+      ?? param.seriesPrices?.get?.(seriesB);
+
+    if (price == null || !Number.isFinite(Number(price))) return;
+
+    if (typeof (chartA as any).setCrosshairPosition === "function") {
+      isUpdatingCrosshair = true;
+      (chartA as any).setCrosshairPosition(Number(price), param.time, seriesA);
+      isUpdatingCrosshair = false;
+    }
+  });
 }
 
 function sanitizeCandles(data: any[]): Candle[] {
