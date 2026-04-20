@@ -936,7 +936,17 @@ if (!distMiddle.length) {
         const strategyShortPoints = shortData.entries;
 
         const sim = simulateStrategyTESTv4(
-          const signalKey = `${symbol}|${interval}`;
+  candles,
+  dist,
+  distMiddle,
+  strategyLongPoints,
+  strategyShortPoints,
+  dynamicBand,
+  assumedSpread,
+  assumedSlippage,
+);
+
+const signalKey = `${symbol}|${interval}`;
 const anchorTime = autoSignalAnchorRef.current[signalKey] ?? 0;
 
 const latestStrategyEventTime = getLatestStrategyEventTime(
@@ -958,16 +968,6 @@ if (latestStrategyEventTime > anchorTime) {
     autoSignalAnchorRef.current[signalKey] = latestStrategyEventTime;
   }
 }
-        
-          candles,
-          dist,
-          distMiddle,
-          strategyLongPoints,
-          strategyShortPoints,
-          dynamicBand,
-          assumedSpread,
-          assumedSlippage,
-        );
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
