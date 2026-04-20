@@ -130,7 +130,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 1.4,
   CORN: 1.4,
   SOLUSD: 0.8,
-  TSLA: 20
+  TSLA: 5,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
