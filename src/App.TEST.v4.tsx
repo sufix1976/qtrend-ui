@@ -1002,13 +1002,13 @@ setProfitFactor(
 
     loadData();
 
-const poll = setInterval(() => {
+const poll = window.setInterval(() => {
   loadData();
 }, 3000);
 
 return () => {
   cancelled = true;
-  clearInterval(poll);
+  window.clearInterval(poll);
   try {
 
         priceChart.removeSeries(candleSeries);
