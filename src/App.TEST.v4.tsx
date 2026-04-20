@@ -587,28 +587,38 @@ async function saveAllSizes() {
 });
 
     const distChart = createChart(distRef.current, {
-      width: distRef.current.clientWidth,
-      height: distRef.current.clientHeight,
-      layout: { background: { color: "#0f172a" }, textColor: "#fff" },
-      grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
-      rightPriceScale: {
-        borderColor: "#334155",
-        minimumWidth: PRICE_SCALE_WIDTH,
-        autoScale: true,
-      },
-      timeScale: {
-  borderColor: "#334155",
-  timeVisible: true,
-  secondsVisible: false,
-  rightOffset: 0,
-  lockVisibleTimeRangeOnResize: true,
-},
-      crosshair: {
-  mode: CrosshairMode.Normal,
-  vertLine: { color: "#94a3b8", width: 1, style: 2 },
-  horzLine: { color: "#94a3b8", width: 1, style: 2 },
-},
-    });
+  width: distRef.current.clientWidth,
+  height: distRef.current.clientHeight,
+  layout: { background: { color: "#0f172a" }, textColor: "#fff" },
+  grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
+  rightPriceScale: {
+    borderColor: "#334155",
+    minimumWidth: PRICE_SCALE_WIDTH,
+    autoScale: true,
+  },
+
+  // 👇 DAS IST NEU
+  localization: {
+    timeFormatter: (time: number) => formatChartTimeLabel(Number(time), true),
+  },
+
+  timeScale: {
+    borderColor: "#334155",
+    timeVisible: true,
+    secondsVisible: false,
+    rightOffset: 0,
+    lockVisibleTimeRangeOnResize: true,
+
+    // 👇 DAS IST NEU
+    tickMarkFormatter: (time: number) => formatChartTimeLabel(Number(time), false),
+  },
+
+  crosshair: {
+    mode: CrosshairMode.Normal,
+    vertLine: { color: "#94a3b8", width: 1, style: 2 },
+    horzLine: { color: "#94a3b8", width: 1, style: 2 },
+  },
+});
 
     syncCharts(priceChart, distChart);
 
