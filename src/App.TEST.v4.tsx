@@ -1002,9 +1002,17 @@ setProfitFactor(
 
     loadData();
 
-    return () => {
-      cancelled = true;
-      try {
+    loadData();
+
+const poll = setInterval(() => {
+  loadData();
+}, 3000);
+
+return () => {
+  cancelled = true;
+  clearInterval(poll);
+  try {
+    ...
         priceChart.removeSeries(candleSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
