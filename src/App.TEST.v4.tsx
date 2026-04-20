@@ -200,7 +200,18 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   SOLUSD: 0.02,
 };
 
+function formatChartTimeLabel(tsSec: number, withDate = false): string {
+  const d = new Date(tsSec * 1000);
 
+  return d.toLocaleString("de-DE", {
+    timeZone: "Europe/Berlin",
+    day: withDate ? "2-digit" : undefined,
+    month: withDate ? "short" : undefined,
+    year: withDate ? "2-digit" : undefined,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -548,28 +559,32 @@ async function saveAllSizes() {
     if (!priceRef.current || !distRef.current) return;
 
     const priceChart = createChart(priceRef.current, {
-      width: priceRef.current.clientWidth,
-      height: priceRef.current.clientHeight,
-      layout: { background: { color: "#0f172a" }, textColor: "#fff" },
-      grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
-      rightPriceScale: {
-        borderColor: "#334155",
-        minimumWidth: PRICE_SCALE_WIDTH,
-        autoScale: true,
-      },
-      timeScale: {
-  borderColor: "#334155",
-  timeVisible: true,
-  secondsVisible: false,
-  rightOffset: 0,
-  lockVisibleTimeRangeOnResize: true,
-},
-      crosshair: {
-  mode: CrosshairMode.Normal,
-  vertLine: { color: "#94a3b8", width: 1, style: 2 },
-  horzLine: { color: "#94a3b8", width: 1, style: 2 },
-},
-    });
+  width: priceRef.current.clientWidth,
+  height: priceRef.current.clientHeight,
+  layout: { background: { color: "#0f172a" }, textColor: "#fff" },
+  grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
+  rightPriceScale: {
+    borderColor: "#334155",
+    minimumWidth: PRICE_SCALE_WIDTH,
+    autoScale: true,
+  },
+  localization: {
+    timeFormatter: (time: number) => formatChartTimeLabel(Number(time), true),
+  },
+  timeScale: {
+    borderColor: "#334155",
+    timeVisible: true,
+    secondsVisible: false,
+    rightOffset: 0,
+    lockVisibleTimeRangeOnResize: true,
+    tickMarkFormatter: (time: number) => formatChartTimeLabel(Number(time), false),
+  },
+  crosshair: {
+    mode: CrosshairMode.Normal,
+    vertLine: { color: "#94a3b8", width: 1, style: 2 },
+    horzLine: { color: "#94a3b8", width: 1, style: 2 },
+  },
+});
 
     const distChart = createChart(distRef.current, {
       width: distRef.current.clientWidth,
