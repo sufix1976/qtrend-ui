@@ -557,10 +557,14 @@ async function saveAllSizes() {
         autoScale: true,
       },
       timeScale: {
-        borderColor: "#334155",
-        timeVisible: true,
-        secondsVisible: false,
-      },
+  borderColor: "#334155",
+  timeVisible: true,
+  secondsVisible: false,
+  rightOffset: 0,
+  fixLeftEdge: true,
+  fixRightEdge: true,
+  lockVisibleTimeRangeOnResize: true,
+},
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
         horzLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -578,10 +582,14 @@ async function saveAllSizes() {
         autoScale: true,
       },
       timeScale: {
-        borderColor: "#334155",
-        timeVisible: true,
-        secondsVisible: false,
-      },
+  borderColor: "#334155",
+  timeVisible: true,
+  secondsVisible: false,
+  rightOffset: 0,
+  fixLeftEdge: true,
+  fixRightEdge: true,
+  lockVisibleTimeRangeOnResize: true,
+},
       crosshair: {
         vertLine: { color: "#94a3b8", width: 1, style: 2 },
         horzLine: { color: "#94a3b8", width: 1, style: 2 },
@@ -947,8 +955,7 @@ distChart.priceScale("right").applyOptions({
 const currentViewKey = `${symbol}|${interval}`;
 
 if (lastViewKeyRef.current !== currentViewKey) {
-  priceChart.timeScale().fitContent();
-  distChart.timeScale().fitContent();
+  priceChart.timeScale().scrollToRealTime();
 
   const range = priceChart.timeScale().getVisibleLogicalRange();
   if (range) distChart.timeScale().setVisibleLogicalRange(range);
@@ -960,6 +967,7 @@ if (lastViewKeyRef.current !== currentViewKey) {
   const range = priceChart.timeScale().getVisibleLogicalRange();
   if (range) distChart.timeScale().setVisibleLogicalRange(range);
 }
+        
 if (cancelled || mySeq !== loadSeqRef.current) return;
         const last = candles[candles.length - 1];
         setLastPrice(last.close);
