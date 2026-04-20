@@ -1770,7 +1770,7 @@ function syncCharts(
 
     if (typeof (chartB as any).setCrosshairPosition === "function") {
       isUpdatingCrosshair = true;
-      (chartB as any).setCrosshairPosition(Number(price), param.time, seriesB);
+      (chartB as any).setCrosshairPosition(null, param.time, seriesB);
       isUpdatingCrosshair = false;
     }
   });
@@ -1795,7 +1795,7 @@ function syncCharts(
 
     if (typeof (chartA as any).setCrosshairPosition === "function") {
       isUpdatingCrosshair = true;
-      (chartA as any).setCrosshairPosition(Number(price), param.time, seriesA);
+      (chartA as any).setCrosshairPosition(null, param.time, seriesA);
       isUpdatingCrosshair = false;
     }
   });
