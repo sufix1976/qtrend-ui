@@ -251,13 +251,16 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   
   async function setStrategyState(state: "flat" | "long" | "short") {
   try {
+    console.log("SEND STATE:", symbol, state);
+
     await postStrategyState(symbol, state);
 
-    
+    console.log("STATE OK");
 
     setLiveState(state);
   } catch (e) {
-    console.error(e);
+    console.error("STATE ERROR:", e);
+    alert("FEHLER BEIM TRADE! Schau Konsole!");
   }
 }
 
