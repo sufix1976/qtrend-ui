@@ -244,7 +244,7 @@ export default function AppTESTv4() {
   const distChartRef = useRef<IChartApi | null>(null);
   const loadSeqRef = useRef(0);
   const lastViewKeyRef = useRef("");
-  const autoSignalAnchorRef = useRef<Record<string, number>>({});
+  
   useEffect(() => {
   document.body.style.margin = "0";
   document.body.style.overflow = "hidden";
@@ -268,8 +268,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     await postStrategyState(symbol, state);
 
-    const key = `${symbol}|${interval}`;
-    autoSignalAnchorRef.current[key] = Math.floor(Date.now() / 1000);
+    
 
     setLiveState(state);
   } catch (e) {
@@ -946,28 +945,7 @@ if (!distMiddle.length) {
   assumedSlippage,
 );
 
-const signalKey = `${symbol}|${interval}`;
-const anchorTime = autoSignalAnchorRef.current[signalKey] ?? 0;
 
-const latestStrategyEventTime = getLatestStrategyEventTime(
-  [...strategyLongPoints, ...strategyShortPoints],
-  [...sim.longExitPoints, ...sim.shortExitPoints]
-);
-
-if (latestStrategyEventTime > anchorTime) {
-  const autoDetectedState = sim.position as "flat" | "long" | "short";
-
-  if (autoDetectedState !== backendStrategyState) {
-    try {
-      await postStrategyState(symbol, autoDetectedState);
-      autoSignalAnchorRef.current[signalKey] = latestStrategyEventTime;
-    } catch (e) {
-      console.error("safe auto postStrategyState failed:", e);
-    }
-  } else {
-    autoSignalAnchorRef.current[signalKey] = latestStrategyEventTime;
-  }
-}
 
         const real = buildRealTradeMarkers(candles, aggRows);
 
