@@ -219,22 +219,7 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
-function getLatestStrategyEventTime(
-  points: MarkerPoint[],
-  exitPoints: MarkerPoint[]
-): number {
-  let t = 0;
 
-  for (const p of points) {
-    if (Number.isFinite(p.time) && p.time > t) t = p.time;
-  }
-
-  for (const p of exitPoints) {
-    if (Number.isFinite(p.time) && p.time > t) t = p.time;
-  }
-
-  return t;
-}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
