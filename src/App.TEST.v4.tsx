@@ -89,7 +89,7 @@ type SymbolConfigMap = Record<string, SymbolConfigRow>;
 type SymbolSizeMap = Record<string, number>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const LIMIT = 80000;
+const LIMIT = 5000;
 const AGG_LIMIT = 2000;
 const PRICE_SCALE_WIDTH = 90;
 const EURUSD_APPROX = 1.18;
@@ -1081,7 +1081,7 @@ setProfitFactor(
 
 const poll = window.setInterval(() => {
   loadData();
-}, 5000);
+}, 20000);
 
 return () => {
   cancelled = true;
