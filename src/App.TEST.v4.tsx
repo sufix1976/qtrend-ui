@@ -89,7 +89,7 @@ type SymbolConfigMap = Record<string, SymbolConfigRow>;
 type SymbolSizeMap = Record<string, number>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const LIMIT = 5000;
+const LIMIT = 80000;
 const AGG_LIMIT = 2000;
 const PRICE_SCALE_WIDTH = 90;
 const EURUSD_APPROX = 1.18;
@@ -219,7 +219,22 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
+function getLatestStrategyEventTime(
+  points: MarkerPoint[],
+  exitPoints: MarkerPoint[]
+): number {
+  let t = 0;
 
+  for (const p of points) {
+    if (Number.isFinite(p.time) && p.time > t) t = p.time;
+  }
+
+  for (const p of exitPoints) {
+    if (Number.isFinite(p.time) && p.time > t) t = p.time;
+  }
+
+  return t;
+}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -251,16 +266,13 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   
   async function setStrategyState(state: "flat" | "long" | "short") {
   try {
-    console.log("SEND STATE:", symbol, state);
-
     await postStrategyState(symbol, state);
 
-    console.log("STATE OK");
+    
 
     setLiveState(state);
   } catch (e) {
-    console.error("STATE ERROR:", e);
-    alert("FEHLER BEIM TRADE! Schau Konsole!");
+    console.error(e);
   }
 }
 
@@ -1081,7 +1093,7 @@ setProfitFactor(
 
 const poll = window.setInterval(() => {
   loadData();
-}, 20000);
+}, 5000);
 
 return () => {
   cancelled = true;
