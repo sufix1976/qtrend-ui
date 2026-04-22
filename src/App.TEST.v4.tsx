@@ -317,6 +317,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [infoOpen, setInfoOpen] = useState(true);
+  const [chartType, setChartType] = useState<"candles" | "line">("candles");
 
   
 
@@ -683,13 +684,21 @@ async function saveAllSizes() {
     const priceChart = priceChartRef.current;
     const distChart = distChartRef.current;
 
-    const candleSeries = priceChart.addSeries(CandlestickSeries, {
-      upColor: "#00e5ff",
-      downColor: "#ef4444",
-      borderVisible: false,
-      wickUpColor: "#00e5ff",
-      wickDownColor: "#ef4444",
-    });
+    const mainSeries =
+  chartType === "candles"
+    ? priceChart.addSeries(CandlestickSeries, {
+        upColor: "#00e5ff",
+        downColor: "#ef4444",
+        borderVisible: false,
+        wickUpColor: "#00e5ff",
+        wickDownColor: "#ef4444",
+      })
+    : priceChart.addSeries(LineSeries, {
+        color: "#00e5ff",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
 
     const smaFastSeries = priceChart.addSeries(LineSeries, {
       color: "#ffff00",
@@ -946,7 +955,16 @@ if (!distMiddle.length) {
           chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
         );
 
-        candleSeries.setData(chartCandles as any);
+        if (chartType === "candles") {
+  mainSeries.setData(chartCandles as any);
+} else {
+  mainSeries.setData(
+    chartCandles.map((c) => ({
+      time: c.time,
+      value: c.close,
+    })) as any
+  );
+}
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
@@ -1086,7 +1104,7 @@ return () => {
   window.clearInterval(poll);
   try {
 
-        priceChart.removeSeries(candleSeries);
+        priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
         priceChart.removeSeries(candidateLongSeries);
@@ -1111,6 +1129,7 @@ return () => {
     }, [
   symbol,
   interval,
+  chartType,
   entryBandUI,
   peakUI,
   minKinkUI,
@@ -1155,6 +1174,26 @@ return () => {
   }}
 >
   {infoOpen ? "Hide Panel" : "Show Panel"}
+</button>
+
+      <button
+  onClick={() =>
+    setChartType((prev) => (prev === "candles" ? "line" : "candles"))
+  }
+  style={{
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  {chartType === "candles" ? "Linie" : "Kerzen"}
 </button>
       
       {infoOpen && (
