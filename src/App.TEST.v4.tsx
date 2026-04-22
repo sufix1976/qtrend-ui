@@ -116,7 +116,7 @@ const SYMBOLS = [
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 330.05,
+  BTCUSD: 160,
   ETHUSD: 20,
   XRPUSD: 0.04,
   DE40: 100,
