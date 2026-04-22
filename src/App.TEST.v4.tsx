@@ -118,7 +118,7 @@ const SYMBOLS = [
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 330.05,
   ETHUSD: 20,
-  XRPUSD: 0.004,
+  XRPUSD: 0.04,
   DE40: 100,
   US100: 80,
   US500: 12,
@@ -316,6 +316,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
+  const [infoOpen, setInfoOpen] = useState(true);
 
   
 
@@ -1138,26 +1139,46 @@ return () => {
         position: "relative",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 12,
-          zIndex: 20,
-          padding: "10px 12px",
-          border: "1px solid #334155",
-          borderRadius: 10,
-          background: "rgba(2, 6, 23, 0.9)",
-          color: "#e2e8f0",
-          fontFamily: "Arial, sans-serif",
-          fontSize: 13,
-          lineHeight: 1.35,
-          minWidth: 360,
-          maxWidth: 430,
-          maxHeight: "92vh",
-          overflowY: "auto",
-        }}
-      >
+      <button
+  onClick={() => setInfoOpen(!infoOpen)}
+  style={{
+    position: "absolute",
+    top: 10,
+    left: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  {infoOpen ? "Hide Panel" : "Show Panel"}
+</button>
+      
+      {infoOpen && (
+  <div
+    style={{
+      position: "absolute",
+      top: 10,
+      left: 12,
+      zIndex: 20,
+      padding: "10px 12px",
+      border: "1px solid #334155",
+      borderRadius: 10,
+      background: "rgba(2, 6, 23, 0.9)",
+      color: "#e2e8f0",
+      fontFamily: "Arial, sans-serif",
+      fontSize: 13,
+      lineHeight: 1.35,
+      minWidth: 360,
+      maxWidth: 430,
+      maxHeight: "92vh",
+      overflowY: "auto",
+    }}
+  >
+    
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           <label>
             Symbol{" "}
@@ -1574,7 +1595,8 @@ return () => {
         </div>
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
-      </div>
+  </div>
+)}
 
       <div
   ref={priceRef}
