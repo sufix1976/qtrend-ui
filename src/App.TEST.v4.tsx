@@ -117,7 +117,7 @@ const SYMBOLS = [
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 160,
-  ETHUSD: 20,
+  ETHUSD: 10,
   XRPUSD: 0.04,
   DE40: 100,
   US100: 80,
