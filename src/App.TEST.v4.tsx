@@ -1,3 +1,7 @@
+import {
+  computeSignalCore,
+} from "./shared/signal_core";
+
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
@@ -875,56 +879,39 @@ async function saveAllSizes() {
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
 
-        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
-        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
-        const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        
-        const distAsCandles = dist.map((p) => ({
-          time: p.time,
-          open: p.value,
-          high: p.value,
-          low: p.value,
-          close: p.value,
-        }));
+        const core = computeSignalCore(candles, {
+  smaFast: smaFastUI,
+  smaSlow: smaSlowUI,
+  smaMiddle: smaMiddleUI,
+  entryBand: entryBandUI,
+  adaptiveBand: adaptiveBandUI,
+  adaptiveBandMult: adaptiveBandMultUI,
+  peakLookback: peakUI,
+  minKinkMove: minKinkUI,
+  stdDevLength: 50,
+});
 
-        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
+const smaFast = core.smaFast;
+const smaSlow = core.smaSlow;
+const dist = core.dist;
+const distMiddle = core.distMiddle;
+const dynamicBand = core.dynamicBand;
 
-// 🔥 Fallback: wenn leer → nimm dist selbst
-if (!distMiddle.length) {
-  distMiddle = dist;
-}
-        const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
-        const dynamicBand = buildAdaptiveBandLine(
-          distMiddle,
-          distVolatility,
-          entryBandUI,
-          adaptiveBandUI,
-          adaptiveBandMultUI
-        );
+const chartCandles = chartifyCandles(candles);
+const chartSmaFast = chartifyLinePoints(smaFast);
+const chartSmaSlow = chartifyLinePoints(smaSlow);
+const chartDist = chartifyLinePoints(dist);
+const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-        const chartCandles = chartifyCandles(candles);
-        const chartSmaFast = chartifyLinePoints(smaFast);
-        const chartSmaSlow = chartifyLinePoints(smaSlow);
-        const chartDist = chartifyLinePoints(dist);
-        const chartDistMiddle = chartifyLinePoints(distMiddle);
+const longData = {
+  entries: core.longEntries,
+  candidates: core.longCandidates,
+};
 
-        const longData = buildStableLongSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI
-        );
-
-        const shortData = buildStableShortSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI
-        );
+const shortData = {
+  entries: core.shortEntries,
+  candidates: core.shortCandidates,
+};
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
@@ -947,13 +934,13 @@ if (!distMiddle.length) {
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
         const dynamicUpperBand = alignLineToCandles(
-          chartCandles,
-          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, 1))
-        );
-        const dynamicLowerBand = alignLineToCandles(
-          chartCandles,
-          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
-        );
+  chartCandles,
+  chartifyLinePoints(core.upperBand)
+);
+const dynamicLowerBand = alignLineToCandles(
+  chartCandles,
+  chartifyLinePoints(core.lowerBand)
+);
 
         if (chartType === "candles") {
   mainSeries.setData(chartCandles as any);
