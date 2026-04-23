@@ -445,9 +445,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
-  symbol: s,
-interval:
-  const row: SymbolConfigRow = {
   symbol,
   interval,
   entry_band: entryBandUI,
