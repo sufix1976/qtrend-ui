@@ -31,6 +31,10 @@ type MarkerPoint = {
   text?: string;
   color?: string;
 };
+type WhitespaceLinePoint = {
+  time: number;
+  value?: number;
+};
 
 
 
