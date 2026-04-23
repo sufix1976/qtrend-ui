@@ -117,7 +117,7 @@ const SYMBOLS = [
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 160,
+  BTCUSD: 90,
   ETHUSD: 10,
   XRPUSD: 0.04,
   DE40: 100,
@@ -153,7 +153,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 25,
+  BTCUSD: 50,
   ETHUSD: 1.5,
   XRPUSD: 0.002,
   DE40: 2,
