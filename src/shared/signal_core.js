@@ -201,7 +201,7 @@ export function buildStableLongSignals(
     const move = d - candidateValue;
 
     if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
+      const t = dist[i].time;
       const c = candleMap.get(t);
 
       if (c) {
@@ -288,7 +288,7 @@ export function buildStableShortSignals(
     const move = candidateValue - d;
 
     if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
+      const t = dist[i].time;
       const c = candleMap.get(t);
 
       if (c) {
