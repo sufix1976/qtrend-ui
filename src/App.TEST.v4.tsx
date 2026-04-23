@@ -2039,11 +2039,15 @@ function sanitizeCandles(data: any[]): Candle[] {
         c.close > 0
     );
 }
-function alignLineToCandles(candles, line) {
-  const map = new Map();
+
+function alignLineToCandles(
+  candles: Candle[],
+  line: LinePoint[]
+): WhitespaceLinePoint[] {
+  const map = new Map<number, number>();
   for (const p of line) map.set(p.time, p.value);
 
-  return candles.map((c) => {
+  return candles.map((c: Candle) => {
     const value = map.get(c.time);
     if (value == null || !Number.isFinite(value)) return { time: c.time };
     return { time: c.time, value };
