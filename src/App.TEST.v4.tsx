@@ -445,18 +445,23 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
-      symbol,
-      interval,
-      entry_band: entryBandUI,
-      min_kink: minKinkUI,
-      peak_lookback: peakUI,
-      sma_fast: smaFastUI,
-      sma_slow: smaSlowUI,
-      sma_middle: smaMiddleUI,
-      adaptive_band: adaptiveBandUI ? 1 : 0,
-      adaptive_band_mult: adaptiveBandMultUI,
-      size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
-    };
+  symbol: s,
+
+  interval:
+    old?.interval && INTERVALS.includes(old.interval as IntervalOption)
+      ? old.interval
+      : (INTERVAL_BY_SYMBOL[s] ?? "15m"),
+
+  entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? null,
+  min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? null,
+  peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[s] ?? null,
+  sma_fast: old?.sma_fast ?? 10,
+  sma_slow: old?.sma_slow ?? 100,
+  sma_middle: old?.sma_middle ?? 100,
+  adaptive_band: old?.adaptive_band ?? 0,
+  adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+  size: n,
+};
 
     await saveSymbolConfig(row);
 
