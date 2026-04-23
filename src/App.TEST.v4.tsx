@@ -69,6 +69,7 @@ type AggTradesResponse = {
 
 type SymbolConfigRow = {
   symbol: string;
+  interval?: string | null;
   entry_band: number | null;
   min_kink: number | null;
   peak_lookback: number | null;
@@ -206,6 +207,24 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   TSLA: 0.5
 };
 
+const INTERVAL_BY_SYMBOL: Record<string, IntervalOption> = {
+  BTCUSD: "30m",
+  ETHUSD: "30m",
+  XRPUSD: "15m",
+  DE40: "15m",
+  US100: "15m",
+  US500: "15m",
+  US30: "15m",
+  J225: "15m",
+  UK100: "15m",
+  GOLD: "15m",
+  SILVER: "15m",
+  OIL_CRUDE: "15m",
+  CORN: "30m",
+  SOLUSD: "30m",
+  TSLA: "15m",
+};
+
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
 
@@ -332,6 +351,12 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const cfg = symbolConfigMap[symbol];
 
   if (cfg) {
+        const nextInterval = String(cfg.interval || "").trim();
+    if (nextInterval && INTERVALS.includes(nextInterval as IntervalOption)) {
+      setInterval(nextInterval as IntervalOption);
+    } else {
+      setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
+    }
     setEntryBandUI(Number(cfg.entry_band ?? entryBand));
     setMinKinkUI(Number(cfg.min_kink ?? minKinkMove));
     setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
@@ -350,6 +375,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
     setPresetMessage(`Backend-Konfig geladen für ${symbol}`);
   } else {
+    setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setPeakUI(peakLookback);
@@ -420,6 +446,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
+      interval,
       entry_band: entryBandUI,
       min_kink: minKinkUI,
       peak_lookback: peakUI,
@@ -452,6 +479,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
+      interval: INTERVAL_BY_SYMBOL[symbol] ?? "15m",
       entry_band: entryBand,
       min_kink: minKinkMove,
       peak_lookback: peakLookback,
@@ -470,6 +498,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
       [symbol]: row,
     }));
 
+    setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setPeakUI(peakLookback);
@@ -506,17 +535,23 @@ async function saveOneSize(symbolToSave: string) {
     const old = symbolConfigMap[symbolToSave] || null;
 
     const row: SymbolConfigRow = {
-      symbol: symbolToSave,
-      entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[symbolToSave] ?? null,
-      min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[symbolToSave] ?? null,
-      peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[symbolToSave] ?? null,
-      sma_fast: old?.sma_fast ?? 10,
-      sma_slow: old?.sma_slow ?? 100,
-      sma_middle: old?.sma_middle ?? 100,
-      adaptive_band: old?.adaptive_band ?? 0,
-      adaptive_band_mult: old?.adaptive_band_mult ?? 1,
-      size,
-    };
+  symbol: symbolToSave,
+
+  interval:
+    old?.interval && INTERVALS.includes(old.interval as IntervalOption)
+      ? old.interval
+      : (INTERVAL_BY_SYMBOL[symbolToSave] ?? "15m"),
+
+  entry_band: old?.entry_band ?? entryBandUI,
+  min_kink: old?.min_kink ?? minKinkUI,
+  peak_lookback: old?.peak_lookback ?? peakUI,
+  sma_fast: old?.sma_fast ?? smaFastUI,
+  sma_slow: old?.sma_slow ?? smaSlowUI,
+  sma_middle: old?.sma_middle ?? smaMiddleUI,
+  adaptive_band: old?.adaptive_band ?? (adaptiveBandUI ? 1 : 0),
+  adaptive_band_mult: old?.adaptive_band_mult ?? adaptiveBandMultUI,
+  size: Number(symbolSizes[symbolToSave]) > 0 ? Number(symbolSizes[symbolToSave]) : null,
+};
 
     await saveSymbolConfig(row);
 
