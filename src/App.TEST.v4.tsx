@@ -535,23 +535,23 @@ async function saveOneSize(symbolToSave: string) {
     const old = symbolConfigMap[symbolToSave] || null;
 
     const row: SymbolConfigRow = {
-  symbol: symbolToSave,
+      symbol: symbolToSave,
 
-  interval:
-    old?.interval && INTERVALS.includes(old.interval as IntervalOption)
-      ? old.interval
-      : (INTERVAL_BY_SYMBOL[symbolToSave] ?? "15m"),
+      interval:
+        old?.interval && INTERVALS.includes(old.interval as IntervalOption)
+          ? old.interval
+          : (INTERVAL_BY_SYMBOL[symbolToSave] ?? "15m"),
 
-  entry_band: old?.entry_band ?? entryBandUI,
-  min_kink: old?.min_kink ?? minKinkUI,
-  peak_lookback: old?.peak_lookback ?? peakUI,
-  sma_fast: old?.sma_fast ?? smaFastUI,
-  sma_slow: old?.sma_slow ?? smaSlowUI,
-  sma_middle: old?.sma_middle ?? smaMiddleUI,
-  adaptive_band: old?.adaptive_band ?? (adaptiveBandUI ? 1 : 0),
-  adaptive_band_mult: old?.adaptive_band_mult ?? adaptiveBandMultUI,
-  size: Number(symbolSizes[symbolToSave]) > 0 ? Number(symbolSizes[symbolToSave]) : null,
-};
+      entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[symbolToSave] ?? null,
+      min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[symbolToSave] ?? null,
+      peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[symbolToSave] ?? null,
+      sma_fast: old?.sma_fast ?? 10,
+      sma_slow: old?.sma_slow ?? 100,
+      sma_middle: old?.sma_middle ?? 100,
+      adaptive_band: old?.adaptive_band ?? 0,
+      adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+      size,
+    };
 
     await saveSymbolConfig(row);
 
