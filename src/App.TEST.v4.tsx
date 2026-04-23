@@ -32,15 +32,7 @@ type MarkerPoint = {
   color?: string;
 };
 
-type SignalBuildResult = {
-  entries: MarkerPoint[];
-  candidates: MarkerPoint[];
-};
 
-type WhitespaceLinePoint = {
-  time: number;
-  value?: number;
-};
 
 type PositionSide = "flat" | "long" | "short";
 
@@ -2046,6 +2038,16 @@ function sanitizeCandles(data: any[]): Candle[] {
         c.low > 0 &&
         c.close > 0
     );
+}
+function alignLineToCandles(candles, line) {
+  const map = new Map();
+  for (const p of line) map.set(p.time, p.value);
+
+  return candles.map((c) => {
+    const value = map.get(c.time);
+    if (value == null || !Number.isFinite(value)) return { time: c.time };
+    return { time: c.time, value };
+  });
 }
 
 
