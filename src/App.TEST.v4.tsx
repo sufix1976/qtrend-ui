@@ -1917,19 +1917,22 @@ function syncCharts(
 
   
 
-  chartA.timeScale().subscribeVisibleTimeRangeChange((range: any) => {
+ const syncFromA = (range: any) => {
   if (!range || isUpdatingRange) return;
   isUpdatingRange = true;
-  chartB.timeScale().setVisibleRange(range);
+  chartB.timeScale().setVisibleLogicalRange(range);
   isUpdatingRange = false;
-});
+};
 
-chartB.timeScale().subscribeVisibleTimeRangeChange((range: any) => {
+const syncFromB = (range: any) => {
   if (!range || isUpdatingRange) return;
   isUpdatingRange = true;
-  chartA.timeScale().setVisibleRange(range);
+  chartA.timeScale().setVisibleLogicalRange(range);
   isUpdatingRange = false;
-});
+};
+
+chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
+chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
 
   if (!seriesA || !seriesB) return;
 
