@@ -1915,19 +1915,7 @@ function syncCharts(
   let isUpdatingRange = false;
   let isUpdatingCrosshair = false;
 
-  const syncFromA = (range: any) => {
-    if (!range || isUpdatingRange) return;
-    isUpdatingRange = true;
-    chartB.timeScale().setVisibleLogicalRange(range);
-    isUpdatingRange = false;
-  };
-
-  const syncFromB = (range: any) => {
-    if (!range || isUpdatingRange) return;
-    isUpdatingRange = true;
-    chartA.timeScale().setVisibleLogicalRange(range);
-    isUpdatingRange = false;
-  };
+  
 
   chartA.timeScale().subscribeVisibleTimeRangeChange((range: any) => {
   if (!range || isUpdatingRange) return;
