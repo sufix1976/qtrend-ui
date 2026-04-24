@@ -741,6 +741,21 @@ async function saveAllSizes() {
         priceLineVisible: false,
         lastValueVisible: false,
       });
+    const multiLongSeries = priceChart.addSeries(LineSeries, {
+  color: "rgba(0,255,0,0.7)",
+  lineWidth: 0,
+  priceLineVisible: false,
+  lastValueVisible: false,
+  priceScaleId: "",
+});
+
+const multiShortSeries = priceChart.addSeries(LineSeries, {
+  color: "rgba(255,0,0,0.7)",
+  lineWidth: 0,
+  priceLineVisible: false,
+  lastValueVisible: false,
+  priceScaleId: "",
+});
 
     const smaFastSeries = priceChart.addSeries(LineSeries, {
       color: "#ffff00",
@@ -1956,6 +1971,22 @@ function syncCharts(
       isUpdatingCrosshair = false;
     }
   });
+}
+
+function mapMultiTfMarkers(data: any) {
+  if (!data) return { long: [], short: [] };
+
+  const long = (data.longEntries || []).map((e: any) => ({
+    time: e.time,
+    value: e.price,
+  }));
+
+  const short = (data.shortEntries || []).map((e: any) => ({
+    time: e.time,
+    value: e.price,
+  }));
+
+  return { long, short };
 }
 
 function setupVerticalCrosshairOverlay(
