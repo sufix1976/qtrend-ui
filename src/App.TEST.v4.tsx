@@ -2162,6 +2162,22 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
+function mapMultiTfMarkers(data: any) {
+  if (!data) return { long: [], short: [] };
+
+  const long = (data.longEntries || []).map((e: any) => ({
+    time: e.time,
+    value: e.price,
+  }));
+
+  const short = (data.shortEntries || []).map((e: any) => ({
+    time: e.time,
+    value: e.price,
+  }));
+
+  return { long, short };
+}
+
 function projectMarkerPointsToCandles(
   points: MarkerPoint[],
   candles: Candle[],
