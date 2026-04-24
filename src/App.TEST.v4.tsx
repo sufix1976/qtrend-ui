@@ -337,6 +337,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
+  const [multiTfData, setMultiTfData] = useState<any>(null);
 
   
 
@@ -440,7 +441,18 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   };
 }, []);
 
-  
+  async function fetchMultiTf(symbol: string) {
+  try {
+    const res = await fetch(
+      `/strategy/multitf?symbol=${symbol}`
+    );
+    const json = await res.json();
+    return json;
+  } catch (e) {
+    console.error("multitf fetch error", e);
+    return null;
+  }
+}
 
   async function savePreset() {
   try {
@@ -904,13 +916,15 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows, backendStrategyState] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, backendStrategyState, mtf] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
+  fetchMultiTf(symbol),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
+        setMultiTfData(mtf);
        
 
         if (cancelled) return;
@@ -1706,6 +1720,23 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
   }
 
   return sanitizeCandles(json.candles || []);
+}
+
+async function fetchMultiTf(symbol: string): Promise<any | null> {
+  try {
+    const url = new URL("/strategy/multitf", BACKEND_BASE);
+    url.searchParams.set("symbol", symbol);
+    url.searchParams.set("_ts", String(Date.now()));
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const json = await res.json();
+
+    if (!res.ok || !json?.ok) return null;
+    return json;
+  } catch (e) {
+    console.error("multitf fetch error", e);
+    return null;
+  }
 }
 
 async function postStrategyState(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
