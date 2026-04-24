@@ -1009,6 +1009,12 @@ const dynamicLowerBand = alignLineToCandles(
     })) as any
   );
 }
+        if (mtf) {
+  const mapped = mapMultiTfMarkers(mtf);
+
+  multiLongSeries.setData(mapped.long as any);
+  multiShortSeries.setData(mapped.short as any);
+}
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
