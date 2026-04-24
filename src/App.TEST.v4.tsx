@@ -741,20 +741,24 @@ async function saveAllSizes() {
         priceLineVisible: false,
         lastValueVisible: false,
       });
-    const multiLongSeries = priceChart.addSeries(LineSeries, {
-  color: "rgba(0,255,0,0.7)",
-  lineWidth: 1,
+   const multiLongSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#00ff88",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 7,
   priceLineVisible: false,
   lastValueVisible: false,
-  priceScaleId: "",
 });
 
 const multiShortSeries = priceChart.addSeries(LineSeries, {
-  color: "rgba(255,0,0,0.7)",
-  lineWidth: 1,
+  priceScaleId: "",
+  color: "#ff00ff",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 7,
   priceLineVisible: false,
   lastValueVisible: false,
-  priceScaleId: "",
 });
     multiLongSeries.setData([]);
     multiShortSeries.setData([]);
