@@ -441,18 +441,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   };
 }, []);
 
-  async function fetchMultiTf(symbol: string) {
-  try {
-    const res = await fetch(
-      `/strategy/multitf?symbol=${symbol}`
-    );
-    const json = await res.json();
-    return json;
-  } catch (e) {
-    console.error("multitf fetch error", e);
-    return null;
-  }
-}
+  
 
   async function savePreset() {
   try {
