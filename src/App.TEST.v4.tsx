@@ -1929,8 +1929,19 @@ function syncCharts(
     isUpdatingRange = false;
   };
 
-  chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
-  chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
+  chartA.timeScale().subscribeVisibleTimeRangeChange((range: any) => {
+  if (!range || isUpdatingRange) return;
+  isUpdatingRange = true;
+  chartB.timeScale().setVisibleRange(range);
+  isUpdatingRange = false;
+});
+
+chartB.timeScale().subscribeVisibleTimeRangeChange((range: any) => {
+  if (!range || isUpdatingRange) return;
+  isUpdatingRange = true;
+  chartA.timeScale().setVisibleRange(range);
+  isUpdatingRange = false;
+});
 
   if (!seriesA || !seriesB) return;
 
