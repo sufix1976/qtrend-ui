@@ -337,7 +337,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
-  const [multiTfData, setMultiTfData] = useState<any>(null);
+  const [_multiTfData, setMultiTfData] = useState<any>(null);
 
   
 
