@@ -2220,16 +2220,31 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
-function mapMultiTfMarkers(data: any) {
+function snapToCandleTime(time: number, candles: any[]) {
+  // finde die nächste Candle <= time
+  let closest = candles[0].time;
+
+  for (let i = 0; i < candles.length; i++) {
+    if (candles[i].time <= time) {
+      closest = candles[i].time;
+    } else {
+      break;
+    }
+  }
+
+  return closest;
+}
+
+function mapMultiTfMarkers(data: any, candles: any[]) {
   if (!data) return { long: [], short: [] };
 
   const long = (data.longEntries || []).map((e: any) => ({
-    time: e.time,
+    time: snapToCandleTime(e.time, candles),
     value: e.price,
   }));
 
   const short = (data.shortEntries || []).map((e: any) => ({
-    time: e.time,
+    time: snapToCandleTime(e.time, candles),
     value: e.price,
   }));
 
