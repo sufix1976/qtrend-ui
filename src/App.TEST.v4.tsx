@@ -2136,8 +2136,8 @@ function computeMtfStatsReal(mtf: any, candles: any[], core: any) {
   let loss = 0;
 
   for (const entry of entries) {
-    const entryIndex = candles.findIndex(c => c.time === entry.time);
-    if (entryIndex === -1) continue;
+    const entryIndex = candles.findIndex((c) => c.time >= entry.time);
+if (entryIndex === -1) continue;
 
     let exitPrice = null;
 
