@@ -995,6 +995,24 @@ const shortData = {
 
 const stats = computeMtfStats(mtf, baseSignals);
 setMtfStats(stats);
+        const mtfTrades = buildMtfTrades(mtf, baseSignals);
+
+        const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
+  {
+    time: t.entryTime,
+    position: t.side === "long" ? "belowBar" : "aboveBar",
+    color: t.side === "long" ? "#00ff88" : "#ff4444",
+    shape: "circle",
+    text: "E",
+  },
+  {
+    time: t.exitTime,
+    position: t.side === "long" ? "aboveBar" : "belowBar",
+    color: "#ffffff",
+    shape: "circle",
+    text: "X",
+  },
+]);
         
 
         const sim = simulateStrategyTESTv4(
@@ -1072,6 +1090,11 @@ const dynamicLowerBand = alignLineToCandles(
         createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+
+        createSeriesMarkers(
+  realCloseSeries,
+  mtfTradeMarkers as any
+);
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -2062,6 +2085,40 @@ chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
       isUpdatingCrosshair = false;
     }
   });
+}
+
+function buildMtfTrades(mtf: any, baseSignals: any[]) {
+  if (!mtf || !baseSignals) return [];
+
+  const entries = [
+    ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
+    ...(mtf.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
+  ].sort((a, b) => a.time - b.time);
+
+  const trades: any[] = [];
+
+  for (const entry of entries) {
+    const exit = baseSignals.find((s: any) => {
+      if (s.time <= entry.time) return false;
+
+      if (entry.side === "long" && s.type === "KL") return true;
+      if (entry.side === "short" && s.type === "KS") return true;
+
+      return false;
+    });
+
+    if (!exit) continue;
+
+    trades.push({
+      entryTime: entry.time,
+      entryPrice: entry.price,
+      exitTime: exit.time,
+      exitPrice: exit.price,
+      side: entry.side,
+    });
+  }
+
+  return trades;
 }
 
 function computeMtfStats(mtf: any, baseSignals: any[]) {
