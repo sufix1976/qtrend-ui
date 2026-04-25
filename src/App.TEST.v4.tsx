@@ -1829,6 +1829,8 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
     throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
   }
 
+  console.log("[CANDLES]", symbol, interval, json.candles?.length);
+
   return sanitizeCandles(json.candles || []);
 }
 
