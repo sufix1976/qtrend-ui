@@ -338,6 +338,8 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
   const [_multiTfData, setMultiTfData] = useState<any>(null);
+  const [mtfSetup, setMtfSetup] = useState("15m");
+  const [mtfTrigger, setMtfTrigger] = useState("8m");
 
   
 
@@ -931,7 +933,7 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
-  fetchMultiTf(symbol),
+  fetchMultiTf(symbol, mtfSetup, mtfTrigger),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
         setMultiTfData(mtf);
@@ -1195,6 +1197,8 @@ return () => {
   adaptiveBandUI,
   adaptiveBandMultUI,
   symbolSizes,
+  mtfSetup,
+  mtfTrigger,
 ]);
 
   const displayState = liveState;
@@ -1333,6 +1337,48 @@ return () => {
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
+    <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
+  <div style={{ fontWeight: 700, marginBottom: 6 }}>Multi-TF Test</div>
+
+  <div style={{ display: "flex", gap: 8 }}>
+    <label style={{ flex: 1 }}>
+      Setup
+      <select
+        value={mtfSetup}
+        onChange={(e) => setMtfSetup(e.target.value)}
+        style={{ width: "100%" }}
+      >
+        <option value="5m">5m</option>
+        <option value="8m">8m</option>
+        <option value="10m">10m</option>
+        <option value="12m">12m</option>
+        <option value="15m">15m</option>
+        <option value="20m">20m</option>
+        <option value="27m">27m</option>
+        <option value="30m">30m</option>
+      </select>
+    </label>
+
+    <label style={{ flex: 1 }}>
+      Trigger
+      <select
+        value={mtfTrigger}
+        onChange={(e) => setMtfTrigger(e.target.value)}
+        style={{ width: "100%" }}
+      >
+        <option value="5m">5m</option>
+        <option value="8m">8m</option>
+        <option value="10m">10m</option>
+        <option value="12m">12m</option>
+        <option value="15m">15m</option>
+      </select>
+    </label>
+  </div>
+
+  <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
+    MTF: Setup {mtfSetup} / Trigger {mtfTrigger}
+  </div>
+</div>
         <div>Entry band: {entryBandUI}</div>
         <div>Peak lookback: {peakUI}</div>
         <div>Min kink: {minKinkUI}</div>
@@ -1738,10 +1784,16 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
   return sanitizeCandles(json.candles || []);
 }
 
-async function fetchMultiTf(symbol: string): Promise<any | null> {
+async function fetchMultiTf(
+  symbol: string,
+  setup: string,
+  trigger: string
+): Promise<any | null> {
   try {
     const url = new URL("/strategy/multitf", BACKEND_BASE);
     url.searchParams.set("symbol", symbol);
+    url.searchParams.set("setup", setup);
+    url.searchParams.set("trigger", trigger);
     url.searchParams.set("_ts", String(Date.now()));
 
     const res = await fetch(url.toString(), { cache: "no-store" });
