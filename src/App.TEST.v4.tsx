@@ -1088,10 +1088,10 @@ const dynamicLowerBand = alignLineToCandles(
         realCloseSeries.setData(realCloseProjected as any);
 
         if (SHOW_DEBUG) {
-  createSeriesMarkers(candidateLongSeries, ...)
-  createSeriesMarkers(candidateShortSeries, ...)
-  createSeriesMarkers(blockedLongSeries, ...)
-  createSeriesMarkers(blockedShortSeries, ...)
+  createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
+  createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+  createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
+  createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 }
 
         createSeriesMarkers(
