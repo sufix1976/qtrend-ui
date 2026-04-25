@@ -997,6 +997,7 @@ const shortData = {
 const stats = computeMtfStatsReal(mtf, candles, core);
 setMtfStats(stats);
         const mtfTrades = buildMtfTrades(mtf, baseSignals);
+        console.log("[MTF TRADES]", mtfTrades.length, mtfTrades.slice(0, 5));
 
         const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
   {
