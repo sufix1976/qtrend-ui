@@ -1016,7 +1016,7 @@ const dynamicLowerBand = alignLineToCandles(
   );
 }
         if (mtf) {
-  const mapped = mapMultiTfMarkers(mtf);
+  const mapped = mapMultiTfMarkers(mtf, candles);
 
   multiLongSeries.setData(mapped.long as any);
   multiShortSeries.setData(mapped.short as any);
