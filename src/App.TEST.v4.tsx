@@ -2126,7 +2126,7 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
 function computeMtfStatsReal(mtf: any, candles: Candle[], core: any) {
   if (!mtf || !candles?.length || !core?.dist?.length) return null;
 
-  const candleByTime = new Map(candles.map((c) => [c.time, c]));
+ 
   const distByTime = new Map(core.dist.map((p: any) => [p.time, p.value]));
 
   const entries = [
