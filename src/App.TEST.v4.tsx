@@ -938,8 +938,7 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
         setMultiTfData(mtf);
-        const stats = computeMtfStats(mtf);
-        setMtfStats(stats);
+        
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -955,6 +954,7 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
   minKinkMove: minKinkUI,
   stdDevLength: 50,
 });
+        
 
 const smaFast = core.smaFast;
 const smaSlow = core.smaSlow;
@@ -980,6 +980,22 @@ const shortData = {
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
+        const baseSignals = [
+  ...strategyLongPoints.map((p: any) => ({
+    time: p.time,
+    price: p.value,
+    type: "KL",
+  })),
+  ...strategyShortPoints.map((p: any) => ({
+    time: p.time,
+    price: p.value,
+    type: "KS",
+  })),
+].sort((a, b) => a.time - b.time);
+
+const stats = computeMtfStats(mtf, baseSignals);
+setMtfStats(stats);
+        
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -2048,12 +2064,12 @@ chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
   });
 }
 
-function computeMtfStats(data: any) {
-  if (!data) return null;
+function computeMtfStats(mtf: any, baseSignals: any[]) {
+  if (!mtf || !baseSignals) return null;
 
   const entries = [
-    ...(data.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
-    ...(data.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
+    ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
+    ...(mtf.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
   ].sort((a, b) => a.time - b.time);
 
   let trades = 0;
@@ -2062,16 +2078,24 @@ function computeMtfStats(data: any) {
   let profit = 0;
   let loss = 0;
 
-  for (let i = 0; i < entries.length - 1; i++) {
-    const a = entries[i];
-    const b = entries[i + 1];
+  for (const entry of entries) {
+    const exit = baseSignals.find((s: any) => {
+      if (s.time <= entry.time) return false;
+
+      if (entry.side === "long" && s.type === "KL") return true;
+      if (entry.side === "short" && s.type === "KS") return true;
+
+      return false;
+    });
+
+    if (!exit) continue;
 
     let pnl = 0;
 
-    if (a.side === "long") {
-      pnl = b.price - a.price;
+    if (entry.side === "long") {
+      pnl = exit.price - entry.price;
     } else {
-      pnl = a.price - b.price;
+      pnl = entry.price - exit.price;
     }
 
     trades++;
