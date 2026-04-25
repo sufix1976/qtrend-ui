@@ -993,7 +993,7 @@ const shortData = {
   })),
 ].sort((a, b) => a.time - b.time);
 
-const stats = computeMtfStats(mtf, baseSignals);
+const stats = computeMtfStatsReal(mtf, candles, core);
 setMtfStats(stats);
         const mtfTrades = buildMtfTrades(mtf, baseSignals);
 
@@ -2123,8 +2123,8 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
   return trades;
 }
 
-function computeMtfStats(mtf: any, baseSignals: any[]) {
-  if (!mtf || !baseSignals) return null;
+function computeMtfStatsReal(mtf: any, candles: any[], core: any) {
+  if (!mtf || !candles || !core) return null;
 
   const entries = [
     ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
@@ -2132,48 +2132,46 @@ function computeMtfStats(mtf: any, baseSignals: any[]) {
   ].sort((a, b) => a.time - b.time);
 
   let trades = 0;
-  let wins = 0;
-  let losses = 0;
   let profit = 0;
   let loss = 0;
 
   for (const entry of entries) {
-    const exit = baseSignals.find((s: any) => {
-      if (s.time <= entry.time) return false;
+    const entryIndex = candles.findIndex(c => c.time === entry.time);
+    if (entryIndex === -1) continue;
 
-      if (entry.side === "long" && s.type === "KL") return true;
-      if (entry.side === "short" && s.type === "KS") return true;
+    let exitPrice = null;
 
-      return false;
-    });
+    for (let i = entryIndex + 1; i < candles.length; i++) {
+      const dist = core.dist[i];
 
-    if (!exit) continue;
+      if (entry.side === "long" && dist >= 0) {
+        exitPrice = candles[i].close;
+        break;
+      }
 
-    let pnl = 0;
-
-    if (entry.side === "long") {
-      pnl = exit.price - entry.price;
-    } else {
-      pnl = entry.price - exit.price;
+      if (entry.side === "short" && dist <= 0) {
+        exitPrice = candles[i].close;
+        break;
+      }
     }
+
+    if (!exitPrice) continue;
+
+    let pnl =
+      entry.side === "long"
+        ? exitPrice - entry.price
+        : entry.price - exitPrice;
 
     trades++;
 
-    if (pnl > 0) {
-      wins++;
-      profit += pnl;
-    } else {
-      losses++;
-      loss += Math.abs(pnl);
-    }
+    if (pnl > 0) profit += pnl;
+    else loss += Math.abs(pnl);
   }
 
   const pf = loss > 0 ? profit / loss : 999;
 
   return {
     trades,
-    wins,
-    losses,
     net: profit - loss,
     pf,
   };
