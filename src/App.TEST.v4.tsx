@@ -340,6 +340,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [_multiTfData, setMultiTfData] = useState<any>(null);
   const [mtfSetup, setMtfSetup] = useState("15m");
   const [mtfTrigger, setMtfTrigger] = useState("8m");
+  const [mtfStats, setMtfStats] = useState<any>(null);
 
   
 
@@ -937,7 +938,8 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
         setMultiTfData(mtf);
-       
+        const stats = computeMtfStats(mtf);
+        setMtfStats(stats);
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
@@ -1377,6 +1379,13 @@ return () => {
 
   <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
     MTF: Setup {mtfSetup} / Trigger {mtfTrigger}
+    {mtfStats && (
+  <div style={{ marginTop: 6, fontSize: 12 }}>
+    <div>MTF Trades: {mtfStats.trades}</div>
+    <div>MTF Net: {mtfStats.net.toFixed(2)}</div>
+    <div>MTF PF: {mtfStats.pf.toFixed(2)}</div>
+  </div>
+)}
   </div>
 </div>
         <div>Entry band: {entryBandUI}</div>
@@ -2039,7 +2048,53 @@ chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
   });
 }
 
+function computeMtfStats(data: any) {
+  if (!data) return null;
 
+  const entries = [
+    ...(data.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
+    ...(data.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
+  ].sort((a, b) => a.time - b.time);
+
+  let trades = 0;
+  let wins = 0;
+  let losses = 0;
+  let profit = 0;
+  let loss = 0;
+
+  for (let i = 0; i < entries.length - 1; i++) {
+    const a = entries[i];
+    const b = entries[i + 1];
+
+    let pnl = 0;
+
+    if (a.side === "long") {
+      pnl = b.price - a.price;
+    } else {
+      pnl = a.price - b.price;
+    }
+
+    trades++;
+
+    if (pnl > 0) {
+      wins++;
+      profit += pnl;
+    } else {
+      losses++;
+      loss += Math.abs(pnl);
+    }
+  }
+
+  const pf = loss > 0 ? profit / loss : 999;
+
+  return {
+    trades,
+    wins,
+    losses,
+    net: profit - loss,
+    pf,
+  };
+}
 
 function setupVerticalCrosshairOverlay(
   priceContainer: HTMLDivElement,
