@@ -1096,7 +1096,7 @@ const dynamicLowerBand = alignLineToCandles(
 }
 
         createSeriesMarkers(
-  candleSeries,
+  mainSeries as any,
   mtfTradeMarkers as any
 );
 
