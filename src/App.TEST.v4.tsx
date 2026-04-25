@@ -999,12 +999,12 @@ setMtfStats(stats);
         const mtfTrades = buildMtfTrades(mtf, baseSignals);
         console.log("[MTF TRADES]", mtfTrades.length, mtfTrades.slice(0, 5));
 
-        const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
+       const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
   {
     time: t.entryTime,
     position: t.side === "long" ? "belowBar" : "aboveBar",
     color: t.side === "long" ? "#00ff88" : "#ff4444",
-    shape: "circle",
+    shape: "arrowUp",
     text: "E",
   },
   {
