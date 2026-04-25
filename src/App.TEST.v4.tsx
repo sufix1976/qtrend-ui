@@ -89,6 +89,7 @@ type SymbolConfigMap = Record<string, SymbolConfigRow>;
 
 type SymbolSizeMap = Record<string, number>;
 
+const SHOW_DEBUG = false;
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
 const AGG_LIMIT = 2000;
@@ -1086,10 +1087,12 @@ const dynamicLowerBand = alignLineToCandles(
         realSellSeries.setData(realSellProjected as any);
         realCloseSeries.setData(realCloseProjected as any);
 
-        createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-        createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
-        createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-        createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+        if (SHOW_DEBUG) {
+  createSeriesMarkers(candidateLongSeries, ...)
+  createSeriesMarkers(candidateShortSeries, ...)
+  createSeriesMarkers(blockedLongSeries, ...)
+  createSeriesMarkers(blockedShortSeries, ...)
+}
 
         createSeriesMarkers(
   realCloseSeries,
