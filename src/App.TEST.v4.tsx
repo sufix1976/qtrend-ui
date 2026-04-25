@@ -2123,57 +2123,77 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
   return trades;
 }
 
-function computeMtfStatsReal(mtf: any, candles: any[], core: any) {
-  if (!mtf || !candles || !core) return null;
+function computeMtfStatsReal(mtf: any, candles: Candle[], core: any) {
+  if (!mtf || !candles?.length || !core?.dist?.length) return null;
+
+  const candleByTime = new Map(candles.map((c) => [c.time, c]));
+  const distByTime = new Map(core.dist.map((p: any) => [p.time, p.value]));
 
   const entries = [
     ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
     ...(mtf.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
-  ].sort((a, b) => a.time - b.time);
+  ]
+    .map((e: any) => ({
+      ...e,
+      price: Number(e.price ?? e.value),
+      time: Number(e.time),
+    }))
+    .filter((e: any) => Number.isFinite(e.time) && Number.isFinite(e.price))
+    .sort((a: any, b: any) => a.time - b.time);
 
   let trades = 0;
+  let wins = 0;
+  let losses = 0;
   let profit = 0;
   let loss = 0;
 
   for (const entry of entries) {
     const entryIndex = candles.findIndex((c) => c.time >= entry.time);
-if (entryIndex === -1) continue;
+    if (entryIndex < 0) continue;
 
-    let exitPrice = null;
+    let exitCandle: Candle | null = null;
 
     for (let i = entryIndex + 1; i < candles.length; i++) {
-      const dist = core.dist[i];
+      const c = candles[i];
+      const d = distByTime.get(c.time);
 
-      if (entry.side === "long" && dist >= 0) {
-        exitPrice = candles[i].close;
+      if (d == null || !Number.isFinite(Number(d))) continue;
+
+      if (entry.side === "long" && Number(d) >= 0) {
+        exitCandle = c;
         break;
       }
 
-      if (entry.side === "short" && dist <= 0) {
-        exitPrice = candles[i].close;
+      if (entry.side === "short" && Number(d) <= 0) {
+        exitCandle = c;
         break;
       }
     }
 
-    if (!exitPrice) continue;
+    if (!exitCandle) continue;
 
-    let pnl =
+    const pnl =
       entry.side === "long"
-        ? exitPrice - entry.price
-        : entry.price - exitPrice;
+        ? exitCandle.close - entry.price
+        : entry.price - exitCandle.close;
 
     trades++;
 
-    if (pnl > 0) profit += pnl;
-    else loss += Math.abs(pnl);
+    if (pnl > 0) {
+      wins++;
+      profit += pnl;
+    } else {
+      losses++;
+      loss += Math.abs(pnl);
+    }
   }
-
-  const pf = loss > 0 ? profit / loss : 999;
 
   return {
     trades,
+    wins,
+    losses,
     net: profit - loss,
-    pf,
+    pf: loss > 0 ? profit / loss : profit > 0 ? 999 : 0,
   };
 }
 
