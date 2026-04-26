@@ -5,7 +5,6 @@ import {
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
-  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   CrosshairMode,
@@ -89,7 +88,7 @@ type SymbolConfigMap = Record<string, SymbolConfigRow>;
 
 type SymbolSizeMap = Record<string, number>;
 
-const SHOW_DEBUG = false;
+
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
 const AGG_LIMIT = 2000;
