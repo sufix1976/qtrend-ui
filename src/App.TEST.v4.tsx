@@ -1011,25 +1011,24 @@ setMtfStats({
   pf: mtfLoss > 0 ? mtfProfit / mtfLoss : mtfProfit > 0 ? 999 : 0,
 });
         
-        // const mtfTrades = buildMtfTrades(mtf, baseSignals);
-        // console.log("[MTF TRADES]", ...)
-
-       // const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
-//   {
-//     time: t.entryTime,
-//     position: t.side === "long" ? "belowBar" : "aboveBar",
-//     color: t.side === "long" ? "#00ff88" : "#ff4444",
-//     shape: "arrowUp",
-//     text: "E",
-//   },
-//   {
-//     time: t.exitTime,
-//     position: t.side === "long" ? "aboveBar" : "belowBar",
-//     color: "#ffffff",
-//     shape: "circle",
-//     text: "X",
-//   },
-// ]);
+        const mtfTradeMarkers = SHOW_DEBUG
+  ? mtfTrades.flatMap((t: any) => [
+      {
+        time: t.entryTime,
+        position: t.side === "long" ? "belowBar" : "aboveBar",
+        color: t.side === "long" ? "#00ff88" : "#ff4444",
+        shape: "arrowUp",
+        text: "E",
+      },
+      {
+        time: t.exitTime,
+        position: t.side === "long" ? "aboveBar" : "belowBar",
+        color: "#ffffff",
+        shape: "circle",
+        text: "X",
+      },
+    ])
+  : [];
         
 
         const sim = simulateStrategyTESTv4(
@@ -1103,11 +1102,9 @@ const dynamicLowerBand = alignLineToCandles(
         realSellSeries.setData(realSellProjected as any);
         realCloseSeries.setData(realCloseProjected as any);
 
-        // if (SHOW_DEBUG) {
-  // createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-  // //createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-  // createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
-// }
+        if (SHOW_DEBUG) {
+  createSeriesMarkers(mainSeries as any, mtfTradeMarkers as any);
+}
 
         // createSeriesMarkers(
 //   mainSeries as any,
