@@ -2827,9 +2827,27 @@ function computeTradesFromCore(core: any, candles: any[]) {
 
   // 👉 EVENTS zusammenführen
   const events = [
-    ...(core.entries || []).map((e: any) => ({ ...e, type: "entry" })),
-    ...(core.exits || []).map((e: any) => ({ ...e, type: "exit" })),
-  ]
+  ...(core.longEntries || []).map((e: any) => ({
+    ...e,
+    side: "long",
+    type: "entry",
+  })),
+  ...(core.shortEntries || []).map((e: any) => ({
+    ...e,
+    side: "short",
+    type: "entry",
+  })),
+  ...(core.longExits || []).map((e: any) => ({
+    ...e,
+    side: "long",
+    type: "exit",
+  })),
+  ...(core.shortExits || []).map((e: any) => ({
+    ...e,
+    side: "short",
+    type: "exit",
+  })),
+]
     .filter((e: any) => Number.isFinite(e.time))
     .sort((a: any, b: any) => a.time - b.time);
 
