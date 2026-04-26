@@ -294,6 +294,9 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
 
+  const [maxPositionLossEur, setMaxPositionLossEur] = useState<string>("");
+  const [maxLossMessage, setMaxLossMessage] = useState("");
+
   const [presetMessage, setPresetMessage] = useState("");
 
   const [symbolSizes, setSymbolSizes] = useState<SymbolSizeMap>({});
@@ -451,7 +454,60 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   }
 }
 
-  
+  async function loadMaxPositionLoss() {
+  try {
+    const res = await fetch(`${BACKEND_BASE}/risk/position-loss?_ts=${Date.now()}`, {
+      cache: "no-store",
+    });
+
+    const json = await res.json();
+
+    if (json?.ok) {
+      setMaxPositionLossEur(
+        json.max_position_loss_eur == null ? "" : String(json.max_position_loss_eur)
+      );
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function saveMaxPositionLoss() {
+  try {
+    const n = Number(maxPositionLossEur);
+
+    const res = await fetch(`${BACKEND_BASE}/risk/position-loss`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        max_position_loss_eur: Number.isFinite(n) && n > 0 ? n : 0,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || "save failed");
+    }
+
+    setMaxLossMessage(
+      json.enabled
+        ? `Max Loss aktiv: -${json.max_position_loss_eur} €`
+        : "Max Loss deaktiviert"
+    );
+
+    setTimeout(() => setMaxLossMessage(""), 2500);
+  } catch (e) {
+    console.error(e);
+    setMaxLossMessage("Max Loss speichern fehlgeschlagen");
+  }
+}
+
+useEffect(() => {
+  loadMaxPositionLoss();
+}, []);
 
 
   async function resetPreset() {
@@ -1297,6 +1353,57 @@ return () => {
         <div>Assumed slippage: {assumedSlippage}</div>
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
+
+    <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
+  <div style={{ fontWeight: 700, marginBottom: 6 }}>🛡 Max Loss Schutz</div>
+
+  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+    Globale Absicherung pro offener Position. Beispiel: 30 = bei -30 € sofort FLAT.
+  </div>
+
+  <div style={{ display: "flex", gap: 6 }}>
+    <input
+      type="number"
+      step="1"
+      min="0"
+      value={maxPositionLossEur}
+      onChange={(e) => setMaxPositionLossEur(e.target.value)}
+      placeholder="z.B. 30"
+      style={{
+        flex: 1,
+        background: "#0f172a",
+        color: "#fff",
+        border: "1px solid #475569",
+        borderRadius: 6,
+        padding: "6px 8px",
+      }}
+    />
+
+    <button
+      onClick={saveMaxPositionLoss}
+      style={{
+        background: "#1d4ed8",
+        color: "#fff",
+        border: "1px solid #3b82f6",
+        borderRadius: 6,
+        padding: "6px 8px",
+        cursor: "pointer",
+      }}
+    >
+      Save
+    </button>
+  </div>
+
+  <div style={{ marginTop: 4, fontSize: 12, color: "#93c5fd" }}>
+    {maxPositionLossEur ? `Aktiv bei -${maxPositionLossEur} €` : "Deaktiviert"}
+  </div>
+
+  {maxLossMessage ? (
+    <div style={{ marginTop: 4, fontSize: 12, color: "#93c5fd" }}>
+      {maxLossMessage}
+    </div>
+  ) : null}
+</div>
 
         <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
   <button
