@@ -261,6 +261,7 @@ export function buildStableShortSignals(
   let inZone = false;
   let candidateIndex = -1;
   let candidateValue = Number.NEGATIVE_INFINITY;
+  let inPosition = false;
   let fired = false;
 
   for (let i = 1; i < dist.length; i++) {
