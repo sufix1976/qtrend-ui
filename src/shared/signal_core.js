@@ -180,8 +180,7 @@ export function buildStableLongSignals(
 const inLowerZone = d < lowerBand;
 
 // Zone startet erst, wenn Fallbewegung Kraft verliert
-const slopePrev = prev - prev2;
-const slopeNow = d - prev;
+
 const momentumWeakening = slopePrev < 0 && slopeNow > slopePrev;
 
 if (!inZone && inLowerZone && momentumWeakening) {
