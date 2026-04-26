@@ -935,7 +935,14 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
-  fetchMultiTf(symbol, mtfSetup, mtfTrigger),
+  fetchMultiTf(symbol, mtfSetup, mtfTrigger, {
+  smaFast: smaFastUI,
+  smaSlow: smaSlowUI,
+  smaMiddle: smaMiddleUI,
+  entryBand: entryBandUI,
+  minKinkMove: minKinkUI,
+  peakLookback: peakUI,
+})
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
         setMultiTfData(mtf);
@@ -2127,79 +2134,30 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
   return trades;
 }
 
-function computeMtfStatsReal(mtf: any, candles: Candle[], core: any) {
-  if (!mtf || !candles?.length || !core?.dist?.length) return null;
+const trades = computeTradesFromCore(core, candles);
 
- 
-  const distByTime = new Map(core.dist.map((p: any) => [p.time, p.value]));
+let profit = 0;
+let loss = 0;
+let wins = 0;
+let losses = 0;
 
-  const entries = [
-    ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
-    ...(mtf.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
-  ]
-    .map((e: any) => ({
-      ...e,
-      price: Number(e.price ?? e.value),
-      time: Number(e.time),
-    }))
-    .filter((e: any) => Number.isFinite(e.time) && Number.isFinite(e.price))
-    .sort((a: any, b: any) => a.time - b.time);
-
-  let trades = 0;
-  let wins = 0;
-  let losses = 0;
-  let profit = 0;
-  let loss = 0;
-
-  for (const entry of entries) {
-    const entryIndex = candles.findIndex((c) => c.time >= entry.time);
-    if (entryIndex < 0) continue;
-
-    let exitCandle: Candle | null = null;
-
-    for (let i = entryIndex + 1; i < candles.length; i++) {
-      const c = candles[i];
-      const d = distByTime.get(c.time);
-
-      if (d == null || !Number.isFinite(Number(d))) continue;
-
-      if (entry.side === "long" && Number(d) >= 0) {
-        exitCandle = c;
-        break;
-      }
-
-      if (entry.side === "short" && Number(d) <= 0) {
-        exitCandle = c;
-        break;
-      }
-    }
-
-    if (!exitCandle) continue;
-
-    const pnl =
-      entry.side === "long"
-        ? exitCandle.close - entry.price
-        : entry.price - exitCandle.close;
-
-    trades++;
-
-    if (pnl > 0) {
-      wins++;
-      profit += pnl;
-    } else {
-      losses++;
-      loss += Math.abs(pnl);
-    }
+for (const t of trades) {
+  if (t.pnl > 0) {
+    profit += t.pnl;
+    wins++;
+  } else {
+    loss += Math.abs(t.pnl);
+    losses++;
   }
-
-  return {
-    trades,
-    wins,
-    losses,
-    net: profit - loss,
-    pf: loss > 0 ? profit / loss : profit > 0 ? 999 : 0,
-  };
 }
+
+const pf = loss > 0 ? profit / loss : 0;
+
+setMtfStats({
+  trades: trades.length,
+  pf,
+  net: profit - loss,
+});
 
 function setupVerticalCrosshairOverlay(
   priceContainer: HTMLDivElement,
@@ -2865,4 +2823,81 @@ function formatTime(ts: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+function computeTradesFromCore(core: any, candles: any[]) {
+  const trades = [];
+
+  let position: null | {
+    side: "long" | "short";
+    entryPrice: number;
+    entryTime: number;
+  } = null;
+
+  const candleByTime = new Map<number, any>();
+  for (const c of candles) {
+    candleByTime.set(c.time, c);
+  }
+
+  for (const e of core.entries) {
+    const entryCandle = candleByTime.get(e.time);
+    if (!entryCandle) continue;
+
+    // 👉 OPEN
+    if (!position) {
+      position = {
+        side: e.side,
+        entryPrice: entryCandle.close,
+        entryTime: e.time,
+      };
+      continue;
+    }
+
+    // 👉 FLIP (extrem wichtig)
+    if (position.side !== e.side) {
+      const exitCandle = entryCandle;
+
+      let pnl =
+        position.side === "long"
+          ? exitCandle.close - position.entryPrice
+          : position.entryPrice - exitCandle.close;
+
+      trades.push({
+        side: position.side,
+        entryTime: position.entryTime,
+        exitTime: e.time,
+        pnl,
+      });
+
+      // neue Position
+      position = {
+        side: e.side,
+        entryPrice: entryCandle.close,
+        entryTime: e.time,
+      };
+    }
+  }
+
+  // 👉 EXITS (dein echtes System!)
+  for (const ex of core.exits || []) {
+    if (!position) continue;
+
+    const exitCandle = candleByTime.get(ex.time);
+    if (!exitCandle) continue;
+
+    let pnl =
+      position.side === "long"
+        ? exitCandle.close - position.entryPrice
+        : position.entryPrice - exitCandle.close;
+
+    trades.push({
+      side: position.side,
+      entryTime: position.entryTime,
+      exitTime: ex.time,
+      pnl,
+    });
+
+    position = null;
+  }
+
+  return trades;
 }
