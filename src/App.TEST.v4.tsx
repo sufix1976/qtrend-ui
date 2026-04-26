@@ -341,6 +341,10 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
     setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
     setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
+    
+    if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
+  setInterval(cfg.interval as IntervalOption);
+}
 
     if (cfg.size != null && Number.isFinite(Number(cfg.size))) {
       setSymbolSizes((prev) => ({
