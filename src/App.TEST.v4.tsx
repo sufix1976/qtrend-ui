@@ -1,10 +1,7 @@
-import {
-  computeSignalCore,
-} from "./shared/signal_core";
-
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   CrosshairMode,
@@ -30,12 +27,16 @@ type MarkerPoint = {
   text?: string;
   color?: string;
 };
+
+type SignalBuildResult = {
+  entries: MarkerPoint[];
+  candidates: MarkerPoint[];
+};
+
 type WhitespaceLinePoint = {
   time: number;
   value?: number;
 };
-
-
 
 type PositionSide = "flat" | "long" | "short";
 
@@ -68,7 +69,6 @@ type AggTradesResponse = {
 
 type SymbolConfigRow = {
   symbol: string;
-  interval?: string | null;
   entry_band: number | null;
   min_kink: number | null;
   peak_lookback: number | null;
@@ -87,7 +87,6 @@ type SymbolConfigMap = Record<string, SymbolConfigRow>;
 
 
 type SymbolSizeMap = Record<string, number>;
-
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 80000;
@@ -117,7 +116,7 @@ const SYMBOLS = [
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 90,
+  BTCUSD: 160,
   ETHUSD: 10,
   XRPUSD: 0.04,
   DE40: 100,
@@ -153,7 +152,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
-  BTCUSD: 50,
+  BTCUSD: 25,
   ETHUSD: 1.5,
   XRPUSD: 0.002,
   DE40: 2,
@@ -205,24 +204,6 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 0.3,
   SOLUSD: 0.02,
   TSLA: 0.5
-};
-
-const INTERVAL_BY_SYMBOL: Record<string, IntervalOption> = {
-  BTCUSD: "30m",
-  ETHUSD: "30m",
-  XRPUSD: "15m",
-  DE40: "15m",
-  US100: "15m",
-  US500: "15m",
-  US30: "15m",
-  J225: "15m",
-  UK100: "15m",
-  GOLD: "15m",
-  SILVER: "15m",
-  OIL_CRUDE: "15m",
-  CORN: "30m",
-  SOLUSD: "30m",
-  TSLA: "15m",
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
@@ -337,10 +318,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
-  const [_multiTfData, setMultiTfData] = useState<any>(null);
-  const [mtfSetup, setMtfSetup] = useState("15m");
-  const [mtfTrigger, setMtfTrigger] = useState("8m");
-  const [mtfStats, setMtfStats] = useState<any>(null);
 
   
 
@@ -355,12 +332,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const cfg = symbolConfigMap[symbol];
 
   if (cfg) {
-        const nextInterval = String(cfg.interval || "").trim();
-    if (nextInterval && INTERVALS.includes(nextInterval as IntervalOption)) {
-      setInterval(nextInterval as IntervalOption);
-    } else {
-      setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
-    }
     setEntryBandUI(Number(cfg.entry_band ?? entryBand));
     setMinKinkUI(Number(cfg.min_kink ?? minKinkMove));
     setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
@@ -379,7 +350,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
     setPresetMessage(`Backend-Konfig geladen für ${symbol}`);
   } else {
-    setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setPeakUI(peakLookback);
@@ -449,18 +419,17 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
-  symbol,
-  interval,
-  entry_band: entryBandUI,
-  min_kink: minKinkUI,
-  peak_lookback: peakUI,
-  sma_fast: smaFastUI,
-  sma_slow: smaSlowUI,
-  sma_middle: smaMiddleUI,
-  adaptive_band: adaptiveBandUI ? 1 : 0,
-  adaptive_band_mult: adaptiveBandMultUI,
-  size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
-};
+      symbol,
+      entry_band: entryBandUI,
+      min_kink: minKinkUI,
+      peak_lookback: peakUI,
+      sma_fast: smaFastUI,
+      sma_slow: smaSlowUI,
+      sma_middle: smaMiddleUI,
+      adaptive_band: adaptiveBandUI ? 1 : 0,
+      adaptive_band_mult: adaptiveBandMultUI,
+      size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
+    };
 
     await saveSymbolConfig(row);
 
@@ -483,7 +452,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
-      interval: INTERVAL_BY_SYMBOL[symbol] ?? "15m",
       entry_band: entryBand,
       min_kink: minKinkMove,
       peak_lookback: peakLookback,
@@ -502,7 +470,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
       [symbol]: row,
     }));
 
-    setInterval(INTERVAL_BY_SYMBOL[symbol] ?? "15m");
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setPeakUI(peakLookback);
@@ -540,12 +507,6 @@ async function saveOneSize(symbolToSave: string) {
 
     const row: SymbolConfigRow = {
       symbol: symbolToSave,
-
-      interval:
-        old?.interval && INTERVALS.includes(old.interval as IntervalOption)
-          ? old.interval
-          : (INTERVAL_BY_SYMBOL[symbolToSave] ?? "15m"),
-
       entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[symbolToSave] ?? null,
       min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[symbolToSave] ?? null,
       peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[symbolToSave] ?? null,
@@ -583,12 +544,6 @@ async function saveAllSizes() {
 
       const row: SymbolConfigRow = {
         symbol: s,
-
-        interval:
-          old?.interval && INTERVALS.includes(old.interval as IntervalOption)
-            ? old.interval
-            : (INTERVAL_BY_SYMBOL[s] ?? "15m"),
-
         entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? null,
         min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? null,
         peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[s] ?? null,
@@ -744,27 +699,6 @@ async function saveAllSizes() {
         priceLineVisible: false,
         lastValueVisible: false,
       });
-   const multiLongSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#00ff88",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 7,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const multiShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff00ff",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 7,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-    multiLongSeries.setData([]);
-    multiShortSeries.setData([]);
 
     const smaFastSeries = priceChart.addSeries(LineSeries, {
       color: "#ffff00",
@@ -929,78 +863,71 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows, backendStrategyState, mtf] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, backendStrategyState] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
-  fetchMultiTf(symbol, mtfSetup, mtfTrigger),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
-        setMultiTfData(mtf);
-        
+       
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
 
-        const core = computeSignalCore(candles, {
-  smaFast: smaFastUI,
-  smaSlow: smaSlowUI,
-  smaMiddle: smaMiddleUI,
-  entryBand: entryBandUI,
-  adaptiveBand: adaptiveBandUI,
-  adaptiveBandMult: adaptiveBandMultUI,
-  peakLookback: peakUI,
-  minKinkMove: minKinkUI,
-  stdDevLength: 50,
-});
+        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
+        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+        const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
+        const distAsCandles = dist.map((p) => ({
+          time: p.time,
+          open: p.value,
+          high: p.value,
+          low: p.value,
+          close: p.value,
+        }));
 
-const smaFast = core.smaFast;
-const smaSlow = core.smaSlow;
-const dist = core.dist;
-const distMiddle = core.distMiddle;
-const dynamicBand = core.dynamicBand;
+        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
 
-const chartCandles = chartifyCandles(candles);
-const chartSmaFast = chartifyLinePoints(smaFast);
-const chartSmaSlow = chartifyLinePoints(smaSlow);
-const chartDist = chartifyLinePoints(dist);
-const chartDistMiddle = chartifyLinePoints(distMiddle);
+// 🔥 Fallback: wenn leer → nimm dist selbst
+if (!distMiddle.length) {
+  distMiddle = dist;
+}
+        const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
+        const dynamicBand = buildAdaptiveBandLine(
+          distMiddle,
+          distVolatility,
+          entryBandUI,
+          adaptiveBandUI,
+          adaptiveBandMultUI
+        );
 
-const longData = {
-  entries: core.longEntries,
-  candidates: core.longCandidates,
-};
+        const chartCandles = chartifyCandles(candles);
+        const chartSmaFast = chartifyLinePoints(smaFast);
+        const chartSmaSlow = chartifyLinePoints(smaSlow);
+        const chartDist = chartifyLinePoints(dist);
+        const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-const shortData = {
-  entries: core.shortEntries,
-  candidates: core.shortCandidates,
-};
+        const longData = buildStableLongSignals(
+          candles,
+          dist,
+          distMiddle,
+          dynamicBand,
+          peakUI,
+          minKinkUI
+        );
+
+        const shortData = buildStableShortSignals(
+          candles,
+          dist,
+          distMiddle,
+          dynamicBand,
+          peakUI,
+          minKinkUI
+        );
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
-        
-
-
-const trades = computeTradesFromCore(core, candles);
-
-let mtfProfit = 0;
-let mtfLoss = 0;
-
-for (const t of trades) {
-  if (t.pnl > 0) mtfProfit += t.pnl;
-  else mtfLoss += Math.abs(t.pnl);
-}
-
-setMtfStats({
-  trades: trades.length,
-  net: mtfProfit - mtfLoss,
-  pf: mtfLoss > 0 ? mtfProfit / mtfLoss : mtfProfit > 0 ? 999 : 0,
-});
-        
-        
-        
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1020,13 +947,13 @@ setMtfStats({
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
         const dynamicUpperBand = alignLineToCandles(
-  chartCandles,
-  chartifyLinePoints(core.upperBand)
-);
-const dynamicLowerBand = alignLineToCandles(
-  chartCandles,
-  chartifyLinePoints(core.lowerBand)
-);
+          chartCandles,
+          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, 1))
+        );
+        const dynamicLowerBand = alignLineToCandles(
+          chartCandles,
+          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
+        );
 
         if (chartType === "candles") {
   mainSeries.setData(chartCandles as any);
@@ -1037,12 +964,6 @@ const dynamicLowerBand = alignLineToCandles(
       value: c.close,
     })) as any
   );
-}
-        if (mtf) {
-  const mapped = mapMultiTfMarkers(mtf, candles);
-
-  multiLongSeries.setData(mapped.long as any);
-  multiShortSeries.setData(mapped.short as any);
 }
 
         smaFastSeries.setData(chartSmaFast as any);
@@ -1073,9 +994,11 @@ const dynamicLowerBand = alignLineToCandles(
         realSellSeries.setData(realSellProjected as any);
         realCloseSeries.setData(realCloseProjected as any);
 
-        
+        createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
+        createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+        createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
+        createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
-        
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
@@ -1218,8 +1141,6 @@ return () => {
   adaptiveBandUI,
   adaptiveBandMultUI,
   symbolSizes,
-  mtfSetup,
-  mtfTrigger,
 ]);
 
   const displayState = liveState;
@@ -1358,55 +1279,6 @@ return () => {
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
-    <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
-  <div style={{ fontWeight: 700, marginBottom: 6 }}>Multi-TF Test</div>
-
-  <div style={{ display: "flex", gap: 8 }}>
-    <label style={{ flex: 1 }}>
-      Setup
-      <select
-        value={mtfSetup}
-        onChange={(e) => setMtfSetup(e.target.value)}
-        style={{ width: "100%" }}
-      >
-        <option value="5m">5m</option>
-        <option value="8m">8m</option>
-        <option value="10m">10m</option>
-        <option value="12m">12m</option>
-        <option value="15m">15m</option>
-        <option value="20m">20m</option>
-        <option value="27m">27m</option>
-        <option value="30m">30m</option>
-      </select>
-    </label>
-
-    <label style={{ flex: 1 }}>
-      Trigger
-      <select
-        value={mtfTrigger}
-        onChange={(e) => setMtfTrigger(e.target.value)}
-        style={{ width: "100%" }}
-      >
-        <option value="5m">5m</option>
-        <option value="8m">8m</option>
-        <option value="10m">10m</option>
-        <option value="12m">12m</option>
-        <option value="15m">15m</option>
-      </select>
-    </label>
-  </div>
-
-  <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
-    MTF: Setup {mtfSetup} / Trigger {mtfTrigger}
-    {mtfStats && (
-  <div style={{ marginTop: 6, fontSize: 12 }}>
-    <div>MTF Trades: {mtfStats.trades}</div>
-    <div>MTF Net: {mtfStats.net.toFixed(2)}</div>
-    <div>MTF PF: {mtfStats.pf.toFixed(2)}</div>
-  </div>
-)}
-  </div>
-</div>
         <div>Entry band: {entryBandUI}</div>
         <div>Peak lookback: {peakUI}</div>
         <div>Min kink: {minKinkUI}</div>
@@ -1809,32 +1681,7 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
     throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
   }
 
-  console.log("[CANDLES]", symbol, interval, json.candles?.length);
-
   return sanitizeCandles(json.candles || []);
-}
-
-async function fetchMultiTf(
-  symbol: string,
-  setup: string,
-  trigger: string
-): Promise<any | null> {
-  try {
-    const url = new URL("/strategy/multitf", BACKEND_BASE);
-    url.searchParams.set("symbol", symbol);
-    url.searchParams.set("setup", setup);
-    url.searchParams.set("trigger", trigger);
-    url.searchParams.set("_ts", String(Date.now()));
-
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    const json = await res.json();
-
-    if (!res.ok || !json?.ok) return null;
-    return json;
-  } catch (e) {
-    console.error("multitf fetch error", e);
-    return null;
-  }
 }
 
 async function postStrategyState(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
@@ -1997,24 +1844,22 @@ function syncCharts(
   let isUpdatingRange = false;
   let isUpdatingCrosshair = false;
 
-  
+  const syncFromA = (range: any) => {
+    if (!range || isUpdatingRange) return;
+    isUpdatingRange = true;
+    chartB.timeScale().setVisibleLogicalRange(range);
+    isUpdatingRange = false;
+  };
 
- const syncFromA = (range: any) => {
-  if (!range || isUpdatingRange) return;
-  isUpdatingRange = true;
-  chartB.timeScale().setVisibleLogicalRange(range);
-  isUpdatingRange = false;
-};
+  const syncFromB = (range: any) => {
+    if (!range || isUpdatingRange) return;
+    isUpdatingRange = true;
+    chartA.timeScale().setVisibleLogicalRange(range);
+    isUpdatingRange = false;
+  };
 
-const syncFromB = (range: any) => {
-  if (!range || isUpdatingRange) return;
-  isUpdatingRange = true;
-  chartA.timeScale().setVisibleLogicalRange(range);
-  isUpdatingRange = false;
-};
-
-chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
-chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
+  chartA.timeScale().subscribeVisibleLogicalRangeChange(syncFromA);
+  chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
 
   if (!seriesA || !seriesB) return;
 
@@ -2068,12 +1913,6 @@ chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
     }
   });
 }
-
-
-
-
-
-
 
 function setupVerticalCrosshairOverlay(
   priceContainer: HTMLDivElement,
@@ -2222,21 +2061,287 @@ function sanitizeCandles(data: any[]): Candle[] {
     );
 }
 
-function alignLineToCandles(
-  candles: Candle[],
-  line: LinePoint[]
-): WhitespaceLinePoint[] {
+function sanitizeLinePoints(points: any[]): LinePoint[] {
+  return (points || [])
+    .filter((p) => p && p.time != null && p.value != null)
+    .map((p) => ({
+      time: Number(p.time),
+      value: Number(p.value),
+    }))
+    .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+}
+
+function calcSMA(data: Candle[], len: number): LinePoint[] {
+  const out: LinePoint[] = [];
+  if (len <= 0) return out;
+  for (let i = len - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < len; j++) sum += data[i - j].close;
+    out.push({ time: data[i].time, value: sum / len });
+  }
+  return out;
+}
+
+function calcDistance(a: LinePoint[], b: LinePoint[]): LinePoint[] {
+  const map = new Map<number, number>();
+  for (const p of b) map.set(p.time, p.value);
+
+  return a
+    .map((p) => {
+      const other = map.get(p.time);
+      if (other == null) return null;
+      const value = p.value - other;
+      if (!Number.isFinite(value)) return null;
+      return { time: p.time, value };
+    })
+    .filter(Boolean) as LinePoint[];
+}
+
+function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLinePoint[] {
   const map = new Map<number, number>();
   for (const p of line) map.set(p.time, p.value);
 
-  return candles.map((c: Candle) => {
+  return candles.map((c) => {
     const value = map.get(c.time);
     if (value == null || !Number.isFinite(value)) return { time: c.time };
     return { time: c.time, value };
   });
 }
 
+function calcStdDevLine(data: LinePoint[], len: number): LinePoint[] {
+  const out: LinePoint[] = [];
+  if (len <= 1) return out;
 
+  for (let i = len - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < len; j++) sum += data[i - j].value;
+    const mean = sum / len;
+
+    let variance = 0;
+    for (let j = 0; j < len; j++) {
+      const diff = data[i - j].value - mean;
+      variance += diff * diff;
+    }
+
+    out.push({
+      time: data[i].time,
+      value: Math.sqrt(variance / len),
+    });
+  }
+
+  return out;
+}
+
+function buildAdaptiveBandLine(
+  middle: LinePoint[],
+  volatility: LinePoint[],
+  baseBand: number,
+  adaptiveEnabled: boolean,
+  adaptiveMultiplier: number
+): LinePoint[] {
+  const volMap = new Map<number, number>();
+  for (const p of volatility) volMap.set(p.time, p.value);
+
+  return middle.map((p) => {
+    const vol = volMap.get(p.time) ?? 0;
+    const band = adaptiveEnabled
+      ? Math.max(baseBand * 0.35, baseBand + vol * adaptiveMultiplier)
+      : baseBand;
+
+    return {
+      time: p.time,
+      value: band,
+    };
+  });
+}
+
+function buildBandOffsetLine(
+  base: LinePoint[],
+  band: LinePoint[],
+  direction: 1 | -1
+): LinePoint[] {
+  const bandMap = new Map<number, number>();
+  for (const p of band) bandMap.set(p.time, p.value);
+
+  return base.map((p) => ({
+    time: p.time,
+    value: p.value + (bandMap.get(p.time) ?? 0) * direction,
+  }));
+}
+
+function buildStableLongSignals(
+  candles: Candle[],
+  dist: LinePoint[],
+  distMiddle: LinePoint[],
+  bandLine: LinePoint[],
+  _peakLookback: number,
+  minKinkMove: number
+): SignalBuildResult {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const middleMap = new Map<number, number>();
+  for (const p of distMiddle) middleMap.set(p.time, p.value);
+
+  const bandMap = new Map<number, number>();
+  for (const p of bandLine) bandMap.set(p.time, p.value);
+
+  const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
+
+  let inZone = false;
+  let candidateIndex = -1;
+  let candidateValue = Number.POSITIVE_INFINITY;
+  let fired = false;
+
+  for (let i = 1; i < dist.length; i++) {
+    const d = dist[i].value;
+    const middle = middleMap.get(dist[i].time);
+    const band = bandMap.get(dist[i].time);
+    if (middle == null || band == null) continue;
+
+    const lowerBand = middle - band;
+    const inLowerZone = d < lowerBand;
+
+    if (!inZone && inLowerZone) {
+      inZone = true;
+      candidateIndex = i;
+      candidateValue = d;
+      fired = false;
+      continue;
+    }
+
+    if (inZone && !inLowerZone) {
+      inZone = false;
+      candidateIndex = -1;
+      candidateValue = Number.POSITIVE_INFINITY;
+      fired = false;
+      continue;
+    }
+
+    if (!inZone) continue;
+
+    if (d <= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = d - candidateValue;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
+      const c = candleMap.get(t);
+
+      if (c) {
+        candidateMarkers.push({
+          time: t,
+          value: c.low,
+          text: "KL",
+          color: "#22c55e",
+        });
+
+        markers.push({
+          time: t,
+          value: c.low,
+        });
+
+        fired = true;
+      }
+    }
+  }
+
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
+}
+
+function buildStableShortSignals(
+  candles: Candle[],
+  dist: LinePoint[],
+  distMiddle: LinePoint[],
+  bandLine: LinePoint[],
+  _peakLookback: number,
+  minKinkMove: number
+): SignalBuildResult {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const middleMap = new Map<number, number>();
+  for (const p of distMiddle) middleMap.set(p.time, p.value);
+
+  const bandMap = new Map<number, number>();
+  for (const p of bandLine) bandMap.set(p.time, p.value);
+
+  const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
+
+  let inZone = false;
+  let candidateIndex = -1;
+  let candidateValue = Number.NEGATIVE_INFINITY;
+  let fired = false;
+
+  for (let i = 1; i < dist.length; i++) {
+    const d = dist[i].value;
+    const middle = middleMap.get(dist[i].time);
+    const band = bandMap.get(dist[i].time);
+    if (middle == null || band == null) continue;
+
+    const upperBand = middle + band;
+    const inUpperZone = d > upperBand;
+
+    if (!inZone && inUpperZone) {
+      inZone = true;
+      candidateIndex = i;
+      candidateValue = d;
+      fired = false;
+      continue;
+    }
+
+    if (inZone && !inUpperZone) {
+      inZone = false;
+      candidateIndex = -1;
+      candidateValue = Number.NEGATIVE_INFINITY;
+      fired = false;
+      continue;
+    }
+
+    if (!inZone) continue;
+
+    if (d >= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = candidateValue - d;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
+      const c = candleMap.get(t);
+
+      if (c) {
+        candidateMarkers.push({
+          time: t,
+          value: c.high,
+          text: "KS",
+          color: "#ef4444",
+        });
+
+        markers.push({
+          time: t,
+          value: c.high,
+        });
+
+        fired = true;
+      }
+    }
+  }
+
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
+}
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
@@ -2252,37 +2357,6 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
-}
-
-function snapToCandleTime(time: number, candles: any[]) {
-  // finde die nächste Candle <= time
-  let closest = candles[0].time;
-
-  for (let i = 0; i < candles.length; i++) {
-    if (candles[i].time <= time) {
-      closest = candles[i].time;
-    } else {
-      break;
-    }
-  }
-
-  return closest;
-}
-
-function mapMultiTfMarkers(data: any, candles: any[]) {
-  if (!data) return { long: [], short: [] };
-
-  const long = (data.longEntries || []).map((e: any) => ({
-    time: snapToCandleTime(e.time, candles),
-    value: e.price,
-  }));
-
-  const short = (data.shortEntries || []).map((e: any) => ({
-    time: snapToCandleTime(e.time, candles),
-    value: e.price,
-  }));
-
-  return { long, short };
 }
 
 function projectMarkerPointsToCandles(
@@ -2342,7 +2416,17 @@ function projectMarkerValue(
   }
 }
 
-
+function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBar") {
+  return points
+    .filter((p) => p.text)
+    .map((p) => ({
+      time: p.time,
+      position,
+      color: p.color ?? "#9ca3af",
+      shape: "circle",
+      text: p.text ?? "",
+    })) as any;
+}
 
 function simulateStrategyTESTv4(
   candles: Candle[],
@@ -2729,101 +2813,4 @@ function formatTime(ts: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-function computeTradesFromCore(core: any, candles: any[]) {
-  const trades: any[] = [];
-
-  let position: null | {
-    side: "long" | "short";
-    entryPrice: number;
-    entryTime: number;
-  } = null;
-
-  const candleByTime = new Map<number, any>();
-  for (const c of candles) {
-    candleByTime.set(c.time, c);
-  }
-
-  // 👉 EVENTS zusammenführen
-  const events = [
-  ...(core.longEntries || []).map((e: any) => ({
-    ...e,
-    side: "long",
-    type: "entry",
-  })),
-  ...(core.shortEntries || []).map((e: any) => ({
-    ...e,
-    side: "short",
-    type: "entry",
-  })),
-  ...(core.longExits || []).map((e: any) => ({
-    ...e,
-    side: "long",
-    type: "exit",
-  })),
-  ...(core.shortExits || []).map((e: any) => ({
-    ...e,
-    side: "short",
-    type: "exit",
-  })),
-]
-    .filter((e: any) => Number.isFinite(e.time))
-    .sort((a: any, b: any) => a.time - b.time);
-
-  for (const ev of events) {
-    const candle = candleByTime.get(ev.time);
-    if (!candle) continue;
-
-    // 👉 ENTRY
-    if (ev.type === "entry") {
-      if (!position) {
-        position = {
-          side: ev.side,
-          entryPrice: candle.close,
-          entryTime: ev.time,
-        };
-        continue;
-      }
-
-      // 👉 FLIP
-      if (position.side !== ev.side) {
-        const pnl =
-          position.side === "long"
-            ? candle.close - position.entryPrice
-            : position.entryPrice - candle.close;
-
-        trades.push({
-          side: position.side,
-          entryTime: position.entryTime,
-          exitTime: ev.time,
-          pnl,
-        });
-
-        position = {
-          side: ev.side,
-          entryPrice: candle.close,
-          entryTime: ev.time,
-        };
-      }
-    }
-
-    // 👉 EXIT
-    if (ev.type === "exit" && position) {
-      const pnl =
-        position.side === "long"
-          ? candle.close - position.entryPrice
-          : position.entryPrice - candle.close;
-
-      trades.push({
-        side: position.side,
-        entryTime: position.entryTime,
-        exitTime: ev.time,
-        pnl,
-      });
-
-      position = null;
-    }
-  }
-
-  return trades;
 }
