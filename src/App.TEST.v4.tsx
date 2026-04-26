@@ -1011,7 +1011,7 @@ setMtfStats({
   pf: mtfLoss > 0 ? mtfProfit / mtfLoss : mtfProfit > 0 ? 999 : 0,
 });
         
-        const mtfTrades = buildMtfTrades(mtf, baseSignals);
+        // const mtfTrades = buildMtfTrades(mtf, baseSignals);
         // console.log("[MTF TRADES]", ...)
 
        // const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
