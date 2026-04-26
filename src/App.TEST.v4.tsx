@@ -454,6 +454,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
+      interval,
       entry_band: entryBand,
       min_kink: minKinkMove,
       peak_lookback: peakLookback,
@@ -509,6 +510,7 @@ async function saveOneSize(symbolToSave: string) {
 
     const row: SymbolConfigRow = {
       symbol: symbolToSave,
+      interval: old?.interval ?? interval,
       entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[symbolToSave] ?? null,
       min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[symbolToSave] ?? null,
       peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[symbolToSave] ?? null,
@@ -546,6 +548,7 @@ async function saveAllSizes() {
 
       const row: SymbolConfigRow = {
         symbol: s,
+        interval: old?.interval ?? interval,
         entry_band: old?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? null,
         min_kink: old?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? null,
         peak_lookback: old?.peak_lookback ?? PEAK_LOOKBACK_BY_SYMBOL[s] ?? null,
