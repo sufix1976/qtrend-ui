@@ -421,7 +421,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
-      interval: activeInterval,
+      interval,
       entry_band: entryBandUI,
       min_kink: minKinkUI,
       peak_lookback: peakUI,
