@@ -177,16 +177,21 @@ export function buildStableLongSignals(
     if (middle == null || band == null) continue;
 
     const lowerBand = middle - band;
-    const inLowerZone = d < lowerBand;
+const inLowerZone = d < lowerBand;
 
-    if (!inZone && inLowerZone) {
-      inZone = true;
-      zoneAge = 0;
-      candidateIndex = i;
-      candidateValue = d;
-      fired = false;
-      continue;
-    }
+// Zone startet erst, wenn Fallbewegung Kraft verliert
+const slopePrev = prev - prev2;
+const slopeNow = d - prev;
+const momentumWeakening = slopePrev < 0 && slopeNow > slopePrev;
+
+if (!inZone && inLowerZone && momentumWeakening) {
+  inZone = true;
+  zoneAge = 0;
+  candidateIndex = i;
+  candidateValue = d;
+  fired = false;
+  continue;
+}
 
     if (inZone && !inLowerZone) {
       inZone = false;
@@ -293,16 +298,21 @@ export function buildStableShortSignals(
     if (middle == null || band == null) continue;
 
     const upperBand = middle + band;
-    const inUpperZone = d > upperBand;
+const inUpperZone = d > upperBand;
 
-    if (!inZone && inUpperZone) {
-      inZone = true;
-      zoneAge = 0;
-      candidateIndex = i;
-      candidateValue = d;
-      fired = false;
-      continue;
-    }
+// Zone startet erst, wenn Steigbewegung Kraft verliert
+const slopePrev = prev - prev2;
+const slopeNow = d - prev;
+const momentumWeakening = slopePrev > 0 && slopeNow < slopePrev;
+
+if (!inZone && inUpperZone && momentumWeakening) {
+  inZone = true;
+  zoneAge = 0;
+  candidateIndex = i;
+  candidateValue = d;
+  fired = false;
+  continue;
+}
 
     if (inZone && !inUpperZone) {
       inZone = false;
