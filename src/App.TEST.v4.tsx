@@ -935,14 +935,7 @@ const multiShortSeries = priceChart.addSeries(LineSeries, {
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
-  fetchMultiTf(symbol, mtfSetup, mtfTrigger, {
-  smaFast: smaFastUI,
-  smaSlow: smaSlowUI,
-  smaMiddle: smaMiddleUI,
-  entryBand: entryBandUI,
-  minKinkMove: minKinkUI,
-  peakLookback: peakUI,
-})
+  fetchMultiTf(symbol, mtfSetup, mtfTrigger),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
         setMultiTfData(mtf);
@@ -1001,8 +994,23 @@ const shortData = {
   })),
 ].sort((a, b) => a.time - b.time);
 
-const stats = computeMtfStatsReal(mtf, candles, core);
-setMtfStats(stats);
+
+const trades = computeTradesFromCore(core, candles);
+
+let mtfProfit = 0;
+let mtfLoss = 0;
+
+for (const t of trades) {
+  if (t.pnl > 0) mtfProfit += t.pnl;
+  else mtfLoss += Math.abs(t.pnl);
+}
+
+setMtfStats({
+  trades: trades.length,
+  net: mtfProfit - mtfLoss,
+  pf: mtfLoss > 0 ? mtfProfit / mtfLoss : mtfProfit > 0 ? 999 : 0,
+});
+        
         const mtfTrades = buildMtfTrades(mtf, baseSignals);
         console.log("[MTF TRADES]", mtfTrades.length, mtfTrades.slice(0, 5));
 
@@ -2134,24 +2142,7 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
   return trades;
 }
 
-const trades = computeTradesFromCore(core, candles);
 
-let profit = 0;
-let loss = 0;
-let wins = 0;
-let losses = 0;
-
-for (const t of trades) {
-  if (t.pnl > 0) {
-    profit += t.pnl;
-    wins++;
-  } else {
-    loss += Math.abs(t.pnl);
-    losses++;
-  }
-}
-
-const pf = loss > 0 ? profit / loss : 0;
 
 setMtfStats({
   trades: trades.length,
@@ -2825,7 +2816,7 @@ function formatTime(ts: number): string {
   });
 }
 function computeTradesFromCore(core: any, candles: any[]) {
-  const trades = [];
+  const trades: any[] = [];
 
   let position: null | {
     side: "long" | "short";
@@ -2838,65 +2829,67 @@ function computeTradesFromCore(core: any, candles: any[]) {
     candleByTime.set(c.time, c);
   }
 
-  for (const e of core.entries) {
-    const entryCandle = candleByTime.get(e.time);
-    if (!entryCandle) continue;
+  // 👉 EVENTS zusammenführen
+  const events = [
+    ...(core.entries || []).map((e: any) => ({ ...e, type: "entry" })),
+    ...(core.exits || []).map((e: any) => ({ ...e, type: "exit" })),
+  ]
+    .filter((e: any) => Number.isFinite(e.time))
+    .sort((a: any, b: any) => a.time - b.time);
 
-    // 👉 OPEN
-    if (!position) {
-      position = {
-        side: e.side,
-        entryPrice: entryCandle.close,
-        entryTime: e.time,
-      };
-      continue;
+  for (const ev of events) {
+    const candle = candleByTime.get(ev.time);
+    if (!candle) continue;
+
+    // 👉 ENTRY
+    if (ev.type === "entry") {
+      if (!position) {
+        position = {
+          side: ev.side,
+          entryPrice: candle.close,
+          entryTime: ev.time,
+        };
+        continue;
+      }
+
+      // 👉 FLIP
+      if (position.side !== ev.side) {
+        const pnl =
+          position.side === "long"
+            ? candle.close - position.entryPrice
+            : position.entryPrice - candle.close;
+
+        trades.push({
+          side: position.side,
+          entryTime: position.entryTime,
+          exitTime: ev.time,
+          pnl,
+        });
+
+        position = {
+          side: ev.side,
+          entryPrice: candle.close,
+          entryTime: ev.time,
+        };
+      }
     }
 
-    // 👉 FLIP (extrem wichtig)
-    if (position.side !== e.side) {
-      const exitCandle = entryCandle;
-
-      let pnl =
+    // 👉 EXIT
+    if (ev.type === "exit" && position) {
+      const pnl =
         position.side === "long"
-          ? exitCandle.close - position.entryPrice
-          : position.entryPrice - exitCandle.close;
+          ? candle.close - position.entryPrice
+          : position.entryPrice - candle.close;
 
       trades.push({
         side: position.side,
         entryTime: position.entryTime,
-        exitTime: e.time,
+        exitTime: ev.time,
         pnl,
       });
 
-      // neue Position
-      position = {
-        side: e.side,
-        entryPrice: entryCandle.close,
-        entryTime: e.time,
-      };
+      position = null;
     }
-  }
-
-  // 👉 EXITS (dein echtes System!)
-  for (const ex of core.exits || []) {
-    if (!position) continue;
-
-    const exitCandle = candleByTime.get(ex.time);
-    if (!exitCandle) continue;
-
-    let pnl =
-      position.side === "long"
-        ? exitCandle.close - position.entryPrice
-        : position.entryPrice - exitCandle.close;
-
-    trades.push({
-      side: position.side,
-      entryTime: position.entryTime,
-      exitTime: ex.time,
-      pnl,
-    });
-
-    position = null;
   }
 
   return trades;
