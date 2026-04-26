@@ -1074,9 +1074,7 @@ const dynamicLowerBand = alignLineToCandles(
         realSellSeries.setData(realSellProjected as any);
         realCloseSeries.setData(realCloseProjected as any);
 
-        if (SHOW_DEBUG) {
-  createSeriesMarkers(mainSeries as any, mtfTradeMarkers as any);
-}
+        
 
         
         distSeries.setData(alignedDist as any);
