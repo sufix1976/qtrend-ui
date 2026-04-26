@@ -1012,24 +1012,24 @@ setMtfStats({
 });
         
         const mtfTrades = buildMtfTrades(mtf, baseSignals);
-        console.log("[MTF TRADES]", mtfTrades.length, mtfTrades.slice(0, 5));
+        // console.log("[MTF TRADES]", ...)
 
-       const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
-  {
-    time: t.entryTime,
-    position: t.side === "long" ? "belowBar" : "aboveBar",
-    color: t.side === "long" ? "#00ff88" : "#ff4444",
-    shape: "arrowUp",
-    text: "E",
-  },
-  {
-    time: t.exitTime,
-    position: t.side === "long" ? "aboveBar" : "belowBar",
-    color: "#ffffff",
-    shape: "circle",
-    text: "X",
-  },
-]);
+       // const mtfTradeMarkers = mtfTrades.flatMap((t: any) => [
+//   {
+//     time: t.entryTime,
+//     position: t.side === "long" ? "belowBar" : "aboveBar",
+//     color: t.side === "long" ? "#00ff88" : "#ff4444",
+//     shape: "arrowUp",
+//     text: "E",
+//   },
+//   {
+//     time: t.exitTime,
+//     position: t.side === "long" ? "aboveBar" : "belowBar",
+//     color: "#ffffff",
+//     shape: "circle",
+//     text: "X",
+//   },
+// ]);
         
 
         const sim = simulateStrategyTESTv4(
@@ -1103,18 +1103,16 @@ const dynamicLowerBand = alignLineToCandles(
         realSellSeries.setData(realSellProjected as any);
         realCloseSeries.setData(realCloseProjected as any);
 
-        if (SHOW_DEBUG) {
-  createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-  createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
-  createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-  createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
-}
+        // if (SHOW_DEBUG) {
+  // createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
+  // //createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
+  // createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+// }
 
-        createSeriesMarkers(
-  mainSeries as any,
-  mtfTradeMarkers as any
-);
-
+        // createSeriesMarkers(
+//   mainSeries as any,
+//   mtfTradeMarkers as any
+// );
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
