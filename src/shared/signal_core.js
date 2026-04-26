@@ -163,6 +163,7 @@ export function buildStableLongSignals(
 
   let inZone = false;
   let candidateIndex = -1;
+  let inPosition = false;
   let candidateValue = Number.POSITIVE_INFINITY;
   let fired = false;
 
@@ -208,7 +209,7 @@ const slope = d - dist[i - 1].value;
 const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
 const slopeTurning = slope > slopePrev;
 
-if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
+if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex >= 0) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
@@ -226,6 +227,7 @@ if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
         });
 
         fired = true;
+        inPosition = true;
       }
     }
   }
@@ -303,7 +305,7 @@ const slope = d - dist[i - 1].value;
 const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
 const slopeTurning = slope < slopePrev;
 
-if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
+if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex >= 0) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
@@ -321,6 +323,7 @@ if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
         });
 
         fired = true;
+        inPosition = true;
       }
     }
   }
