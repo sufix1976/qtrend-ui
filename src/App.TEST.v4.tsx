@@ -909,22 +909,24 @@ if (!distMiddle.length) {
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
         const longData = buildStableLongSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI
-        );
+  candles,
+  dist,
+  distMiddle,
+  dynamicBand,
+  peakUI,
+  minKinkUI,
+  smaFast
+);
 
         const shortData = buildStableShortSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI
-        );
+  candles,
+  dist,
+  distMiddle,
+  dynamicBand,
+  peakUI,
+  minKinkUI,
+  smaFast
+);
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
@@ -2175,10 +2177,15 @@ function buildStableLongSignals(
   distMiddle: LinePoint[],
   bandLine: LinePoint[],
   _peakLookback: number,
-  minKinkMove: number
+  minKinkMove: number,
+  smaFast: LinePoint[]
 ): SignalBuildResult {
+  
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
+
+  const fastMap = new Map<number, number>();
+  for (const p of smaFast) fastMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
@@ -2228,6 +2235,30 @@ function buildStableLongSignals(
 
     const move = d - candidateValue;
 
+    const cNow = candleMap.get(dist[i].time);
+const fastNow = fastMap.get(dist[i].time);
+
+if (!fired && cNow && fastNow != null) {
+  const crossUpFast = cNow.low <= fastNow && cNow.close > fastNow;
+
+  if (crossUpFast && candidateIndex >= 0) {
+    candidateMarkers.push({
+      time: cNow.time,
+      value: cNow.low,
+      text: "KL",
+      color: "#22c55e",
+    });
+
+    markers.push({
+      time: cNow.time,
+      value: cNow.low,
+    });
+
+    fired = true;
+    continue;
+  }
+}
+
     if (!fired && move >= minKinkMove && candidateIndex >= 0) {
       const t = dist[candidateIndex].time;
       const c = candleMap.get(t);
@@ -2262,10 +2293,15 @@ function buildStableShortSignals(
   distMiddle: LinePoint[],
   bandLine: LinePoint[],
   _peakLookback: number,
-  minKinkMove: number
+  minKinkMove: number,
+  smaFast: LinePoint[]
 ): SignalBuildResult {
+  
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
+
+  const fastMap = new Map<number, number>();
+  for (const p of smaFast) fastMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
