@@ -981,18 +981,7 @@ const shortData = {
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
-        const baseSignals = [
-  ...strategyLongPoints.map((p: any) => ({
-    time: p.time,
-    price: p.value,
-    type: "KL",
-  })),
-  ...strategyShortPoints.map((p: any) => ({
-    time: p.time,
-    price: p.value,
-    type: "KS",
-  })),
-].sort((a, b) => a.time - b.time);
+        
 
 
 const trades = computeTradesFromCore(core, candles);
@@ -1106,10 +1095,7 @@ const dynamicLowerBand = alignLineToCandles(
   createSeriesMarkers(mainSeries as any, mtfTradeMarkers as any);
 }
 
-        // createSeriesMarkers(
-//   mainSeries as any,
-//   mtfTradeMarkers as any
-// );
+        
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
@@ -2103,39 +2089,7 @@ chartB.timeScale().subscribeVisibleLogicalRangeChange(syncFromB);
   });
 }
 
-function buildMtfTrades(mtf: any, baseSignals: any[]) {
-  if (!mtf || !baseSignals) return [];
 
-  const entries = [
-    ...(mtf.longEntries || []).map((e: any) => ({ ...e, side: "long" })),
-    ...(mtf.shortEntries || []).map((e: any) => ({ ...e, side: "short" })),
-  ].sort((a, b) => a.time - b.time);
-
-  const trades: any[] = [];
-
-  for (const entry of entries) {
-    const exit = baseSignals.find((s: any) => {
-      if (s.time <= entry.time) return false;
-
-      if (entry.side === "long" && s.type === "KL") return true;
-      if (entry.side === "short" && s.type === "KS") return true;
-
-      return false;
-    });
-
-    if (!exit) continue;
-
-    trades.push({
-      entryTime: entry.time,
-      entryPrice: entry.price,
-      exitTime: exit.time,
-      exitPrice: exit.price,
-      side: entry.side,
-    });
-  }
-
-  return trades;
-}
 
 
 
@@ -2408,17 +2362,7 @@ function projectMarkerValue(
   }
 }
 
-function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBar") {
-  return points
-    .filter((p) => p.text)
-    .map((p) => ({
-      time: p.time,
-      position,
-      color: p.color ?? "#9ca3af",
-      shape: "circle",
-      text: p.text ?? "",
-    })) as any;
-}
+
 
 function simulateStrategyTESTv4(
   candles: Candle[],
