@@ -162,13 +162,16 @@ export function buildStableLongSignals(
   const candidateMarkers = [];
 
   let inZone = false;
+  let zoneAge = 0;
   let candidateIndex = -1;
-  let inPosition = false;
   let candidateValue = Number.POSITIVE_INFINITY;
   let fired = false;
 
-  for (let i = 1; i < dist.length; i++) {
+  for (let i = 2; i < dist.length; i++) {
     const d = dist[i].value;
+    const prev = dist[i - 1].value;
+    const prev2 = dist[i - 2].value;
+
     const middle = middleMap.get(dist[i].time);
     const band = bandMap.get(dist[i].time);
     if (middle == null || band == null) continue;
@@ -178,6 +181,7 @@ export function buildStableLongSignals(
 
     if (!inZone && inLowerZone) {
       inZone = true;
+      zoneAge = 0;
       candidateIndex = i;
       candidateValue = d;
       fired = false;
@@ -186,6 +190,7 @@ export function buildStableLongSignals(
 
     if (inZone && !inLowerZone) {
       inZone = false;
+      zoneAge = 0;
       candidateIndex = -1;
       candidateValue = Number.POSITIVE_INFINITY;
       fired = false;
@@ -193,6 +198,7 @@ export function buildStableLongSignals(
     }
 
     if (!inZone) continue;
+    zoneAge++;
 
     if (d <= candidateValue) {
       candidateValue = d;
@@ -201,15 +207,29 @@ export function buildStableLongSignals(
 
     const move = d - candidateValue;
 
-// dynamischer Knick: passt sich an Bandbreite an
-const dynamicThreshold = band * 0.25;
-const threshold = Math.max(minKinkMove, dynamicThreshold);
+    const dynamicThreshold = band * 0.18;
+    const threshold = Math.max(minKinkMove, dynamicThreshold);
 
-const slope = d - dist[i - 1].value;
-const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
-const slopeTurning = slope > slopePrev;
+    const slopePrev = prev - prev2;
+    const slopeNow = d - prev;
 
-if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex >= 0) {
+    const wasFalling = slopePrev < 0;
+    const nowRising = slopeNow > 0;
+    const validTurn = wasFalling && nowRising;
+
+    const extremeDeepEnough = candidateValue < lowerBand - band * 0.1;
+    const notSameBar = candidateIndex < i;
+    const zoneMature = zoneAge >= 2;
+
+    if (
+      !fired &&
+      zoneMature &&
+      notSameBar &&
+      extremeDeepEnough &&
+      validTurn &&
+      move >= threshold &&
+      candidateIndex >= 0
+    ) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
@@ -227,7 +247,6 @@ if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex
         });
 
         fired = true;
-        inPosition = true;
       }
     }
   }
@@ -259,13 +278,16 @@ export function buildStableShortSignals(
   const candidateMarkers = [];
 
   let inZone = false;
+  let zoneAge = 0;
   let candidateIndex = -1;
   let candidateValue = Number.NEGATIVE_INFINITY;
-  let inPosition = false;
   let fired = false;
 
-  for (let i = 1; i < dist.length; i++) {
+  for (let i = 2; i < dist.length; i++) {
     const d = dist[i].value;
+    const prev = dist[i - 1].value;
+    const prev2 = dist[i - 2].value;
+
     const middle = middleMap.get(dist[i].time);
     const band = bandMap.get(dist[i].time);
     if (middle == null || band == null) continue;
@@ -275,6 +297,7 @@ export function buildStableShortSignals(
 
     if (!inZone && inUpperZone) {
       inZone = true;
+      zoneAge = 0;
       candidateIndex = i;
       candidateValue = d;
       fired = false;
@@ -283,6 +306,7 @@ export function buildStableShortSignals(
 
     if (inZone && !inUpperZone) {
       inZone = false;
+      zoneAge = 0;
       candidateIndex = -1;
       candidateValue = Number.NEGATIVE_INFINITY;
       fired = false;
@@ -290,6 +314,7 @@ export function buildStableShortSignals(
     }
 
     if (!inZone) continue;
+    zoneAge++;
 
     if (d >= candidateValue) {
       candidateValue = d;
@@ -298,15 +323,29 @@ export function buildStableShortSignals(
 
     const move = candidateValue - d;
 
-// dynamischer Knick: passt sich an Bandbreite an
-const dynamicThreshold = band * 0.25;
-const threshold = Math.max(minKinkMove, dynamicThreshold);
+    const dynamicThreshold = band * 0.18;
+    const threshold = Math.max(minKinkMove, dynamicThreshold);
 
-const slope = d - dist[i - 1].value;
-const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
-const slopeTurning = slope < slopePrev;
+    const slopePrev = prev - prev2;
+    const slopeNow = d - prev;
 
-if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex >= 0) {
+    const wasRising = slopePrev > 0;
+    const nowFalling = slopeNow < 0;
+    const validTurn = wasRising && nowFalling;
+
+    const extremeHighEnough = candidateValue > upperBand + band * 0.1;
+    const notSameBar = candidateIndex < i;
+    const zoneMature = zoneAge >= 2;
+
+    if (
+      !fired &&
+      zoneMature &&
+      notSameBar &&
+      extremeHighEnough &&
+      validTurn &&
+      move >= threshold &&
+      candidateIndex >= 0
+    ) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
@@ -324,7 +363,6 @@ if (!fired && !inPosition && slopeTurning && move >= threshold && candidateIndex
         });
 
         fired = true;
-        inPosition = true;
       }
     }
   }
