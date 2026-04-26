@@ -177,7 +177,7 @@ export function buildStableLongSignals(
     if (middle == null || band == null) continue;
 
     const lowerBand = middle - band;
-const inLowerZone = d < lowerBand;,
+const inLowerZone = d < lowerBand;
 
     const slopePrev = prev - prev2;
 const slopeNow = d - prev;
