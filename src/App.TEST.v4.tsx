@@ -2144,11 +2144,7 @@ function buildMtfTrades(mtf: any, baseSignals: any[]) {
 
 
 
-setMtfStats({
-  trades: trades.length,
-  pf,
-  net: profit - loss,
-});
+
 
 function setupVerticalCrosshairOverlay(
   priceContainer: HTMLDivElement,
