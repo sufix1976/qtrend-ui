@@ -301,8 +301,7 @@ export function buildStableShortSignals(
 const inUpperZone = d > upperBand;
 
 // Zone startet erst, wenn Steigbewegung Kraft verliert
-const slopePrev = prev - prev2;
-const slopeNow = d - prev;
+
 const momentumWeakening = slopePrev > 0 && slopeNow < slopePrev;
 
 if (!inZone && inUpperZone && momentumWeakening) {
@@ -336,8 +335,7 @@ if (!inZone && inUpperZone && momentumWeakening) {
     const dynamicThreshold = band * 0.18;
     const threshold = Math.max(minKinkMove, dynamicThreshold);
 
-    const slopePrev = prev - prev2;
-    const slopeNow = d - prev;
+    
 
     const wasRising = slopePrev > 0;
     const nowFalling = slopeNow < 0;
