@@ -69,6 +69,7 @@ type AggTradesResponse = {
 
 type SymbolConfigRow = {
   symbol: string;
+  interval?: string | null;
   entry_band: number | null;
   min_kink: number | null;
   peak_lookback: number | null;
@@ -420,6 +421,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   try {
     const row: SymbolConfigRow = {
       symbol,
+      interval,
       entry_band: entryBandUI,
       min_kink: minKinkUI,
       peak_lookback: peakUI,
