@@ -200,7 +200,15 @@ export function buildStableLongSignals(
 
     const move = d - candidateValue;
 
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+// dynamischer Knick: passt sich an Bandbreite an
+const dynamicThreshold = band * 0.25;
+const threshold = Math.max(minKinkMove, dynamicThreshold);
+
+const slope = d - dist[i - 1].value;
+const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
+const slopeTurning = slope > slopePrev;
+
+if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
@@ -287,7 +295,15 @@ export function buildStableShortSignals(
 
     const move = candidateValue - d;
 
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+// dynamischer Knick: passt sich an Bandbreite an
+const dynamicThreshold = band * 0.25;
+const threshold = Math.max(minKinkMove, dynamicThreshold);
+
+const slope = d - dist[i - 1].value;
+const slopePrev = i >= 2 ? dist[i - 1].value - dist[i - 2].value : 0;
+const slopeTurning = slope < slopePrev;
+
+if (!fired && slopeTurning && move >= threshold && candidateIndex >= 0) {
       const t = dist[i].time;
       const c = candleMap.get(t);
 
