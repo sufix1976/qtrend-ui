@@ -386,16 +386,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   useEffect(() => {
   let cancelled = false;
 
-  async function fetchRealEvents(symbol: string) {
-  try {
-    const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
-    const json = await res.json();
-    if (!json?.ok) return [];
-    return json.events || [];
-  } catch {
-    return [];
-  }
-}  
+    
 
   async function loadBackendConfig() {
     try {
@@ -481,6 +472,17 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
     }
   } catch (e) {
     console.error(e);
+  }
+}
+
+  async function fetchRealEvents(symbol: string) {
+  try {
+    const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
+    const json = await res.json();
+    if (!json?.ok) return [];
+    return json.events || [];
+  } catch {
+    return [];
   }
 }
 
