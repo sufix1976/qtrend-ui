@@ -1799,7 +1799,63 @@ async function fetchCandles(symbol: string, interval: string): Promise<Candle[]>
     throw new Error(json?.error || json?.info || `LOAD ERROR ${res.status}: ${txt}`);
   }
 
-  return sanitizeCandles(json.candles || []);
+  const candles = sanitizeCandles(json.candles || []);
+
+  // 🔥 UI-Live-Patch wie im Worker:
+  // letzte Kerze wird mit aktuellem Brokerpreis aktualisiert,
+  // damit UI-Marker und Worker-Event synchroner werden.
+  try {
+    const livePrice = await fetchLiveMidPrice(symbol);
+    return patchLastCandleWithLivePrice(candles, livePrice);
+  } catch (e) {
+    console.warn("live price patch skipped:", e);
+    return candles;
+  }
+}
+
+async function fetchLiveMidPrice(symbol: string): Promise<number> {
+  const url = new URL("/cap/market", BACKEND_BASE);
+  url.searchParams.set("epic", symbol);
+  url.searchParams.set("_ts", String(Date.now()));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  const txt = await res.text();
+
+  let json: any;
+  try {
+    json = JSON.parse(txt);
+  } catch {
+    throw new Error(`LIVE PRICE non-JSON response: ${txt}`);
+  }
+
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || `LIVE PRICE ERROR ${res.status}: ${txt}`);
+  }
+
+  const m = json.market || {};
+  const bid = Number(m.bid ?? m.snapshot?.bid ?? m.snapshot?.price?.bid);
+  const ask = Number(m.offer ?? m.ask ?? m.snapshot?.offer ?? m.snapshot?.ask ?? m.snapshot?.price?.ask);
+
+  if (Number.isFinite(bid) && Number.isFinite(ask)) return (bid + ask) / 2;
+  if (Number.isFinite(bid)) return bid;
+  if (Number.isFinite(ask)) return ask;
+
+  throw new Error(`no live price for ${symbol}`);
+}
+
+function patchLastCandleWithLivePrice(candles: Candle[], price: number): Candle[] {
+  if (!Array.isArray(candles) || !candles.length) return candles;
+  if (!Number.isFinite(price) || price <= 0) return candles;
+
+  const out = candles.slice();
+  const last = { ...out[out.length - 1] };
+
+  last.close = price;
+  last.high = Math.max(Number(last.high), price);
+  last.low = Math.min(Number(last.low), price);
+
+  out[out.length - 1] = last;
+  return out;
 }
 
 async function postStrategyState(symbol: string, state: "flat" | "long" | "short"): Promise<void> {
