@@ -1059,9 +1059,7 @@ if (!distMiddle.length) {
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
-        const realBuyProjected = projectMarkerPointsToCandles(real.realBuyPoints, candles, "below-near");
-        const realSellProjected = projectMarkerPointsToCandles(real.realSellPoints, candles, "above-near");
-        const realCloseProjected = projectMarkerPointsToCandles(real.realClosePoints, candles, "inside-mid");
+        
 
         candidateLongSeries.setData(candidateLongProjected as any);
         candidateShortSeries.setData(candidateShortProjected as any);
