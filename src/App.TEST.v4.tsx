@@ -394,41 +394,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   return json.events || [];
 }  
 
-  async function loadBackendConfig() {
-    try {
-      setConfigLoading(true);
-
-      const cfgMap = await fetchSymbolConfig();
-      if (cancelled) return;
-
-      setSymbolConfigMap(cfgMap);
-
-      // Sizes daraus ableiten
-      const sizeMap: SymbolSizeMap = {};
-      for (const s of Object.keys(cfgMap)) {
-        const n = Number(cfgMap[s]?.size);
-        if (Number.isFinite(n) && n > 0) {
-          sizeMap[s] = n;
-        }
-      }
-      setSymbolSizes(sizeMap);
-
-    } catch (e) {
-      if (!cancelled) {
-        console.error(e);
-        setSizeMessage("Backend-Konfig laden fehlgeschlagen");
-      }
-    } finally {
-      if (!cancelled) setConfigLoading(false);
-    }
-  }
-
-  loadBackendConfig();
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
+  
 
   
 
@@ -1017,8 +983,7 @@ if (!distMiddle.length) {
 
 
 
-        const events = await fetchRealEvents(symbol);
-        const real = buildRealMarkersFromServer(events);
+        const real = buildRealTradeMarkers(candles, aggRows);
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
