@@ -1075,9 +1075,9 @@ if (!distMiddle.length) {
 
         blockedLongSeries.setData(blockedLongProjected as any);
         blockedShortSeries.setData(blockedShortProjected as any);
-        realBuySeries.setData(realServer.buy as any);
-        realSellSeries.setData(realServer.sell as any);
-        realCloseSeries.setData(realServer.close as any);
+        realBuySeries.setData([]);
+        realSellSeries.setData([]);
+        realCloseSeries.setData([]);
 
 createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
 createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
@@ -1088,18 +1088,9 @@ createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBa
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
-        createSeriesMarkers(realBuySeries, buildTextMarkers(realBuyProjected, "belowBar"));
-        createSeriesMarkers(realSellSeries, buildTextMarkers(realSellProjected, "aboveBar"));
-        createSeriesMarkers(
-  realCloseSeries,
-  realCloseProjected.map((p) => ({
-    time: p.time,
-    position: "belowBar",
-    color: "#c084fc",
-    shape: "arrowDown",
-    text: p.text || "RC TEST",
-  })) as any
-);
+        createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
+        createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
+        createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
