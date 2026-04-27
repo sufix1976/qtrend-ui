@@ -1063,7 +1063,7 @@ if (!distMiddle.length) {
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         const realBuyProjected = projectMarkerPointsToCandles(real.realBuyPoints, candles, "below-near");
         const realSellProjected = projectMarkerPointsToCandles(real.realSellPoints, candles, "above-near");
-        const realCloseProjected = projectMarkerPointsToCandles(real.realClosePoints, candles, "inside-mid");
+        const realCloseProjected = projectMarkerPointsToCandles(real.realClosePoints, candles, "above-near");
         
 
         candidateLongSeries.setData(candidateLongProjected as any);
