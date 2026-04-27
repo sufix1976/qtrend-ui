@@ -386,13 +386,40 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   useEffect(() => {
   let cancelled = false;
 
-  async function fetchRealEvents(symbol: string) {
-  const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
-  const json = await res.json();
+  async function loadBackendConfig() {
+    try {
+      setConfigLoading(true);
 
-  if (!json?.ok) return [];
-  return json.events || [];
-}  
+      const cfgMap = await fetchSymbolConfig();
+      if (cancelled) return;
+
+      setSymbolConfigMap(cfgMap);
+
+      const sizeMap: SymbolSizeMap = {};
+      for (const s of Object.keys(cfgMap)) {
+        const n = Number(cfgMap[s]?.size);
+        if (Number.isFinite(n) && n > 0) {
+          sizeMap[s] = n;
+        }
+      }
+      setSymbolSizes(sizeMap);
+
+    } catch (e) {
+      if (!cancelled) {
+        console.error(e);
+        setSizeMessage("Backend-Konfig laden fehlgeschlagen");
+      }
+    } finally {
+      if (!cancelled) setConfigLoading(false);
+    }
+  }
+
+  loadBackendConfig();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   
 
