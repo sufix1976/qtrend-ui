@@ -386,6 +386,14 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   useEffect(() => {
   let cancelled = false;
 
+  async function fetchRealEvents(symbol: string) {
+  const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
+  const json = await res.json();
+
+  if (!json?.ok) return [];
+  return json.events || [];
+}  
+
   async function loadBackendConfig() {
     try {
       setConfigLoading(true);
@@ -1009,7 +1017,8 @@ if (!distMiddle.length) {
 
 
 
-        const real = buildRealTradeMarkers(candles, aggRows);
+        const events = await fetchRealEvents(symbol);
+        const real = buildRealMarkersFromServer(events);
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
