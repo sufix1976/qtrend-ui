@@ -1090,7 +1090,16 @@ createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBa
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(realBuyProjected, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realSellProjected, "aboveBar"));
-        createSeriesMarkers(realCloseSeries, buildTextMarkers(realCloseProjected, "aboveBar"));
+        createSeriesMarkers(
+  realCloseSeries,
+  realCloseProjected.map((p) => ({
+    time: p.time,
+    position: "belowBar",
+    color: "#c084fc",
+    shape: "arrowDown",
+    text: p.text || "RC TEST",
+  })) as any
+);
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
