@@ -386,6 +386,17 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   useEffect(() => {
   let cancelled = false;
 
+  async function fetchRealEvents(symbol: string) {
+  try {
+    const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
+    const json = await res.json();
+    if (!json?.ok) return [];
+    return json.events || [];
+  } catch {
+    return [];
+  }
+}  
+
   async function loadBackendConfig() {
     try {
       setConfigLoading(true);
@@ -1011,6 +1022,9 @@ if (!distMiddle.length) {
 
 
         const real = buildRealTradeMarkers(candles, aggRows);
+        const realEvents = await fetchRealEvents(symbol);
+        const realServer = buildRealMarkersFromServer(realEvents);
+        
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
@@ -1058,9 +1072,13 @@ if (!distMiddle.length) {
 
         blockedLongSeries.setData(blockedLongProjected as any);
         blockedShortSeries.setData(blockedShortProjected as any);
-        realBuySeries.setData(realBuyProjected as any);
-        realSellSeries.setData(realSellProjected as any);
-        realCloseSeries.setData(realCloseProjected as any);
+        realBuySeries.setData(realServer.buy as any);
+        realSellSeries.setData(realServer.sell as any);
+        realCloseSeries.setData(realServer.close as any);
+
+createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
+createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
+createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
         createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
         createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
@@ -2328,6 +2346,46 @@ function buildAdaptiveBandLine(
       value: band,
     };
   });
+}
+
+function buildRealMarkersFromServer(events: any[]) {
+  const buy: any[] = [];
+  const sell: any[] = [];
+  const close: any[] = [];
+
+  for (const e of events) {
+    if (e.action === "buy") {
+      buy.push({
+        time: e.time,
+        value: e.price,
+        text: "RL",
+        color: "#00ff88",
+      });
+    }
+
+    if (e.action === "sell") {
+      sell.push({
+        time: e.time,
+        value: e.price,
+        text: "RS",
+        color: "#ff4d6d",
+      });
+    }
+
+    if (e.action === "close") {
+      const pnl = Number(e.pnl || 0);
+      const sign = pnl >= 0 ? "+" : "";
+
+      close.push({
+        time: e.time,
+        value: e.price,
+        text: `RC ${sign}${pnl.toFixed(0)}€`,
+        color: "#c084fc",
+      });
+    }
+  }
+
+  return { buy, sell, close };
 }
 
 function buildBandOffsetLine(
