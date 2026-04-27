@@ -1085,6 +1085,10 @@ createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBa
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
+        createSeriesMarkers(realBuySeries, buildTextMarkers(realBuyProjected, "belowBar"));
+        createSeriesMarkers(realSellSeries, buildTextMarkers(realSellProjected, "aboveBar"));
+        createSeriesMarkers(realCloseSeries, buildTextMarkers(realCloseProjected, "aboveBar"));
+
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
@@ -2934,6 +2938,7 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
     const baseTime = toUnixSec(row.executed_at ?? row.received_at);
     if (!baseTime) continue;
 
+    const action = String(row.action || "").toLowerCase();
     const candleNear = findNearestCandle(candles, baseTime);
     const price = extractTradePrice(row, candleNear);
 
@@ -2942,8 +2947,8 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
 
     const executed = Boolean(row.exec_id || row.executed_at);
 
-    if ((row.action === "buy" || row.action === "sell") && !executed) {
-      if (row.action === "buy") {
+    if ((action === "buy" || action === "sell") && !executed) {
+      if (action === "buy") {
         blockedLongPoints.push({
           time: baseTime,
           value: candleNear?.low ?? price,
@@ -2963,17 +2968,52 @@ function buildRealTradeMarkers(candles: Candle[], rows: AggTradeRow[]) {
 
     if (!executed) continue;
 
-    if (row.action === "buy") {
-      realBuyPoints.push({ time: baseTime, value: price });
+    if (action === "buy") {
+      realBuyPoints.push({
+        time: baseTime,
+        value: price,
+        text: "RL",
+        color: "#00ff88",
+      });
       lastRealTradeText = `BUY ${formatTime(baseTime)}`;
       brokerState = "long";
-    } else if (row.action === "sell") {
-      realSellPoints.push({ time: baseTime, value: price });
+    } else if (action === "sell") {
+      realSellPoints.push({
+        time: baseTime,
+        value: price,
+        text: "RS",
+        color: "#ff4d6d",
+      });
       lastRealTradeText = `SELL ${formatTime(baseTime)}`;
       brokerState = "short";
-    } else if (row.action === "close") {
-      realClosePoints.push({ time: baseTime, value: price });
-      lastRealTradeText = `CLOSE ${formatTime(baseTime)}`;
+    } else if (
+      action === "close" ||
+      action === "close_all" ||
+      action === "close_buy" ||
+      action === "close_sell"
+    ) {
+      const affected = Array.isArray(row.confirm?.affectedDeals)
+        ? row.confirm.affectedDeals[0]
+        : null;
+
+      const profitRaw = affected?.profit ?? row.confirm?.profit ?? null;
+      const profit = Number(profitRaw);
+      const currency = String(affected?.profitCurrency || row.confirm?.profitCurrency || "").trim();
+
+      let text = "RC";
+      if (Number.isFinite(profit)) {
+        const sign = profit >= 0 ? "+" : "";
+        text = `RC ${sign}${profit.toFixed(0)}${currency ? " " + currency : ""}`;
+      }
+
+      realClosePoints.push({
+        time: baseTime,
+        value: price,
+        text,
+        color: "#c084fc",
+      });
+
+      lastRealTradeText = `${text} ${formatTime(baseTime)}`;
       brokerState = "flat";
     }
   }
