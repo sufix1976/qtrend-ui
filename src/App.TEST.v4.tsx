@@ -16,6 +16,18 @@ type Candle = {
   close: number;
 };
 
+type UiStrategyEvent = {
+  id: number;
+  created_at: string;
+  symbol: string;
+  tf: string;
+  side: "long" | "short" | "flat";
+  time: number;
+  price: number;
+  source: string;
+  reason: string;
+};
+
 type LinePoint = {
   time: number;
   value: number;
@@ -424,7 +436,21 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 }, []);
 
   
+async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]> {
+  try {
+    const res = await fetch(
+      `${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`,
+      { cache: "no-store" }
+    );
 
+    const json = await res.json();
+    if (!res.ok || !json?.ok || !Array.isArray(json.rows)) return [];
+
+    return json.rows;
+  } catch {
+    return [];
+  }
+}
   
 
   async function savePreset() {
@@ -942,11 +968,12 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows, backendStrategyState] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, backendStrategyState, workerEvents] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
+  fetchUiStrategyEvents(symbol),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
        
@@ -1024,6 +1051,7 @@ if (!distMiddle.length) {
 
 
         const real = buildRealTradeMarkers(candles, aggRows);
+        const worker = buildWorkerEventMarkers(workerEvents);
         const realEvents = await fetchRealEvents(symbol);
         const realServer = buildRealMarkersFromServer(realEvents);
         
@@ -1061,6 +1089,9 @@ if (!distMiddle.length) {
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
+        const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
+        const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
+        const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
         
         
 
@@ -1077,9 +1108,9 @@ if (!distMiddle.length) {
         realSellSeries.setData([]);
         realCloseSeries.setData([]);
 
-createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
-createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
-createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+        createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
+        createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
+        createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
 
         createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
         createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
@@ -2031,6 +2062,35 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.error || json?.info || `SAVE ERROR ${res.status}: ${txt}`);
   }
+}
+
+function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
+  const longPoints: MarkerPoint[] = [];
+  const shortPoints: MarkerPoint[] = [];
+  const flatPoints: MarkerPoint[] = [];
+
+  for (const e of events) {
+    if (!e.time) continue;
+
+    const point = {
+      time: Number(e.time),
+      value: Number(e.price) > 0 ? Number(e.price) : 1,
+    };
+
+    if (e.side === "long") {
+      longPoints.push({ ...point, text: "WL", color: "#00ff88" });
+    } else if (e.side === "short") {
+      shortPoints.push({ ...point, text: "WS", color: "#ff4d6d" });
+    } else if (e.side === "flat") {
+      flatPoints.push({ ...point, text: "WF", color: "#c084fc" });
+    }
+  }
+
+  return {
+    longPoints,
+    shortPoints,
+    flatPoints,
+  };
 }
 
 function syncCharts(
