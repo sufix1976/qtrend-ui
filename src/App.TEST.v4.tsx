@@ -2819,11 +2819,15 @@ function buildExtremeShortMarkers(
   const out: MarkerPoint[] = [];
   let xsLock = false;
 
-  const extremeLevel = entryBand * 1.8;
-
+  const extremeLevel = entryBand * 2;
+let highest = -Infinity;
   for (let i = 2; i < dist.length; i++) {
     const prev = dist[i - 1].value;
     const curr = dist[i].value;
+
+    if (curr > highest) {
+  highest = curr;
+}
     
 
     const isExtreme = curr > extremeLevel;
