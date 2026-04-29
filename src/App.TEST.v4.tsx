@@ -821,6 +821,15 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const extremeShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff2222",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 7,
+  lastValueVisible: false,
+});
+
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
@@ -1056,6 +1065,11 @@ async function saveAllSizes() {
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
         const trendTouchPoints = buildTrendFailureMarkers(candles, smaSlow, dist, entryBandUI)
+        const extremeShortPoints = buildExtremeShortMarkers(
+  dist,
+  candles,
+  entryBandUI
+);
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1121,6 +1135,9 @@ async function saveAllSizes() {
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
         trendTouchSeries.setData(trendTouchProjected as any);
+        extremeShortSeries.setData(
+  limitMarkerPointsToCandles(extremeShortPoints, candles)
+);
         
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
@@ -2791,6 +2808,39 @@ if (d == null) continue;
   }
 
   return dedupeMarkers(out);
+}
+
+function buildExtremeShortMarkers(
+  dist: LinePoint[],
+  candles: Candle[],
+  entryBand: number
+): MarkerPoint[] {
+  const out: MarkerPoint[] = [];
+
+  const extremeLevel = entryBand * 2;
+
+  for (let i = 2; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const curr = dist[i].value;
+    const prev2 = dist[i - 2].value;
+
+    const isExtreme = curr > extremeLevel;
+
+    const isKinkDown =
+      curr < prev &&
+      prev >= prev2;
+
+    if (isExtreme && isKinkDown) {
+      out.push({
+        time: dist[i].time,
+        value: candles[i].high,
+        text: "XS",
+        color: "#ff2222",
+      });
+    }
+  }
+
+  return out;
 }
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
