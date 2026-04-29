@@ -232,7 +232,47 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
+type MarketState = {
+  mode: "range" | "trend";
+  direction: "long" | "short" | null;
+};
 
+function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
+  let trendCandidate = false;
+  let pullbackSeen = false;
+  let trendDirection: "long" | "short" | null = null;
+
+  for (let i = 1; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const curr = dist[i].value;
+
+    if (!trendCandidate && Math.abs(curr) > entryBand) {
+      trendCandidate = true;
+      trendDirection = curr > 0 ? "short" : "long";
+    }
+
+    if (trendCandidate) {
+      if (
+        (trendDirection === "short" && curr < prev) ||
+        (trendDirection === "long" && curr > prev)
+      ) {
+        pullbackSeen = true;
+      }
+    }
+
+    if (Math.abs(curr) < entryBand * 0.5) {
+      trendCandidate = false;
+      pullbackSeen = false;
+      trendDirection = null;
+    }
+  }
+
+  if (trendCandidate && pullbackSeen && trendDirection) {
+    return { mode: "trend", direction: trendDirection };
+  }
+
+  return { mode: "range", direction: null };
+}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -964,6 +1004,24 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+        const trendLongOverlaySeries = distChart.addSeries(LineSeries, {
+      color: "#00ffff",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 4,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const trendShortOverlaySeries = distChart.addSeries(LineSeries, {
+      color: "#ff00ff",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 4,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
       try {
@@ -986,6 +1044,7 @@ async function saveAllSizes() {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+        const marketState = detectMarketState(dist, entryBandUI);
 
         
 
@@ -1133,6 +1192,18 @@ zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
+                trendLongOverlaySeries.setData(
+          marketState.mode === "trend" && marketState.direction === "long"
+            ? alignedDist
+            : []
+        );
+
+        trendShortOverlaySeries.setData(
+          marketState.mode === "trend" && marketState.direction === "short"
+            ? alignedDist
+            : []
+        );
+
         
 
 priceChart.priceScale("right").applyOptions({
@@ -1247,6 +1318,8 @@ return () => {
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
+        distChart.removeSeries(trendLongOverlaySeries);
+        distChart.removeSeries(trendShortOverlaySeries);
       } catch {}
     };
     }, [
