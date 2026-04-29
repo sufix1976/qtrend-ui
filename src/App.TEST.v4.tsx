@@ -1066,14 +1066,15 @@ async function saveAllSizes() {
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
                const longData = buildStableLongSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI,
-          smaFast
-        );
+  candles,
+  dist,
+  distMiddle,
+  dynamicBand,
+  peakUI,
+  minKinkUI,
+  smaFast,
+  smaSlow
+);
 
         const shortData = buildStableShortSignals(
   candles,
@@ -2550,7 +2551,8 @@ function buildStableLongSignals(
   bandLine: LinePoint[],
   _peakLookback: number,
   minKinkMove: number,
-  smaFast: LinePoint[]
+  smaFast: LinePoint[],
+  smaSlow: LinePoint[]
 ): SignalBuildResult {
   
   const candleMap = new Map<number, Candle>();
@@ -2558,6 +2560,9 @@ function buildStableLongSignals(
 
   const fastMap = new Map<number, number>();
   for (const p of smaFast) fastMap.set(p.time, p.value);
+
+  const slowMap = new Map<number, number>();
+  for (const p of smaSlow) slowMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
@@ -2621,9 +2626,17 @@ if (!fired && cNow && fastNow != null) {
       color: "#22c55e",
     });
 
-    const isExtremeShortZone = d > band * 1.6;
+    const fastPrev = fastMap.get(dist[i - 3]?.time);
+const slowNow = slowMap.get(dist[i].time);
 
-if (!isExtremeShortZone) {
+if (fastPrev == null || slowNow == null) continue;
+
+const slope = fastNow - fastPrev;
+const isStrongUptrend = slope > 0.08;
+const isAboveSlow = cNow.close > slowNow;
+const isExtremeShortZone = d > band * 1.6;
+
+if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
@@ -2647,9 +2660,21 @@ if (!isExtremeShortZone) {
           color: "#22c55e",
         });
 
-        const isExtremeShortZone = d > band * 1.6;
+        const fastNow = fastMap.get(t);
+const fastPrev = fastMap.get(dist[candidateIndex - 3]?.time);
 
-if (!isExtremeShortZone) {
+if (fastNow == null || fastPrev == null) continue;
+
+const slope = fastNow - fastPrev;
+const slowNow = slowMap.get(t);
+
+if (slowNow == null) continue;
+
+const isStrongUptrend = slope > 0.08;
+const isAboveSlow = c.close > slowNow;
+const isExtremeShortZone = d > band * 1.6;
+
+if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
   markers.push({
     time: t,
     value: c.low,
