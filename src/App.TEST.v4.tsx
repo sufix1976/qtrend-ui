@@ -1287,9 +1287,10 @@ setProfitFactor(
 
     loadData();
 
-const poll = window.setInterval(() => {
-  loadData();
-}, 5000);
+// Polling deaktiviert, damit der Chart nicht ständig blinkt
+// const poll = window.setInterval(() => {
+//   loadData();
+// }, 5000);
 
 return () => {
   cancelled = true;
