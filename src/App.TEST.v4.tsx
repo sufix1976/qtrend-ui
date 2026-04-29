@@ -2668,7 +2668,7 @@ if (!isExtremeShortZone) {
         fired = true;
       }
     }
-  }
+  
 
   return {
     entries: dedupeMarkers(markers),
