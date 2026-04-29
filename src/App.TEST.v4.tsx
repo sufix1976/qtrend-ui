@@ -2678,7 +2678,7 @@ function buildStableShortSignals(
   minKinkMove: number,
   smaFast: LinePoint[]
   smaFast: LinePoint[],
-  smaSlow: LinePoint[]
+  smaSlow: LinePoint[],
 ): SignalBuildResult {
   
   const candleMap = new Map<number, Candle>();
