@@ -847,6 +847,26 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const trendLongSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#00ffff", // 🔥 auffällig
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const trendShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff00ff", // 🔥 auffällig
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const strategyShortSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#ef4444",
@@ -984,6 +1004,65 @@ async function saveAllSizes() {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+
+        // ==============================
+// 🔥 MARKET STATE DETECTION START
+// ==============================
+
+type MarketState = {
+  mode: "range" | "trend";
+  direction: "long" | "short" | null;
+};
+
+function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
+  let trendCandidate = false;
+  let pullbackSeen = false;
+  let trendDirection: "long" | "short" | null = null;
+
+  for (let i = 1; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const curr = dist[i].value;
+
+    // 1. Kandidat
+    if (!trendCandidate && Math.abs(curr) > entryBand) {
+      trendCandidate = true;
+      trendDirection = curr > 0 ? "short" : "long";
+    }
+
+    // 2. Pullback Richtung 0
+    if (trendCandidate) {
+      if (
+        (trendDirection === "short" && curr < prev) ||
+        (trendDirection === "long" && curr > prev)
+      ) {
+        pullbackSeen = true;
+      }
+    }
+
+    // 3. Reset wenn zurück zur Mitte
+    if (Math.abs(curr) < entryBand * 0.5) {
+      trendCandidate = false;
+      pullbackSeen = false;
+      trendDirection = null;
+    }
+  }
+
+  if (trendCandidate && pullbackSeen && trendDirection) {
+    return {
+      mode: "trend",
+      direction: trendDirection,
+    };
+  }
+
+  return {
+    mode: "range",
+    direction: null,
+  };
+}
+
+// ==============================
+// 🔥 MARKET STATE DETECTION END
+// ==============================
         
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -1035,7 +1114,26 @@ if (!distMiddle.length) {
 );
 
         const strategyLongPoints = longData.entries;
-        const strategyShortPoints = shortData.entries;
+const strategyShortPoints = shortData.entries;
+
+// 🔥 TRENNUNG NACH MARKET STATE
+
+const trendLongPoints: MarkerPoint[] = [];
+const trendShortPoints: MarkerPoint[] = [];
+
+const rangeLongPoints: MarkerPoint[] = [];
+const rangeShortPoints: MarkerPoint[] = [];
+
+if (marketState.mode === "trend") {
+  if (marketState.direction === "long") {
+    trendLongPoints.push(...strategyLongPoints);
+  } else if (marketState.direction === "short") {
+    trendShortPoints.push(...strategyShortPoints);
+  }
+} else {
+  rangeLongPoints.push(...strategyLongPoints);
+  rangeShortPoints.push(...strategyShortPoints);
+}
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1083,8 +1181,11 @@ if (!distMiddle.length) {
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
-        const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
-        const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
+        const strategyLongProjected = projectMarkerPointsToCandles(rangeLongPoints, candles, "below-mid");
+        const strategyShortProjected = projectMarkerPointsToCandles(rangeShortPoints, candles, "above-mid");
+
+        const trendLongProjected = projectMarkerPointsToCandles(trendLongPoints, candles, "below-mid");
+        const trendShortProjected = projectMarkerPointsToCandles(trendShortPoints, candles, "above-mid");
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1099,6 +1200,9 @@ if (!distMiddle.length) {
         candidateShortSeries.setData(candidateShortProjected as any);
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
+
+        trendLongSeries.setData(trendLongProjected as any);
+        trendShortSeries.setData(trendShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
 
