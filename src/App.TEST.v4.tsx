@@ -2761,7 +2761,7 @@ const slowNow = slowMap.get(t);
 
 if (slowNow == null) continue;
 
-const isStrongDowntrend = slope < -0.15;
+const isStrongDowntrend = slope < -0.08;
 const isBelowSlow = c.close < slowNow;
 const isExtremeLongZone = d < -band * 1.6;
 
