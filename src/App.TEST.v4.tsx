@@ -1055,7 +1055,7 @@ async function saveAllSizes() {
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
-        const trendTouchPoints = buildTrendFailureMarkers(candles, smaSlow);
+        const trendTouchPoints = buildTrendFailureMarkers(candles, smaSlow, dist, entryBandUI)
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -2706,10 +2706,14 @@ function buildStableShortSignals(
 
 function buildTrendFailureMarkers(
   candles: Candle[],
-  smaSlow: LinePoint[]
+smaSlow: LinePoint[],
+dist: LinePoint[],
+entryBand: number
 ): MarkerPoint[] {
   const smaMap = new Map<number, number>();
   for (const p of smaSlow) smaMap.set(p.time, p.value);
+  const distMap = new Map<number, number>();
+for (const p of dist) distMap.set(p.time, p.value);
 
   const out: MarkerPoint[] = [];
   let longLock = false;
@@ -2723,6 +2727,8 @@ function buildTrendFailureMarkers(
     if (!next) continue;
 
     const sma = smaMap.get(curr.time);
+    const d = distMap.get(curr.time);
+if (d == null) continue;
     const prevSma = smaMap.get(prev.time);
 
     if (sma == null || prevSma == null) continue;
@@ -2752,7 +2758,7 @@ function buildTrendFailureMarkers(
     const confirmedUp =
       next.close > curr.close;
 
-    if (!longLock && aboveTrend && hadMomentumUp && pullbackTouch && isLocalLow && confirmedUp) {
+    if (!longLock && aboveTrend && Math.abs(d) > entryBand && hadMomentumUp && pullbackTouch && isLocalLow && confirmedUp){
       out.push({
         time: next.time,
         value: curr.low,
@@ -2772,7 +2778,7 @@ function buildTrendFailureMarkers(
     const confirmedDown =
       next.close < curr.close;
 
-    if (!shortLock && belowTrend && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
+    if (!shortLock && belowTrend && Math.abs(d) > entryBand && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
         time: next.time,
         value: curr.high,
