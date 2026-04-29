@@ -2837,7 +2837,7 @@ let highest = -Infinity;
 
     const isKinkDown =
   curr < prev &&
-  prev > dist[i - 2].value;
+  (prev - curr) > entryBand * 0.2;
 
     if (!xsLock && isExtreme && isKinkDown && curr > entryBand) {
       out.push({
