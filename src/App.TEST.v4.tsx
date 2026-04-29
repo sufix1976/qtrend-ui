@@ -2636,7 +2636,7 @@ const isStrongUptrend = slope > 0.08;
 const isAboveSlow = cNow.close > slowNow;
 const isExtremeShortZone = d > band * 1.6;
 
-if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
+if ((isStrongUptrend || isAboveSlow) && !isExtremeShortZone) {
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
