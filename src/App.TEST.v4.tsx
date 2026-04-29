@@ -2746,7 +2746,7 @@ function buildStableShortSignals(
           color: "#ef4444",
         });
 
-        const fastNow = fastMap.get(cNow.time);
+        const fastNow = fastMap.get(dist[i].time);
 const fastPrev = fastMap.get(dist[i - 1].time);
 
 if (fastNow == null || fastPrev == null) continue;
