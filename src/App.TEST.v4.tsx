@@ -2640,7 +2640,7 @@ if (slowNow == null) continue;
 
 const isBelowSlow = cNow.close < slowNow;
 
-if (!isExtremeShortZone && !isBelowSlow) {
+if (!isExtremeShortZone && (!isBelowSlow || d < lowerBand * 1.5)){
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
