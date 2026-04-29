@@ -2749,12 +2749,13 @@ function buildTrendFailureMarkers(
 
     if (!longLock && aboveTrend && pullbackTouch && isLocalLow && confirmedUp) {
       out.push({
-        longLock = true;
+        
         time: next.time,
         value: curr.low,
         text: "TU",
         color: "#00ffff",
       });
+      longLock = true;
     }
 
     // ======================
@@ -2777,12 +2778,13 @@ function buildTrendFailureMarkers(
 
     if (!shortLock && belowTrend && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
-        shortLock = true;
+        
         time: next.time,
         value: curr.high,
         text: "TD",
         color: "#ff00ff",
       });
+      shortLock = true;
     }
   }
 
