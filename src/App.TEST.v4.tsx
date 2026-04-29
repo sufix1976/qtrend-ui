@@ -1082,7 +1082,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-         const rangeLongData = buildStableLongSignals(
+               const longData = buildStableLongSignals(
           candles,
           dist,
           distMiddle,
@@ -1092,7 +1092,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           smaFast
         );
 
-        const rangeShortData = buildStableShortSignals(
+        const shortData = buildStableShortSignals(
           candles,
           dist,
           distMiddle,
@@ -1102,29 +1102,8 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           smaFast
         );
 
-        const trendLongData =
-          marketState.mode === "trend" && marketState.direction === "long"
-            ? buildTrendLongSignals(candles, dist, minKinkUI)
-            : { entries: [], candidates: [] };
-
-        const trendShortData =
-          marketState.mode === "trend" && marketState.direction === "short"
-            ? buildTrendShortSignals(candles, dist, minKinkUI)
-            : { entries: [], candidates: [] };
-
-        const strategyLongPoints = [
-          ...rangeLongData.entries,
-          ...trendLongData.entries,
-        ];
-
-        const strategyShortPoints = [
-          ...rangeShortData.entries,
-          ...trendShortData.entries,
-        ];
-
-        
-        const trendLongPoints = trendLongData.entries;
-        const trendShortPoints = trendShortData.entries;
+        const strategyLongPoints = longData.entries;
+        const strategyShortPoints = shortData.entries;
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1170,42 +1149,10 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
 
-              const candidateLongProjected = projectMarkerPointsToCandles(
-          [...rangeLongData.candidates, ...trendLongData.candidates],
-          candles,
-          "below-far"
-        );
-
-        const candidateShortProjected = projectMarkerPointsToCandles(
-          [...rangeShortData.candidates, ...trendShortData.candidates],
-          candles,
-          "above-far"
-        );
-
-            const strategyLongProjected = projectMarkerPointsToCandles(
-          rangeLongData.entries,
-          candles,
-          "below-mid"
-        );
-
-        const strategyShortProjected = projectMarkerPointsToCandles(
-          rangeShortData.entries,
-          candles,
-          "above-mid"
-        );
-
-        const trendLongProjected = projectMarkerPointsToCandles(
-          trendLongPoints,
-          candles,
-          "below-mid"
-        );
-
-        const trendShortProjected = projectMarkerPointsToCandles(
-          trendShortPoints,
-          candles,
-          "above-mid"
-        );
-
+        const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
+        const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
+        const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
+        const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1216,8 +1163,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
 
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
-        trendLongSeries.setData(trendLongProjected as any);
-        trendShortSeries.setData(trendShortProjected as any);
+        
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
 
