@@ -993,6 +993,28 @@ async function saveAllSizes() {
         setStatus("loading");
         setError("");
 
+                mainSeries.setData([] as any);
+        smaFastSeries.setData([] as any);
+        smaSlowSeries.setData([] as any);
+
+        strategyLongSeries.setData([] as any);
+        strategyShortSeries.setData([] as any);
+        strategyLongExitSeries.setData([] as any);
+        strategyShortExitSeries.setData([] as any);
+        trendTouchSeries.setData([] as any);
+
+        blockedLongSeries.setData([] as any);
+        blockedShortSeries.setData([] as any);
+        realBuySeries.setData([] as any);
+        realSellSeries.setData([] as any);
+        realCloseSeries.setData([] as any);
+
+        distSeries.setData([] as any);
+        distMiddleSeries.setData([] as any);
+        zeroSeries.setData([] as any);
+        upperBandSeries.setData([] as any);
+        lowerBandSeries.setData([] as any);
+
         const [candles, liveBrokerState, aggRows, backendStrategyState, workerEvents] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
