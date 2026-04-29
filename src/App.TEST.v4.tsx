@@ -2729,8 +2729,8 @@ function buildTrendFailureMarkers(
 
     const tolerance = curr.close * 0.0015;
 
-    const aboveTrend = curr.close > sma;
-    const belowTrend = curr.close < sma;
+    const aboveTrend = curr.close > sma && sma > prevSma;
+    const belowTrend = curr.close < sma && sma < prevSma;
 
     if (aboveTrend) {
       shortLock = false;
