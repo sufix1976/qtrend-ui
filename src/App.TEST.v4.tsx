@@ -2778,7 +2778,7 @@ function buildTrendFailureMarkers(
     const confirmedDown =
       next.close < curr.close;
 
-    if (!shortLock && belowTrend && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown)
+    if (!shortLock && belowTrend && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
         
         time: next.time,
