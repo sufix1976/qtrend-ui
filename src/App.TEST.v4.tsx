@@ -3073,7 +3073,7 @@ function simulateStrategyTESTv4(
       }
 
       if (
-        if (
+      
   p.value > 0 &&
   momentumUp
 )   {
