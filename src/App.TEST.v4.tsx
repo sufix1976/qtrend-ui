@@ -1004,6 +1004,15 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+        const marketState = detectMarketState(dist, entryBandUI);
+
+const distAsCandles = dist.map((p) => ({
+  time: p.time,
+  open: p.value,
+  high: p.value,
+  low: p.value,
+  close: p.value,
+}));
 
         // ==============================
 // 🔥 MARKET STATE DETECTION START
