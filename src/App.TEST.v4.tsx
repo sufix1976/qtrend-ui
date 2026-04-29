@@ -232,53 +232,7 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
-type MarketState = {
-  mode: "range" | "trend";
-  direction: "long" | "short" | null;
-};
 
-function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
-  let trendCandidate = false;
-  let pullbackSeen = false;
-  let trendDirection: "long" | "short" | null = null;
-
-  for (let i = 1; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const curr = dist[i].value;
-
-    if (!trendCandidate && Math.abs(curr) > entryBand) {
-      trendCandidate = true;
-      trendDirection = curr > 0 ? "short" : "long";
-    }
-
-    if (trendCandidate) {
-      if (
-        (trendDirection === "short" && curr < prev) ||
-        (trendDirection === "long" && curr > prev)
-      ) {
-        pullbackSeen = true;
-      }
-    }
-
-    if (Math.abs(curr) < entryBand * 0.5) {
-      trendCandidate = false;
-      pullbackSeen = false;
-      trendDirection = null;
-    }
-  }
-
-  if (trendCandidate && pullbackSeen && trendDirection) {
-    return {
-      mode: "trend",
-      direction: trendDirection,
-    };
-  }
-
-  return {
-    mode: "range",
-    direction: null,
-  };
-}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -893,25 +847,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-    const trendLongSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#00ffff", // 🔥 auffällig
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const trendShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff00ff", // 🔥 auffällig
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+ 
 
     const strategyShortSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1051,7 +987,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
-        const marketState = detectMarketState(dist, entryBandUI);
+        
 
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -2648,71 +2584,7 @@ if (!fired && cNow && fastNow != null) {
   };
 }
 
-function buildTrendLongSignals(
-  candles: Candle[],
-  dist: LinePoint[],
-  minKinkMove: number
-): SignalBuildResult {
-  const candleMap = new Map<number, Candle>();
-  for (const c of candles) candleMap.set(c.time, c);
 
-  const markers: MarkerPoint[] = [];
-  const candidateMarkers: MarkerPoint[] = [];
-
-  let pullbackSeen = false;
-  let candidateIndex = -1;
-  let candidateValue = Number.POSITIVE_INFINITY;
-  let fired = false;
-
-  for (let i = 1; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const d = dist[i].value;
-
-    if (d > prev) {
-      pullbackSeen = true;
-      if (d <= candidateValue) {
-        candidateValue = d;
-        candidateIndex = i;
-        fired = false;
-      }
-    }
-
-    if (!pullbackSeen) continue;
-
-    if (d <= candidateValue) {
-      candidateValue = d;
-      candidateIndex = i;
-    }
-
-    const move = d - candidateValue;
-
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
-      const c = candleMap.get(t);
-
-      if (c) {
-        candidateMarkers.push({
-          time: t,
-          value: c.low,
-          text: "TL",
-          color: "#00ffff",
-        });
-
-        markers.push({
-          time: t,
-          value: c.low,
-        });
-
-        fired = true;
-      }
-    }
-  }
-
-  return {
-    entries: dedupeMarkers(markers),
-    candidates: dedupeMarkers(candidateMarkers),
-  };
-}
 
 function buildStableShortSignals(
   candles: Candle[],
@@ -2806,71 +2678,7 @@ function buildStableShortSignals(
   };
 }
 
-function buildTrendShortSignals(
-  candles: Candle[],
-  dist: LinePoint[],
-  minKinkMove: number
-): SignalBuildResult {
-  const candleMap = new Map<number, Candle>();
-  for (const c of candles) candleMap.set(c.time, c);
 
-  const markers: MarkerPoint[] = [];
-  const candidateMarkers: MarkerPoint[] = [];
-
-  let pullbackSeen = false;
-  let candidateIndex = -1;
-  let candidateValue = Number.NEGATIVE_INFINITY;
-  let fired = false;
-
-  for (let i = 1; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const d = dist[i].value;
-
-    if (d < prev) {
-      pullbackSeen = true;
-      if (d >= candidateValue) {
-        candidateValue = d;
-        candidateIndex = i;
-        fired = false;
-      }
-    }
-
-    if (!pullbackSeen) continue;
-
-    if (d >= candidateValue) {
-      candidateValue = d;
-      candidateIndex = i;
-    }
-
-    const move = candidateValue - d;
-
-    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
-      const t = dist[candidateIndex].time;
-      const c = candleMap.get(t);
-
-      if (c) {
-        candidateMarkers.push({
-          time: t,
-          value: c.high,
-          text: "TS",
-          color: "#ff00ff",
-        });
-
-        markers.push({
-          time: t,
-          value: c.high,
-        });
-
-        fired = true;
-      }
-    }
-  }
-
-  return {
-    entries: dedupeMarkers(markers),
-    candidates: dedupeMarkers(candidateMarkers),
-  };
-}
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
