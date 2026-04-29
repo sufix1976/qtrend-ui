@@ -2638,9 +2638,14 @@ if (!fired && cNow && fastNow != null) {
     const slowNow = slowMap.get(dist[i].time);
 if (slowNow == null) continue;
 
+const slowPrev = slowMap.get(dist[i - 3]?.time);
+if (slowPrev == null) continue;
+
+const isSlowDowntrend = slowNow < slowPrev;
+
 const isBelowSlow = cNow.close < slowNow;
 
-if (!isExtremeShortZone && (!isBelowSlow || d < lowerBand * 1.5)){
+if (!isExtremeShortZone && !isSlowDowntrend && (!isBelowSlow || d < lowerBand * 1.5)){
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
