@@ -822,7 +822,7 @@ async function saveAllSizes() {
     });
 
     const extremeShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "right",
+  priceScaleId: "",
   color: "#ff2222",
   lineVisible: false,
   pointMarkersVisible: true,
