@@ -1028,7 +1028,7 @@ async function saveAllSizes() {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        const marketState = detectMarketState(dist, entryBandUI);
+        
 
         
 
