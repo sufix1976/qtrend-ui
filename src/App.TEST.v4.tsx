@@ -1076,14 +1076,15 @@ async function saveAllSizes() {
         );
 
         const shortData = buildStableShortSignals(
-          candles,
-          dist,
-          distMiddle,
-          dynamicBand,
-          peakUI,
-          minKinkUI,
-          smaFast
-        );
+  candles,
+  dist,
+  distMiddle,
+  dynamicBand,
+  peakUI,
+  minKinkUI,
+  smaFast,
+  smaSlow
+);
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
@@ -2676,6 +2677,8 @@ function buildStableShortSignals(
   _peakLookback: number,
   minKinkMove: number,
   smaFast: LinePoint[]
+  smaFast: LinePoint[],
+  smaSlow: LinePoint[]
 ): SignalBuildResult {
   
   const candleMap = new Map<number, Candle>();
@@ -2683,6 +2686,9 @@ function buildStableShortSignals(
 
   const fastMap = new Map<number, number>();
   for (const p of smaFast) fastMap.set(p.time, p.value);
+
+  const slowMap = new Map<number, number>();
+  for (const p of smaSlow) slowMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
@@ -2752,11 +2758,15 @@ const fastPrev = fastMap.get(dist[candidateIndex - 1]?.time);
 if (fastNow == null || fastPrev == null) continue;
 
 const slope = fastNow - fastPrev;
+const slowNow = slowMap.get(t);
 
-const isStrongDowntrend = slope < -0.15; // Wert später feinjustieren
+if (slowNow == null) continue;
+
+const isStrongDowntrend = slope < -0.15;
+const isBelowSlow = c.close < slowNow;
 const isExtremeLongZone = d < -band * 1.6;
 
-if (isStrongDowntrend && !isExtremeLongZone) {
+if (isStrongDowntrend && isBelowSlow && !isExtremeLongZone) {
   markers.push({
     time: t,
     value: c.high,
