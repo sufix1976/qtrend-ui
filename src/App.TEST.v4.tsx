@@ -2713,83 +2713,66 @@ function buildTrendFailureMarkers(
 
   const out: MarkerPoint[] = [];
 
-  let longPullbackActive = false;
-  let shortPullbackActive = false;
-
-  let longCandidate: Candle | null = null;
-  let shortCandidate: Candle | null = null;
-
   for (let i = 2; i < candles.length; i++) {
     const prev = candles[i - 1];
     const curr = candles[i];
+    const next = candles[i + 1];
+
+    if (!next) continue;
 
     const sma = smaMap.get(curr.time);
     const prevSma = smaMap.get(prev.time);
+
     if (sma == null || prevSma == null) continue;
 
     const tolerance = curr.close * 0.0015;
 
-    const aboveTrend = prev.close > prevSma && curr.close > sma;
-    const belowTrend = prev.close < prevSma && curr.close < sma;
+    // ======================
+    // LONG TREND
+    // ======================
 
-    // Long-Trend: Pullback Richtung SMA
-    if (aboveTrend && curr.low <= sma + tolerance && curr.close > sma) {
-      longPullbackActive = true;
-      longCandidate = curr;
-    }
+    const aboveTrend = curr.close > sma;
 
-    // Long-Trend: Pullback scheitert und Preis dreht wieder hoch
-    if (
-      longPullbackActive &&
-      longCandidate &&
-      curr.close > prev.close &&
-      curr.close > longCandidate.close
-    ) {
+    const pullbackTouch =
+      curr.low <= sma + tolerance && curr.close > sma;
+
+    const isLocalLow =
+      curr.low < prev.low && curr.low < next.low;
+
+    const confirmedUp =
+      next.close > curr.close;
+
+    if (aboveTrend && pullbackTouch && isLocalLow && confirmedUp) {
       out.push({
-        time: curr.time,
+        time: next.time,
         value: curr.low,
         text: "TU",
         color: "#00ffff",
       });
-
-      longPullbackActive = false;
-      longCandidate = null;
     }
 
-    // Reset Long, wenn SMA klar gebrochen wurde
-    if (curr.close < sma - tolerance) {
-      longPullbackActive = false;
-      longCandidate = null;
-    }
+    // ======================
+    // SHORT TREND
+    // ======================
 
-    // Short-Trend: Pullback Richtung SMA
-    if (belowTrend && curr.high >= sma - tolerance && curr.close < sma) {
-      shortPullbackActive = true;
-      shortCandidate = curr;
-    }
+    const belowTrend = curr.close < sma;
 
-    // Short-Trend: Pullback scheitert und Preis dreht wieder runter
-    if (
-      shortPullbackActive &&
-      shortCandidate &&
-      curr.close < prev.close &&
-      curr.close < shortCandidate.close
-    ) {
+    const pullbackTouchShort =
+      curr.high >= sma - tolerance && curr.close < sma;
+
+    const isLocalHigh =
+      curr.high > prev.high && curr.high > next.high;
+
+    const confirmedDown =
+      next.close < curr.close;
+
+    if (belowTrend && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
-        time: curr.time,
+        time: next.time,
         value: curr.high,
         text: "TD",
         color: "#ff00ff",
       });
-
-      shortPullbackActive = false;
-      shortCandidate = null;
-    }
-
-    // Reset Short, wenn SMA klar gebrochen wurde
-    if (curr.close > sma + tolerance) {
-      shortPullbackActive = false;
-      shortCandidate = null;
     }
   }
 
