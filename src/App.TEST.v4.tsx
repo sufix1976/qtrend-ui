@@ -1158,7 +1158,15 @@ async function saveAllSizes() {
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
 
         strategyLongSeries.setData(strategyLongProjected as any);
+        createSeriesMarkers(
+  strategyLongSeries,
+  buildTextMarkers(strategyLongProjected, "belowBar")
+);
         strategyShortSeries.setData(strategyShortProjected as any);
+        createSeriesMarkers(
+  strategyShortSeries,
+  buildTextMarkers(strategyShortProjected, "aboveBar")
+);
         trendTouchSeries.setData(trendTouchProjected as any);
         
        const extremeShortProjected = projectMarkerPointsToCandles(
