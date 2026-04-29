@@ -2752,7 +2752,7 @@ const fastPrev = fastMap.get(dist[candidateIndex - 1]?.time);
 if (fastNow == null || fastPrev == null) continue;
 
 const slope = fastNow - fastPrev;
-const isStrongDowntrend = slope < -0.05;
+
 const isStrongDowntrend = slope < -0.05; // Wert später feinjustieren
 const isExtremeLongZone = d < -band * 1.6;
 
