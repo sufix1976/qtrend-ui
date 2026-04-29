@@ -2624,8 +2624,8 @@ if (!fired && cNow && fastNow != null) {
 
 if (!isExtremeShortZone) {
   markers.push({
-    time: cNow.time,
-    value: cNow.low,
+    time: dist[i].time,
+    value: candleMap.get(dist[i].time)?.low ?? 0,
   });
 }
 
@@ -2755,8 +2755,8 @@ const isDowntrend = fastNow < fastPrev;
         
         if (isDowntrend) {
   markers.push({
-    time: cNow.time,
-    value: cNow.high,
+    time: dist[i].time,
+    value: candleMap.get(dist[i].time)?.low ?? 0,
   });
 }
 
