@@ -2733,6 +2733,7 @@ entryBand: number
 for (const p of dist) distMap.set(p.time, p.value);
 
   const out: MarkerPoint[] = [];
+  let xsLock = false;
   let longLock = false;
   let shortLock = false;
 
@@ -2830,13 +2831,14 @@ function buildExtremeShortMarkers(
   curr < prev &&
   prev > dist[i - 2].value;
 
-    if (isExtreme && isKinkDown && curr > entryBand) {
+    if (!xsLock && isExtreme && isKinkDown && curr > entryBand) {
       out.push({
         time: dist[i].time,
         value: candles[i].high,
         text: "XS",
         color: "#ff2222",
       });
+      xsLock = true;
     }
   }
 
