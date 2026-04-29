@@ -2817,7 +2817,7 @@ function buildExtremeShortMarkers(
 ): MarkerPoint[] {
   const out: MarkerPoint[] = [];
 
-  const extremeLevel = entryBand * 1.4;
+  const extremeLevel = entryBand * 1.8;
 
   for (let i = 2; i < dist.length; i++) {
     const prev = dist[i - 1].value;
@@ -2827,9 +2827,10 @@ function buildExtremeShortMarkers(
     const isExtreme = curr > extremeLevel;
 
     const isKinkDown =
-  curr < prev;
+  curr < prev &&
+  prev > dist[i - 2].value;
 
-    if (isExtreme && isKinkDown && curr > 0) {
+    if (isExtreme && isKinkDown && curr > entryBand) {
       out.push({
         time: dist[i].time,
         value: candles[i].high,
