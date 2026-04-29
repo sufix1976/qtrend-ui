@@ -1182,7 +1182,17 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           "above-far"
         );
 
-    
+            const strategyLongProjected = projectMarkerPointsToCandles(
+          rangeLongData.entries,
+          candles,
+          "below-mid"
+        );
+
+        const strategyShortProjected = projectMarkerPointsToCandles(
+          rangeShortData.entries,
+          candles,
+          "above-mid"
+        );
 
         const trendLongProjected = projectMarkerPointsToCandles(
           trendLongPoints,
@@ -1204,6 +1214,8 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
 
+        strategyLongSeries.setData(strategyLongProjected as any);
+        strategyShortSeries.setData(strategyShortProjected as any);
         trendLongSeries.setData(trendLongProjected as any);
         trendShortSeries.setData(trendShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
