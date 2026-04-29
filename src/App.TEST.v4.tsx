@@ -2733,7 +2733,7 @@ entryBand: number
 for (const p of dist) distMap.set(p.time, p.value);
 
   const out: MarkerPoint[] = [];
-  let xsLock = false;
+  
   let longLock = false;
   let shortLock = false;
 
@@ -2817,6 +2817,7 @@ function buildExtremeShortMarkers(
   entryBand: number
 ): MarkerPoint[] {
   const out: MarkerPoint[] = [];
+  let xsLock = false;
 
   const extremeLevel = entryBand * 1.8;
 
@@ -2826,6 +2827,9 @@ function buildExtremeShortMarkers(
     
 
     const isExtreme = curr > extremeLevel;
+    if (curr < entryBand) {
+  xsLock = false;
+}
 
     const isKinkDown =
   curr < prev &&
