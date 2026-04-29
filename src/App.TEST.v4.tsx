@@ -1122,8 +1122,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           ...trendShortData.entries,
         ];
 
-        const rangeLongPoints = rangeLongData.entries;
-        const rangeShortPoints = rangeShortData.entries;
+        
         const trendLongPoints = trendLongData.entries;
         const trendShortPoints = trendShortData.entries;
 
