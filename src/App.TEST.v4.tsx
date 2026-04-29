@@ -1183,17 +1183,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           "above-far"
         );
 
-        const strategyLongProjected = projectMarkerPointsToCandles(
-          rangeLongPoints,
-          candles,
-          "below-mid"
-        );
-
-        const strategyShortProjected = projectMarkerPointsToCandles(
-          rangeShortPoints,
-          candles,
-          "above-mid"
-        );
+    
 
         const trendLongProjected = projectMarkerPointsToCandles(
           trendLongPoints,
