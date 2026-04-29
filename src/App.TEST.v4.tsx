@@ -232,10 +232,7 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
-type MarketState = {
-  mode: "range" | "trend";
-  direction: "long" | "short" | null;
-};
+
 
 
 
