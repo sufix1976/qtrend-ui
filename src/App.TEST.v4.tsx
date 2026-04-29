@@ -1135,7 +1135,9 @@ async function saveAllSizes() {
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
         trendTouchSeries.setData(trendTouchProjected as any);
-        extremeShortSeries.setData(limitMarkerPointsToCandles(extremeShortPoints, candles));
+        extremeShortSeries.setData(
+  projectMarkerPointsToCandles(extremeShortPoints, candles, "above-mid") as any
+);
         
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
