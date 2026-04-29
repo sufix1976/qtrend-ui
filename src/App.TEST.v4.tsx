@@ -1069,19 +1069,7 @@ function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
   };
 }
 
-// ==============================
-// 🔥 MARKET STATE DETECTION END
-// ==============================
-        
-        const distAsCandles = dist.map((p) => ({
-          time: p.time,
-          open: p.value,
-          high: p.value,
-          low: p.value,
-          close: p.value,
-        }));
 
-        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
 
 // 🔥 Fallback: wenn leer → nimm dist selbst
 if (!distMiddle.length) {
