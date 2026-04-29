@@ -1004,23 +1004,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-        const trendLongOverlaySeries = distChart.addSeries(LineSeries, {
-      color: "#00ffff",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 4,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    const trendShortOverlaySeries = distChart.addSeries(LineSeries, {
-      color: "#ff00ff",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 4,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
+       
 
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
@@ -1192,17 +1176,6 @@ zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
-                    trendLongOverlaySeries.setData(
-          marketState.mode === "trend" && marketState.direction === "long"
-            ? (alignedDist as any)
-            : []
-        );
-
-        trendShortOverlaySeries.setData(
-          marketState.mode === "trend" && marketState.direction === "short"
-            ? (alignedDist as any)
-            : []
-        );
 
         
 
@@ -1318,8 +1291,7 @@ return () => {
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
-        distChart.removeSeries(trendLongOverlaySeries);
-        distChart.removeSeries(trendShortOverlaySeries);
+        
       } catch {}
     };
     }, [
