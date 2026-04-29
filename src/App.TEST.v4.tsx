@@ -851,7 +851,15 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
- 
+      const extremeShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff2222",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const strategyShortSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1151,8 +1159,13 @@ async function saveAllSizes() {
         strategyShortSeries.setData(strategyShortProjected as any);
         trendTouchSeries.setData(trendTouchProjected as any);
         
-  projectMarkerPointsToCandles(extremeShortPoints, candles, "above-mid") as any
+       const extremeShortProjected = projectMarkerPointsToCandles(
+  extremeShortPoints,
+  candles,
+  "above-mid"
 );
+
+extremeShortSeries.setData(extremeShortProjected as any);
         
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
@@ -1298,12 +1311,14 @@ return () => {
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
+        priceChart.removeSeries(extremeShortSeries);
 
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
+      
         
       } catch {}
     };
