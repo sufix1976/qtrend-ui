@@ -1171,9 +1171,7 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
 
-        const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
-        const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
-        const candidateLongProjected = projectMarkerPointsToCandles(
+              const candidateLongProjected = projectMarkerPointsToCandles(
           [...rangeLongData.candidates, ...trendLongData.candidates],
           candles,
           "below-far"
@@ -1185,8 +1183,30 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
           "above-far"
         );
 
-        const trendLongProjected = projectMarkerPointsToCandles(trendLongPoints, candles, "below-mid");
-        const trendShortProjected = projectMarkerPointsToCandles(trendShortPoints, candles, "above-mid");
+        const strategyLongProjected = projectMarkerPointsToCandles(
+          rangeLongPoints,
+          candles,
+          "below-mid"
+        );
+
+        const strategyShortProjected = projectMarkerPointsToCandles(
+          rangeShortPoints,
+          candles,
+          "above-mid"
+        );
+
+        const trendLongProjected = projectMarkerPointsToCandles(
+          trendLongPoints,
+          candles,
+          "below-mid"
+        );
+
+        const trendShortProjected = projectMarkerPointsToCandles(
+          trendShortPoints,
+          candles,
+          "above-mid"
+        );
+
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1194,13 +1214,6 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
         const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
-        
-        
-
-        candidateLongSeries.setData(candidateLongProjected as any);
-        candidateShortSeries.setData(candidateShortProjected as any);
-        strategyLongSeries.setData(strategyLongProjected as any);
-        strategyShortSeries.setData(strategyShortProjected as any);
 
         trendLongSeries.setData(trendLongProjected as any);
         trendShortSeries.setData(trendShortProjected as any);
