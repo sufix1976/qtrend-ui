@@ -2660,19 +2660,8 @@ if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
           color: "#22c55e",
         });
 
-        const fastNow = fastMap.get(t);
-const fastPrev = fastMap.get(dist[candidateIndex - 3]?.time);
+        
 
-if (fastNow == null || fastPrev == null) continue;
-
-const slope = fastNow - fastPrev;
-const slowNow = slowMap.get(t);
-
-if (slowNow == null) continue;
-
-const isStrongUptrend = slope > 0.08;
-const isAboveSlow = c.close > slowNow;
-const isExtremeShortZone = d > band * 1.6;
 
 if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
   markers.push({
