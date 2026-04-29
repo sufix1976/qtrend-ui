@@ -2848,12 +2848,16 @@ let highest = -Infinity;
   (prev - curr) > entryBand * 0.1;
 
     if (!xsLock && isExtreme && isKinkDown && curr > entryBand) {
-      out.push({
-        time: dist[i].time,
-        value: candles[i].high,
-        text: "XS",
-        color: "#ff2222",
-      });
+      const t = dist[i].time;
+const c = candles.find((x) => x.time === t);
+if (!c) continue;
+
+out.push({
+  time: t,
+  value: c.high,
+  text: "XS",
+  color: "#ff2222",
+});
       xsLock = true;
     }
   }
