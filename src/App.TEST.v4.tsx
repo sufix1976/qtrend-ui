@@ -2822,7 +2822,7 @@ function buildExtremeShortMarkers(
   for (let i = 2; i < dist.length; i++) {
     const prev = dist[i - 1].value;
     const curr = dist[i].value;
-    const prev2 = dist[i - 2].value;
+    
 
     const isExtreme = curr > extremeLevel;
 
