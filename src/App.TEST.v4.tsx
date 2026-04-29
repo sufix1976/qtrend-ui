@@ -237,42 +237,7 @@ type MarketState = {
   direction: "long" | "short" | null;
 };
 
-function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
-  let trendCandidate = false;
-  let pullbackSeen = false;
-  let trendDirection: "long" | "short" | null = null;
 
-  for (let i = 1; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const curr = dist[i].value;
-
-    if (!trendCandidate && Math.abs(curr) > entryBand) {
-      trendCandidate = true;
-      trendDirection = curr > 0 ? "short" : "long";
-    }
-
-    if (trendCandidate) {
-      if (
-        (trendDirection === "short" && curr < prev) ||
-        (trendDirection === "long" && curr > prev)
-      ) {
-        pullbackSeen = true;
-      }
-    }
-
-    if (Math.abs(curr) < entryBand * 0.5) {
-      trendCandidate = false;
-      pullbackSeen = false;
-      trendDirection = null;
-    }
-  }
-
-  if (trendCandidate && pullbackSeen && trendDirection) {
-    return { mode: "trend", direction: trendDirection };
-  }
-
-  return { mode: "range", direction: null };
-}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
