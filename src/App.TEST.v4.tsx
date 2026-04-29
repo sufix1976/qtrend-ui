@@ -866,7 +866,7 @@ async function saveAllSizes() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 8,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -876,7 +876,7 @@ async function saveAllSizes() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 8,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -886,7 +886,7 @@ async function saveAllSizes() {
       color: "#ffffff",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 4,
+      pointMarkersRadius: 8,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -2734,7 +2734,7 @@ function buildTrendTouchMarkers(
         time: curr.time,
         value: curr.close,
         text: "TU",
-        color: "#ffffff",
+        color: "#00ffff",
       });
     }
 
@@ -2743,7 +2743,7 @@ function buildTrendTouchMarkers(
         time: curr.time,
         value: curr.close,
         text: "TD",
-        color: "#ffffff",
+        color: "#ff00ff",
       });
     }
   }
