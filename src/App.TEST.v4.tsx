@@ -2614,8 +2614,8 @@ if (!fired && cNow && fastNow != null) {
 
   if (crossUpFast && candidateIndex >= 0) {
     candidateMarkers.push({
-      time: cNow.time,
-      value: cNow.low,
+      time: dist[i].time,
+      value: candleMap.get(dist[i].time)?.high ?? 0,
       text: "KL",
       color: "#22c55e",
     });
