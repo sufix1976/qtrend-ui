@@ -821,14 +821,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-    const extremeShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff2222",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 7,
-  lastValueVisible: false,
-});
+    
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1157,7 +1150,7 @@ async function saveAllSizes() {
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
         trendTouchSeries.setData(trendTouchProjected as any);
-        extremeShortSeries.setData(
+        
   projectMarkerPointsToCandles(extremeShortPoints, candles, "above-mid") as any
 );
         
