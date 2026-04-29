@@ -2589,10 +2589,14 @@ if (!fired && cNow && fastNow != null) {
       color: "#22c55e",
     });
 
-    markers.push({
-      time: cNow.time,
-      value: cNow.low,
-    });
+    const isExtremeShortZone = d > band * 1.6;
+
+if (!isExtremeShortZone) {
+  markers.push({
+    time: cNow.time,
+    value: cNow.low,
+  });
+}
 
     fired = true;
     continue;
@@ -2611,10 +2615,14 @@ if (!fired && cNow && fastNow != null) {
           color: "#22c55e",
         });
 
-        markers.push({
-          time: t,
-          value: c.low,
-        });
+        const isExtremeShortZone = d > band * 1.6;
+
+if (!isExtremeShortZone) {
+  markers.push({
+    time: t,
+    value: c.low,
+  });
+}
 
         fired = true;
       }
