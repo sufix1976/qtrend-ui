@@ -2635,8 +2635,12 @@ if (!fired && cNow && fastNow != null) {
     });
 
     const isExtremeShortZone = d > band * 1.6;
+    const slowNow = slowMap.get(dist[i].time);
+if (slowNow == null) continue;
 
-if (!isExtremeShortZone) {
+const isBelowSlow = cNow.close < slowNow;
+
+if (!isExtremeShortZone && !isBelowSlow) {
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
@@ -2664,8 +2668,12 @@ if (!isExtremeShortZone) {
 
 
 const isExtremeShortZone = d > band * 1.6;
+        const slowNow2 = slowMap.get(t);
+if (slowNow2 == null) continue;
 
-if (!isExtremeShortZone) {
+const isBelowSlow2 = c.close < slowNow2;
+
+if (!isExtremeShortZone && !isBelowSlow2) {
   markers.push({
     time: t,
     value: c.low,
