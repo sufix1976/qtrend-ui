@@ -2729,15 +2729,19 @@ function buildTrendFailureMarkers(
 
     const tolerance = curr.close * 0.0015;
 
-    // ======================
-    // LONG TREND
-    // ======================
-
     const aboveTrend = curr.close > sma;
-    const hadMomentumUp = prev.close > candles[i - 2].close;
+    const belowTrend = curr.close < sma;
+
     if (aboveTrend) {
-  shortLock = false;
-}
+      shortLock = false;
+    }
+
+    if (belowTrend) {
+      longLock = false;
+    }
+
+    const hadMomentumUp = prev.close > candles[i - 2].close;
+    const hadMomentumDown = prev.close < candles[i - 2].close;
 
     const pullbackTouch =
       curr.low <= sma + tolerance && curr.close > sma;
@@ -2748,26 +2752,16 @@ function buildTrendFailureMarkers(
     const confirmedUp =
       next.close > curr.close;
 
-    if (!longLock && aboveTrend && hadMomentumUp && pullbackTouch && isLocalLow && confirmedUp)
+    if (!longLock && aboveTrend && hadMomentumUp && pullbackTouch && isLocalLow && confirmedUp) {
       out.push({
-        
         time: next.time,
         value: curr.low,
         text: "TU",
         color: "#00ffff",
       });
+
       longLock = true;
     }
-
-    // ======================
-    // SHORT TREND
-    // ======================
-
-    const belowTrend = curr.close < sma;
-    const hadMomentumDown = prev.close < candles[i - 2].close;
-    if (belowTrend) {
-  longLock = false;
-}
 
     const pullbackTouchShort =
       curr.high >= sma - tolerance && curr.close < sma;
@@ -2778,7 +2772,7 @@ function buildTrendFailureMarkers(
     const confirmedDown =
       next.close < curr.close;
 
-        if (!shortLock && belowTrend && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
+    if (!shortLock && belowTrend && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
         time: next.time,
         value: curr.high,
