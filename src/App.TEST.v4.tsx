@@ -232,7 +232,53 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
   });
 }
 
+type MarketState = {
+  mode: "range" | "trend";
+  direction: "long" | "short" | null;
+};
 
+function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
+  let trendCandidate = false;
+  let pullbackSeen = false;
+  let trendDirection: "long" | "short" | null = null;
+
+  for (let i = 1; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const curr = dist[i].value;
+
+    if (!trendCandidate && Math.abs(curr) > entryBand) {
+      trendCandidate = true;
+      trendDirection = curr > 0 ? "short" : "long";
+    }
+
+    if (trendCandidate) {
+      if (
+        (trendDirection === "short" && curr < prev) ||
+        (trendDirection === "long" && curr > prev)
+      ) {
+        pullbackSeen = true;
+      }
+    }
+
+    if (Math.abs(curr) < entryBand * 0.5) {
+      trendCandidate = false;
+      pullbackSeen = false;
+      trendDirection = null;
+    }
+  }
+
+  if (trendCandidate && pullbackSeen && trendDirection) {
+    return {
+      mode: "trend",
+      direction: trendDirection,
+    };
+  }
+
+  return {
+    mode: "range",
+    direction: null,
+  };
+}
 
 export default function AppTESTv4() {
   const priceRef = useRef<HTMLDivElement | null>(null);
@@ -1004,77 +1050,23 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+
         const marketState = detectMarketState(dist, entryBandUI);
 
-const distAsCandles = dist.map((p) => ({
-  time: p.time,
-  open: p.value,
-  high: p.value,
-  low: p.value,
-  close: p.value,
-}));
+        const distAsCandles = dist.map((p) => ({
+          time: p.time,
+          open: p.value,
+          high: p.value,
+          low: p.value,
+          close: p.value,
+        }));
 
-        // ==============================
-// 🔥 MARKET STATE DETECTION START
-// ==============================
+        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
 
-type MarketState = {
-  mode: "range" | "trend";
-  direction: "long" | "short" | null;
-};
+        if (!distMiddle.length) {
+          distMiddle = dist;
+        }
 
-function detectMarketState(dist: LinePoint[], entryBand: number): MarketState {
-  let trendCandidate = false;
-  let pullbackSeen = false;
-  let trendDirection: "long" | "short" | null = null;
-
-  for (let i = 1; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const curr = dist[i].value;
-
-    // 1. Kandidat
-    if (!trendCandidate && Math.abs(curr) > entryBand) {
-      trendCandidate = true;
-      trendDirection = curr > 0 ? "short" : "long";
-    }
-
-    // 2. Pullback Richtung 0
-    if (trendCandidate) {
-      if (
-        (trendDirection === "short" && curr < prev) ||
-        (trendDirection === "long" && curr > prev)
-      ) {
-        pullbackSeen = true;
-      }
-    }
-
-    // 3. Reset wenn zurück zur Mitte
-    if (Math.abs(curr) < entryBand * 0.5) {
-      trendCandidate = false;
-      pullbackSeen = false;
-      trendDirection = null;
-    }
-  }
-
-  if (trendCandidate && pullbackSeen && trendDirection) {
-    return {
-      mode: "trend",
-      direction: trendDirection,
-    };
-  }
-
-  return {
-    mode: "range",
-    direction: null,
-  };
-}
-
-
-
-// 🔥 Fallback: wenn leer → nimm dist selbst
-if (!distMiddle.length) {
-  distMiddle = dist;
-}
         const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
         const dynamicBand = buildAdaptiveBandLine(
           distMiddle,
