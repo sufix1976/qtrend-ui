@@ -1294,7 +1294,7 @@ setProfitFactor(
 
 return () => {
   cancelled = true;
-  window.clearInterval(poll);
+  // window.clearInterval(poll);
   try {
 
         priceChart.removeSeries(mainSeries);
