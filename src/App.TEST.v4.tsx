@@ -2752,8 +2752,9 @@ const fastPrev = fastMap.get(dist[candidateIndex - 1]?.time);
 if (fastNow == null || fastPrev == null) continue;
 
 const isDowntrend = fastNow < fastPrev;
+const isExtremeLongZone = d < -band * 1.6;
 
-if (isDowntrend) {
+if (isDowntrend && !isExtremeLongZone) {
   markers.push({
     time: t,
     value: c.high,
