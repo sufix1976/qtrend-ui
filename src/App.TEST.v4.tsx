@@ -2746,17 +2746,17 @@ function buildStableShortSignals(
           color: "#ef4444",
         });
 
-        const fastNow = fastMap.get(dist[i].time);
-const fastPrev = fastMap.get(dist[i - 1].time);
+       const fastNow = fastMap.get(t);
+const fastPrev = fastMap.get(dist[candidateIndex - 1]?.time);
 
 if (fastNow == null || fastPrev == null) continue;
 
 const isDowntrend = fastNow < fastPrev;
-        
-        if (isDowntrend) {
+
+if (isDowntrend) {
   markers.push({
-    time: dist[i].time,
-    value: candleMap.get(dist[i].time)?.low ?? 0,
+    time: t,
+    value: c.high,
   });
 }
 
