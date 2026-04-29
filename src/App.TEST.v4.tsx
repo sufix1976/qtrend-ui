@@ -2753,7 +2753,7 @@ if (fastNow == null || fastPrev == null) continue;
 
 const slope = fastNow - fastPrev;
 
-const isStrongDowntrend = slope < -0.05; // Wert später feinjustieren
+const isStrongDowntrend = slope < -0.15; // Wert später feinjustieren
 const isExtremeLongZone = d < -band * 1.6;
 
 if (isStrongDowntrend && !isExtremeLongZone) {
