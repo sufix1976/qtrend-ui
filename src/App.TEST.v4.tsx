@@ -1192,15 +1192,15 @@ zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
 
-                trendLongOverlaySeries.setData(
+                    trendLongOverlaySeries.setData(
           marketState.mode === "trend" && marketState.direction === "long"
-            ? alignedDist
+            ? (alignedDist as any)
             : []
         );
 
         trendShortOverlaySeries.setData(
           marketState.mode === "trend" && marketState.direction === "short"
-            ? alignedDist
+            ? (alignedDist as any)
             : []
         );
 
