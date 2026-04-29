@@ -2635,7 +2635,7 @@ const slope = fastNow - fastPrev;
 const isStrongUptrend = slope > 0.08;
 const isAboveSlow = cNow.close > slowNow;
 const isExtremeShortZone = d > band * 1.6;
-const isMomentumUp = d > dist[i - 1].value - band * 0.2;
+const isMomentumUp = d > dist[i - 1].value - band * 0.1;
 
 if ((isStrongUptrend || isAboveSlow) && isMomentumUp && !isExtremeShortZone) {
   markers.push({
