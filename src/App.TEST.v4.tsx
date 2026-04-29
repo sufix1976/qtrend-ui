@@ -881,6 +881,16 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+        const trendTouchSeries = priceChart.addSeries(LineSeries, {
+      priceScaleId: "",
+      color: "#ffffff",
+      lineVisible: false,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 4,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
     const blockedLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#9ca3af",
@@ -1045,6 +1055,7 @@ async function saveAllSizes() {
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
+        const trendTouchPoints = buildTrendTouchMarkers(candles, smaSlow);
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1094,6 +1105,11 @@ async function saveAllSizes() {
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
         const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
+                const trendTouchProjected = projectMarkerPointsToCandles(
+          trendTouchPoints,
+          candles,
+          "inside-mid"
+        );
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1104,6 +1120,7 @@ async function saveAllSizes() {
 
         strategyLongSeries.setData(strategyLongProjected as any);
         strategyShortSeries.setData(strategyShortProjected as any);
+        trendTouchSeries.setData(trendTouchProjected as any);
         
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
@@ -1120,6 +1137,7 @@ async function saveAllSizes() {
 
         createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
         createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+        createSeriesMarkers(trendTouchSeries, buildTextMarkers(trendTouchProjected, "aboveBar"));
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
@@ -1242,6 +1260,7 @@ return () => {
         priceChart.removeSeries(strategyShortSeries);
         priceChart.removeSeries(strategyLongExitSeries);
         priceChart.removeSeries(strategyShortExitSeries);
+        priceChart.removeSeries(trendTouchSeries);
         priceChart.removeSeries(blockedLongSeries);
         priceChart.removeSeries(blockedShortSeries);
         priceChart.removeSeries(realBuySeries);
@@ -2685,7 +2704,52 @@ function buildStableShortSignals(
   };
 }
 
+function buildTrendTouchMarkers(
+  candles: Candle[],
+  smaSlow: LinePoint[]
+): MarkerPoint[] {
+  const smaMap = new Map<number, number>();
+  for (const p of smaSlow) smaMap.set(p.time, p.value);
 
+  const out: MarkerPoint[] = [];
+
+  for (let i = 2; i < candles.length; i++) {
+    const prev = candles[i - 1];
+    const curr = candles[i];
+    const sma = smaMap.get(curr.time);
+    const prevSma = smaMap.get(prev.time);
+
+    if (sma == null || prevSma == null) continue;
+
+    const tolerance = curr.close * 0.0015;
+
+    const wasAbove = prev.close > prevSma;
+    const wasBelow = prev.close < prevSma;
+
+    const touchedFromAbove = curr.low <= sma + tolerance && curr.close > sma;
+    const touchedFromBelow = curr.high >= sma - tolerance && curr.close < sma;
+
+    if (wasAbove && touchedFromAbove) {
+      out.push({
+        time: curr.time,
+        value: curr.close,
+        text: "TU",
+        color: "#ffffff",
+      });
+    }
+
+    if (wasBelow && touchedFromBelow) {
+      out.push({
+        time: curr.time,
+        value: curr.close,
+        text: "TD",
+        color: "#ffffff",
+      });
+    }
+  }
+
+  return dedupeMarkers(out);
+}
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   const out: MarkerPoint[] = [];
