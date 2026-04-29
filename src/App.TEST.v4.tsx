@@ -2626,18 +2626,9 @@ if (!fired && cNow && fastNow != null) {
       color: "#22c55e",
     });
 
-    const fastPrev = fastMap.get(dist[i - 3]?.time);
-const slowNow = slowMap.get(dist[i].time);
+    const isExtremeShortZone = d > band * 1.6;
 
-if (fastPrev == null || slowNow == null) continue;
-
-const slope = fastNow - fastPrev;
-const isStrongUptrend = slope > 0.08;
-const isAboveSlow = cNow.close > slowNow;
-const isExtremeShortZone = d > band * 1.6;
-const isMomentumUp = d > dist[i - 1].value - band * 0.1;
-
-if ((isStrongUptrend || isAboveSlow) && isMomentumUp && !isExtremeShortZone) {
+if (!isExtremeShortZone) {
   markers.push({
     time: dist[i].time,
     value: candleMap.get(dist[i].time)?.low ?? 0,
@@ -2664,22 +2655,14 @@ if ((isStrongUptrend || isAboveSlow) && isMomentumUp && !isExtremeShortZone) {
         
 
 
-const fastNow2 = fastMap.get(t);
-const fastPrev2 = fastMap.get(dist[candidateIndex - 3]?.time);
-const slowNow2 = slowMap.get(t);
+const isExtremeShortZone = d > band * 1.6;
 
-if (fastNow2 != null && fastPrev2 != null && slowNow2 != null) {
-  const slope2 = fastNow2 - fastPrev2;
-  const isStrongUptrend2 = slope2 > 0.08;
-  const isAboveSlow2 = c.close > slowNow2;
-  const isExtremeShortZone2 = d > band * 1.6;
-
-  if (isStrongUptrend2 && isAboveSlow2 && !isExtremeShortZone2) {
-    markers.push({
-      time: t,
-      value: c.low,
-    });
-  }
+if (!isExtremeShortZone) {
+  markers.push({
+    time: t,
+    value: c.low,
+  });
+}
 }
 
         fired = true;
