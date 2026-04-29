@@ -1082,47 +1082,50 @@ const trendShortSeries = priceChart.addSeries(LineSeries, {
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-        const longData = buildStableLongSignals(
-  candles,
-  dist,
-  distMiddle,
-  dynamicBand,
-  peakUI,
-  minKinkUI,
-  smaFast
-);
+         const rangeLongData = buildStableLongSignals(
+          candles,
+          dist,
+          distMiddle,
+          dynamicBand,
+          peakUI,
+          minKinkUI,
+          smaFast
+        );
 
-        const shortData = buildStableShortSignals(
-  candles,
-  dist,
-  distMiddle,
-  dynamicBand,
-  peakUI,
-  minKinkUI,
-  smaFast
-);
+        const rangeShortData = buildStableShortSignals(
+          candles,
+          dist,
+          distMiddle,
+          dynamicBand,
+          peakUI,
+          minKinkUI,
+          smaFast
+        );
 
-        const strategyLongPoints = longData.entries;
-const strategyShortPoints = shortData.entries;
+        const trendLongData =
+          marketState.mode === "trend" && marketState.direction === "long"
+            ? buildTrendLongSignals(candles, dist, minKinkUI)
+            : { entries: [], candidates: [] };
 
-// 🔥 TRENNUNG NACH MARKET STATE
+        const trendShortData =
+          marketState.mode === "trend" && marketState.direction === "short"
+            ? buildTrendShortSignals(candles, dist, minKinkUI)
+            : { entries: [], candidates: [] };
 
-const trendLongPoints: MarkerPoint[] = [];
-const trendShortPoints: MarkerPoint[] = [];
+        const strategyLongPoints = [
+          ...rangeLongData.entries,
+          ...trendLongData.entries,
+        ];
 
-const rangeLongPoints: MarkerPoint[] = [];
-const rangeShortPoints: MarkerPoint[] = [];
+        const strategyShortPoints = [
+          ...rangeShortData.entries,
+          ...trendShortData.entries,
+        ];
 
-if (marketState.mode === "trend") {
-  if (marketState.direction === "long") {
-    trendLongPoints.push(...strategyLongPoints);
-  } else if (marketState.direction === "short") {
-    trendShortPoints.push(...strategyShortPoints);
-  }
-} else {
-  rangeLongPoints.push(...strategyLongPoints);
-  rangeShortPoints.push(...strategyShortPoints);
-}
+        const rangeLongPoints = rangeLongData.entries;
+        const rangeShortPoints = rangeShortData.entries;
+        const trendLongPoints = trendLongData.entries;
+        const trendShortPoints = trendShortData.entries;
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1170,8 +1173,17 @@ if (marketState.mode === "trend") {
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
-        const strategyLongProjected = projectMarkerPointsToCandles(rangeLongPoints, candles, "below-mid");
-        const strategyShortProjected = projectMarkerPointsToCandles(rangeShortPoints, candles, "above-mid");
+        const candidateLongProjected = projectMarkerPointsToCandles(
+          [...rangeLongData.candidates, ...trendLongData.candidates],
+          candles,
+          "below-far"
+        );
+
+        const candidateShortProjected = projectMarkerPointsToCandles(
+          [...rangeShortData.candidates, ...trendShortData.candidates],
+          candles,
+          "above-far"
+        );
 
         const trendLongProjected = projectMarkerPointsToCandles(trendLongPoints, candles, "below-mid");
         const trendShortProjected = projectMarkerPointsToCandles(trendShortPoints, candles, "above-mid");
@@ -2676,6 +2688,72 @@ if (!fired && cNow && fastNow != null) {
   };
 }
 
+function buildTrendLongSignals(
+  candles: Candle[],
+  dist: LinePoint[],
+  minKinkMove: number
+): SignalBuildResult {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
+
+  let pullbackSeen = false;
+  let candidateIndex = -1;
+  let candidateValue = Number.POSITIVE_INFINITY;
+  let fired = false;
+
+  for (let i = 1; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const d = dist[i].value;
+
+    if (d > prev) {
+      pullbackSeen = true;
+      if (d <= candidateValue) {
+        candidateValue = d;
+        candidateIndex = i;
+        fired = false;
+      }
+    }
+
+    if (!pullbackSeen) continue;
+
+    if (d <= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = d - candidateValue;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
+      const c = candleMap.get(t);
+
+      if (c) {
+        candidateMarkers.push({
+          time: t,
+          value: c.low,
+          text: "TL",
+          color: "#00ffff",
+        });
+
+        markers.push({
+          time: t,
+          value: c.low,
+        });
+
+        fired = true;
+      }
+    }
+  }
+
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
+}
+
 function buildStableShortSignals(
   candles: Candle[],
   dist: LinePoint[],
@@ -2750,6 +2828,72 @@ function buildStableShortSignals(
           value: c.high,
           text: "KS",
           color: "#ef4444",
+        });
+
+        markers.push({
+          time: t,
+          value: c.high,
+        });
+
+        fired = true;
+      }
+    }
+  }
+
+  return {
+    entries: dedupeMarkers(markers),
+    candidates: dedupeMarkers(candidateMarkers),
+  };
+}
+
+function buildTrendShortSignals(
+  candles: Candle[],
+  dist: LinePoint[],
+  minKinkMove: number
+): SignalBuildResult {
+  const candleMap = new Map<number, Candle>();
+  for (const c of candles) candleMap.set(c.time, c);
+
+  const markers: MarkerPoint[] = [];
+  const candidateMarkers: MarkerPoint[] = [];
+
+  let pullbackSeen = false;
+  let candidateIndex = -1;
+  let candidateValue = Number.NEGATIVE_INFINITY;
+  let fired = false;
+
+  for (let i = 1; i < dist.length; i++) {
+    const prev = dist[i - 1].value;
+    const d = dist[i].value;
+
+    if (d < prev) {
+      pullbackSeen = true;
+      if (d >= candidateValue) {
+        candidateValue = d;
+        candidateIndex = i;
+        fired = false;
+      }
+    }
+
+    if (!pullbackSeen) continue;
+
+    if (d >= candidateValue) {
+      candidateValue = d;
+      candidateIndex = i;
+    }
+
+    const move = candidateValue - d;
+
+    if (!fired && move >= minKinkMove && candidateIndex >= 0) {
+      const t = dist[candidateIndex].time;
+      const c = candleMap.get(t);
+
+      if (c) {
+        candidateMarkers.push({
+          time: t,
+          value: c.high,
+          text: "TS",
+          color: "#ff00ff",
         });
 
         markers.push({
