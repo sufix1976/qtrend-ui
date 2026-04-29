@@ -2702,17 +2702,7 @@ function buildStableShortSignals(
     const d = dist[i].value;
     const middle = middleMap.get(dist[i].time);
     const band = bandMap.get(dist[i].time);
-    const d = dist[i].value;
-    const band = bandMap.get(t) ?? entryBand;
-
-    const smaNow = fastNow;     // dein SMA (bei dir smaFast)
-    const smaPrev = fastPrev;   // vorheriger Wert
-
-    const isUptrend = smaNow > smaPrev;
-    const isDowntrend = smaNow < smaPrev;
-
-    const fastNow = fastMap.get(cNow.time);
-    const fastPrev = fastMap.get(dist[i - 1].time);
+  
     
     if (middle == null || band == null) continue;
 
