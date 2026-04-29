@@ -2752,7 +2752,7 @@ smaSlow: LinePoint[]
         });
 
        const fastNow = fastMap.get(t);
-const fastPrev = fastMap.get(dist[candidateIndex - 1]?.time);
+const fastPrev = fastMap.get(dist[candidateIndex - 3]?.time);
 
 if (fastNow == null || fastPrev == null) continue;
 
