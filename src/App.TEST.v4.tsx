@@ -2712,6 +2712,8 @@ function buildTrendFailureMarkers(
   for (const p of smaSlow) smaMap.set(p.time, p.value);
 
   const out: MarkerPoint[] = [];
+  let longLock = false;
+  let shortLock = false;
 
   for (let i = 2; i < candles.length; i++) {
     const prev = candles[i - 1];
@@ -2732,6 +2734,9 @@ function buildTrendFailureMarkers(
     // ======================
 
     const aboveTrend = curr.close > sma;
+    if (aboveTrend) {
+  shortLock = false;
+}
 
     const pullbackTouch =
       curr.low <= sma + tolerance && curr.close > sma;
@@ -2742,8 +2747,9 @@ function buildTrendFailureMarkers(
     const confirmedUp =
       next.close > curr.close;
 
-    if (aboveTrend && pullbackTouch && isLocalLow && confirmedUp) {
+    if (!longLock && aboveTrend && pullbackTouch && isLocalLow && confirmedUp) {
       out.push({
+        longLock = true;
         time: next.time,
         value: curr.low,
         text: "TU",
@@ -2756,6 +2762,9 @@ function buildTrendFailureMarkers(
     // ======================
 
     const belowTrend = curr.close < sma;
+    if (belowTrend) {
+  longLock = false;
+}
 
     const pullbackTouchShort =
       curr.high >= sma - tolerance && curr.close < sma;
@@ -2766,8 +2775,9 @@ function buildTrendFailureMarkers(
     const confirmedDown =
       next.close < curr.close;
 
-    if (belowTrend && pullbackTouchShort && isLocalHigh && confirmedDown) {
+    if (!shortLock && belowTrend && pullbackTouchShort && isLocalHigh && confirmedDown) {
       out.push({
+        shortLock = true;
         time: next.time,
         value: curr.high,
         text: "TD",
