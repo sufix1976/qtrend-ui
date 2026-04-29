@@ -3025,7 +3025,16 @@ function simulateStrategyTESTv4(
       currentEntryPtr += 1;
     }
 
-    if (position === "long" && openTrade && prevDistValue !== null) {
+       if (position === "long" && openTrade && prevDistValue !== null) {
+      const prev = i > 0 ? dist[i - 1]?.value : null;
+      const prev2 = i > 1 ? dist[i - 2]?.value : null;
+
+      const momentumDown =
+        prev !== null &&
+        prev2 !== null &&
+        p.value < prev &&
+        prev < prev2;
+
       if (p.value > lowerBand && longRetestLevel === null) {
         longRetestLevel = lowerBand;
       }
@@ -3037,16 +3046,26 @@ function simulateStrategyTESTv4(
       if (
         longRetestLevel !== null &&
         prevDistValue > longRetestLevel &&
-        p.value <= longRetestLevel
+        p.value <= longRetestLevel &&
+        momentumDown
       ) {
         longExitPoints.push({ time: candle.time, value: candle.low });
         closeTrade(candle, "long");
         prevDistValue = p.value;
-          continue;
+        continue;
       }
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
+      const prev = i > 0 ? dist[i - 1]?.value : null;
+      const prev2 = i > 1 ? dist[i - 2]?.value : null;
+
+      const momentumUp =
+        prev !== null &&
+        prev2 !== null &&
+        p.value > prev &&
+        prev > prev2;
+
       if (p.value < upperBand && shortRetestLevel === null) {
         shortRetestLevel = upperBand;
       }
@@ -3058,12 +3077,13 @@ function simulateStrategyTESTv4(
       if (
         shortRetestLevel !== null &&
         prevDistValue < shortRetestLevel &&
-        p.value >= shortRetestLevel
+        p.value >= shortRetestLevel &&
+        momentumUp
       ) {
         shortExitPoints.push({ time: candle.time, value: candle.high });
         closeTrade(candle, "short");
         prevDistValue = p.value;
-          continue;
+        continue;
       }
     }
 
