@@ -2663,11 +2663,22 @@ if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
         
 
 
-if (isStrongUptrend && isAboveSlow && !isExtremeShortZone) {
-  markers.push({
-    time: t,
-    value: c.low,
-  });
+const fastNow2 = fastMap.get(t);
+const fastPrev2 = fastMap.get(dist[candidateIndex - 3]?.time);
+const slowNow2 = slowMap.get(t);
+
+if (fastNow2 != null && fastPrev2 != null && slowNow2 != null) {
+  const slope2 = fastNow2 - fastPrev2;
+  const isStrongUptrend2 = slope2 > 0.08;
+  const isAboveSlow2 = c.close > slowNow2;
+  const isExtremeShortZone2 = d > band * 1.6;
+
+  if (isStrongUptrend2 && isAboveSlow2 && !isExtremeShortZone2) {
+    markers.push({
+      time: t,
+      value: c.low,
+    });
+  }
 }
 
         fired = true;
