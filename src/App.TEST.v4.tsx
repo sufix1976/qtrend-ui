@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
@@ -232,8 +231,6 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
     minute: "2-digit",
   });
 }
-
-
 
 
 
@@ -822,17 +819,6 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-    const smaTrendMarkerSeries = priceChart.addSeries(LineSeries, {
-  color: "#ffffff",
-  lineWidth: 1,
-  lineVisible: false,
-  pointMarkersVisible: false,
-  lastValueVisible: false,
-  priceLineVisible: false,
-});
-
-    
-
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
@@ -861,16 +847,6 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-      const extremeShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff2222",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
     const strategyShortSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#ef4444",
@@ -886,7 +862,7 @@ async function saveAllSizes() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 8,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -896,17 +872,7 @@ async function saveAllSizes() {
       color: "#f59e0b",
       lineVisible: false,
       pointMarkersVisible: true,
-      pointMarkersRadius: 8,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-        const trendTouchSeries = priceChart.addSeries(LineSeries, {
-      priceScaleId: "",
-      color: "#ffffff",
-      lineVisible: false,
-      pointMarkersVisible: true,
-      pointMarkersRadius: 8,
+      pointMarkersRadius: 4,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -996,93 +962,11 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
-       
-
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
       try {
         setStatus("loading");
         setError("");
-
-                mainSeries.setData([] as any);
-        smaFastSeries.setData([] as any);
-        smaSlowSeries.setData([] as any);
-
-        const smaTrendMarkers: any[] = [];
-
-for (let i = 2; i < smaSlow.length - 5; i++) {
-  const prev2 = smaSlow[i - 2]?.value;
-  const prev1 = smaSlow[i - 1]?.value;
-  const now = smaSlow[i]?.value;
-
-  if (prev2 == null || prev1 == null || now == null) continue;
-
-  const wasFalling = prev1 < prev2;
-  const turnsUp = now > prev1;
-
-  const wasRising = prev1 > prev2;
-  const turnsDown = now < prev1;
-
-  if (wasFalling && turnsUp) {
-    let confirmed = true;
-    for (let j = 1; j <= 5; j++) {
-      if (smaSlow[i + j].value <= smaSlow[i + j - 1].value) {
-        confirmed = false;
-        break;
-      }
-    }
-
-    if (confirmed) {
-      smaTrendMarkers.push({
-        time: smaSlow[i].time,
-        position: "belowBar",
-        color: "#22c55e",
-        shape: "arrowUp",
-        text: "UT",
-      });
-    }
-  }
-
-  if (wasRising && turnsDown) {
-    let confirmed = true;
-    for (let j = 1; j <= 5; j++) {
-      if (smaSlow[i + j].value >= smaSlow[i + j - 1].value) {
-        confirmed = false;
-        break;
-      }
-    }
-
-    if (confirmed) {
-      smaTrendMarkers.push({
-        time: smaSlow[i].time,
-        position: "aboveBar",
-        color: "#ef4444",
-        shape: "arrowDown",
-        text: "DT",
-      });
-    }
-  }
-}
-
-createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
-
-       // strategyLongSeries.setData([] as any);
-        // strategyShortSeries.setData([] as any);
-        strategyLongExitSeries.setData([] as any);
-        strategyShortExitSeries.setData([] as any);
-        trendTouchSeries.setData([] as any);
-
-        blockedLongSeries.setData([] as any);
-        blockedShortSeries.setData([] as any);
-        // realBuySeries.setData([] as any);
-        // realSellSeries.setData([] as any);
-        realCloseSeries.setData([] as any);
-
-        distSeries.setData([] as any);
-        distMiddleSeries.setData([] as any);
-        zeroSeries.setData([] as any);
-        upperBandSeries.setData([] as any);
-        lowerBandSeries.setData([] as any);
 
         const [candles, liveBrokerState, aggRows, backendStrategyState, workerEvents] = await Promise.all([
   fetchCandles(symbol, interval),
@@ -1101,9 +985,6 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
-
-        
-
         const distAsCandles = dist.map((p) => ({
           time: p.time,
           open: p.value,
@@ -1114,10 +995,10 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
 
         let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleUI));
 
-        if (!distMiddle.length) {
-          distMiddle = dist;
-        }
-
+// 🔥 Fallback: wenn leer → nimm dist selbst
+if (!distMiddle.length) {
+  distMiddle = dist;
+}
         const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
         const dynamicBand = buildAdaptiveBandLine(
           distMiddle,
@@ -1133,15 +1014,14 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-               const longData = buildStableLongSignals(
+        const longData = buildStableLongSignals(
   candles,
   dist,
   distMiddle,
   dynamicBand,
   peakUI,
   minKinkUI,
-  smaFast,
-  smaSlow
+  smaFast
 );
 
         const shortData = buildStableShortSignals(
@@ -1151,18 +1031,11 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
   dynamicBand,
   peakUI,
   minKinkUI,
-  smaFast,
-  smaSlow
+  smaFast
 );
 
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
-        const trendTouchPoints = buildTrendFailureMarkers(candles, smaSlow, dist, entryBandUI)
-        const extremeShortPoints = buildExtremeShortMarkers(
-  dist,
-  candles,
-  entryBandUI
-);
 
         const sim = simulateStrategyTESTv4(
   candles,
@@ -1207,17 +1080,11 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
-        smaTrendMarkerSeries.setData(chartSmaSlow as any);
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
         const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
-                const trendTouchProjected = projectMarkerPointsToCandles(
-          trendTouchPoints,
-          candles,
-          "inside-mid"
-        );
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1225,27 +1092,13 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
         const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
+        
+        
 
+        candidateLongSeries.setData(candidateLongProjected as any);
+        candidateShortSeries.setData(candidateShortProjected as any);
         strategyLongSeries.setData(strategyLongProjected as any);
-        //createSeriesMarkers(
-//  strategyLongSeries,
-//  buildTextMarkers(strategyLongProjected, "belowBar")
-//);
         strategyShortSeries.setData(strategyShortProjected as any);
-       // createSeriesMarkers(
-  //strategyShortSeries,
- // buildTextMarkers(strategyShortProjected, "aboveBar")
-// );
-        trendTouchSeries.setData(trendTouchProjected as any);
-        
-       const extremeShortProjected = projectMarkerPointsToCandles(
-  extremeShortPoints,
-  candles,
-  "above-mid"
-);
-
-extremeShortSeries.setData(extremeShortProjected as any);
-        
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
 
@@ -1255,19 +1108,18 @@ extremeShortSeries.setData(extremeShortProjected as any);
         realSellSeries.setData([]);
         realCloseSeries.setData([]);
 
-        // createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
-       // createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
-        // createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
+        createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
+        createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
+        createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
 
-       // createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-       //  createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
-        // createSeriesMarkers(trendTouchSeries, buildTextMarkers(trendTouchProjected, "aboveBar"));
-        // createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-        // createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+        createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
+        createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+        createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
+        createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
-        // createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
-       //  createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
-        // createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+        createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
+        createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
+        createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -1279,7 +1131,6 @@ extremeShortSeries.setData(extremeShortProjected as any);
 zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
-
 
         
 
@@ -1366,41 +1217,35 @@ setProfitFactor(
 
     loadData();
 
-// Polling deaktiviert, damit der Chart nicht ständig blinkt
-// const poll = window.setInterval(() => {
-//   loadData();
-// }, 5000);
+const poll = window.setInterval(() => {
+  loadData();
+}, 5000);
 
 return () => {
   cancelled = true;
-  // window.clearInterval(poll);
+  window.clearInterval(poll);
   try {
 
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
-        priceChart.removeSeries(smaTrendMarkerSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(strategyLongSeries);
         priceChart.removeSeries(strategyShortSeries);
         priceChart.removeSeries(strategyLongExitSeries);
         priceChart.removeSeries(strategyShortExitSeries);
-        priceChart.removeSeries(trendTouchSeries);
         priceChart.removeSeries(blockedLongSeries);
         priceChart.removeSeries(blockedShortSeries);
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
-        priceChart.removeSeries(extremeShortSeries);
 
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
-      
-        
       } catch {}
     };
     }, [
@@ -2629,8 +2474,7 @@ function buildStableLongSignals(
   bandLine: LinePoint[],
   _peakLookback: number,
   minKinkMove: number,
-  smaFast: LinePoint[],
-  smaSlow: LinePoint[]
+  smaFast: LinePoint[]
 ): SignalBuildResult {
   
   const candleMap = new Map<number, Candle>();
@@ -2638,9 +2482,6 @@ function buildStableLongSignals(
 
   const fastMap = new Map<number, number>();
   for (const p of smaFast) fastMap.set(p.time, p.value);
-
-  const slowMap = new Map<number, number>();
-  for (const p of smaSlow) slowMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
@@ -2698,29 +2539,16 @@ if (!fired && cNow && fastNow != null) {
 
   if (crossUpFast && candidateIndex >= 0) {
     candidateMarkers.push({
-      time: dist[i].time,
-      value: candleMap.get(dist[i].time)?.high ?? 0,
+      time: cNow.time,
+      value: cNow.low,
       text: "KL",
       color: "#22c55e",
     });
 
-    const isExtremeShortZone = d > band * 1.6;
-    const slowNow = slowMap.get(dist[i].time);
-if (slowNow == null) continue;
-
-const slowPrev = slowMap.get(dist[i - 3]?.time);
-if (slowPrev == null) continue;
-
-const isSlowDowntrend = slowNow < slowPrev;
-
-const isBelowSlow = cNow.close < slowNow;
-
-if (!isExtremeShortZone && !isSlowDowntrend && (!isBelowSlow || d < lowerBand * 1.5)){
-  markers.push({
-    time: dist[i].time,
-    value: candleMap.get(dist[i].time)?.low ?? 0,
-  });
-}
+    markers.push({
+      time: cNow.time,
+      value: cNow.low,
+    });
 
     fired = true;
     continue;
@@ -2739,35 +2567,21 @@ if (!isExtremeShortZone && !isSlowDowntrend && (!isBelowSlow || d < lowerBand * 
           color: "#22c55e",
         });
 
-        
-
-
-const isExtremeShortZone = d > band * 1.6;
-        const slowNow2 = slowMap.get(t);
-if (slowNow2 == null) continue;
-
-const isBelowSlow2 = c.close < slowNow2;
-
-if (!isExtremeShortZone && !isBelowSlow2) {
-  markers.push({
-    time: t,
-    value: c.low,
-  });
-}
-}
+        markers.push({
+          time: t,
+          value: c.low,
+        });
 
         fired = true;
       }
     }
-  
+  }
 
   return {
     entries: dedupeMarkers(markers),
     candidates: dedupeMarkers(candidateMarkers),
   };
 }
-
-
 
 function buildStableShortSignals(
   candles: Candle[],
@@ -2776,8 +2590,7 @@ function buildStableShortSignals(
   bandLine: LinePoint[],
   _peakLookback: number,
   minKinkMove: number,
-  smaFast: LinePoint[],
-smaSlow: LinePoint[]
+  smaFast: LinePoint[]
 ): SignalBuildResult {
   
   const candleMap = new Map<number, Candle>();
@@ -2785,9 +2598,6 @@ smaSlow: LinePoint[]
 
   const fastMap = new Map<number, number>();
   for (const p of smaFast) fastMap.set(p.time, p.value);
-
-  const slowMap = new Map<number, number>();
-  for (const p of smaSlow) slowMap.set(p.time, p.value);
 
   const middleMap = new Map<number, number>();
   for (const p of distMiddle) middleMap.set(p.time, p.value);
@@ -2807,8 +2617,6 @@ smaSlow: LinePoint[]
     const d = dist[i].value;
     const middle = middleMap.get(dist[i].time);
     const band = bandMap.get(dist[i].time);
-  
-    
     if (middle == null || band == null) continue;
 
     const upperBand = middle + band;
@@ -2851,26 +2659,10 @@ smaSlow: LinePoint[]
           color: "#ef4444",
         });
 
-       const fastNow = fastMap.get(t);
-const fastPrev = fastMap.get(dist[candidateIndex - 3]?.time);
-
-if (fastNow == null || fastPrev == null) continue;
-
-const slope = fastNow - fastPrev;
-const slowNow = slowMap.get(t);
-
-if (slowNow == null) continue;
-
-const isStrongDowntrend = slope < -0.08;
-const isBelowSlow = c.close < slowNow;
-const isExtremeLongZone = d < -band * 1.6;
-
-if (isStrongDowntrend && isBelowSlow && !isExtremeLongZone) {
-  markers.push({
-    time: t,
-    value: c.high,
-  });
-}
+        markers.push({
+          time: t,
+          value: c.high,
+        });
 
         fired = true;
       }
@@ -2881,142 +2673,6 @@ if (isStrongDowntrend && isBelowSlow && !isExtremeLongZone) {
     entries: dedupeMarkers(markers),
     candidates: dedupeMarkers(candidateMarkers),
   };
-}
-
-function buildTrendFailureMarkers(
-  candles: Candle[],
-smaSlow: LinePoint[],
-dist: LinePoint[],
-entryBand: number
-): MarkerPoint[] {
-  const smaMap = new Map<number, number>();
-  for (const p of smaSlow) smaMap.set(p.time, p.value);
-  const distMap = new Map<number, number>();
-for (const p of dist) distMap.set(p.time, p.value);
-
-  const out: MarkerPoint[] = [];
-  
-  let longLock = false;
-  let shortLock = false;
-
-  for (let i = 2; i < candles.length; i++) {
-    const prev = candles[i - 1];
-    const curr = candles[i];
-    const next = candles[i + 1];
-
-    if (!next) continue;
-
-    const sma = smaMap.get(curr.time);
-    const d = distMap.get(curr.time);
-if (d == null) continue;
-    const prevSma = smaMap.get(prev.time);
-
-    if (sma == null || prevSma == null) continue;
-
-    const tolerance = curr.close * 0.0015;
-
-    const aboveTrend = curr.close > sma;
-    const belowTrend = curr.close < sma;
-
-    if (aboveTrend) {
-      shortLock = false;
-    }
-
-    if (belowTrend) {
-      longLock = false;
-    }
-
-    const hadMomentumUp = prev.close > candles[i - 2].close;
-    const hadMomentumDown = prev.close < candles[i - 2].close;
-
-    const pullbackTouch =
-      curr.low <= sma + tolerance && curr.close > sma;
-
-    const isLocalLow =
-      curr.low < prev.low && curr.low < next.low;
-
-    const confirmedUp =
-      next.close > curr.close;
-
-    if (!longLock && aboveTrend && Math.abs(d) > entryBand && hadMomentumUp && pullbackTouch && isLocalLow && confirmedUp){
-      out.push({
-        time: next.time,
-        value: curr.low,
-        text: "TU",
-        color: "#00ffff",
-      });
-
-      longLock = true;
-    }
-
-    const pullbackTouchShort =
-      curr.high >= sma - tolerance && curr.close < sma;
-
-    const isLocalHigh =
-      curr.high > prev.high && curr.high > next.high;
-
-    const confirmedDown =
-      next.close < curr.close;
-
-    if (!shortLock && belowTrend && Math.abs(d) > entryBand && hadMomentumDown && pullbackTouchShort && isLocalHigh && confirmedDown) {
-      out.push({
-        time: next.time,
-        value: curr.high,
-        text: "TD",
-        color: "#ff00ff",
-      });
-
-      shortLock = true;
-    }
-  }
-
-  return dedupeMarkers(out);
-}
-
-function buildExtremeShortMarkers(
-  dist: LinePoint[],
-  candles: Candle[],
-  entryBand: number
-): MarkerPoint[] {
-  const out: MarkerPoint[] = [];
-  let xsLock = false;
-
-  const extremeLevel = entryBand * 2;
-let highest = -Infinity;
-  for (let i = 2; i < dist.length; i++) {
-    const prev = dist[i - 1].value;
-    const curr = dist[i].value;
-
-    if (curr > highest) {
-  highest = curr;
-}
-    
-
-    const isExtreme = curr > extremeLevel;
-    if (curr < entryBand) {
-  xsLock = false;
-}
-
-    const isKinkDown =
-  curr < prev &&
-  (prev - curr) > entryBand * 0.1;
-
-    if (!xsLock && isExtreme && isKinkDown && curr > entryBand) {
-      const t = dist[i].time;
-const c = candles.find((x) => x.time === t);
-if (!c) continue;
-
-out.push({
-  time: t,
-  value: c.high,
-  text: "XS",
-  color: "#ff2222",
-});
-      xsLock = true;
-    }
-  }
-
-  return out;
 }
 
 function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
@@ -3251,16 +2907,7 @@ function simulateStrategyTESTv4(
       currentEntryPtr += 1;
     }
 
-       if (position === "long" && openTrade && prevDistValue !== null) {
-      const prev = i > 0 ? dist[i - 1]?.value : null;
-      const prev2 = i > 1 ? dist[i - 2]?.value : null;
-
-      const momentumDown =
-        prev !== null &&
-        prev2 !== null &&
-        p.value < prev &&
-        prev < prev2;
-
+    if (position === "long" && openTrade && prevDistValue !== null) {
       if (p.value > lowerBand && longRetestLevel === null) {
         longRetestLevel = lowerBand;
       }
@@ -3270,26 +2917,18 @@ function simulateStrategyTESTv4(
       }
 
       if (
-  p.value < 0 &&
-  momentumDown
-) {
+        longRetestLevel !== null &&
+        prevDistValue > longRetestLevel &&
+        p.value <= longRetestLevel
+      ) {
         longExitPoints.push({ time: candle.time, value: candle.low });
         closeTrade(candle, "long");
         prevDistValue = p.value;
-        continue;
+          continue;
       }
     }
 
     if (position === "short" && openTrade && prevDistValue !== null) {
-      const prev = i > 0 ? dist[i - 1]?.value : null;
-      const prev2 = i > 1 ? dist[i - 2]?.value : null;
-
-      const momentumUp =
-        prev !== null &&
-        prev2 !== null &&
-        p.value > prev &&
-        prev > prev2;
-
       if (p.value < upperBand && shortRetestLevel === null) {
         shortRetestLevel = upperBand;
       }
@@ -3299,14 +2938,14 @@ function simulateStrategyTESTv4(
       }
 
       if (
-      
-  p.value > 0 &&
-  momentumUp
-)   {
+        shortRetestLevel !== null &&
+        prevDistValue < shortRetestLevel &&
+        p.value >= shortRetestLevel
+      ) {
         shortExitPoints.push({ time: candle.time, value: candle.high });
         closeTrade(candle, "short");
         prevDistValue = p.value;
-        continue;
+          continue;
       }
     }
 
