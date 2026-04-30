@@ -1004,6 +1004,7 @@ const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+        console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
         const distAsCandles = dist.map((p) => ({
@@ -2127,54 +2128,34 @@ function buildSmaTurnMarkers(
   const up: MarkerPoint[] = [];
   const down: MarkerPoint[] = [];
 
-  for (let i = confirmBars + 1; i < smaSlow.length; i++) {
-    const prev = smaSlow[i - 1].value;
-    const curr = smaSlow[i].value;
+  let trend: "up" | "down" | null = null;
 
-    const slopeNow = curr - prev;
+  for (let i = confirmBars; i < smaSlow.length; i++) {
+    let rising = true;
+    let falling = true;
 
-    // war vorher fallend?
-    const wasDown = smaSlow[i - confirmBars].value > smaSlow[i - confirmBars + 1].value;
+    for (let j = 0; j < confirmBars; j++) {
+      const curr = smaSlow[i - j].value;
+      const prev = smaSlow[i - j - 1].value;
 
-    // war vorher steigend?
-    const wasUp = smaSlow[i - confirmBars].value < smaSlow[i - confirmBars + 1].value;
-
-    // 🔼 UP TURN
-    if (slopeNow > 0 && wasDown) {
-      let valid = true;
-
-      for (let j = 0; j < confirmBars; j++) {
-        if (smaSlow[i - j].value <= smaSlow[i - j - 1].value) {
-          valid = false;
-          break;
-        }
-      }
-
-      if (valid) {
-        up.push({
-          time: smaSlow[i].time,
-          value: smaSlow[i].value,
-        });
-      }
+      if (curr <= prev) rising = false;
+      if (curr >= prev) falling = false;
     }
 
-    // 🔽 DOWN TURN
-    if (slopeNow < 0 && wasUp) {
-      let valid = true;
+    if (rising && trend !== "up") {
+      trend = "up";
+      up.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
+    }
 
-      for (let j = 0; j < confirmBars; j++) {
-        if (smaSlow[i - j].value >= smaSlow[i - j - 1].value) {
-          valid = false;
-          break;
-        }
-      }
-
-      if (valid) {
-        down.push({
-          time: smaSlow[i].time,
-          value: smaSlow[i].value,
-        });
-      }
+    if (falling && trend !== "down") {
+      trend = "down";
+      down.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
     }
   }
 
