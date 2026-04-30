@@ -1157,6 +1157,26 @@ smaTurnDownSeries.setData(smaTurnDownProjected as any);
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
+        createSeriesMarkers(smaTurnUpSeries, 
+  smaTurnUpProjected.map(p => ({
+    time: p.time,
+    position: "belowBar",
+    color: "#00ff88",
+    shape: "arrowUp",
+    text: "UT",
+  }))
+);
+
+createSeriesMarkers(smaTurnDownSeries, 
+  smaTurnDownProjected.map(p => ({
+    time: p.time,
+    position: "aboveBar",
+    color: "#ff4d6d",
+    shape: "arrowDown",
+    text: "DT",
+  }))
+);
+
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
