@@ -932,25 +932,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
     
-    const smaTurnUpSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#00ff88",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff4d6d",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+   
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -1004,6 +986,7 @@ const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+        console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
         const distAsCandles = dist.map((p) => ({
@@ -1102,6 +1085,29 @@ if (!distMiddle.length) {
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
 
+        const candleTimes = new Set(chartCandles.map((c) => c.time));
+
+const smaTurnMarkers = [
+  ...smaTurns.up.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
+    color: "#00ff88",
+    shape: "arrowUp" as const,
+    text: "UT",
+  })),
+  ...smaTurns.down.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
+    color: "#ff4d6d",
+    shape: "arrowDown" as const,
+    text: "DT",
+  })),
+]
+  .filter((m) => candleTimes.has(m.time))
+  .sort((a, b) => Number(a.time) - Number(b.time));
+
+createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
@@ -1122,20 +1128,9 @@ if (!distMiddle.length) {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
-        const smaTurnUpProjected = projectMarkerPointsToCandles(
-  smaTurns.up,
-  candles,
-  "below-mid"
-);
+       
 
-const smaTurnDownProjected = projectMarkerPointsToCandles(
-  smaTurns.down,
-  candles,
-  "above-mid"
-);
 
-smaTurnUpSeries.setData(smaTurnUpProjected as any);
-smaTurnDownSeries.setData(smaTurnDownProjected as any);
 
 
         blockedLongSeries.setData(blockedLongProjected as any);
@@ -1156,6 +1151,26 @@ smaTurnDownSeries.setData(smaTurnDownProjected as any);
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+
+        createSeriesMarkers(
+  smaSlowSeries,
+  [
+    ...smaTurns.up.map((p) => ({
+      time: p.time as any,
+      position: "inBar" as const,
+      color: "#00ff88",
+      shape: "arrowUp" as const,
+      text: "UT",
+    })),
+    ...smaTurns.down.map((p) => ({
+      time: p.time as any,
+      position: "aboveBar" as const,
+      color: "#ff4d6d",
+      shape: "arrowDown" as const,
+      text: "DT",
+    })),
+  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
+);
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -2107,54 +2122,34 @@ function buildSmaTurnMarkers(
   const up: MarkerPoint[] = [];
   const down: MarkerPoint[] = [];
 
-  for (let i = confirmBars + 1; i < smaSlow.length; i++) {
-    const prev = smaSlow[i - 1].value;
-    const curr = smaSlow[i].value;
+  let trend: "up" | "down" | null = null;
 
-    const slopeNow = curr - prev;
+  for (let i = confirmBars; i < smaSlow.length; i++) {
+    let rising = true;
+    let falling = true;
 
-    // war vorher fallend?
-    const wasDown = smaSlow[i - confirmBars].value > smaSlow[i - confirmBars + 1].value;
+    for (let j = 0; j < confirmBars; j++) {
+      const curr = smaSlow[i - j].value;
+      const prev = smaSlow[i - j - 1].value;
 
-    // war vorher steigend?
-    const wasUp = smaSlow[i - confirmBars].value < smaSlow[i - confirmBars + 1].value;
-
-    // 🔼 UP TURN
-    if (slopeNow > 0 && wasDown) {
-      let valid = true;
-
-      for (let j = 0; j < confirmBars; j++) {
-        if (smaSlow[i - j].value <= smaSlow[i - j - 1].value) {
-          valid = false;
-          break;
-        }
-      }
-
-      if (valid) {
-        up.push({
-          time: smaSlow[i].time,
-          value: smaSlow[i].value,
-        });
-      }
+      if (curr <= prev) rising = false;
+      if (curr >= prev) falling = false;
     }
 
-    // 🔽 DOWN TURN
-    if (slopeNow < 0 && wasUp) {
-      let valid = true;
+    if (rising && trend !== "up") {
+      trend = "up";
+      up.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
+    }
 
-      for (let j = 0; j < confirmBars; j++) {
-        if (smaSlow[i - j].value >= smaSlow[i - j - 1].value) {
-          valid = false;
-          break;
-        }
-      }
-
-      if (valid) {
-        down.push({
-          time: smaSlow[i].time,
-          value: smaSlow[i].value,
-        });
-      }
+    if (falling && trend !== "down") {
+      trend = "down";
+      down.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
     }
   }
 
