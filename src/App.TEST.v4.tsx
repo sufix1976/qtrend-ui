@@ -40,10 +40,7 @@ type MarkerPoint = {
   color?: string;
 };
 
-type SignalBuildResult = {
-  entries: MarkerPoint[];
-  candidates: MarkerPoint[];
-};
+
 
 type WhitespaceLinePoint = {
   time: number;
