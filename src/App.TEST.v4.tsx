@@ -1242,6 +1242,11 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 const validShortCandidates = shortData.candidates.filter((p) =>
   hasRecentOutlier(p.time, outlierShortPoints, 20, candles)
 );
+        console.log(
+  "VALID OUTLIER CANDIDATES",
+  validLongCandidates.length,
+  validShortCandidates.length
+);
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
         const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
