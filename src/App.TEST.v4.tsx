@@ -1467,8 +1467,7 @@ return () => {
         priceChart.removeSeries(realCloseSeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
-        priceChart.removeSeries(recoveredLongKinkSeries);
-        priceChart.removeSeries(recoveredShortKinkSeries);
+        
 
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
@@ -2996,56 +2995,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 }
 
 
-function buildRecoveredKinksFromOutliers(
-  outliers: MarkerPoint[],
-  smaFast: LinePoint[],
-  side: "long" | "short",
-  recoverBars: number
-): MarkerPoint[] {
-  const out: MarkerPoint[] = [];
 
-  for (const o of outliers) {
-    const startIdx = smaFast.findIndex((p) => p.time === o.time);
-    if (startIdx < recoverBars || startIdx >= smaFast.length - 2) continue;
-
-    let twitchIdx = -1;
-
-    for (let i = startIdx + 1; i < smaFast.length; i++) {
-      const prev = smaFast[i - 1].value;
-      const curr = smaFast[i].value;
-
-      if (side === "long" && curr > prev) {
-        twitchIdx = i;
-        break;
-      }
-
-      if (side === "short" && curr < prev) {
-        twitchIdx = i;
-        break;
-      }
-    }
-
-    if (twitchIdx < recoverBars) continue;
-
-    const recoverLevel = smaFast[twitchIdx - recoverBars].value;
-
-    for (let i = twitchIdx; i < smaFast.length; i++) {
-      const curr = smaFast[i].value;
-
-      if (side === "long" && curr >= recoverLevel) {
-        out.push({ time: smaFast[i].time, value: o.value, text: "KLL", color: "#ffffff" });
-        break;
-      }
-
-      if (side === "short" && curr <= recoverLevel) {
-        out.push({ time: smaFast[i].time, value: o.value, text: "KSS", color: "#ffffff" });
-        break;
-      }
-    }
-  }
-
-  return dedupeMarkers(out);
-}
 
 
 
