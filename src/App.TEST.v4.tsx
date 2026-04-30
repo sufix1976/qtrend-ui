@@ -823,8 +823,10 @@ async function saveAllSizes() {
     });
 
     const smaTrendMarkerSeries = priceChart.addSeries(LineSeries, {
-  color: "#000000",
-  lineWidth: 0, // unsichtbar, nur Marker
+  color: "#ffffff",
+  lineWidth: 1,
+  lineVisible: false,
+  pointMarkersVisible: false,
   lastValueVisible: false,
   priceLineVisible: false,
 });
@@ -1205,6 +1207,7 @@ createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
+        smaTrendMarkerSeries.setData(chartSmaSlow as any);
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
@@ -1376,6 +1379,7 @@ return () => {
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
+        priceChart.removeSeries(smaTrendMarkerSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(strategyLongSeries);
