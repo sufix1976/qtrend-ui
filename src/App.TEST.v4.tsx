@@ -856,7 +856,32 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
   lineWidth: 2,
   priceLineVisible: false,
   lastValueVisible: false,
-});
+}); 
+    const outlierLongPoints: MarkerPoint[] = [];
+const outlierShortPoints: MarkerPoint[] = [];
+
+for (let i = 0; i < candles.length; i++) {
+  const c = candles[i];
+
+  const upper = smaUpper[i];
+  const lower = smaLower[i];
+
+  if (!upper || !lower) continue;
+
+  if (c.low < lower.value) {
+    outlierLongPoints.push({
+      time: c.time,
+      value: c.low,
+    });
+  }
+
+  if (c.high > upper.value) {
+    outlierShortPoints.push({
+      time: c.time,
+      value: c.high,
+    });
+  }
+}
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -933,6 +958,24 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
       priceLineVisible: false,
       lastValueVisible: false,
     });
+
+    const outlierLongSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#00ffff",
+  lineVisible: false,
+  pointMarkersVisible: false,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const outlierShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff00ff",
+  lineVisible: false,
+  pointMarkersVisible: false,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const realBuySeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1167,6 +1210,17 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
+        const outlierLongProjected = projectMarkerPointsToCandles(
+  outlierLongPoints,
+  candles,
+  "below-far"
+);
+
+const outlierShortProjected = projectMarkerPointsToCandles(
+  outlierShortPoints,
+  candles,
+  "above-far"
+);
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
         const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
@@ -1185,6 +1239,8 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
+        outlierLongSeries.setData(outlierLongProjected as any);
+        outlierShortSeries.setData(outlierShortProjected as any);
        
 
 
@@ -1208,6 +1264,16 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+
+        createSeriesMarkers(
+  outlierLongSeries,
+  buildTextMarkers(outlierLongProjected, "belowBar", "AL")
+);
+
+createSeriesMarkers(
+  outlierShortSeries,
+  buildTextMarkers(outlierShortProjected, "aboveBar", "AS")
+);
 
         createSeriesMarkers(
   smaSlowSeries,
@@ -1350,6 +1416,8 @@ return () => {
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
+        priceChart.removeSeries(outlierLongSeries);
+        priceChart.removeSeries(outlierShortSeries);
 
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
