@@ -1093,7 +1093,19 @@ for (let i = 1; i < candles.length; i++) {
     });
   }
 }
-       
+       const realLongKinks = buildRecoveredKinksFromOutliers(
+  outlierLongPoints,
+  smaFast,
+  "long",
+  kinkConfirmBarsUI
+);
+
+const realShortKinks = buildRecoveredKinksFromOutliers(
+  outlierShortPoints,
+  smaFast,
+  "short",
+  kinkConfirmBarsUI
+);
         
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
@@ -1242,8 +1254,8 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
 
         
-        const validLongCandidates = longData.candidates;
-        const validShortCandidates = shortData.candidates;
+        const validLongCandidates = realLongKinks;
+        const validShortCandidates = realShortKinks;
         
         const candidateLongProjected = projectMarkerPointsToCandles(
   validLongCandidates,
@@ -2996,7 +3008,62 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
 
 
+function buildRecoveredKinksFromOutliers(
+  outliers: MarkerPoint[],
+  smaFast: LinePoint[],
+  side: "long" | "short",
+  recoverBars: number
+): MarkerPoint[] {
+  const out: MarkerPoint[] = [];
 
+  for (const o of outliers) {
+    const startIdx = smaFast.findIndex((p) => p.time === o.time);
+    if (startIdx < recoverBars || startIdx >= smaFast.length - 2) continue;
+
+    let twitchIdx = -1;
+
+    for (let i = startIdx + 1; i < smaFast.length; i++) {
+      const prev = smaFast[i - 1].value;
+      const curr = smaFast[i].value;
+
+      if (side === "long" && curr > prev) {
+        twitchIdx = i;
+        break;
+      }
+
+      if (side === "short" && curr < prev) {
+        twitchIdx = i;
+        break;
+      }
+    }
+
+    if (twitchIdx < recoverBars) continue;
+
+    const recoverLevel = smaFast[twitchIdx - recoverBars].value;
+
+    for (let i = twitchIdx; i < smaFast.length; i++) {
+      const curr = smaFast[i].value;
+
+      if (side === "long" && curr >= recoverLevel) {
+        out.push({
+          time: smaFast[i].time,
+          value: o.value,
+        });
+        break;
+      }
+
+      if (side === "short" && curr <= recoverLevel) {
+        out.push({
+          time: smaFast[i].time,
+          value: o.value,
+        });
+        break;
+      }
+    }
+  }
+
+  return dedupeMarkers(out);
+}
 
 
 
