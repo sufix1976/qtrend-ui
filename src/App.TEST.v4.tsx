@@ -219,6 +219,24 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   TSLA: 0.5
 };
 
+ const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
+  BTCUSD: 5000,
+  ETHUSD: 300,
+  XRPUSD: 1,
+  DE40: 1000,
+  US100: 800,
+  US500: 150,
+  US30: 1000,
+  J225: 2000,
+  UK100: 300,
+  GOLD: 300,
+  SILVER: 5,
+  OIL_CRUDE: 20,
+  CORN: 20,
+  SOLUSD: 50,
+  TSLA: 100,
+};
+
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
 
@@ -782,6 +800,11 @@ async function saveAllSizes() {
       distChartRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+  const max = SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000;
+  setSmaOffsetUI((prev) => Math.min(prev, max));
+}, [symbol]);
 
   useEffect(() => {
     if (!priceChartRef.current || !distChartRef.current) return;
@@ -1796,7 +1819,7 @@ return () => {
   <input
     type="range"
     min="1"
-    max="1000"
+    max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
     step="1"
     value={smaOffsetUI}
     onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
