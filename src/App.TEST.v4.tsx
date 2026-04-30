@@ -1235,21 +1235,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-const confirmedLongKinks =
-  buildConfirmedKinksFromOutliers(
-    outlierLongPoints,
-    smaFast,
-    "long",
-    kinkConfirmBarsUI
-  );
 
-const confirmedShortKinks =
-  buildConfirmedKinksFromOutliers(
-    outlierShortPoints,
-    smaFast,
-    "short",
-    kinkConfirmBarsUI
-  );
         
         const validLongCandidates = longData.candidates;
         const validShortCandidates = shortData.candidates;
