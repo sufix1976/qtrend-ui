@@ -1134,7 +1134,7 @@ if (!distMiddle.length) {
   [
     ...smaTurns.up.map((p) => ({
       time: p.time as any,
-      position: "belowBar" as const,
+      position: "inBar" as const,
       color: "#00ff88",
       shape: "arrowUp" as const,
       text: "UT",
