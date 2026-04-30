@@ -1222,17 +1222,7 @@ const smaTurnMarkers = [
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
-        const candidateLongProjected = projectMarkerPointsToCandles(
-  validLongCandidates,
-  candles,
-  "below-far"
-);
-
-const candidateShortProjected = projectMarkerPointsToCandles(
-  validShortCandidates,
-  candles,
-  "above-far"
-);
+        
         const outlierLongProjected = projectMarkerPointsToCandles(
   outlierLongPoints,
   candles,
@@ -1338,6 +1328,17 @@ const validShortCandidates = shortData.candidates.filter(
       candles,
       kinkConfirmBarsUI
     )
+);
+        const candidateLongProjected = projectMarkerPointsToCandles(
+  validLongCandidates,
+  candles,
+  "below-far"
+);
+
+const candidateShortProjected = projectMarkerPointsToCandles(
+  validShortCandidates,
+  candles,
+  "above-far"
 );
         
         console.log(
