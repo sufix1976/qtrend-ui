@@ -1056,8 +1056,13 @@ const smaLower = smaSlow.map((p) => ({
   time: p.time,
   value: p.value - smaOffsetUI,
 }));
+
         const outlierLongPoints: MarkerPoint[] = [];
 const outlierShortPoints: MarkerPoint[] = [];
+
+let lastALIndex = -9999;
+let lastASIndex = -9999;
+const outlierCooldownBars = 12;
 
 for (let i = 1; i < candles.length; i++) {
   const prev = candles[i - 1];
@@ -1065,14 +1070,13 @@ for (let i = 1; i < candles.length; i++) {
 
   const prevUpper = smaUpper[i - 1];
   const prevLower = smaLower[i - 1];
-
   const currUpper = smaUpper[i];
   const currLower = smaLower[i];
 
   if (!prevUpper || !prevLower || !currUpper || !currLower) continue;
 
-  // AL = erster Durchbruch unter untere Linie
   if (
+    i - lastALIndex >= outlierCooldownBars &&
     prev.low >= prevLower.value &&
     curr.low < currLower.value
   ) {
@@ -1080,10 +1084,12 @@ for (let i = 1; i < candles.length; i++) {
       time: curr.time,
       value: curr.low,
     });
+
+    lastALIndex = i;
   }
 
-  // AS = erster Durchbruch über obere Linie
   if (
+    i - lastASIndex >= outlierCooldownBars &&
     prev.high <= prevUpper.value &&
     curr.high > currUpper.value
   ) {
@@ -1091,6 +1097,8 @@ for (let i = 1; i < candles.length; i++) {
       time: curr.time,
       value: curr.high,
     });
+
+    lastASIndex = i;
   }
 }
        const realLongKinks = buildRecoveredKinksFromOutliers(
