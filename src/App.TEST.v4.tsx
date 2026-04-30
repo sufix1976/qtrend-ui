@@ -3094,12 +3094,12 @@ function buildRecoveredKinksFromOutliers(
       const curr = smaFast[i].value;
 
       if (side === "long" && curr >= recoverLevel) {
-        out.push({ time: smaFast[i].time, value: curr, text: "KLL", color: "#ffffff" });
+        out.push({ time: smaFast[i].time, value: o.value, text: "KLL", color: "#ffffff" });
         break;
       }
 
       if (side === "short" && curr <= recoverLevel) {
-        out.push({ time: smaFast[i].time, value: curr, text: "KSS", color: "#ffffff" });
+        out.push({ time: smaFast[i].time, value: o.value, text: "KSS", color: "#ffffff" });
         break;
       }
     }
