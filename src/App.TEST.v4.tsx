@@ -3087,6 +3087,7 @@ function buildEmergencyExits(
 ): { long: MarkerPoint[]; short: MarkerPoint[] } {
   const long: MarkerPoint[] = [];
   const short: MarkerPoint[] = [];
+  const minExitMove = 0.15;
 
   for (let i = 1; i < candles.length; i++) {
     const c = candles[i];
@@ -3118,7 +3119,7 @@ function buildEmergencyExits(
       if (
   prevFast.value > lp.value &&
   currFast.value < lc.value &&
-  (prevFast.value - currFast.value) > minKinkUI * 0.15
+  (prevFast.value - currFast.value) > minExitMove
 ) {
   long.push({
     time: c.time,
@@ -3133,7 +3134,7 @@ function buildEmergencyExits(
       if (
   prevFast.value < lp.value &&
   currFast.value > lc.value &&
-  (currFast.value - prevFast.value) > minKinkUI * 0.15
+  (currFast.value - prevFast.value) > minExitMove
 ) {
   short.push({
     time: c.time,
