@@ -1235,18 +1235,25 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-       
-        const validLongCandidates = longData.candidates.filter(
-  (p) =>
-    hasRecentOutlier(p.time, outlierLongPoints, 20, candles) &&
-    isRecoveredSmaKink(p, smaSlow, kinkConfirmBarsUI, "long")
-);
+const confirmedLongKinks =
+  buildConfirmedKinksFromOutliers(
+    outlierLongPoints,
+    smaFast,
+    "long",
+    kinkConfirmBarsUI
+  );
 
-const validShortCandidates = shortData.candidates.filter(
-  (p) =>
-    hasRecentOutlier(p.time, outlierShortPoints, 20, candles) &&
-    isRecoveredSmaKink(p, smaSlow, kinkConfirmBarsUI, "short")
-);
+const confirmedShortKinks =
+  buildConfirmedKinksFromOutliers(
+    outlierShortPoints,
+    smaFast,
+    "short",
+    kinkConfirmBarsUI
+  );
+        
+        const validLongCandidates = confirmedLongKinks;
+
+        const validShortCandidates = confirmedShortKinks;
         
         const candidateLongProjected = projectMarkerPointsToCandles(
   validLongCandidates,
@@ -3013,6 +3020,88 @@ function isRecoveredSmaKink(
   }
 
   return curr < prev && curr <= ref;
+}
+
+function buildConfirmedKinksFromOutliers(
+  outliers: MarkerPoint[],
+  smaFast: LinePoint[],
+  side: "long" | "short",
+  recoverBars: number
+): MarkerPoint[] {
+  const out: MarkerPoint[] = [];
+
+  for (const outlier of outliers) {
+    const startIdx = smaFast.findIndex(
+      (p) => p.time === outlier.time
+    );
+
+    if (
+      startIdx < recoverBars ||
+      startIdx >= smaFast.length - 2
+    ) {
+      continue;
+    }
+
+    let kinkIdx = -1;
+
+    // Zuckpunkt suchen
+    for (let i = startIdx + 1; i < smaFast.length; i++) {
+      const prev = smaFast[i - 1].value;
+      const curr = smaFast[i].value;
+
+      if (
+        side === "long" &&
+        curr > prev
+      ) {
+        kinkIdx = i;
+        break;
+      }
+
+      if (
+        side === "short" &&
+        curr < prev
+      ) {
+        kinkIdx = i;
+        break;
+      }
+    }
+
+    if (kinkIdx < recoverBars) continue;
+
+    const recoverLevel =
+      smaFast[kinkIdx - recoverBars].value;
+
+    // Rückeroberung prüfen
+    for (let i = kinkIdx; i < smaFast.length; i++) {
+      const curr = smaFast[i].value;
+
+      if (
+        side === "long" &&
+        curr >= recoverLevel
+      ) {
+        out.push({
+          time: smaFast[i].time,
+          value: curr,
+        });
+
+        break;
+      }
+
+      if (
+        side === "short" &&
+        curr <= recoverLevel
+      ) {
+        out.push({
+          time: smaFast[i].time,
+          value: curr,
+        });
+
+        break;
+      }
+    }
+  }
+
+  return dedupeMarkers(out);
 }
 
 function hasRecentOutlier(
