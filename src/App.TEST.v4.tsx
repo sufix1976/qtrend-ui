@@ -1064,7 +1064,9 @@ let lastALIndex = -9999;
 let lastASIndex = -9999;
 const outlierCooldownBars = 12;
 
-for (let i = 1; i < candles.length; i++) {
+const markerStartIndex = Math.max(1, candles.length - 3000);
+
+for (let i = markerStartIndex; i < candles.length; i++) {
   const prev = candles[i - 1];
   const curr = candles[i];
 
