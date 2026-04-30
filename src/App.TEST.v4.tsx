@@ -932,7 +932,25 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
     
-    
+    const smaTurnUpSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#00ff88",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff4d6d",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -962,6 +980,8 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    
+
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
       try {
@@ -983,6 +1003,7 @@ async function saveAllSizes() {
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+        const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
         const distAsCandles = dist.map((p) => ({
@@ -1101,6 +1122,21 @@ if (!distMiddle.length) {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
+        const smaTurnUpProjected = projectMarkerPointsToCandles(
+  smaTurns.up,
+  candles,
+  "below-mid"
+);
+
+const smaTurnDownProjected = projectMarkerPointsToCandles(
+  smaTurns.down,
+  candles,
+  "above-mid"
+);
+
+smaTurnUpSeries.setData(smaTurnUpProjected as any);
+smaTurnDownSeries.setData(smaTurnDownProjected as any);
+
 
         blockedLongSeries.setData(blockedLongProjected as any);
         blockedShortSeries.setData(blockedShortProjected as any);
@@ -2062,6 +2098,67 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.error || json?.info || `SAVE ERROR ${res.status}: ${txt}`);
   }
+}
+
+function buildSmaTurnMarkers(
+  smaSlow: LinePoint[],
+  confirmBars = 5
+): { up: MarkerPoint[]; down: MarkerPoint[] } {
+  const up: MarkerPoint[] = [];
+  const down: MarkerPoint[] = [];
+
+  for (let i = confirmBars + 1; i < smaSlow.length; i++) {
+    const prev = smaSlow[i - 1].value;
+    const curr = smaSlow[i].value;
+
+    const slopeNow = curr - prev;
+
+    // war vorher fallend?
+    const wasDown = smaSlow[i - confirmBars].value > smaSlow[i - confirmBars + 1].value;
+
+    // war vorher steigend?
+    const wasUp = smaSlow[i - confirmBars].value < smaSlow[i - confirmBars + 1].value;
+
+    // 🔼 UP TURN
+    if (slopeNow > 0 && wasDown) {
+      let valid = true;
+
+      for (let j = 0; j < confirmBars; j++) {
+        if (smaSlow[i - j].value <= smaSlow[i - j - 1].value) {
+          valid = false;
+          break;
+        }
+      }
+
+      if (valid) {
+        up.push({
+          time: smaSlow[i].time,
+          value: smaSlow[i].value,
+        });
+      }
+    }
+
+    // 🔽 DOWN TURN
+    if (slopeNow < 0 && wasUp) {
+      let valid = true;
+
+      for (let j = 0; j < confirmBars; j++) {
+        if (smaSlow[i - j].value >= smaSlow[i - j - 1].value) {
+          valid = false;
+          break;
+        }
+      }
+
+      if (valid) {
+        down.push({
+          time: smaSlow[i].time,
+          value: smaSlow[i].value,
+        });
+      }
+    }
+  }
+
+  return { up, down };
 }
 
 function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
