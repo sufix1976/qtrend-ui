@@ -813,25 +813,11 @@ async function saveAllSizes() {
     });
 
     const smaSlowSeries = priceChart.addSeries(LineSeries, {
-  color: "rgba(255,255,255,0)",
-  lineWidth: 1,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const smaUpSeries = priceChart.addSeries(LineSeries, {
-  color: "#00ff88",
-  lineWidth: 3,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const smaDownSeries = priceChart.addSeries(LineSeries, {
-  color: "#ff4d6d",
-  lineWidth: 3,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+      color: "#ffffff",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -946,7 +932,25 @@ const smaDownSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
     
-   
+    const smaTurnUpSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#00ff88",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff4d6d",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 6,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -1000,7 +1004,6 @@ const smaDownSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
-        console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
         const distAsCandles = dist.map((p) => ({
@@ -1098,16 +1101,6 @@ if (!distMiddle.length) {
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
-        const smaSplit = splitSmaByTrend(smaSlow, smaTurns);
-        
-        smaUpSeries.setData(smaSplit.up as any);
-        smaDownSeries.setData(smaSplit.down as any);
-
-      
-
-
-
-
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
@@ -1129,9 +1122,20 @@ if (!distMiddle.length) {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
-       
+        const smaTurnUpProjected = projectMarkerPointsToCandles(
+  smaTurns.up,
+  candles,
+  "below-mid"
+);
 
+const smaTurnDownProjected = projectMarkerPointsToCandles(
+  smaTurns.down,
+  candles,
+  "above-mid"
+);
 
+smaTurnUpSeries.setData(smaTurnUpProjected as any);
+smaTurnDownSeries.setData(smaTurnDownProjected as any);
 
 
         blockedLongSeries.setData(blockedLongProjected as any);
@@ -1152,8 +1156,6 @@ if (!distMiddle.length) {
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
-
-        
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -2105,65 +2107,54 @@ function buildSmaTurnMarkers(
   const up: MarkerPoint[] = [];
   const down: MarkerPoint[] = [];
 
-  let trend: "up" | "down" | null = null;
+  for (let i = confirmBars + 1; i < smaSlow.length; i++) {
+    const prev = smaSlow[i - 1].value;
+    const curr = smaSlow[i].value;
 
-  for (let i = confirmBars; i < smaSlow.length; i++) {
-    let rising = true;
-    let falling = true;
+    const slopeNow = curr - prev;
 
-    for (let j = 0; j < confirmBars; j++) {
-      const curr = smaSlow[i - j].value;
-      const prev = smaSlow[i - j - 1].value;
+    // war vorher fallend?
+    const wasDown = smaSlow[i - confirmBars].value > smaSlow[i - confirmBars + 1].value;
 
-      if (curr <= prev) rising = false;
-      if (curr >= prev) falling = false;
+    // war vorher steigend?
+    const wasUp = smaSlow[i - confirmBars].value < smaSlow[i - confirmBars + 1].value;
+
+    // 🔼 UP TURN
+    if (slopeNow > 0 && wasDown) {
+      let valid = true;
+
+      for (let j = 0; j < confirmBars; j++) {
+        if (smaSlow[i - j].value <= smaSlow[i - j - 1].value) {
+          valid = false;
+          break;
+        }
+      }
+
+      if (valid) {
+        up.push({
+          time: smaSlow[i].time,
+          value: smaSlow[i].value,
+        });
+      }
     }
 
-    if (rising && trend !== "up") {
-      trend = "up";
-      up.push({
-        time: smaSlow[i].time,
-        value: smaSlow[i].value,
-      });
-    }
+    // 🔽 DOWN TURN
+    if (slopeNow < 0 && wasUp) {
+      let valid = true;
 
-    if (falling && trend !== "down") {
-      trend = "down";
-      down.push({
-        time: smaSlow[i].time,
-        value: smaSlow[i].value,
-      });
-    }
-  }
+      for (let j = 0; j < confirmBars; j++) {
+        if (smaSlow[i - j].value >= smaSlow[i - j - 1].value) {
+          valid = false;
+          break;
+        }
+      }
 
-  return { up, down };
-}
-
-function splitSmaByTrend(
-  sma: LinePoint[],
-  turns: { up: MarkerPoint[]; down: MarkerPoint[] }
-): { up: WhitespaceLinePoint[]; down: WhitespaceLinePoint[] } {
-  const upTimes = new Set(turns.up.map((p) => p.time));
-  const downTimes = new Set(turns.down.map((p) => p.time));
-
-  let trend: "up" | "down" | null = null;
-
-  const up: WhitespaceLinePoint[] = [];
-  const down: WhitespaceLinePoint[] = [];
-
-  for (const p of sma) {
-    if (upTimes.has(p.time)) trend = "up";
-    if (downTimes.has(p.time)) trend = "down";
-
-    if (trend === "up") {
-      up.push({ time: p.time, value: p.value });
-      down.push({ time: p.time });
-    } else if (trend === "down") {
-      down.push({ time: p.time, value: p.value });
-      up.push({ time: p.time });
-    } else {
-      up.push({ time: p.time });
-      down.push({ time: p.time });
+      if (valid) {
+        down.push({
+          time: smaSlow[i].time,
+          value: smaSlow[i].value,
+        });
+      }
     }
   }
 
