@@ -1336,6 +1336,30 @@ const candidateShortProjected = projectMarkerPointsToCandles(
 
         createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
         createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+
+        createSeriesMarkers(
+  strategyLongExitSeries,
+  longExitProjected.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
+    color: "#ffffff",
+    shape: "arrowDown" as const,
+    text: p.text ?? "EXL",
+  })) as any
+);
+
+createSeriesMarkers(
+  strategyShortExitSeries,
+  shortExitProjected.map((p) => ({
+    time: p.time as any,
+    position: "belowBar" as const,
+    color: "#ffffff",
+    shape: "arrowUp" as const,
+    text: p.text ?? "EXS",
+  })) as any
+);
+
+        
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
