@@ -1162,41 +1162,11 @@ if (!distMiddle.length) {
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
-        const longData = buildStableLongSignals(
-  candles,
-  dist,
-  distMiddle,
-  dynamicBand,
-  peakUI,
-  minKinkUI,
-  smaFast
-);
+        
 
-        const shortData = buildStableShortSignals(
-  candles,
-  dist,
-  distMiddle,
-  dynamicBand,
-  peakUI,
-  minKinkUI,
-  smaFast
-);
+      
 
-      const strategyLongPoints = validLongCandidates;
-      const strategyShortPoints = validShortCandidates;
-
-       const sim = simulateStrategyTESTv4(
-  candles,
-  dist,
-  distMiddle,
-  strategyLongPoints,
-  strategyShortPoints,
-  dynamicBand,
-  assumedSpread,
-  assumedSlippage,
-  emergencyExits
-);
-
+       
 
 
         const real = buildRealTradeMarkers(candles, aggRows);
@@ -1279,6 +1249,21 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
 const validShortCandidates = realShortKinks.filter(
   (p) => getTrendAtTime(p.time, smaTurns) === "down"
+);
+
+        const strategyLongPoints = validLongCandidates;
+const strategyShortPoints = validShortCandidates;
+
+        const sim = simulateStrategyTESTv4(
+  candles,
+  dist,
+  distMiddle,
+  strategyLongPoints,
+  strategyShortPoints,
+  dynamicBand,
+  assumedSpread,
+  assumedSlippage,
+  emergencyExits
 );
         
         const candidateLongProjected = projectMarkerPointsToCandles(
