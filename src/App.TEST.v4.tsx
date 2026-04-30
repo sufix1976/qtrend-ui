@@ -1056,25 +1056,37 @@ const smaLower = smaSlow.map((p) => ({
         const outlierLongPoints: MarkerPoint[] = [];
 const outlierShortPoints: MarkerPoint[] = [];
 
-for (let i = 0; i < candles.length; i++) {
-  const c = candles[i];
+for (let i = 1; i < candles.length; i++) {
+  const prev = candles[i - 1];
+  const curr = candles[i];
 
-  const upper = smaUpper[i];
-  const lower = smaLower[i];
+  const prevUpper = smaUpper[i - 1];
+  const prevLower = smaLower[i - 1];
 
-  if (!upper || !lower) continue;
+  const currUpper = smaUpper[i];
+  const currLower = smaLower[i];
 
-  if (c.low < lower.value) {
+  if (!prevUpper || !prevLower || !currUpper || !currLower) continue;
+
+  // AL = erster Durchbruch unter untere Linie
+  if (
+    prev.low >= prevLower.value &&
+    curr.low < currLower.value
+  ) {
     outlierLongPoints.push({
-      time: c.time,
-      value: c.low,
+      time: curr.time,
+      value: curr.low,
     });
   }
 
-  if (c.high > upper.value) {
+  // AS = erster Durchbruch über obere Linie
+  if (
+    prev.high <= prevUpper.value &&
+    curr.high > currUpper.value
+  ) {
     outlierShortPoints.push({
-      time: c.time,
-      value: c.high,
+      time: curr.time,
+      value: curr.high,
     });
   }
 }
