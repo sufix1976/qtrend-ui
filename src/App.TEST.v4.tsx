@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
-  // createSeriesMarkers,
+  createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   CrosshairMode,
@@ -822,6 +822,13 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const smaTrendMarkerSeries = priceChart.addSeries(LineSeries, {
+  color: "#000000",
+  lineWidth: 0, // unsichtbar, nur Marker
+  lastValueVisible: false,
+  priceLineVisible: false,
+});
+
     
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
@@ -998,6 +1005,64 @@ async function saveAllSizes() {
                 mainSeries.setData([] as any);
         smaFastSeries.setData([] as any);
         smaSlowSeries.setData([] as any);
+
+        const smaTrendMarkers: any[] = [];
+
+for (let i = 2; i < smaSlow.length - 5; i++) {
+  const prev2 = smaSlow[i - 2]?.value;
+  const prev1 = smaSlow[i - 1]?.value;
+  const now = smaSlow[i]?.value;
+
+  if (prev2 == null || prev1 == null || now == null) continue;
+
+  const wasFalling = prev1 < prev2;
+  const turnsUp = now > prev1;
+
+  const wasRising = prev1 > prev2;
+  const turnsDown = now < prev1;
+
+  if (wasFalling && turnsUp) {
+    let confirmed = true;
+    for (let j = 1; j <= 5; j++) {
+      if (smaSlow[i + j].value <= smaSlow[i + j - 1].value) {
+        confirmed = false;
+        break;
+      }
+    }
+
+    if (confirmed) {
+      smaTrendMarkers.push({
+        time: smaSlow[i].time,
+        position: "belowBar",
+        color: "#22c55e",
+        shape: "arrowUp",
+        text: "UT",
+      });
+    }
+  }
+
+  if (wasRising && turnsDown) {
+    let confirmed = true;
+    for (let j = 1; j <= 5; j++) {
+      if (smaSlow[i + j].value >= smaSlow[i + j - 1].value) {
+        confirmed = false;
+        break;
+      }
+    }
+
+    if (confirmed) {
+      smaTrendMarkers.push({
+        time: smaSlow[i].time,
+        position: "aboveBar",
+        color: "#ef4444",
+        shape: "arrowDown",
+        text: "DT",
+      });
+    }
+  }
+}
+
+createSeriesMarkers(smaTrendMarkerSeries, smaTrendMarkers);
 
        // strategyLongSeries.setData([] as any);
         // strategyShortSeries.setData([] as any);
