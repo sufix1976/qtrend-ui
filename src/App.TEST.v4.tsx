@@ -857,31 +857,7 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 }); 
-    const outlierLongPoints: MarkerPoint[] = [];
-const outlierShortPoints: MarkerPoint[] = [];
-
-for (let i = 0; i < candles.length; i++) {
-  const c = candles[i];
-
-  const upper = smaUpper[i];
-  const lower = smaLower[i];
-
-  if (!upper || !lower) continue;
-
-  if (c.low < lower.value) {
-    outlierLongPoints.push({
-      time: c.time,
-      value: c.low,
-    });
-  }
-
-  if (c.high > upper.value) {
-    outlierShortPoints.push({
-      time: c.time,
-      value: c.high,
-    });
-  }
-}
+   
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1077,6 +1053,31 @@ const smaLower = smaSlow.map((p) => ({
   time: p.time,
   value: p.value - smaOffsetUI,
 }));
+        const outlierLongPoints: MarkerPoint[] = [];
+const outlierShortPoints: MarkerPoint[] = [];
+
+for (let i = 0; i < candles.length; i++) {
+  const c = candles[i];
+
+  const upper = smaUpper[i];
+  const lower = smaLower[i];
+
+  if (!upper || !lower) continue;
+
+  if (c.low < lower.value) {
+    outlierLongPoints.push({
+      time: c.time,
+      value: c.low,
+    });
+  }
+
+  if (c.high > upper.value) {
+    outlierShortPoints.push({
+      time: c.time,
+      value: c.high,
+    });
+  }
+}
         
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
@@ -1267,12 +1268,18 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
         createSeriesMarkers(
   outlierLongSeries,
-  buildTextMarkers(outlierLongProjected, "belowBar", "AL")
+  buildTextMarkers(
+    outlierLongProjected.map((p) => ({ ...p, text: "AL", color: "#00ffff" })),
+    "belowBar"
+  )
 );
 
 createSeriesMarkers(
   outlierShortSeries,
-  buildTextMarkers(outlierShortProjected, "aboveBar", "AS")
+  buildTextMarkers(
+    outlierShortProjected.map((p) => ({ ...p, text: "AS", color: "#ff00ff" })),
+    "aboveBar"
+  )
 );
 
         createSeriesMarkers(
