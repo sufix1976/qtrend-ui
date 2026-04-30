@@ -3001,26 +3001,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
-function isRecoveredSmaKink(
-  point: MarkerPoint,
-  smaSlow: LinePoint[],
-  recoverBars: number,
-  side: "long" | "short"
-): boolean {
-  const idx = smaSlow.findIndex((p) => p.time === point.time);
 
-  if (idx < recoverBars || idx < 1) return false;
-
-  const curr = smaSlow[idx].value;
-  const prev = smaSlow[idx - 1].value;
-  const ref = smaSlow[idx - recoverBars].value;
-
-  if (side === "long") {
-    return curr > prev && curr >= ref;
-  }
-
-  return curr < prev && curr <= ref;
-}
 
 function buildConfirmedKinksFromOutliers(
   outliers: MarkerPoint[],
@@ -3104,22 +3085,7 @@ function buildConfirmedKinksFromOutliers(
   return dedupeMarkers(out);
 }
 
-function hasRecentOutlier(
-  time: number,
-  outliers: MarkerPoint[],
-  lookbackBars: number,
-  candles: Candle[]
-): boolean {
-  const idx = candles.findIndex((c) => c.time === time);
-  if (idx < 0) return false;
 
-  const from = Math.max(0, idx - lookbackBars);
-  const recentTimes = new Set(
-    candles.slice(from, idx + 1).map((c) => c.time)
-  );
-
-  return outliers.some((p) => recentTimes.has(p.time));
-}
 
 function projectMarkerPointsToCandles(
   points: MarkerPoint[],
