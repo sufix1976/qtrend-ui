@@ -1221,8 +1221,17 @@ const smaTurnMarkers = [
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
-        const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
-        const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
+        const candidateLongProjected = projectMarkerPointsToCandles(
+  validLongCandidates,
+  candles,
+  "below-far"
+);
+
+const candidateShortProjected = projectMarkerPointsToCandles(
+  validShortCandidates,
+  candles,
+  "above-far"
+);
         const outlierLongProjected = projectMarkerPointsToCandles(
   outlierLongPoints,
   candles,
