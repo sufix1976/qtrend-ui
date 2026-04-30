@@ -1251,9 +1251,8 @@ const confirmedShortKinks =
     kinkConfirmBarsUI
   );
         
-        const validLongCandidates = confirmedLongKinks;
-
-        const validShortCandidates = confirmedShortKinks;
+        const validLongCandidates = longData.candidates;
+        const validShortCandidates = shortData.candidates;
         
         const candidateLongProjected = projectMarkerPointsToCandles(
   validLongCandidates,
