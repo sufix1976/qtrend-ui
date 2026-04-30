@@ -932,25 +932,7 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
     
-    const smaTurnUpSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#00ff88",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const smaTurnDownSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff4d6d",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 6,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+   
 
     const distMiddleSeries = distChart.addSeries(LineSeries, {
       color: "rgba(180,180,180,0.75)",
@@ -1135,8 +1117,7 @@ const smaTurnDownProjected = projectMarkerPointsToCandles(
   "above-mid"
 );
 
-smaTurnUpSeries.setData(smaTurnUpProjected as any);
-smaTurnDownSeries.setData(smaTurnDownProjected as any);
+
 
 
         blockedLongSeries.setData(blockedLongProjected as any);
@@ -1158,7 +1139,7 @@ smaTurnDownSeries.setData(smaTurnDownProjected as any);
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-      createSeriesMarkers(
+        createSeriesMarkers(
   smaSlowSeries,
   [
     ...smaTurns.up.map((p) => ({
@@ -1175,7 +1156,7 @@ smaTurnDownSeries.setData(smaTurnDownProjected as any);
       shape: "arrowDown" as const,
       text: "DT",
     })),
-  ] as any
+  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
 );
 
         distSeries.setData(alignedDist as any);
