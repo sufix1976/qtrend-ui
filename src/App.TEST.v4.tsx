@@ -1182,8 +1182,8 @@ if (!distMiddle.length) {
   smaFast
 );
 
-        const strategyLongPoints = longData.entries;
-        const strategyShortPoints = shortData.entries;
+      const strategyLongPoints = validLongCandidates;
+      const strategyShortPoints = validShortCandidates;
 
        const sim = simulateStrategyTESTv4(
   candles,
