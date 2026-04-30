@@ -954,6 +954,24 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
   lastValueVisible: false,
 });
 
+    const recoveredLongKinkSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ffffff",
+  lineVisible: false,
+  pointMarkersVisible: false,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const recoveredShortKinkSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ffffff",
+  lineVisible: false,
+  pointMarkersVisible: false,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const realBuySeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#00ff88",
@@ -1091,6 +1109,19 @@ for (let i = 1; i < candles.length; i++) {
     });
   }
 }
+        const recoveredLongKinks = buildRecoveredKinksFromOutliers(
+  outlierLongPoints,
+  smaFast,
+  "long",
+  kinkConfirmBarsUI
+);
+
+const recoveredShortKinks = buildRecoveredKinksFromOutliers(
+  outlierShortPoints,
+  smaFast,
+  "short",
+  kinkConfirmBarsUI
+);
         
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
@@ -1235,6 +1266,18 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
+        const recoveredLongKinkProjected = projectMarkerPointsToCandles(
+  recoveredLongKinks,
+  candles,
+  "below-near"
+);
+
+const recoveredShortKinkProjected = projectMarkerPointsToCandles(
+  recoveredShortKinks,
+  candles,
+  "above-near"
+);
+
 
         
         const validLongCandidates = longData.candidates;
@@ -1277,6 +1320,8 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         strategyShortExitSeries.setData(shortExitProjected as any);
         outlierLongSeries.setData(outlierLongProjected as any);
         outlierShortSeries.setData(outlierShortProjected as any);
+        recoveredLongKinkSeries.setData(recoveredLongKinkProjected as any);
+        recoveredShortKinkSeries.setData(recoveredShortKinkProjected as any);
        
 
 
@@ -1313,6 +1358,29 @@ createSeriesMarkers(
   outlierShortSeries,
   buildTextMarkers(
     outlierShortProjected.map((p) => ({ ...p, text: "AS", color: "#ff00ff" })),
+    "aboveBar"
+  )
+);
+        createSeriesMarkers(
+  recoveredLongKinkSeries,
+  buildTextMarkers(
+    recoveredLongKinkProjected.map((p) => ({
+      ...p,
+      text: "KLL",
+      color: "#ffffff",
+    })),
+    "belowBar"
+  )
+);
+
+createSeriesMarkers(
+  recoveredShortKinkSeries,
+  buildTextMarkers(
+    recoveredShortKinkProjected.map((p) => ({
+      ...p,
+      text: "KSS",
+      color: "#ffffff",
+    })),
     "aboveBar"
   )
 );
@@ -1460,6 +1528,8 @@ return () => {
         priceChart.removeSeries(realCloseSeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
+        priceChart.removeSeries(recoveredLongKinkSeries);
+        priceChart.removeSeries(recoveredShortKinkSeries);
 
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
@@ -2987,7 +3057,56 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 }
 
 
+function buildRecoveredKinksFromOutliers(
+  outliers: MarkerPoint[],
+  smaFast: LinePoint[],
+  side: "long" | "short",
+  recoverBars: number
+): MarkerPoint[] {
+  const out: MarkerPoint[] = [];
 
+  for (const o of outliers) {
+    const startIdx = smaFast.findIndex((p) => p.time === o.time);
+    if (startIdx < recoverBars || startIdx >= smaFast.length - 2) continue;
+
+    let twitchIdx = -1;
+
+    for (let i = startIdx + 1; i < smaFast.length; i++) {
+      const prev = smaFast[i - 1].value;
+      const curr = smaFast[i].value;
+
+      if (side === "long" && curr > prev) {
+        twitchIdx = i;
+        break;
+      }
+
+      if (side === "short" && curr < prev) {
+        twitchIdx = i;
+        break;
+      }
+    }
+
+    if (twitchIdx < recoverBars) continue;
+
+    const recoverLevel = smaFast[twitchIdx - recoverBars].value;
+
+    for (let i = twitchIdx; i < smaFast.length; i++) {
+      const curr = smaFast[i].value;
+
+      if (side === "long" && curr >= recoverLevel) {
+        out.push({ time: smaFast[i].time, value: curr, text: "KLL", color: "#ffffff" });
+        break;
+      }
+
+      if (side === "short" && curr <= recoverLevel) {
+        out.push({ time: smaFast[i].time, value: curr, text: "KSS", color: "#ffffff" });
+        break;
+      }
+    }
+  }
+
+  return dedupeMarkers(out);
+}
 
 
 
