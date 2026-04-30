@@ -1105,17 +1105,7 @@ if (!distMiddle.length) {
         strategyShortSeries.setData(strategyShortProjected as any);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
-        const smaTurnUpProjected = projectMarkerPointsToCandles(
-  smaTurns.up,
-  candles,
-  "below-mid"
-);
-
-const smaTurnDownProjected = projectMarkerPointsToCandles(
-  smaTurns.down,
-  candles,
-  "above-mid"
-);
+       
 
 
 
