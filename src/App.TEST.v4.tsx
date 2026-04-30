@@ -1349,20 +1349,7 @@ createSeriesMarkers(
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-        createSeriesMarkers(
-  
-
-createSeriesMarkers(
-  strategyShortExitSeries,
-  buildTextMarkers(
-    shortExitProjected.map((p) => ({
-      ...p,
-      text: p.text ?? "EXS",
-      color: p.color ?? "#ffffff",
-    })),
-    "aboveBar"
-  )
-);
+        
 
         createSeriesMarkers(
   outlierLongSeries,
