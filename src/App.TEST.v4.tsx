@@ -1300,35 +1300,14 @@ function isConfirmedShortKink(
 
   return true;
 }
-        const validLongCandidates = longData.candidates.filter(
-  (p) =>
-    hasRecentOutlier(
-      p.time,
-      outlierLongPoints,
-      20,
-      candles
-    ) &&
-    isConfirmedLongKink(
-      p,
-      candles,
-      kinkConfirmBarsUI
-    )
-);;
-
-const validShortCandidates = shortData.candidates.filter(
-  (p) =>
-    hasRecentOutlier(
-      p.time,
-      outlierShortPoints,
-      20,
-      candles
-    ) &&
-    isConfirmedShortKink(
-      p,
-      candles,
-      kinkConfirmBarsUI
-    )
+        const validLongCandidates = longData.candidates.filter((p) =>
+  hasRecentOutlier(p.time, outlierLongPoints, 20, candles)
 );
+
+const validShortCandidates = shortData.candidates.filter((p) =>
+  hasRecentOutlier(p.time, outlierShortPoints, 20, candles)
+);
+        
         const candidateLongProjected = projectMarkerPointsToCandles(
   validLongCandidates,
   candles,
