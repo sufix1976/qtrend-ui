@@ -813,11 +813,25 @@ async function saveAllSizes() {
     });
 
     const smaSlowSeries = priceChart.addSeries(LineSeries, {
-      color: "#ffffff",
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
+  color: "#888888",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaUpSeries = priceChart.addSeries(LineSeries, {
+  color: "#00ff88",
+  lineWidth: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaDownSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff4d6d",
+  lineWidth: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1084,6 +1098,10 @@ if (!distMiddle.length) {
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
+        const smaSplit = splitSmaByTrend(smaSlow, smaTurns);
+
+smaUpSeries.setData(chartifyLinePoints(smaSplit.up) as any);
+smaDownSeries.setData(chartifyLinePoints(smaSplit.down) as any);
 
         const candleTimes = new Set(chartCandles.map((c) => c.time));
 
@@ -1106,7 +1124,7 @@ const smaTurnMarkers = [
   .filter((m) => candleTimes.has(m.time))
   .sort((a, b) => Number(a.time) - Number(b.time));
 
-createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+
 
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
@@ -1152,25 +1170,7 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-        createSeriesMarkers(
-  smaSlowSeries,
-  [
-    ...smaTurns.up.map((p) => ({
-      time: p.time as any,
-      position: "inBar" as const,
-      color: "#00ff88",
-      shape: "arrowUp" as const,
-      text: "UT",
-    })),
-    ...smaTurns.down.map((p) => ({
-      time: p.time as any,
-      position: "aboveBar" as const,
-      color: "#ff4d6d",
-      shape: "arrowDown" as const,
-      text: "DT",
-    })),
-  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
-);
+        
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -2150,6 +2150,39 @@ function buildSmaTurnMarkers(
         time: smaSlow[i].time,
         value: smaSlow[i].value,
       });
+    }
+  }
+
+  return { up, down };
+}
+
+function splitSmaByTrend(
+  sma: LinePoint[],
+  turns: { up: MarkerPoint[]; down: MarkerPoint[] }
+) {
+  const upTimes = new Set(turns.up.map((p) => p.time));
+  const downTimes = new Set(turns.down.map((p) => p.time));
+
+  let trend: "up" | "down" | null = null;
+
+  const up: LinePoint[] = [];
+  const down: LinePoint[] = [];
+
+  for (let i = 0; i < sma.length; i++) {
+    const p = sma[i];
+
+    if (upTimes.has(p.time)) trend = "up";
+    if (downTimes.has(p.time)) trend = "down";
+
+    if (trend === "up") {
+      up.push(p);
+      down.push({ time: p.time, value: undefined as any });
+    } else if (trend === "down") {
+      down.push(p);
+      up.push({ time: p.time, value: undefined as any });
+    } else {
+      up.push({ time: p.time, value: undefined as any });
+      down.push({ time: p.time, value: undefined as any });
     }
   }
 
