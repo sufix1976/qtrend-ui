@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
-  createSeriesMarkers,
+  // createSeriesMarkers,
   CandlestickSeries,
   LineSeries,
   CrosshairMode,
@@ -998,16 +998,16 @@ async function saveAllSizes() {
         smaFastSeries.setData([] as any);
         smaSlowSeries.setData([] as any);
 
-        strategyLongSeries.setData([] as any);
-        strategyShortSeries.setData([] as any);
+       // strategyLongSeries.setData([] as any);
+        // strategyShortSeries.setData([] as any);
         strategyLongExitSeries.setData([] as any);
         strategyShortExitSeries.setData([] as any);
         trendTouchSeries.setData([] as any);
 
         blockedLongSeries.setData([] as any);
         blockedShortSeries.setData([] as any);
-        realBuySeries.setData([] as any);
-        realSellSeries.setData([] as any);
+        // realBuySeries.setData([] as any);
+        // realSellSeries.setData([] as any);
         realCloseSeries.setData([] as any);
 
         distSeries.setData([] as any);
@@ -1158,15 +1158,15 @@ async function saveAllSizes() {
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
 
         strategyLongSeries.setData(strategyLongProjected as any);
-        createSeriesMarkers(
-  strategyLongSeries,
-  buildTextMarkers(strategyLongProjected, "belowBar")
-);
+        //createSeriesMarkers(
+//  strategyLongSeries,
+//  buildTextMarkers(strategyLongProjected, "belowBar")
+//);
         strategyShortSeries.setData(strategyShortProjected as any);
-        createSeriesMarkers(
-  strategyShortSeries,
-  buildTextMarkers(strategyShortProjected, "aboveBar")
-);
+       // createSeriesMarkers(
+  //strategyShortSeries,
+ // buildTextMarkers(strategyShortProjected, "aboveBar")
+// );
         trendTouchSeries.setData(trendTouchProjected as any);
         
        const extremeShortProjected = projectMarkerPointsToCandles(
@@ -1186,19 +1186,19 @@ extremeShortSeries.setData(extremeShortProjected as any);
         realSellSeries.setData([]);
         realCloseSeries.setData([]);
 
-        createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
-        createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
-        createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
+        // createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
+       // createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
+        // createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
 
-        createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-        createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
-        createSeriesMarkers(trendTouchSeries, buildTextMarkers(trendTouchProjected, "aboveBar"));
-        createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-        createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+       // createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
+       //  createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+        // createSeriesMarkers(trendTouchSeries, buildTextMarkers(trendTouchProjected, "aboveBar"));
+        // createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
+        // createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
 
-        createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
-        createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
-        createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+        // createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
+       //  createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
+        // createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
