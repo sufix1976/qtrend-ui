@@ -343,6 +343,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
+  const [kinkConfirmBarsUI, setKinkConfirmBarsUI] = useState(3);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
   const [smaFastUI, setSmaFastUI] = useState(10);
@@ -1244,13 +1245,101 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-        const validLongCandidates = longData.candidates.filter((p) =>
-  hasRecentOutlier(p.time, outlierLongPoints, 20, candles)
-);
+        function isConfirmedLongKink(
+  point: MarkerPoint,
+  candles: Candle[],
+  confirmBars: number
+): boolean {
+  const idx = candles.findIndex((c) => c.time === point.time);
 
-const validShortCandidates = shortData.candidates.filter((p) =>
-  hasRecentOutlier(p.time, outlierShortPoints, 20, candles)
+  if (idx < confirmBars || idx >= candles.length - confirmBars)
+    return false;
+
+  // Vorher fallend
+  for (let i = 0; i < confirmBars; i++) {
+    if (
+      candles[idx - i].low >
+      candles[idx - i - 1].low
+    ) {
+      return false;
+    }
+  }
+
+  // Danach steigend
+  for (let i = 0; i < confirmBars; i++) {
+    if (
+      candles[idx + i].low <
+      candles[idx + i - 1].low
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isConfirmedShortKink(
+  point: MarkerPoint,
+  candles: Candle[],
+  confirmBars: number
+): boolean {
+  const idx = candles.findIndex((c) => c.time === point.time);
+
+  if (idx < confirmBars || idx >= candles.length - confirmBars)
+    return false;
+
+  // Vorher steigend
+  for (let i = 0; i < confirmBars; i++) {
+    if (
+      candles[idx - i].high <
+      candles[idx - i - 1].high
+    ) {
+      return false;
+    }
+  }
+
+  // Danach fallend
+  for (let i = 0; i < confirmBars; i++) {
+    if (
+      candles[idx + i].high >
+      candles[idx + i - 1].high
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+        const validLongCandidates = longData.candidates.filter(
+  (p) =>
+    hasRecentOutlier(
+      p.time,
+      outlierLongPoints,
+      20,
+      candles
+    ) &&
+    isConfirmedLongKink(
+      p,
+      candles,
+      kinkConfirmBarsUI
+    )
+);;
+
+const validShortCandidates = shortData.candidates.filter(
+  (p) =>
+    hasRecentOutlier(
+      p.time,
+      outlierShortPoints,
+      20,
+      candles
+    ) &&
+    isConfirmedShortKink(
+      p,
+      candles,
+      kinkConfirmBarsUI
+    )
 );
+        
         console.log(
   "VALID OUTLIER CANDIDATES",
   validLongCandidates.length,
@@ -1839,6 +1928,21 @@ return () => {
             onChange={(e) => setMinKinkUI(Number(e.target.value))}
             style={{ width: "100%" }}
           />
+          <div style={{ marginTop: 8 }}>
+  <div style={{ color: "#ccc", fontSize: 12 }}>
+    Kink Confirm Bars: {kinkConfirmBarsUI}
+  </div>
+
+  <input
+    type="range"
+    min="1"
+    max="10"
+    step="1"
+    value={kinkConfirmBarsUI}
+    onChange={(e) => setKinkConfirmBarsUI(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
+</div>
 
           <div style={{ marginTop: 6 }}>Peak Lookback: {peakUI}</div>
           <input
