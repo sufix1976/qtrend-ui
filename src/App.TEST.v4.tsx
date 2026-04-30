@@ -3087,63 +3087,70 @@ function buildEmergencyExits(
 ): { long: MarkerPoint[]; short: MarkerPoint[] } {
   const long: MarkerPoint[] = [];
   const short: MarkerPoint[] = [];
+
+  const fastMap = new Map(smaFast.map((p) => [p.time, p.value]));
+  const slowMap = new Map(smaSlow.map((p) => [p.time, p.value]));
+  const upperMap = new Map(smaUpper.map((p) => [p.time, p.value]));
+  const lowerMap = new Map(smaLower.map((p) => [p.time, p.value]));
+
   const minExitMove = 0.15;
 
   for (let i = 1; i < candles.length; i++) {
-    const c = candles[i];
+    const prev = candles[i - 1];
+    const curr = candles[i];
 
-    const prevFast = smaFast[i - 1];
-    const currFast = smaFast[i];
+    const prevFast = fastMap.get(prev.time);
+    const currFast = fastMap.get(curr.time);
 
-    if (!prevFast || !currFast) continue;
+    if (prevFast == null || currFast == null) continue;
 
-    const linesPrev = [
-      smaUpper[i - 1],
-      smaSlow[i - 1],
-      smaLower[i - 1],
+    const prevLines = [
+      upperMap.get(prev.time),
+      slowMap.get(prev.time),
+      lowerMap.get(prev.time),
     ];
 
-    const linesCurr = [
-      smaUpper[i],
-      smaSlow[i],
-      smaLower[i],
+    const currLines = [
+      upperMap.get(curr.time),
+      slowMap.get(curr.time),
+      lowerMap.get(curr.time),
     ];
 
-    for (let j = 0; j < linesPrev.length; j++) {
-      const lp = linesPrev[j];
-      const lc = linesCurr[j];
+    for (let j = 0; j < 3; j++) {
+      const prevLine = prevLines[j];
+      const currLine = currLines[j];
 
-      if (!lp || !lc) continue;
+      if (prevLine == null || currLine == null) continue;
 
-      // LONG: SMA10 kommt von oben und bricht Linie nach unten
+      // LONG: SMA10 kommt von oben und kreuzt Linie nach unten
       if (
-  prevFast.value > lp.value &&
-  currFast.value < lc.value &&
-  (prevFast.value - currFast.value) > minExitMove
-) {
-  long.push({
-    time: c.time,
-    value: c.low,
-    text: "EXL",
-    color: "#ffffff",
-  });
-  break;
-}
+        prevFast > prevLine &&
+        currFast < currLine &&
+        Math.abs(prevFast - currFast) > minExitMove
+      ) {
+        long.push({
+          time: curr.time,
+          value: curr.low,
+          text: "EXL",
+          color: "#ffffff",
+        });
+        break;
+      }
 
-      // SHORT: SMA10 kommt von unten und bricht Linie nach oben
+      // SHORT: SMA10 kommt von unten und kreuzt Linie nach oben
       if (
-  prevFast.value < lp.value &&
-  currFast.value > lc.value &&
-  (currFast.value - prevFast.value) > minExitMove
-) {
-  short.push({
-    time: c.time,
-    value: c.high,
-    text: "EXS",
-    color: "#ffffff",
-  });
-  break;
-}
+        prevFast < prevLine &&
+        currFast > currLine &&
+        Math.abs(currFast - prevFast) > minExitMove
+      ) {
+        short.push({
+          time: curr.time,
+          value: curr.high,
+          text: "EXS",
+          color: "#ffffff",
+        });
+        break;
+      }
     }
   }
 
