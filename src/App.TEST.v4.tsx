@@ -1234,6 +1234,14 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   candles,
   "above-far"
 );
+
+        const validLongCandidates = longData.candidates.filter((p) =>
+  hasRecentOutlier(p.time, outlierLongPoints, 20, candles)
+);
+
+const validShortCandidates = shortData.candidates.filter((p) =>
+  hasRecentOutlier(p.time, outlierShortPoints, 20, candles)
+);
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
         const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
@@ -2945,6 +2953,23 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
+}
+
+function hasRecentOutlier(
+  time: number,
+  outliers: MarkerPoint[],
+  lookbackBars: number,
+  candles: Candle[]
+): boolean {
+  const idx = candles.findIndex((c) => c.time === time);
+  if (idx < 0) return false;
+
+  const from = Math.max(0, idx - lookbackBars);
+  const recentTimes = new Set(
+    candles.slice(from, idx + 1).map((c) => c.time)
+  );
+
+  return outliers.some((p) => recentTimes.has(p.time));
 }
 
 function projectMarkerPointsToCandles(
