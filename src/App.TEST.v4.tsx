@@ -813,7 +813,7 @@ async function saveAllSizes() {
     });
 
     const smaSlowSeries = priceChart.addSeries(LineSeries, {
-  color: "#888888",
+  color: "rgba(255,255,255,0)",
   lineWidth: 1,
   priceLineVisible: false,
   lastValueVisible: false,
@@ -1099,9 +1099,9 @@ if (!distMiddle.length) {
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
         const smaSplit = splitSmaByTrend(smaSlow, smaTurns);
-
-smaUpSeries.setData(chartifyLinePoints(smaSplit.up) as any);
-smaDownSeries.setData(chartifyLinePoints(smaSplit.down) as any);
+        
+        smaUpSeries.setData(smaSplit.up as any);
+        smaDownSeries.setData(smaSplit.down as any);
 
       
 
@@ -2142,30 +2142,28 @@ function buildSmaTurnMarkers(
 function splitSmaByTrend(
   sma: LinePoint[],
   turns: { up: MarkerPoint[]; down: MarkerPoint[] }
-) {
+): { up: WhitespaceLinePoint[]; down: WhitespaceLinePoint[] } {
   const upTimes = new Set(turns.up.map((p) => p.time));
   const downTimes = new Set(turns.down.map((p) => p.time));
 
   let trend: "up" | "down" | null = null;
 
-  const up: LinePoint[] = [];
-  const down: LinePoint[] = [];
+  const up: WhitespaceLinePoint[] = [];
+  const down: WhitespaceLinePoint[] = [];
 
-  for (let i = 0; i < sma.length; i++) {
-    const p = sma[i];
-
+  for (const p of sma) {
     if (upTimes.has(p.time)) trend = "up";
     if (downTimes.has(p.time)) trend = "down";
 
     if (trend === "up") {
-      up.push(p);
-      down.push({ time: p.time, value: undefined as any });
+      up.push({ time: p.time, value: p.value });
+      down.push({ time: p.time });
     } else if (trend === "down") {
-      down.push(p);
-      up.push({ time: p.time, value: undefined as any });
+      down.push({ time: p.time, value: p.value });
+      up.push({ time: p.time });
     } else {
-      up.push({ time: p.time, value: undefined as any });
-      down.push({ time: p.time, value: undefined as any });
+      up.push({ time: p.time });
+      down.push({ time: p.time });
     }
   }
 
