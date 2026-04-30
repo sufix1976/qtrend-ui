@@ -3115,7 +3115,11 @@ function buildEmergencyExits(
       if (!lp || !lc) continue;
 
       // LONG: SMA10 kommt von oben und bricht Linie nach unten
-      if (prevFast.value > lp.value && currFast.value <= lc.value) {
+      if (
+  prevFast.value > lp.value &&
+  currFast.value < lc.value &&
+  (prevFast.value - currFast.value) > minKinkUI * 0.15
+)
         long.push({
           time: c.time,
           value: c.low,
@@ -3126,7 +3130,11 @@ function buildEmergencyExits(
       }
 
       // SHORT: SMA10 kommt von unten und bricht Linie nach oben
-      if (prevFast.value < lp.value && currFast.value >= lc.value) {
+      if (
+  prevFast.value < lp.value &&
+  currFast.value > lc.value &&
+  (currFast.value - prevFast.value) > minKinkUI * 0.15
+)
         short.push({
           time: c.time,
           value: c.high,
