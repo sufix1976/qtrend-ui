@@ -329,6 +329,8 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [smaFastUI, setSmaFastUI] = useState(10);
   const [smaSlowUI, setSmaSlowUI] = useState(100);
+  const [smaOffsetUI, setSmaOffsetUI] = useState(150);
+  
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
@@ -819,6 +821,20 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const smaUpperSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff4d6d",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaLowerSeries = priceChart.addSeries(LineSeries, {
+  color: "#00ff88",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
@@ -985,6 +1001,17 @@ async function saveAllSizes() {
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+
+        const smaUpper = smaSlow.map((p) => ({
+  time: p.time,
+  value: p.value + smaOffsetUI,
+}));
+
+const smaLower = smaSlow.map((p) => ({
+  time: p.time,
+  value: p.value - smaOffsetUI,
+}));
+        
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
@@ -1015,6 +1042,10 @@ if (!distMiddle.length) {
         const chartCandles = chartifyCandles(candles);
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
+        
+        const chartSmaUpper = chartifyLinePoints(smaUpper);
+        const chartSmaLower = chartifyLinePoints(smaLower);
+        
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
 
@@ -1084,6 +1115,9 @@ if (!distMiddle.length) {
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
+        
+        smaUpperSeries.setData(chartSmaUpper as any);
+        smaLowerSeries.setData(chartSmaLower as any);
 
         const candleTimes = new Set(chartCandles.map((c) => c.time));
 
@@ -1500,6 +1534,8 @@ return () => {
     </button>
   </div>
 
+      
+
   <div style={{ marginTop: 4, fontSize: 12, color: "#93c5fd" }}>
     {maxPositionLossEur ? `Aktiv bei -${maxPositionLossEur} €` : "Deaktiviert"}
   </div>
@@ -1748,6 +1784,22 @@ return () => {
 
           <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
   Aktiv: SMA {smaFastUI} / {smaSlowUI}
+</div>
+
+          <div style={{ marginTop: 8 }}>
+  <div style={{ color: "#ccc", fontSize: 12 }}>
+    SMA Offset: {smaOffsetUI}
+  </div>
+
+  <input
+    type="range"
+    min="1"
+    max="1000"
+    step="1"
+    value={smaOffsetUI}
+    onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
 </div>
 
 <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
