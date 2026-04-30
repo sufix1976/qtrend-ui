@@ -954,23 +954,7 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
   lastValueVisible: false,
 });
 
-    const recoveredLongKinkSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ffffff",
-  lineVisible: false,
-  pointMarkersVisible: false,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const recoveredShortKinkSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ffffff",
-  lineVisible: false,
-  pointMarkersVisible: false,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+    
 
     const realBuySeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1109,19 +1093,7 @@ for (let i = 1; i < candles.length; i++) {
     });
   }
 }
-        const recoveredLongKinks = buildRecoveredKinksFromOutliers(
-  outlierLongPoints,
-  smaFast,
-  "long",
-  kinkConfirmBarsUI
-);
-
-const recoveredShortKinks = buildRecoveredKinksFromOutliers(
-  outlierShortPoints,
-  smaFast,
-  "short",
-  kinkConfirmBarsUI
-);
+       
         
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
@@ -1266,17 +1238,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-        const recoveredLongKinkProjected = projectMarkerPointsToCandles(
-  recoveredLongKinks,
-  candles,
-  "below-near"
-);
-
-const recoveredShortKinkProjected = projectMarkerPointsToCandles(
-  recoveredShortKinks,
-  candles,
-  "above-near"
-);
+        
 
 
         
@@ -1320,8 +1282,7 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         strategyShortExitSeries.setData(shortExitProjected as any);
         outlierLongSeries.setData(outlierLongProjected as any);
         outlierShortSeries.setData(outlierShortProjected as any);
-        recoveredLongKinkSeries.setData(recoveredLongKinkProjected as any);
-        recoveredShortKinkSeries.setData(recoveredShortKinkProjected as any);
+       
        
 
 
@@ -1361,29 +1322,7 @@ createSeriesMarkers(
     "aboveBar"
   )
 );
-        createSeriesMarkers(
-  recoveredLongKinkSeries,
-  buildTextMarkers(
-    recoveredLongKinkProjected.map((p) => ({
-      ...p,
-      text: "KLL",
-      color: "#ffffff",
-    })),
-    "belowBar"
-  )
-);
-
-createSeriesMarkers(
-  recoveredShortKinkSeries,
-  buildTextMarkers(
-    recoveredShortKinkProjected.map((p) => ({
-      ...p,
-      text: "KSS",
-      color: "#ffffff",
-    })),
-    "aboveBar"
-  )
-);
+       
 
         createSeriesMarkers(
   smaSlowSeries,
