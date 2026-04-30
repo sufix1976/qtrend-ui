@@ -3119,30 +3119,30 @@ function buildEmergencyExits(
   prevFast.value > lp.value &&
   currFast.value < lc.value &&
   (prevFast.value - currFast.value) > minKinkUI * 0.15
-)
-        long.push({
-          time: c.time,
-          value: c.low,
-          text: "EXL",
-          color: "#ffffff",
-        });
-        break;
-      }
+) {
+  long.push({
+    time: c.time,
+    value: c.low,
+    text: "EXL",
+    color: "#ffffff",
+  });
+  break;
+}
 
       // SHORT: SMA10 kommt von unten und bricht Linie nach oben
       if (
   prevFast.value < lp.value &&
   currFast.value > lc.value &&
   (currFast.value - prevFast.value) > minKinkUI * 0.15
-)
-        short.push({
-          time: c.time,
-          value: c.high,
-          text: "EXS",
-          color: "#ffffff",
-        });
-        break;
-      }
+) {
+  short.push({
+    time: c.time,
+    value: c.high,
+    text: "EXS",
+    color: "#ffffff",
+  });
+  break;
+}
     }
   }
 
