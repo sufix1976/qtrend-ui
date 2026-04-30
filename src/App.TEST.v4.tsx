@@ -1235,71 +1235,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-        function isConfirmedLongKink(
-  point: MarkerPoint,
-  candles: Candle[],
-  confirmBars: number
-): boolean {
-  const idx = candles.findIndex((c) => c.time === point.time);
-
-  if (idx < confirmBars || idx >= candles.length - confirmBars)
-    return false;
-
-  // Vorher fallend
-  for (let i = 0; i < confirmBars; i++) {
-    if (
-      candles[idx - i].low >
-      candles[idx - i - 1].low
-    ) {
-      return false;
-    }
-  }
-
-  // Danach steigend
-  for (let i = 0; i < confirmBars; i++) {
-    if (
-      candles[idx + i].low <
-      candles[idx + i - 1].low
-    ) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function isConfirmedShortKink(
-  point: MarkerPoint,
-  candles: Candle[],
-  confirmBars: number
-): boolean {
-  const idx = candles.findIndex((c) => c.time === point.time);
-
-  if (idx < confirmBars || idx >= candles.length - confirmBars)
-    return false;
-
-  // Vorher steigend
-  for (let i = 0; i < confirmBars; i++) {
-    if (
-      candles[idx - i].high <
-      candles[idx - i - 1].high
-    ) {
-      return false;
-    }
-  }
-
-  // Danach fallend
-  for (let i = 0; i < confirmBars; i++) {
-    if (
-      candles[idx + i].high >
-      candles[idx + i - 1].high
-    ) {
-      return false;
-    }
-  }
-
-  return true;
-}
+       
         const validLongCandidates = longData.candidates.filter((p) =>
   hasRecentOutlier(p.time, outlierLongPoints, 20, candles)
 );
