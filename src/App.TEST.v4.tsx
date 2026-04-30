@@ -1103,7 +1103,7 @@ if (!distMiddle.length) {
 smaUpSeries.setData(chartifyLinePoints(smaSplit.up) as any);
 smaDownSeries.setData(chartifyLinePoints(smaSplit.down) as any);
 
-        const candleTimes = new Set(chartCandles.map((c) => c.time));
+      
 
 
 
