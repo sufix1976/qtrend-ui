@@ -1322,22 +1322,22 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         createSeriesMarkers(
   strategyLongExitSeries,
   longExitProjected.map((p) => ({
-    time: p.time as any,
-    position: "aboveBar" as const,
+    time: p.time,
+    position: "belowBar",
     color: "#ffffff",
-    shape: "arrowDown" as const,
-    text: p.text ?? "EXL",
+    shape: "arrowDown",
+    text: "EXL",
   })) as any
 );
 
 createSeriesMarkers(
   strategyShortExitSeries,
   shortExitProjected.map((p) => ({
-    time: p.time as any,
-    position: "belowBar" as const,
+    time: p.time,
+    position: "aboveBar",
     color: "#ffffff",
-    shape: "arrowUp" as const,
-    text: p.text ?? "EXS",
+    shape: "arrowUp",
+    text: "EXS",
   })) as any
 );
 
