@@ -1264,8 +1264,13 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
 
         
-        const validLongCandidates = realLongKinks;
-        const validShortCandidates = realShortKinks;
+        const validLongCandidates = realLongKinks.filter(
+  (p) => getTrendAtTime(p.time, smaTurns) === "up"
+);
+
+const validShortCandidates = realShortKinks.filter(
+  (p) => getTrendAtTime(p.time, smaTurns) === "down"
+);
         
         const candidateLongProjected = projectMarkerPointsToCandles(
   validLongCandidates,
@@ -3077,7 +3082,24 @@ for (let i = startIdx + 1; i < Math.min(smaFast.length, startIdx + maxSearchBars
   return dedupeMarkers(out);
 }
 
+function getTrendAtTime(
+  time: number,
+  turns: { up: MarkerPoint[]; down: MarkerPoint[] }
+): "up" | "down" | null {
+  const events = [
+    ...turns.up.map((p) => ({ time: p.time, trend: "up" as const })),
+    ...turns.down.map((p) => ({ time: p.time, trend: "down" as const })),
+  ].sort((a, b) => a.time - b.time);
 
+  let trend: "up" | "down" | null = null;
+
+  for (const e of events) {
+    if (e.time > time) break;
+    trend = e.trend;
+  }
+
+  return trend;
+}
 
 function projectMarkerPointsToCandles(
   points: MarkerPoint[],
