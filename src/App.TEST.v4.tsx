@@ -1350,16 +1350,7 @@ createSeriesMarkers(
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
         createSeriesMarkers(
-  strategyLongExitSeries,
-  buildTextMarkers(
-    longExitProjected.map((p) => ({
-      ...p,
-      text: p.text ?? "EXL",
-      color: p.color ?? "#ffffff",
-    })),
-    "belowBar"
-  )
-);
+  
 
 createSeriesMarkers(
   strategyShortExitSeries,
