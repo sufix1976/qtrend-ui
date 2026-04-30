@@ -1057,6 +1057,14 @@ const smaLower = smaSlow.map((p) => ({
   value: p.value - smaOffsetUI,
 }));
 
+        const emergencyExits = buildEmergencyExits(
+  candles,
+  smaFast,
+  smaSlow,
+  smaUpper,
+  smaLower
+);
+
         const outlierLongPoints: MarkerPoint[] = [];
 const outlierShortPoints: MarkerPoint[] = [];
 
@@ -1177,7 +1185,7 @@ if (!distMiddle.length) {
         const strategyLongPoints = longData.entries;
         const strategyShortPoints = shortData.entries;
 
-        const sim = simulateStrategyTESTv4(
+       const sim = simulateStrategyTESTv4(
   candles,
   dist,
   distMiddle,
@@ -1186,6 +1194,7 @@ if (!distMiddle.length) {
   dynamicBand,
   assumedSpread,
   assumedSlippage,
+  emergencyExits
 );
 
 
@@ -1333,6 +1342,30 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
+
+        createSeriesMarkers(
+  strategyLongExitSeries,
+  buildTextMarkers(
+    longExitProjected.map((p) => ({
+      ...p,
+      text: p.text ?? "EXL",
+      color: p.color ?? "#ffffff",
+    })),
+    "belowBar"
+  )
+);
+
+createSeriesMarkers(
+  strategyShortExitSeries,
+  buildTextMarkers(
+    shortExitProjected.map((p) => ({
+      ...p,
+      text: p.text ?? "EXS",
+      color: p.color ?? "#ffffff",
+    })),
+    "aboveBar"
+  )
+);
 
         createSeriesMarkers(
   outlierLongSeries,
@@ -3021,6 +3054,71 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
+function buildEmergencyExits(
+  candles: Candle[],
+  smaFast: LinePoint[],
+  smaSlow: LinePoint[],
+  smaUpper: LinePoint[],
+  smaLower: LinePoint[]
+): { long: MarkerPoint[]; short: MarkerPoint[] } {
+  const long: MarkerPoint[] = [];
+  const short: MarkerPoint[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+
+    const prevFast = smaFast[i - 1];
+    const currFast = smaFast[i];
+
+    if (!prevFast || !currFast) continue;
+
+    const linesPrev = [
+      smaUpper[i - 1],
+      smaSlow[i - 1],
+      smaLower[i - 1],
+    ];
+
+    const linesCurr = [
+      smaUpper[i],
+      smaSlow[i],
+      smaLower[i],
+    ];
+
+    for (let j = 0; j < linesPrev.length; j++) {
+      const lp = linesPrev[j];
+      const lc = linesCurr[j];
+
+      if (!lp || !lc) continue;
+
+      // LONG: SMA10 kommt von oben und bricht Linie nach unten
+      if (prevFast.value > lp.value && currFast.value <= lc.value) {
+        long.push({
+          time: c.time,
+          value: c.low,
+          text: "EXL",
+          color: "#ffffff",
+        });
+        break;
+      }
+
+      // SHORT: SMA10 kommt von unten und bricht Linie nach oben
+      if (prevFast.value < lp.value && currFast.value >= lc.value) {
+        short.push({
+          time: c.time,
+          value: c.high,
+          text: "EXS",
+          color: "#ffffff",
+        });
+        break;
+      }
+    }
+  }
+
+  return {
+    long: dedupeMarkers(long),
+    short: dedupeMarkers(short),
+  };
+}
 
 
 function buildRecoveredKinksFromOutliers(
@@ -3178,8 +3276,10 @@ function simulateStrategyTESTv4(
   shortEntries: MarkerPoint[],
   bandLine: LinePoint[],
   assumedSpread: number,
-  assumedSlippage: number
+  assumedSlippage: number,
+  emergencyExits?: { long: MarkerPoint[]; short: MarkerPoint[] }
 ) {
+  
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
@@ -3194,6 +3294,14 @@ function simulateStrategyTESTv4(
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
+
+  const emergencyLongTimes = new Set(
+  (emergencyExits?.long ?? []).map((p) => p.time)
+);
+
+const emergencyShortTimes = new Set(
+  (emergencyExits?.short ?? []).map((p) => p.time)
+);
 
   const entryEvents = [
     ...longEntries.map((p) => ({
@@ -3278,6 +3386,32 @@ function simulateStrategyTESTv4(
 
     const upperBand = middle + band;
     const lowerBand = middle - band;
+
+    if (position === "long" && openTrade && emergencyLongTimes.has(candle.time)) {
+  longExitPoints.push({
+    time: candle.time,
+    value: candle.low,
+    text: "EXL",
+    color: "#ffffff",
+  });
+
+  closeTrade(candle, "long");
+  prevDistValue = p.value;
+  continue;
+}
+
+if (position === "short" && openTrade && emergencyShortTimes.has(candle.time)) {
+  shortExitPoints.push({
+    time: candle.time,
+    value: candle.high,
+    text: "EXS",
+    color: "#ffffff",
+  });
+
+  closeTrade(candle, "short");
+  prevDistValue = p.value;
+  continue;
+}
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
