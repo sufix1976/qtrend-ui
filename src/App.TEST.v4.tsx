@@ -1311,6 +1311,8 @@ return () => {
   window.clearInterval(poll);
   try {
 
+        priceChart.removeSeries(smaUpperSeries);
+        priceChart.removeSeries(smaLowerSeries);
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
