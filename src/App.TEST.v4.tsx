@@ -1157,24 +1157,26 @@ smaTurnDownSeries.setData(smaTurnDownProjected as any);
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-        createSeriesMarkers(smaTurnUpSeries, 
-  smaTurnUpProjected.map(p => ({
-    time: p.time,
-    position: "belowBar",
+       createSeriesMarkers(
+  smaTurnUpSeries,
+  smaTurnUpProjected.map((p) => ({
+    time: p.time as any,
+    position: "belowBar" as const,
     color: "#00ff88",
-    shape: "arrowUp",
+    shape: "arrowUp" as const,
     text: "UT",
-  }))
+  })) as any
 );
 
-createSeriesMarkers(smaTurnDownSeries, 
-  smaTurnDownProjected.map(p => ({
-    time: p.time,
-    position: "aboveBar",
+createSeriesMarkers(
+  smaTurnDownSeries,
+  smaTurnDownProjected.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
     color: "#ff4d6d",
-    shape: "arrowDown",
+    shape: "arrowDown" as const,
     text: "DT",
-  }))
+  })) as any
 );
 
         distSeries.setData(alignedDist as any);
