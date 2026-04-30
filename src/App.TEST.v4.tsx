@@ -3022,7 +3022,9 @@ function buildRecoveredKinksFromOutliers(
 
     let twitchIdx = -1;
 
-    for (let i = startIdx + 1; i < smaFast.length; i++) {
+    const maxSearchBars = 30;
+
+for (let i = startIdx + 1; i < Math.min(smaFast.length, startIdx + maxSearchBars); i++) {
       const prev = smaFast[i - 1].value;
       const curr = smaFast[i].value;
 
@@ -3041,7 +3043,7 @@ function buildRecoveredKinksFromOutliers(
 
     const recoverLevel = smaFast[twitchIdx - recoverBars].value;
 
-    for (let i = twitchIdx; i < smaFast.length; i++) {
+    for (let i = twitchIdx; i < Math.min(smaFast.length, twitchIdx + maxSearchBars); i++) {
       const curr = smaFast[i].value;
 
       if (side === "long" && curr >= recoverLevel) {
