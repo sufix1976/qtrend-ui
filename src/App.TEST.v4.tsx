@@ -1085,6 +1085,29 @@ if (!distMiddle.length) {
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
 
+        const candleTimes = new Set(chartCandles.map((c) => c.time));
+
+const smaTurnMarkers = [
+  ...smaTurns.up.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
+    color: "#00ff88",
+    shape: "arrowUp" as const,
+    text: "UT",
+  })),
+  ...smaTurns.down.map((p) => ({
+    time: p.time as any,
+    position: "aboveBar" as const,
+    color: "#ff4d6d",
+    shape: "arrowDown" as const,
+    text: "DT",
+  })),
+]
+  .filter((m) => candleTimes.has(m.time))
+  .sort((a, b) => Number(a.time) - Number(b.time));
+
+createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+
         const candidateLongProjected = projectMarkerPointsToCandles(longData.candidates, candles, "below-far");
         const candidateShortProjected = projectMarkerPointsToCandles(shortData.candidates, candles, "above-far");
         const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
