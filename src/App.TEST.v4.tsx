@@ -1236,12 +1236,16 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 );
 
        
-        const validLongCandidates = longData.candidates.filter((p) =>
-  hasRecentOutlier(p.time, outlierLongPoints, 20, candles)
+        const validLongCandidates = longData.candidates.filter(
+  (p) =>
+    hasRecentOutlier(p.time, outlierLongPoints, 20, candles) &&
+    isRecoveredSmaKink(p, smaSlow, kinkConfirmBarsUI, "long")
 );
 
-const validShortCandidates = shortData.candidates.filter((p) =>
-  hasRecentOutlier(p.time, outlierShortPoints, 20, candles)
+const validShortCandidates = shortData.candidates.filter(
+  (p) =>
+    hasRecentOutlier(p.time, outlierShortPoints, 20, candles) &&
+    isRecoveredSmaKink(p, smaSlow, kinkConfirmBarsUI, "short")
 );
         
         const candidateLongProjected = projectMarkerPointsToCandles(
@@ -1479,6 +1483,7 @@ return () => {
   entryBandUI,
   peakUI,
   minKinkUI,
+  kinkConfirmBarsUI,  
   smaFastUI,
   smaSlowUI,
   smaMiddleUI,
@@ -2987,6 +2992,27 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   }
 
   return out;
+}
+
+function isRecoveredSmaKink(
+  point: MarkerPoint,
+  smaSlow: LinePoint[],
+  recoverBars: number,
+  side: "long" | "short"
+): boolean {
+  const idx = smaSlow.findIndex((p) => p.time === point.time);
+
+  if (idx < recoverBars || idx < 1) return false;
+
+  const curr = smaSlow[idx].value;
+  const prev = smaSlow[idx - 1].value;
+  const ref = smaSlow[idx - recoverBars].value;
+
+  if (side === "long") {
+    return curr > prev && curr >= ref;
+  }
+
+  return curr < prev && curr <= ref;
 }
 
 function hasRecentOutlier(
