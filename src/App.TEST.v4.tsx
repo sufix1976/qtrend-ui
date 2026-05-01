@@ -3125,11 +3125,11 @@ function simulateStrategyTESTv4(
       continue;
     }
 
-    const prevUpper = smaUpperMap.get(prevTime) ?? null;
+    
     const currUpper = smaUpperMap.get(p.time) ?? null;
-    const prevSlow = smaSlowMap.get(prevTime) ?? null;
+    
     const currSlow = smaSlowMap.get(p.time) ?? null;
-    const prevLower = smaLowerMap.get(prevTime) ?? null;
+    
     const currLower = smaLowerMap.get(p.time) ?? null;
 
    const fastTurningDown = currFast < prevFast;
