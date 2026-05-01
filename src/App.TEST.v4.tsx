@@ -3132,32 +3132,31 @@ function simulateStrategyTESTv4(
     const prevLower = smaLowerMap.get(prevTime) ?? null;
     const currLower = smaLowerMap.get(p.time) ?? null;
 
-    const fastTurningDown = currFast < prevFast;
+   const fastTurningDown = currFast < prevFast;
 const fastTurningUp = currFast > prevFast;
 
-const longTouchedZone =
-  prevFast >= (prevUpper ?? Number.POSITIVE_INFINITY) ||
-  prevFast >= (prevSlow ?? Number.POSITIVE_INFINITY) ||
-  prevFast >= (prevLower ?? Number.POSITIVE_INFINITY) ||
-  currFast >= (currUpper ?? Number.POSITIVE_INFINITY) ||
-  currFast >= (currSlow ?? Number.POSITIVE_INFINITY) ||
-  currFast >= (currLower ?? Number.POSITIVE_INFINITY);
+const lineValues = [
+  currUpper,
+  currSlow,
+  currLower,
+].filter((v): v is number => v !== null && Number.isFinite(v));
 
-const shortTouchedZone =
-  prevFast <= (prevUpper ?? Number.NEGATIVE_INFINITY) ||
-  prevFast <= (prevSlow ?? Number.NEGATIVE_INFINITY) ||
-  prevFast <= (prevLower ?? Number.NEGATIVE_INFINITY) ||
-  currFast <= (currUpper ?? Number.NEGATIVE_INFINITY) ||
-  currFast <= (currSlow ?? Number.NEGATIVE_INFINITY) ||
-  currFast <= (currLower ?? Number.NEGATIVE_INFINITY);
+const touchTolerance = Math.max(
+  Math.abs(currFast) * 0.00003,
+  (assumedSpread + assumedSlippage) * 0.15
+);
 
-if (position === "long" && longTouchedZone && fastTurningDown) {
+const smaTouchesAnyLine = lineValues.some(
+  (line) => Math.abs(currFast - line) <= touchTolerance
+);
+
+if (position === "long" && smaTouchesAnyLine && fastTurningDown) {
   longExitPoints.push({ time: candle.time, value: candle.low });
   closeTrade(candle, "long");
   continue;
 }
 
-if (position === "short" && shortTouchedZone && fastTurningUp) {
+if (position === "short" && smaTouchesAnyLine && fastTurningUp) {
   shortExitPoints.push({ time: candle.time, value: candle.high });
   closeTrade(candle, "short");
   continue;
