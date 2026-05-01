@@ -3073,31 +3073,7 @@ function simulateStrategyTESTv4(
     position = "flat";
   };
 
-  const touchedFromAbove = (
-    prevFast: number,
-    currFast: number,
-    prevLine: number | null,
-    currLine: number | null
-  ) =>
-    prevLine !== null &&
-    currLine !== null &&
-    Number.isFinite(prevLine) &&
-    Number.isFinite(currLine) &&
-    prevFast > prevLine &&
-    currFast <= currLine;
-
-  const touchedFromBelow = (
-    prevFast: number,
-    currFast: number,
-    prevLine: number | null,
-    currLine: number | null
-  ) =>
-    prevLine !== null &&
-    currLine !== null &&
-    Number.isFinite(prevLine) &&
-    Number.isFinite(currLine) &&
-    prevFast < prevLine &&
-    currFast >= currLine;
+  
 
   for (let i = 0; i < dist.length; i++) {
     const p = dist[i];
