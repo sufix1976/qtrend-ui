@@ -1253,7 +1253,11 @@ const strategyShortPoints = validShortCandidates;
   strategyShortPoints,
   dynamicBand,
   assumedSpread,
-  assumedSlippage
+  assumedSlippage,
+  smaFast,
+  smaUpper,
+  smaSlow,
+  smaLower
 );
         
         const candidateLongProjected = projectMarkerPointsToCandles(
@@ -2985,26 +2989,32 @@ function simulateStrategyTESTv4(
   shortEntries: MarkerPoint[],
   bandLine: LinePoint[],
   assumedSpread: number,
-  assumedSlippage: number
+  assumedSlippage: number,
+  smaFast: LinePoint[],
+  smaUpper: LinePoint[],
+  smaSlow: LinePoint[],
+  smaLower: LinePoint[]
 ) {
-  
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
   const distMapIndex = new Map<number, number>();
   dist.forEach((p, i) => distMapIndex.set(p.time, i));
 
-  const middleMap = new Map<number, number>();
-  for (const p of distMiddle) middleMap.set(p.time, p.value);
+  const smaFastMap = new Map<number, number>();
+  for (const p of smaFast) smaFastMap.set(p.time, p.value);
 
-  const bandMap = new Map<number, number>();
-  for (const p of bandLine) bandMap.set(p.time, p.value);
+  const smaUpperMap = new Map<number, number>();
+  for (const p of smaUpper) smaUpperMap.set(p.time, p.value);
+
+  const smaSlowMap = new Map<number, number>();
+  for (const p of smaSlow) smaSlowMap.set(p.time, p.value);
+
+  const smaLowerMap = new Map<number, number>();
+  for (const p of smaLower) smaLowerMap.set(p.time, p.value);
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
-
-
-  
 
   const entryEvents = [
     ...longEntries.map((p) => ({
@@ -3022,7 +3032,7 @@ function simulateStrategyTESTv4(
     .sort((a, b) => a.index - b.index);
 
   let position: PositionSide = "flat";
-  let openTrade: { side: "long" | "short"; entryPrice: number } | null = null;
+  let openTrade: { side: "long" | "short"; entryPrice: number; entryIndex: number } | null = null;
 
   let tradeCount = 0;
   let winCount = 0;
@@ -3031,11 +3041,6 @@ function simulateStrategyTESTv4(
   let grossLoss = 0;
 
   let currentEntryPtr = 0;
-  let prevDistValue: number | null = null;
-
-  let longRetestLevel: number | null = null;
-  let shortRetestLevel: number | null = null;
-
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -3066,31 +3071,38 @@ function simulateStrategyTESTv4(
 
     openTrade = null;
     position = "flat";
-    longRetestLevel = null;
-    shortRetestLevel = null;
   };
+
+  const touchedFromAbove = (
+    prevFast: number,
+    currFast: number,
+    prevLine: number | null,
+    currLine: number | null
+  ) =>
+    prevLine !== null &&
+    currLine !== null &&
+    Number.isFinite(prevLine) &&
+    Number.isFinite(currLine) &&
+    prevFast > prevLine &&
+    currFast <= currLine;
+
+  const touchedFromBelow = (
+    prevFast: number,
+    currFast: number,
+    prevLine: number | null,
+    currLine: number | null
+  ) =>
+    prevLine !== null &&
+    currLine !== null &&
+    Number.isFinite(prevLine) &&
+    Number.isFinite(currLine) &&
+    prevFast < prevLine &&
+    currFast >= currLine;
 
   for (let i = 0; i < dist.length; i++) {
     const p = dist[i];
     const candle = candleMap.get(p.time);
     if (!candle) continue;
-
-    const middle = middleMap.get(p.time) ?? null;
-    if (middle === null) {
-      prevDistValue = p.value;
-      continue;
-    }
-
-    const band = bandMap.get(p.time) ?? null;
-    if (band === null) {
-      prevDistValue = p.value;
-      continue;
-    }
-
-    const upperBand = middle + band;
-    const lowerBand = middle - band;
-
-
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
@@ -3105,11 +3117,10 @@ function simulateStrategyTESTv4(
           openTrade = {
             side: "long",
             entryPrice: realisticEntryPrice("long", candle),
+            entryIndex: i,
           };
           position = "long";
-          longRetestLevel = null;
-          shortRetestLevel = null;
-                }
+        }
       } else {
         if (position === "long" && openTrade) {
           longExitPoints.push({ time: candle.time, value: candle.low });
@@ -3120,59 +3131,60 @@ function simulateStrategyTESTv4(
           openTrade = {
             side: "short",
             entryPrice: realisticEntryPrice("short", candle),
+            entryIndex: i,
           };
           position = "short";
-          shortRetestLevel = null;
-          longRetestLevel = null;
-                }
+        }
       }
 
       currentEntryPtr += 1;
     }
 
-    if (position === "long" && openTrade && prevDistValue !== null) {
-      if (p.value > lowerBand && longRetestLevel === null) {
-        longRetestLevel = lowerBand;
-      }
+    if (!openTrade || i <= openTrade.entryIndex || i <= 0) continue;
 
-      if (p.value > middle) {
-        longRetestLevel = middle;
-      }
+    const prevTime = dist[i - 1]?.time;
+    if (!prevTime) continue;
 
-      if (
-        longRetestLevel !== null &&
-        prevDistValue > longRetestLevel &&
-        p.value <= longRetestLevel
-      ) {
-        longExitPoints.push({ time: candle.time, value: candle.low });
-        closeTrade(candle, "long");
-        prevDistValue = p.value;
-          continue;
-      }
+    const prevFast = smaFastMap.get(prevTime) ?? null;
+    const currFast = smaFastMap.get(p.time) ?? null;
+
+    if (
+      prevFast === null ||
+      currFast === null ||
+      !Number.isFinite(prevFast) ||
+      !Number.isFinite(currFast)
+    ) {
+      continue;
     }
 
-    if (position === "short" && openTrade && prevDistValue !== null) {
-      if (p.value < upperBand && shortRetestLevel === null) {
-        shortRetestLevel = upperBand;
-      }
+    const prevUpper = smaUpperMap.get(prevTime) ?? null;
+    const currUpper = smaUpperMap.get(p.time) ?? null;
+    const prevSlow = smaSlowMap.get(prevTime) ?? null;
+    const currSlow = smaSlowMap.get(p.time) ?? null;
+    const prevLower = smaLowerMap.get(prevTime) ?? null;
+    const currLower = smaLowerMap.get(p.time) ?? null;
 
-      if (p.value < middle) {
-        shortRetestLevel = middle;
-      }
+    const longExitBySmaTouch =
+      touchedFromAbove(prevFast, currFast, prevUpper, currUpper) ||
+      touchedFromAbove(prevFast, currFast, prevSlow, currSlow) ||
+      touchedFromAbove(prevFast, currFast, prevLower, currLower);
 
-      if (
-        shortRetestLevel !== null &&
-        prevDistValue < shortRetestLevel &&
-        p.value >= shortRetestLevel
-      ) {
-        shortExitPoints.push({ time: candle.time, value: candle.high });
-        closeTrade(candle, "short");
-        prevDistValue = p.value;
-          continue;
-      }
+    const shortExitBySmaTouch =
+      touchedFromBelow(prevFast, currFast, prevUpper, currUpper) ||
+      touchedFromBelow(prevFast, currFast, prevSlow, currSlow) ||
+      touchedFromBelow(prevFast, currFast, prevLower, currLower);
+
+    if (position === "long" && longExitBySmaTouch) {
+      longExitPoints.push({ time: candle.time, value: candle.low });
+      closeTrade(candle, "long");
+      continue;
     }
 
-    prevDistValue = p.value;
+    if (position === "short" && shortExitBySmaTouch) {
+      shortExitPoints.push({ time: candle.time, value: candle.high });
+      closeTrade(candle, "short");
+      continue;
+    }
   }
 
   const netPnL = grossProfit - grossLoss;
