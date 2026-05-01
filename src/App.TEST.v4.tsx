@@ -3132,31 +3132,29 @@ function simulateStrategyTESTv4(
     
     const currLower = smaLowerMap.get(p.time) ?? null;
 
-   const fastTurningDown = currFast < prevFast;
-const fastTurningUp = currFast > prevFast;
+   const longExitBySmaBreak =
+  (prevFast > (currUpper ?? Number.POSITIVE_INFINITY) &&
+    currFast <= (currUpper ?? Number.POSITIVE_INFINITY)) ||
+  (prevFast > (currSlow ?? Number.POSITIVE_INFINITY) &&
+    currFast <= (currSlow ?? Number.POSITIVE_INFINITY)) ||
+  (prevFast > (currLower ?? Number.POSITIVE_INFINITY) &&
+    currFast <= (currLower ?? Number.POSITIVE_INFINITY));
 
-const lineValues = [
-  currUpper,
-  currSlow,
-  currLower,
-].filter((v): v is number => v !== null && Number.isFinite(v));
+const shortExitBySmaBreak =
+  (prevFast < (currUpper ?? Number.NEGATIVE_INFINITY) &&
+    currFast >= (currUpper ?? Number.NEGATIVE_INFINITY)) ||
+  (prevFast < (currSlow ?? Number.NEGATIVE_INFINITY) &&
+    currFast >= (currSlow ?? Number.NEGATIVE_INFINITY)) ||
+  (prevFast < (currLower ?? Number.NEGATIVE_INFINITY) &&
+    currFast >= (currLower ?? Number.NEGATIVE_INFINITY));
 
-const touchTolerance = Math.max(
-  Math.abs(currFast) * 0.00003,
-  (assumedSpread + assumedSlippage) * 0.15
-);
-
-const smaTouchesAnyLine = lineValues.some(
-  (line) => Math.abs(currFast - line) <= touchTolerance
-);
-
-if (position === "long" && smaTouchesAnyLine && fastTurningDown) {
+if (position === "long" && longExitBySmaBreak) {
   longExitPoints.push({ time: candle.time, value: candle.low });
   closeTrade(candle, "long");
   continue;
 }
 
-if (position === "short" && smaTouchesAnyLine && fastTurningUp) {
+if (position === "short" && shortExitBySmaBreak) {
   shortExitPoints.push({ time: candle.time, value: candle.high });
   closeTrade(candle, "short");
   continue;
