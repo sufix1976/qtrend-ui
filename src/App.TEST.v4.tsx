@@ -1054,13 +1054,7 @@ const smaLower = smaSlow.map((p) => ({
   value: p.value - smaOffsetUI,
 }));
 
-        const emergencyExits = buildEmergencyExits(
-  candles,
-  smaFast,
-  smaSlow,
-  smaUpper,
-  smaLower
-);
+        
 
         const outlierLongPoints: MarkerPoint[] = [];
 const outlierShortPoints: MarkerPoint[] = [];
@@ -1251,16 +1245,16 @@ const validShortCandidates = realShortKinks.filter(
         const strategyLongPoints = validLongCandidates;
 const strategyShortPoints = validShortCandidates;
 
-        const sim = simulateStrategyTESTv4(
+       const sim = simulateStrategyTESTv4(
   candles,
-  dist,
-  distMiddle,
+  smaFast,
+  smaUpper,
+  smaSlow,
+  smaLower,
   strategyLongPoints,
   strategyShortPoints,
-  dynamicBand,
   assumedSpread,
-  assumedSlippage,
-  emergencyExits
+  assumedSlippage
 );
         
         const candidateLongProjected = projectMarkerPointsToCandles(
@@ -3066,15 +3060,16 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
 
 function simulateStrategyTESTv4(
   candles: Candle[],
-  dist: LinePoint[],
-  distMiddle: LinePoint[],
+  smaFast: LinePoint[],
+  smaUpper: LinePoint[],
+  smaSlow: LinePoint[],
+  smaLower: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
-  bandLine: LinePoint[],
   assumedSpread: number,
-  assumedSlippage: number,
-  emergencyExits?: { long: MarkerPoint[]; short: MarkerPoint[] }
-) {
+  assumedSlippage: number
+)
+{
   
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
