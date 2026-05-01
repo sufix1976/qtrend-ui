@@ -1247,12 +1247,11 @@ const strategyShortPoints = validShortCandidates;
 
        const sim = simulateStrategyTESTv4(
   candles,
-  smaFast,
-  smaUpper,
-  smaSlow,
-  smaLower,
+  dist,
+  distMiddle,
   strategyLongPoints,
   strategyShortPoints,
+  dynamicBand,
   assumedSpread,
   assumedSlippage
 );
@@ -3060,16 +3059,14 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
 
 function simulateStrategyTESTv4(
   candles: Candle[],
-  smaFast: LinePoint[],
-  smaUpper: LinePoint[],
-  smaSlow: LinePoint[],
-  smaLower: LinePoint[],
+  dist: LinePoint[],
+  distMiddle: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
+  bandLine: LinePoint[],
   assumedSpread: number,
   assumedSlippage: number
-)
-{
+) {
   
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
@@ -3087,12 +3084,7 @@ function simulateStrategyTESTv4(
   const shortExitPoints: MarkerPoint[] = [];
 
   const emergencyLongTimes = new Set(
-  (emergencyExits?.long ?? []).map((p) => p.time)
-);
-
-const emergencyShortTimes = new Set(
-  (emergencyExits?.short ?? []).map((p) => p.time)
-);
+  
 
   const entryEvents = [
     ...longEntries.map((p) => ({
