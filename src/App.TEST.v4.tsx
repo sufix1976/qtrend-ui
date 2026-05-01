@@ -3083,7 +3083,7 @@ function simulateStrategyTESTv4(
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
 
-  const emergencyLongTimes = new Set(
+
   
 
   const entryEvents = [
