@@ -3107,27 +3107,19 @@ function simulateStrategyTESTv4(
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
 
-      if (evt.side === "long") {
-        if (position === "short" && openTrade) {
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
-        }
-
-        if (position === "flat") {
+      // WICHTIG:
+      // Eine bestehende Position wird NICHT mehr durch ein Gegensignal geschlossen.
+      // EXL/EXS dürfen nur noch durch den SMA10-vs-Linien-Touch entstehen.
+      // Neue Entries werden nur angenommen, wenn die Simulation vorher sauber FLAT ist.
+      if (position === "flat") {
+        if (evt.side === "long") {
           openTrade = {
             side: "long",
             entryPrice: realisticEntryPrice("long", candle),
             entryIndex: i,
           };
           position = "long";
-        }
-      } else {
-        if (position === "long" && openTrade) {
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-        }
-
-        if (position === "flat") {
+        } else {
           openTrade = {
             side: "short",
             entryPrice: realisticEntryPrice("short", candle),
