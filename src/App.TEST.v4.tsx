@@ -2827,87 +2827,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
   return out;
 }
 
-function buildEmergencyExits(
-  candles: Candle[],
-  smaFast: LinePoint[],
-  smaSlow: LinePoint[],
-  smaUpper: LinePoint[],
-  smaLower: LinePoint[]
-): { long: MarkerPoint[]; short: MarkerPoint[] } {
-  const long: MarkerPoint[] = [];
-  const short: MarkerPoint[] = [];
 
-  const fastMap = new Map(smaFast.map((p) => [p.time, p.value]));
-  const slowMap = new Map(smaSlow.map((p) => [p.time, p.value]));
-  const upperMap = new Map(smaUpper.map((p) => [p.time, p.value]));
-  const lowerMap = new Map(smaLower.map((p) => [p.time, p.value]));
-
-  const minExitMove = 0.15;
-
-  for (let i = 1; i < candles.length; i++) {
-    const prev = candles[i - 1];
-    const curr = candles[i];
-
-    const prevFast = fastMap.get(prev.time);
-    const currFast = fastMap.get(curr.time);
-
-    if (prevFast == null || currFast == null) continue;
-
-    const prevLines = [
-      upperMap.get(prev.time),
-      slowMap.get(prev.time),
-      lowerMap.get(prev.time),
-    ];
-
-    const currLines = [
-      upperMap.get(curr.time),
-      slowMap.get(curr.time),
-      lowerMap.get(curr.time),
-    ];
-
-    for (let j = 0; j < 3; j++) {
-      const prevLine = prevLines[j];
-      const currLine = currLines[j];
-
-      if (prevLine == null || currLine == null) continue;
-
-      // LONG: SMA10 kommt von oben und kreuzt Linie nach unten
-      if (
-        prevFast > prevLine &&
-        currFast < currLine &&
-        Math.abs(prevFast - currFast) > minExitMove
-      ) {
-        long.push({
-          time: curr.time,
-          value: curr.low,
-          text: "EXL",
-          color: "#ffffff",
-        });
-        break;
-      }
-
-      // SHORT: SMA10 kommt von unten und kreuzt Linie nach oben
-      if (
-        prevFast < prevLine &&
-        currFast > currLine &&
-        Math.abs(currFast - prevFast) > minExitMove
-      ) {
-        short.push({
-          time: curr.time,
-          value: curr.high,
-          text: "EXS",
-          color: "#ffffff",
-        });
-        break;
-      }
-    }
-  }
-
-  return {
-    long: dedupeMarkers(long),
-    short: dedupeMarkers(short),
-  };
-}
 
 
 function buildRecoveredKinksFromOutliers(
@@ -3170,31 +3090,7 @@ function simulateStrategyTESTv4(
     const upperBand = middle + band;
     const lowerBand = middle - band;
 
-    if (position === "long" && openTrade && emergencyLongTimes.has(candle.time)) {
-  longExitPoints.push({
-    time: candle.time,
-    value: candle.low,
-    text: "EXL",
-    color: "#ffffff",
-  });
 
-  closeTrade(candle, "long");
-  prevDistValue = p.value;
-  continue;
-}
-
-if (position === "short" && openTrade && emergencyShortTimes.has(candle.time)) {
-  shortExitPoints.push({
-    time: candle.time,
-    value: candle.high,
-    text: "EXS",
-    color: "#ffffff",
-  });
-
-  closeTrade(candle, "short");
-  prevDistValue = p.value;
-  continue;
-}
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
       const evt = entryEvents[currentEntryPtr];
