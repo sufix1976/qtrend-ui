@@ -3156,27 +3156,36 @@ function simulateStrategyTESTv4(
     const prevLower = smaLowerMap.get(prevTime) ?? null;
     const currLower = smaLowerMap.get(p.time) ?? null;
 
-    const longExitBySmaTouch =
-      touchedFromAbove(prevFast, currFast, prevUpper, currUpper) ||
-      touchedFromAbove(prevFast, currFast, prevSlow, currSlow) ||
-      touchedFromAbove(prevFast, currFast, prevLower, currLower);
+    const fastTurningDown = currFast < prevFast;
+const fastTurningUp = currFast > prevFast;
 
-    const shortExitBySmaTouch =
-      touchedFromBelow(prevFast, currFast, prevUpper, currUpper) ||
-      touchedFromBelow(prevFast, currFast, prevSlow, currSlow) ||
-      touchedFromBelow(prevFast, currFast, prevLower, currLower);
+const longTouchedZone =
+  prevFast >= (prevUpper ?? Number.POSITIVE_INFINITY) ||
+  prevFast >= (prevSlow ?? Number.POSITIVE_INFINITY) ||
+  prevFast >= (prevLower ?? Number.POSITIVE_INFINITY) ||
+  currFast >= (currUpper ?? Number.POSITIVE_INFINITY) ||
+  currFast >= (currSlow ?? Number.POSITIVE_INFINITY) ||
+  currFast >= (currLower ?? Number.POSITIVE_INFINITY);
 
-    if (position === "long" && longExitBySmaTouch) {
-      longExitPoints.push({ time: candle.time, value: candle.low });
-      closeTrade(candle, "long");
-      continue;
-    }
+const shortTouchedZone =
+  prevFast <= (prevUpper ?? Number.NEGATIVE_INFINITY) ||
+  prevFast <= (prevSlow ?? Number.NEGATIVE_INFINITY) ||
+  prevFast <= (prevLower ?? Number.NEGATIVE_INFINITY) ||
+  currFast <= (currUpper ?? Number.NEGATIVE_INFINITY) ||
+  currFast <= (currSlow ?? Number.NEGATIVE_INFINITY) ||
+  currFast <= (currLower ?? Number.NEGATIVE_INFINITY);
 
-    if (position === "short" && shortExitBySmaTouch) {
-      shortExitPoints.push({ time: candle.time, value: candle.high });
-      closeTrade(candle, "short");
-      continue;
-    }
+if (position === "long" && longTouchedZone && fastTurningDown) {
+  longExitPoints.push({ time: candle.time, value: candle.low });
+  closeTrade(candle, "long");
+  continue;
+}
+
+if (position === "short" && shortTouchedZone && fastTurningUp) {
+  shortExitPoints.push({ time: candle.time, value: candle.high });
+  closeTrade(candle, "short");
+  continue;
+}
   }
 
   const netPnL = grossProfit - grossLoss;
