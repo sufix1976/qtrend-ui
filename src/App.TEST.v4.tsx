@@ -3126,27 +3126,54 @@ function simulateStrategyTESTv4(
     }
 
     
-    const currUpper = smaUpperMap.get(p.time) ?? null;
-    
-    const currSlow = smaSlowMap.get(p.time) ?? null;
-    
-    const currLower = smaLowerMap.get(p.time) ?? null;
+    const prevUpper = smaUpperMap.get(prevTime) ?? null;
+const currUpper = smaUpperMap.get(p.time) ?? null;
+
+const prevSlow = smaSlowMap.get(prevTime) ?? null;
+const currSlow = smaSlowMap.get(p.time) ?? null;
+
+const prevLower = smaLowerMap.get(prevTime) ?? null;
+const currLower = smaLowerMap.get(p.time) ?? null;
 
    const longExitBySmaBreak =
-  (prevFast > (currUpper ?? Number.POSITIVE_INFINITY) &&
-    currFast <= (currUpper ?? Number.POSITIVE_INFINITY)) ||
-  (prevFast > (currSlow ?? Number.POSITIVE_INFINITY) &&
-    currFast <= (currSlow ?? Number.POSITIVE_INFINITY)) ||
-  (prevFast > (currLower ?? Number.POSITIVE_INFINITY) &&
-    currFast <= (currLower ?? Number.POSITIVE_INFINITY));
+  (
+    prevUpper !== null &&
+    currUpper !== null &&
+    prevFast > prevUpper &&
+    currFast <= currUpper
+  ) ||
+  (
+    prevSlow !== null &&
+    currSlow !== null &&
+    prevFast > prevSlow &&
+    currFast <= currSlow
+  ) ||
+  (
+    prevLower !== null &&
+    currLower !== null &&
+    prevFast > prevLower &&
+    currFast <= currLower
+  );
 
 const shortExitBySmaBreak =
-  (prevFast < (currUpper ?? Number.NEGATIVE_INFINITY) &&
-    currFast >= (currUpper ?? Number.NEGATIVE_INFINITY)) ||
-  (prevFast < (currSlow ?? Number.NEGATIVE_INFINITY) &&
-    currFast >= (currSlow ?? Number.NEGATIVE_INFINITY)) ||
-  (prevFast < (currLower ?? Number.NEGATIVE_INFINITY) &&
-    currFast >= (currLower ?? Number.NEGATIVE_INFINITY));
+  (
+    prevUpper !== null &&
+    currUpper !== null &&
+    prevFast < prevUpper &&
+    currFast >= currUpper
+  ) ||
+  (
+    prevSlow !== null &&
+    currSlow !== null &&
+    prevFast < prevSlow &&
+    currFast >= currSlow
+  ) ||
+  (
+    prevLower !== null &&
+    currLower !== null &&
+    prevFast < prevLower &&
+    currFast >= currLower
+  );
 
 if (position === "long" && longExitBySmaBreak) {
   longExitPoints.push({ time: candle.time, value: candle.low });
