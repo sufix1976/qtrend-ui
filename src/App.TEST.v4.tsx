@@ -371,6 +371,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
     setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
     setSmaFastUI(Number(cfg.sma_fast ?? 10));
     setSmaSlowUI(Number(cfg.sma_slow ?? 100));
+    setSmaOffsetUI(Number(cfg.sma_offset ?? 150));
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
     setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
     setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
@@ -477,6 +478,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
       symbol,
       interval,
       entry_band: entryBandUI,
+      sma_offset: smaOffsetUI,
       min_kink: minKinkUI,
       peak_lookback: peakUI,
       sma_fast: smaFastUI,
@@ -574,6 +576,7 @@ useEffect(() => {
       symbol,
       interval,
       entry_band: entryBand,
+      sma_offset: 150,
       min_kink: minKinkMove,
       peak_lookback: peakLookback,
       sma_fast: 10,
