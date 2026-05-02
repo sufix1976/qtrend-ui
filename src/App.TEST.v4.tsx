@@ -1275,10 +1275,10 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         
         
 
-        candidateLongSeries.setData(candidateLongProjected as any);
-        candidateShortSeries.setData(candidateShortProjected as any);
-        strategyLongSeries.setData(strategyLongProjected as any);
-        strategyShortSeries.setData(strategyShortProjected as any);
+        candidateLongSeries.setData([]);
+        candidateShortSeries.setData([]);
+        strategyLongSeries.setData([]);
+        strategyShortSeries.setData([]);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
         outlierLongSeries.setData(outlierLongProjected as any);
@@ -1299,8 +1299,7 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
 
-        createSeriesMarkers(candidateLongSeries, buildTextMarkers(candidateLongProjected, "belowBar"));
-        createSeriesMarkers(candidateShortSeries, buildTextMarkers(candidateShortProjected, "aboveBar"));
+       
 
         createSeriesMarkers(
   strategyLongExitSeries,
