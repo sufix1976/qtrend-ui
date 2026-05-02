@@ -80,6 +80,7 @@ type SymbolConfigRow = {
   symbol: string;
   interval?: string | null;
   entry_band: number | null;
+  sma_offset?: number | null;
   min_kink: number | null;
   peak_lookback: number | null;
   sma_fast: number | null;
