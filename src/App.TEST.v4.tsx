@@ -703,7 +703,21 @@ async function saveAllSizes() {
       await saveSymbolConfig(row);
     }
 
-    async function runBacktestScanner() {
+
+
+    const refreshed = await fetchSymbolConfig();
+    setSymbolConfigMap(refreshed);
+
+    setSizeMessage("Alle Sizes im Backend gespeichert");
+  } catch (e) {
+    console.error(e);
+    setSizeMessage("Speichern der Sizes fehlgeschlagen");
+  } finally {
+    setSizeLoading(false);
+  }
+}
+
+      async function runBacktestScanner() {
   try {
     setScannerLoading(true);
     setScannerMessage("Scanner läuft...");
@@ -1002,18 +1016,6 @@ async function saveAllSizes() {
     setScannerMessage("Scanner fehlgeschlagen");
   } finally {
     setScannerLoading(false);
-  }
-}
-
-    const refreshed = await fetchSymbolConfig();
-    setSymbolConfigMap(refreshed);
-
-    setSizeMessage("Alle Sizes im Backend gespeichert");
-  } catch (e) {
-    console.error(e);
-    setSizeMessage("Speichern der Sizes fehlgeschlagen");
-  } finally {
-    setSizeLoading(false);
   }
 }
   
