@@ -1643,6 +1643,7 @@ return () => {
   kinkConfirmBarsUI,  
   smaFastUI,
   smaSlowUI,
+  smaOffsetUI,
   smaMiddleUI,
   assumedSpread,
   assumedSlippage,
