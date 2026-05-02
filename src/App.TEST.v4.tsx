@@ -2110,7 +2110,7 @@ return () => {
 
   <input
     type="range"
-    min="1"
+    min="0.01"
     max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
     step="1"
     value={smaOffsetUI}
