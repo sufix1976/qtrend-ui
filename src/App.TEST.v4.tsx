@@ -2848,7 +2848,7 @@ function buildRecoveredKinksFromOutliers(
 
     let twitchIdx = -1;
 
-    const maxSearchBars = 30;
+    const maxSearchBars = 80;
 
 for (let i = startIdx + 1; i < Math.min(smaFast.length, startIdx + maxSearchBars); i++) {
       const prev = smaFast[i - 1].value;
