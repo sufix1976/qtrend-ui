@@ -2816,64 +2816,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
 
 
-function buildRecoveredKinksFromOutliers(
-  outliers: MarkerPoint[],
-  smaFast: LinePoint[],
-  side: "long" | "short",
-  recoverBars: number
-): MarkerPoint[] {
-  const out: MarkerPoint[] = [];
 
-  for (const o of outliers) {
-    const startIdx = smaFast.findIndex((p) => p.time === o.time);
-    if (startIdx < recoverBars || startIdx >= smaFast.length - 2) continue;
-
-    let twitchIdx = -1;
-
-    const maxSearchBars = 80;
-
-for (let i = startIdx + 1; i < Math.min(smaFast.length, startIdx + maxSearchBars); i++) {
-      const prev = smaFast[i - 1].value;
-      const curr = smaFast[i].value;
-
-      if (side === "long" && curr > prev) {
-        twitchIdx = i;
-        break;
-      }
-
-      if (side === "short" && curr < prev) {
-        twitchIdx = i;
-        break;
-      }
-    }
-
-    if (twitchIdx < recoverBars) continue;
-
-    const recoverLevel = smaFast[twitchIdx - recoverBars].value;
-
-    for (let i = twitchIdx; i < Math.min(smaFast.length, twitchIdx + maxSearchBars); i++) {
-      const curr = smaFast[i].value;
-
-      if (side === "long" && curr >= recoverLevel) {
-        out.push({
-          time: smaFast[i].time,
-          value: o.value,
-        });
-        break;
-      }
-
-      if (side === "short" && curr <= recoverLevel) {
-        out.push({
-          time: smaFast[i].time,
-          value: o.value,
-        });
-        break;
-      }
-    }
-  }
-
-  return dedupeMarkers(out);
-}
 
 
 function projectMarkerPointsToCandles(
