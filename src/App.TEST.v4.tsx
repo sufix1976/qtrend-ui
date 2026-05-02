@@ -1234,15 +1234,10 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
 
         
-        const validLongCandidates = realLongKinks.filter(
-  (p) => getTrendAtTime(p.time, smaTurns) === "up"
-);
+        const validLongCandidates = outlierLongPoints;
+const validShortCandidates = outlierShortPoints;
 
-const validShortCandidates = realShortKinks.filter(
-  (p) => getTrendAtTime(p.time, smaTurns) === "down"
-);
-
-        const strategyLongPoints = validLongCandidates;
+const strategyLongPoints = validLongCandidates;
 const strategyShortPoints = validShortCandidates;
 
        const sim = simulateStrategyTESTv4(
