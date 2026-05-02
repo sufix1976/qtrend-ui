@@ -94,6 +94,19 @@ type SymbolConfigRow = {
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
 
+type ScannerRow = {
+  symbol: string;
+  interval: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  pf: number | null;
+  netPnL: number;
+  grossProfit: number;
+  grossLoss: number;
+  error?: string;
+};
+
 
 
 
@@ -321,6 +334,11 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [netPnLEur, setNetPnLEur] = useState(0);
 
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
+
+  const [scannerOpen, setScannerOpen] = useState(false);
+const [scannerRows, setScannerRows] = useState<ScannerRow[]>([]);
+const [scannerLoading, setScannerLoading] = useState(false);
+const [scannerMessage, setScannerMessage] = useState("");
 
   const [maxPositionLossEur, setMaxPositionLossEur] = useState<string>("");
   const [maxLossMessage, setMaxLossMessage] = useState("");
@@ -684,6 +702,308 @@ async function saveAllSizes() {
 
       await saveSymbolConfig(row);
     }
+
+    async function runBacktestScanner() {
+  try {
+    setScannerLoading(true);
+    setScannerMessage("Scanner läuft...");
+
+    const rows: ScannerRow[] = [];
+
+    for (const s of SYMBOLS) {
+      try {
+        const cfg = symbolConfigMap[s] || null;
+
+        const tf =
+          cfg?.interval && INTERVALS.includes(cfg.interval as IntervalOption)
+            ? (cfg.interval as IntervalOption)
+            : interval;
+
+        const entryBandVal = Number(cfg?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? 100);
+        const minKinkVal = Number(cfg?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? 1);
+        const smaFastVal = Number(cfg?.sma_fast ?? 10);
+        const smaSlowVal = Number(cfg?.sma_slow ?? 100);
+        const smaMiddleVal = Number(cfg?.sma_middle ?? 100);
+        const smaOffsetVal = Number(cfg?.sma_offset ?? 150);
+        const adaptiveBandVal = Boolean(cfg?.adaptive_band ?? false);
+        const adaptiveBandMultVal = Number(cfg?.adaptive_band_mult ?? 1);
+
+        const candles = await fetchCandles(s, tf);
+        if (!candles.length) throw new Error("no candles");
+
+        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastVal));
+        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowVal));
+
+        const smaUpper = smaSlow.map((p) => ({
+          time: p.time,
+          value: p.value + smaOffsetVal,
+        }));
+
+        const smaLower = smaSlow.map((p) => ({
+          time: p.time,
+          value: p.value - smaOffsetVal,
+        }));
+
+        const outlierLongPoints: MarkerPoint[] = [];
+        const outlierShortPoints: MarkerPoint[] = [];
+
+        let lastALIndex = -9999;
+        let lastASIndex = -9999;
+        const outlierCooldownBars = 12;
+        const markerStartIndex = Math.max(1, candles.length - 3000);
+
+        for (let i = markerStartIndex; i < candles.length; i++) {
+          const prev = candles[i - 1];
+          const curr = candles[i];
+
+          const prevUpper = smaUpper[i - 1];
+          const prevLower = smaLower[i - 1];
+          const currUpper = smaUpper[i];
+          const currLower = smaLower[i];
+
+          if (!prevUpper || !prevLower || !currUpper || !currLower) continue;
+
+          if (
+            i - lastALIndex >= outlierCooldownBars &&
+            prev.low >= prevLower.value &&
+            curr.low < currLower.value
+          ) {
+            outlierLongPoints.push({ time: curr.time, value: curr.low });
+            lastALIndex = i;
+          }
+
+          if (
+            i - lastASIndex >= outlierCooldownBars &&
+            prev.high <= prevUpper.value &&
+            curr.high > currUpper.value
+          ) {
+            outlierShortPoints.push({ time: curr.time, value: curr.high });
+            lastASIndex = i;
+          }
+        }
+
+        const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+
+        const trendEvents = [
+          ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
+          ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
+        ].sort((a, b) => a.time - b.time);
+
+        function trendAt(time: number): "up" | "down" | null {
+          let trend: "up" | "down" | null = null;
+
+          for (const e of trendEvents) {
+            if (e.time > time) break;
+            trend = e.trend;
+          }
+
+          return trend;
+        }
+
+        const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+
+        const distAsCandles = dist.map((p) => ({
+          time: p.time,
+          open: p.value,
+          high: p.value,
+          low: p.value,
+          close: p.value,
+        }));
+
+        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleVal));
+        if (!distMiddle.length) distMiddle = dist;
+
+        const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
+        const dynamicBand = buildAdaptiveBandLine(
+          distMiddle,
+          distVolatility,
+          entryBandVal,
+          adaptiveBandVal,
+          adaptiveBandMultVal
+        );
+
+        const distIndexByTime = new Map<number, number>();
+        dist.forEach((p, i) => distIndexByTime.set(p.time, i));
+
+        function candleByTime(time: number): Candle | null {
+          return candles.find((c) => c.time === time) ?? null;
+        }
+
+        function uniqueByTime(points: MarkerPoint[]): MarkerPoint[] {
+          const out: MarkerPoint[] = [];
+          const seen = new Set<number>();
+
+          for (const p of points) {
+            if (!Number.isFinite(p.time) || seen.has(p.time)) continue;
+            seen.add(p.time);
+            out.push(p);
+          }
+
+          return out.sort((a, b) => a.time - b.time);
+        }
+
+        function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
+          const out: MarkerPoint[] = [];
+          if (!dist.length) return out;
+
+          let extreme = dist[0].value;
+          let armed = true;
+
+          for (let i = 1; i < dist.length; i++) {
+            const d = dist[i].value;
+
+            if (side === "long") {
+              if (d < extreme) {
+                extreme = d;
+                armed = true;
+              }
+
+              if (armed && d - extreme >= minKinkVal) {
+                const c = candleByTime(dist[i].time);
+                if (c) out.push({ time: c.time, value: c.low });
+                armed = false;
+                extreme = d;
+              }
+            } else {
+              if (d > extreme) {
+                extreme = d;
+                armed = true;
+              }
+
+              if (armed && extreme - d >= minKinkVal) {
+                const c = candleByTime(dist[i].time);
+                if (c) out.push({ time: c.time, value: c.high });
+                armed = false;
+                extreme = d;
+              }
+            }
+          }
+
+          return dedupeMarkers(out);
+        }
+
+        function buildRecoveredKinksFromOutliers(
+          outliers: MarkerPoint[],
+          side: "long" | "short"
+        ): MarkerPoint[] {
+          const out: MarkerPoint[] = [];
+          const maxSearchBars = 80;
+
+          for (const o of outliers) {
+            const startIndex = distIndexByTime.get(o.time);
+            if (startIndex == null || startIndex < 0) continue;
+
+            let extreme = dist[startIndex]?.value;
+            if (!Number.isFinite(extreme)) continue;
+
+            const end = Math.min(dist.length - 1, startIndex + maxSearchBars);
+
+            for (let i = startIndex + 1; i <= end; i++) {
+              const d = dist[i].value;
+
+              if (side === "long") {
+                if (d < extreme) extreme = d;
+
+                if (d - extreme >= minKinkVal) {
+                  const c = candleByTime(dist[i].time);
+                  if (c) out.push({ time: c.time, value: c.low });
+                  break;
+                }
+              } else {
+                if (d > extreme) extreme = d;
+
+                if (extreme - d >= minKinkVal) {
+                  const c = candleByTime(dist[i].time);
+                  if (c) out.push({ time: c.time, value: c.high });
+                  break;
+                }
+              }
+            }
+          }
+
+          return dedupeMarkers(out);
+        }
+
+        const trendLongKinks = buildTrendKinks("long");
+        const trendShortKinks = buildTrendKinks("short");
+
+        const outlierLongKinks = buildRecoveredKinksFromOutliers(outlierLongPoints, "long");
+        const outlierShortKinks = buildRecoveredKinksFromOutliers(outlierShortPoints, "short");
+
+        const filteredLongEntries = uniqueByTime([
+          ...trendLongKinks.filter((p) => trendAt(p.time) === "up"),
+          ...outlierLongKinks.filter((p) => trendAt(p.time) !== "up"),
+        ]);
+
+        const filteredShortEntries = uniqueByTime([
+          ...trendShortKinks.filter((p) => trendAt(p.time) === "down"),
+          ...outlierShortKinks.filter((p) => trendAt(p.time) !== "down"),
+        ]);
+
+        const sim = simulateStrategyTESTv4(
+          candles,
+          dist,
+          distMiddle,
+          filteredLongEntries,
+          filteredShortEntries,
+          dynamicBand,
+          SPREAD_BY_SYMBOL[s] ?? 0,
+          SLIPPAGE_BY_SYMBOL[s] ?? 0,
+          smaFast,
+          smaUpper,
+          smaSlow,
+          smaLower
+        );
+
+        const pf =
+          sim.grossLoss > 0
+            ? sim.grossProfit / sim.grossLoss
+            : sim.grossProfit > 0
+              ? Number.POSITIVE_INFINITY
+              : null;
+
+        rows.push({
+          symbol: s,
+          interval: tf,
+          trades: sim.tradeCount,
+          wins: sim.winCount,
+          losses: sim.lossCount,
+          pf,
+          netPnL: sim.netPnL,
+          grossProfit: sim.grossProfit,
+          grossLoss: sim.grossLoss,
+        });
+      } catch (e) {
+        rows.push({
+          symbol: s,
+          interval: "-",
+          trades: 0,
+          wins: 0,
+          losses: 0,
+          pf: null,
+          netPnL: 0,
+          grossProfit: 0,
+          grossLoss: 0,
+          error: e instanceof Error ? e.message : "error",
+        });
+      }
+    }
+
+    rows.sort((a, b) => {
+      const apf = a.pf === null ? -1 : a.pf === Number.POSITIVE_INFINITY ? 999999 : a.pf;
+      const bpf = b.pf === null ? -1 : b.pf === Number.POSITIVE_INFINITY ? 999999 : b.pf;
+      return bpf - apf;
+    });
+
+    setScannerRows(rows);
+    setScannerMessage(`Scanner fertig: ${rows.length} Instrumente`);
+  } catch (e) {
+    console.error(e);
+    setScannerMessage("Scanner fehlgeschlagen");
+  } finally {
+    setScannerLoading(false);
+  }
+}
 
     const refreshed = await fetchSymbolConfig();
     setSymbolConfigMap(refreshed);
@@ -1689,6 +2009,132 @@ return () => {
   onClick={() =>
     setChartType((prev) => (prev === "candles" ? "line" : "candles"))
   }
+
+  <button
+  onClick={() => setScannerOpen((v) => !v)}
+  style={{
+    position: "absolute",
+    top: 50,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: scannerOpen ? "#14532d" : "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  {scannerOpen ? "Scanner ▲" : "Scanner ▼"}
+</button>
+
+{scannerOpen && (
+  <div
+    style={{
+      position: "absolute",
+      top: 90,
+      right: 10,
+      zIndex: 45,
+      width: 620,
+      maxHeight: "82vh",
+      overflowY: "auto",
+      background: "rgba(2, 6, 23, 0.94)",
+      border: "1px solid #334155",
+      borderRadius: 10,
+      padding: 10,
+      fontFamily: "Arial, sans-serif",
+      fontSize: 12,
+      color: "#e2e8f0",
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
+        Strategy Scanner / Backtest Ranking
+      </div>
+
+      <button
+        onClick={runBacktestScanner}
+        disabled={scannerLoading}
+        style={{
+          background: "#1d4ed8",
+          color: "#fff",
+          border: "1px solid #3b82f6",
+          borderRadius: 6,
+          padding: "5px 8px",
+          cursor: scannerLoading ? "default" : "pointer",
+          opacity: scannerLoading ? 0.7 : 1,
+        }}
+      >
+        {scannerLoading ? "läuft..." : "Scan"}
+      </button>
+    </div>
+
+    {scannerMessage ? (
+      <div style={{ color: "#93c5fd", marginBottom: 8 }}>{scannerMessage}</div>
+    ) : null}
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr style={{ color: "#94a3b8", borderBottom: "1px solid #334155" }}>
+          <th style={{ textAlign: "left", padding: "4px" }}>Symbol</th>
+          <th style={{ textAlign: "left", padding: "4px" }}>TF</th>
+          <th style={{ textAlign: "right", padding: "4px" }}>Trades</th>
+          <th style={{ textAlign: "right", padding: "4px" }}>PF</th>
+          <th style={{ textAlign: "right", padding: "4px" }}>Net</th>
+          <th style={{ textAlign: "right", padding: "4px" }}>W/L</th>
+          <th style={{ textAlign: "left", padding: "4px" }}>Status</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {scannerRows.map((r) => (
+          <tr key={r.symbol} style={{ borderBottom: "1px solid rgba(51,65,85,0.55)" }}>
+            <td style={{ padding: "4px", fontWeight: 700 }}>{r.symbol}</td>
+            <td style={{ padding: "4px" }}>{r.interval}</td>
+            <td style={{ padding: "4px", textAlign: "right" }}>{r.trades}</td>
+            <td
+              style={{
+                padding: "4px",
+                textAlign: "right",
+                color:
+                  r.pf === null
+                    ? "#94a3b8"
+                    : r.pf >= 2
+                      ? "#22c55e"
+                      : r.pf >= 1
+                        ? "#facc15"
+                        : "#ef4444",
+                fontWeight: 700,
+              }}
+            >
+              {r.pf === null
+                ? "-"
+                : Number.isFinite(r.pf)
+                  ? r.pf.toFixed(2)
+                  : "∞"}
+            </td>
+            <td
+              style={{
+                padding: "4px",
+                textAlign: "right",
+                color: r.netPnL >= 0 ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {r.netPnL.toFixed(2)}
+            </td>
+            <td style={{ padding: "4px", textAlign: "right" }}>
+              {r.wins}/{r.losses}
+            </td>
+            <td style={{ padding: "4px", color: r.error ? "#fca5a5" : "#94a3b8" }}>
+              {r.error ?? "ok"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}      
+        
   style={{
     position: "absolute",
     top: 10,
