@@ -1102,8 +1102,59 @@ for (let i = markerStartIndex; i < candles.length; i++) {
     lastASIndex = i;
   }
 }
-           
+
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+
+        const trendEvents = [
+          ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
+          ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
+        ].sort((a, b) => a.time - b.time);
+
+        function trendAt(time: number): "up" | "down" | null {
+          let trend: "up" | "down" | null = null;
+
+          for (const e of trendEvents) {
+            if (e.time > time) break;
+            trend = e.trend;
+          }
+
+          return trend;
+        }
+
+        const upperByTime = new Map<number, number>();
+        const lowerByTime = new Map<number, number>();
+
+        for (const p of smaUpper) upperByTime.set(p.time, p.value);
+        for (const p of smaLower) lowerByTime.set(p.time, p.value);
+
+        const filteredLongEntries = outlierLongPoints.filter((p) => {
+          const trend = trendAt(p.time);
+          const lower = lowerByTime.get(p.time);
+
+          if (trend === "up") return true;
+
+          return (
+            lower !== undefined &&
+            Number.isFinite(lower) &&
+            p.value < lower
+          );
+        });
+
+        const filteredShortEntries = outlierShortPoints.filter((p) => {
+          const trend = trendAt(p.time);
+          const upper = upperByTime.get(p.time);
+
+          if (trend === "down") return true;
+
+          return (
+            upper !== undefined &&
+            Number.isFinite(upper) &&
+            p.value > upper
+          );
+        });
+
+       
+        
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
@@ -1205,8 +1256,8 @@ const smaTurnMarkers = [
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         
-        const rawLongCandidates = outlierLongPoints;
-const rawShortCandidates = outlierShortPoints;
+        const rawLongCandidates = filteredLongEntries;
+        const rawShortCandidates = filteredShortEntries;
 
 const sim = simulateStrategyTESTv4(
   candles,
