@@ -1252,8 +1252,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   validLongCandidates.length,
   validShortCandidates.length
 );
-        const strategyLongProjected = projectMarkerPointsToCandles(strategyLongPoints, candles, "below-mid");
-        const strategyShortProjected = projectMarkerPointsToCandles(strategyShortPoints, candles, "above-mid");
+        
         const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
         const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
