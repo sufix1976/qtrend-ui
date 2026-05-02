@@ -1256,39 +1256,7 @@ const candidateShortProjected = projectMarkerPointsToCandles(
         
 
 
-        
-        const validLongCandidates = outlierLongPoints;
-const validShortCandidates = outlierShortPoints;
 
-const strategyLongPoints = validLongCandidates;
-const strategyShortPoints = validShortCandidates;
-
-       const sim = simulateStrategyTESTv4(
-  candles,
-  dist,
-  distMiddle,
-  strategyLongPoints,
-  strategyShortPoints,
-  dynamicBand,
-  assumedSpread,
-  assumedSlippage,
-  smaFast,
-  smaUpper,
-  smaSlow,
-  smaLower
-);
-        
-        const candidateLongProjected = projectMarkerPointsToCandles(
-  validLongCandidates,
-  candles,
-  "below-far"
-);
-
-const candidateShortProjected = projectMarkerPointsToCandles(
-  validShortCandidates,
-  candles,
-  "above-far"
-);
         
         console.log(
   "VALID OUTLIER CANDIDATES",
