@@ -2010,7 +2010,25 @@ return () => {
     setChartType((prev) => (prev === "candles" ? "line" : "candles"))
   }
 
-  <button
+       
+        
+  style={{
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  {chartType === "candles" ? "Linie" : "Kerzen"}
+</button>
+
+      <button
   onClick={() => setScannerOpen((v) => !v)}
   style={{
     position: "absolute",
@@ -2133,23 +2151,7 @@ return () => {
       </tbody>
     </table>
   </div>
-)}      
-        
-  style={{
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 50,
-    padding: "6px 10px",
-    background: "#111",
-    color: "#fff",
-    border: "1px solid #555",
-    borderRadius: 6,
-    cursor: "pointer",
-  }}
->
-  {chartType === "candles" ? "Linie" : "Kerzen"}
-</button>
+)}
       
       {infoOpen && (
   <div
