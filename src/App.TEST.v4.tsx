@@ -1241,17 +1241,6 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-const candidateLongProjected = projectMarkerPointsToCandles(
-  validLongCandidates,
-  candles,
-  "below-far"
-);
-
-const candidateShortProjected = projectMarkerPointsToCandles(
-  validShortCandidates,
-  candles,
-  "above-far"
-);
 
         
 
