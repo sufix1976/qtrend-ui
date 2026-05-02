@@ -1205,14 +1205,50 @@ const smaTurnMarkers = [
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         
-        const outlierLongProjected = projectMarkerPointsToCandles(
-  outlierLongPoints,
+        const rawLongCandidates = outlierLongPoints;
+const rawShortCandidates = outlierShortPoints;
+
+const sim = simulateStrategyTESTv4(
+  candles,
+  dist,
+  distMiddle,
+  rawLongCandidates,
+  rawShortCandidates,
+  dynamicBand,
+  assumedSpread,
+  assumedSlippage,
+  smaFast,
+  smaUpper,
+  smaSlow,
+  smaLower
+);
+
+const validLongCandidates = sim.acceptedLongEntryPoints;
+const validShortCandidates = sim.acceptedShortEntryPoints;
+
+const strategyLongPoints = validLongCandidates;
+const strategyShortPoints = validShortCandidates;
+
+const outlierLongProjected = projectMarkerPointsToCandles(
+  strategyLongPoints,
   candles,
   "below-far"
 );
 
 const outlierShortProjected = projectMarkerPointsToCandles(
-  outlierShortPoints,
+  strategyShortPoints,
+  candles,
+  "above-far"
+);
+
+const candidateLongProjected = projectMarkerPointsToCandles(
+  validLongCandidates,
+  candles,
+  "below-far"
+);
+
+const candidateShortProjected = projectMarkerPointsToCandles(
+  validShortCandidates,
   candles,
   "above-far"
 );
@@ -2922,15 +2958,19 @@ function simulateStrategyTESTv4(
 
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
+  const acceptedLongEntryPoints: MarkerPoint[] = [];
+  const acceptedShortEntryPoints: MarkerPoint[] = [];
 
   const entryEvents = [
     ...longEntries.map((p) => ({
       time: p.time,
+      value: p.value,
       side: "long" as const,
       index: distMapIndex.get(p.time) ?? -1,
     })),
     ...shortEntries.map((p) => ({
       time: p.time,
+      value: p.value,
       side: "short" as const,
       index: distMapIndex.get(p.time) ?? -1,
     })),
@@ -2988,32 +3028,50 @@ function simulateStrategyTESTv4(
     if (!candle) continue;
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
-      const evt = entryEvents[currentEntryPtr];
+  const evt = entryEvents[currentEntryPtr];
 
-      // WICHTIG:
-      // Eine bestehende Position wird NICHT mehr durch ein Gegensignal geschlossen.
-      // EXL/EXS dürfen nur noch durch den SMA10-vs-Linien-Touch entstehen.
-      // Neue Entries werden nur angenommen, wenn die Simulation vorher sauber FLAT ist.
-      if (position === "flat") {
-        if (evt.side === "long") {
-          openTrade = {
-            side: "long",
-            entryPrice: realisticEntryPrice("long", candle),
-            entryIndex: i,
-          };
-          position = "long";
-        } else {
-          openTrade = {
-            side: "short",
-            entryPrice: realisticEntryPrice("short", candle),
-            entryIndex: i,
-          };
-          position = "short";
-        }
-      }
-
-      currentEntryPtr += 1;
+  if (evt.side === "long") {
+    if (position === "short" && openTrade) {
+      shortExitPoints.push({ time: candle.time, value: candle.high });
+      closeTrade(candle, "short");
     }
+
+    if (position === "flat") {
+      openTrade = {
+        side: "long",
+        entryPrice: realisticEntryPrice("long", candle),
+        entryIndex: i,
+      };
+      position = "long";
+
+      acceptedLongEntryPoints.push({
+        time: evt.time,
+        value: evt.value,
+      });
+    }
+  } else {
+    if (position === "long" && openTrade) {
+      longExitPoints.push({ time: candle.time, value: candle.low });
+      closeTrade(candle, "long");
+    }
+
+    if (position === "flat") {
+      openTrade = {
+        side: "short",
+        entryPrice: realisticEntryPrice("short", candle),
+        entryIndex: i,
+      };
+      position = "short";
+
+      acceptedShortEntryPoints.push({
+        time: evt.time,
+        value: evt.value,
+      });
+    }
+  }
+
+  currentEntryPtr += 1;
+}
 
     if (!openTrade || i <= openTrade.entryIndex || i <= 0) continue;
 
@@ -3114,6 +3172,8 @@ if (position === "short" && shortExitBySmaBreak) {
     position,
     longExitPoints: dedupeMarkers(longExitPoints),
     shortExitPoints: dedupeMarkers(shortExitPoints),
+    acceptedLongEntryPoints: dedupeMarkers(acceptedLongEntryPoints),
+    acceptedShortEntryPoints: dedupeMarkers(acceptedShortEntryPoints),
     tradeCount,
     winCount,
     lossCount,
