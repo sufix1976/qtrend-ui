@@ -976,7 +976,8 @@ async function saveAllSizes() {
           smaFast,
           smaUpper,
           smaSlow,
-          smaLower
+          smaLower,
+          true
         );
 
         const pf =
@@ -1695,7 +1696,8 @@ const sim = simulateStrategyTESTv4(
   smaFast,
   smaUpper,
   smaSlow,
-  smaLower
+  smaLower,
+  useSlowExitUI
 );
 
 const validLongCandidates = sim.acceptedLongEntryPoints;
