@@ -977,7 +977,9 @@ async function saveAllSizes() {
           smaUpper,
           smaSlow,
           smaLower,
-          true
+          cfg?.use_slow_exit == null
+  ? true
+  : Boolean(cfg.use_slow_exit)
         );
 
         const pf =
