@@ -79,6 +79,7 @@ type AggTradesResponse = {
 type SymbolConfigRow = {
   symbol: string;
   interval?: string | null;
+  use_slow_exit?: number | null;
   entry_band: number | null;
   sma_offset?: number | null;
   min_kink: number | null;
@@ -369,6 +370,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
+  const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
 
@@ -394,6 +396,11 @@ const [scannerMessage, setScannerMessage] = useState("");
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
     setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
     setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
+    setUseSlowExitUI(
+  cfg?.use_slow_exit == null
+    ? true
+    : Boolean(cfg.use_slow_exit)
+);
     
     if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
   setInterval(cfg.interval as IntervalOption);
@@ -505,6 +512,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
       sma_middle: smaMiddleUI,
       adaptive_band: adaptiveBandUI ? 1 : 0,
       adaptive_band_mult: adaptiveBandMultUI,
+      use_slow_exit: useSlowExitUI ? 1 : 0,
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
 
@@ -2511,6 +2519,23 @@ return () => {
           />
         </div>
 
+    <label
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    fontSize: 13,
+  }}
+>
+  <input
+    type="checkbox"
+    checked={useSlowExitUI}
+    onChange={(e) => setUseSlowExitUI(e.target.checked)}
+  />
+  Use SMA Slow Exit
+</label>
+
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
 
@@ -3487,7 +3512,8 @@ function simulateStrategyTESTv4(
   smaFast: LinePoint[],
   smaUpper: LinePoint[],
   smaSlow: LinePoint[],
-  smaLower: LinePoint[]
+  smaLower: LinePoint[],
+  useSlowExit: boolean
 ) {
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
@@ -3659,6 +3685,7 @@ const currLower = smaLowerMap.get(p.time) ?? null;
     currFast <= currUpper
   ) ||
   (
+    useSlowExit &&
     prevSlow !== null &&
     currSlow !== null &&
     prevFast > prevSlow &&
@@ -3679,6 +3706,7 @@ const shortExitBySmaBreak =
     currFast >= currUpper
   ) ||
   (
+    useSlowExit &&
     prevSlow !== null &&
     currSlow !== null &&
     prevFast < prevSlow &&
