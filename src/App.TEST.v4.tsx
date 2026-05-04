@@ -401,10 +401,7 @@ const [scannerMessage, setScannerMessage] = useState("");
 
   
   
-  const ENTRY_BAND_MIN_BY_SYMBOL: Record<string, number> = {
-  GOLD: 2,
-  SILVER: 0.05,
-};
+ 
 
   useEffect(() => {
   const cfg = symbolConfigMap[symbol];
