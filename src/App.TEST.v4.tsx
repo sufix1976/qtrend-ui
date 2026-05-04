@@ -1708,6 +1708,16 @@ const validShortCandidates = sim.acceptedShortEntryPoints;
 const strategyLongPoints = validLongCandidates;
 const strategyShortPoints = validShortCandidates;
 
+        console.log("UI LAST MARKERS", {
+  symbol,
+  interval,
+  lastLong: strategyLongPoints.at(-1) ?? null,
+  lastShort: strategyShortPoints.at(-1) ?? null,
+  lastLongExit: sim.longExitPoints.at(-1) ?? null,
+  lastShortExit: sim.shortExitPoints.at(-1) ?? null,
+  lastCandle: candles.at(-1) ?? null,
+});
+
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
