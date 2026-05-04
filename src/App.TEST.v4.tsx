@@ -157,7 +157,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
-  EURUSD: 0.002,
+  EURUSD: 0.003,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -253,7 +253,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
-  EURUSD: 0.002, 
+  EURUSD: 0.003, 
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
