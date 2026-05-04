@@ -1731,6 +1731,31 @@ console.log("UI ENTRY FRESHNESS", {
     newestEntryTime === (candles.at(-1)?.time ?? -1),
 });
 
+        const lastDist = dist.at(-1);
+const lastDynBand = dynamicBand.at(-1);
+const lastTrend = lastDist ? trendAt(lastDist.time) : null;
+
+let recentLongExtreme = Number.POSITIVE_INFINITY;
+
+for (let j = Math.max(0, dist.length - 30); j < dist.length; j++) {
+  recentLongExtreme = Math.min(recentLongExtreme, dist[j].value);
+}
+
+console.log("LONG SETUP CHECK", {
+  symbol,
+  interval,
+  lastCandle: candles.at(-1),
+  lastDist,
+  lastTrend,
+  entryBandUI,
+  minKinkUI,
+  recentLongExtreme,
+  reboundNow: lastDist ? lastDist.value - recentLongExtreme : null,
+  kinkReady: lastDist ? lastDist.value - recentLongExtreme >= minKinkUI : false,
+  belowLowerBand: lastDist ? lastDist.value <= -entryBandUI : false,
+  dynamicBandLast: lastDynBand,
+});
+
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
