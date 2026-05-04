@@ -1718,6 +1718,19 @@ const strategyShortPoints = validShortCandidates;
   lastCandle: candles.at(-1) ?? null,
 });
 
+        const newestEntryTime = Math.max(
+  strategyLongPoints.at(-1)?.time ?? 0,
+  strategyShortPoints.at(-1)?.time ?? 0
+);
+
+console.log("UI ENTRY FRESHNESS", {
+  newestEntryTime,
+  lastCandleTime: candles.at(-1)?.time ?? null,
+  ageSec: candles.at(-1)?.time ? candles.at(-1)!.time - newestEntryTime : null,
+  isFreshOnLastCandle:
+    newestEntryTime === (candles.at(-1)?.time ?? -1),
+});
+
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
