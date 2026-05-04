@@ -2567,9 +2567,9 @@ return () => {
 
 <input
   type="range"
-  min={(ENTRY_BAND_MIN_BY_SYMBOL[symbol] ?? Math.max(0, entryBand * 0.5))}
-  max={entryBand * 2}
-  step={entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
+  min={symbol.endsWith("USD") && symbol.length === 6 ? 0 : ENTRY_BAND_MIN_BY_SYMBOL[symbol] ?? Math.max(0, entryBand * 0.5)}
+  max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : entryBand * 2}
+  step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
   value={entryBandUI}
   onChange={(e) => setEntryBandUI(Number(e.target.value))}
   style={{ width: "100%" }}
@@ -2579,8 +2579,8 @@ return () => {
           <input
             type="range"
             min={0}
-            max={Math.max(minKinkMove * 3, minKinkMove + 1)}
-            step={minKinkMove < 1 ? 0.001 : 0.1}
+            max={symbol.endsWith("USD") && symbol.length === 6 ? 0.005 : Math.max(minKinkMove * 3, minKinkMove + 1)}
+            step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : minKinkMove < 1 ? 0.001 : 0.1}
             value={minKinkUI}
             onChange={(e) => setMinKinkUI(Number(e.target.value))}
             style={{ width: "100%" }}
