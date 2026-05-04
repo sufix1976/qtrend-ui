@@ -873,14 +873,16 @@ async function saveAllSizes() {
           let extreme = dist[0].value;
           let armed = true;
 
+          let extremeIndex = 0;
+
           for (let i = 1; i < dist.length; i++) {
             const d = dist[i].value;
 
-            if (side === "long") {
-              if (d < extreme) {
-                extreme = d;
-                armed = true;
-              }
+            if (d < extreme || i - extremeIndex > peakUI) {
+  extreme = d;
+  extremeIndex = i;
+  armed = true;
+}
 
               console.log("LONG DEBUG", {
   time: dist[i].time,
@@ -899,10 +901,11 @@ async function saveAllSizes() {
                 extreme = d;
               }
             } else {
-              if (d > extreme) {
-                extreme = d;
-                armed = true;
-              }
+              if (d > extreme || i - extremeIndex > peakUI) {
+  extreme = d;
+  extremeIndex = i;
+  armed = true;
+}
 
               if (armed && extreme - d >= minKinkVal) {
                 const c = candleByTime(dist[i].time);
