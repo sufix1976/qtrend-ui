@@ -884,6 +884,18 @@ async function saveAllSizes() {
         armed = true;
       }
 
+      console.log("LONG DEBUG", {
+        time: dist[i].time,
+        d,
+        extreme,
+        extremeIndex,
+        age: i - extremeIndex,
+        rebound: d - extreme,
+        minKink: minKinkUI,
+        armed,
+        trigger: d - extreme >= minKinkUI,
+      });
+
       if (armed && d - extreme >= minKinkUI) {
         const c = candleByTime(dist[i].time);
         if (c) out.push({ time: c.time, value: c.low });
@@ -897,6 +909,18 @@ async function saveAllSizes() {
         extremeIndex = i;
         armed = true;
       }
+
+      console.log("SHORT DEBUG", {
+        time: dist[i].time,
+        d,
+        extreme,
+        extremeIndex,
+        age: i - extremeIndex,
+        rebound: extreme - d,
+        minKink: minKinkUI,
+        armed,
+        trigger: extreme - d >= minKinkUI,
+      });
 
       if (armed && extreme - d >= minKinkUI) {
         const c = candleByTime(dist[i].time);
@@ -1520,28 +1544,32 @@ function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
   if (!dist.length) return out;
 
   let extreme = dist[0].value;
+  let extremeIndex = 0;
   let armed = true;
 
   for (let i = 1; i < dist.length; i++) {
     const d = dist[i].value;
 
     if (side === "long") {
-      if (d < extreme) {
-        extreme = d;
-        armed = true;
-      }
+      if (d < extreme || i - extremeIndex > peakUI) {
+  extreme = d;
+  extremeIndex = i;
+  armed = true;
+}
 
       if (armed && d - extreme >= minKinkUI) {
         const c = candleByTime(dist[i].time);
         if (c) out.push({ time: c.time, value: c.low });
         armed = false;
         extreme = d;
+        extremeIndex = i;
       }
     } else {
-      if (d > extreme) {
-        extreme = d;
-        armed = true;
-      }
+      if (d > extreme || i - extremeIndex > peakUI) {
+  extreme = d;
+  extremeIndex = i;
+  armed = true;
+}
 
       console.log("SHORT DEBUG", {
   time: dist[i].time,
