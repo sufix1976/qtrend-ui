@@ -157,7 +157,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
-  EURUSD: 3,
+  EURUSD: 0.002,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
