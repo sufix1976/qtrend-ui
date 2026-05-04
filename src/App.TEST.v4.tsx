@@ -366,6 +366,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeLoading, setSizeLoading] = useState(false);
   const [symbolConfigMap, setSymbolConfigMap] = useState<SymbolConfigMap>({});
+  const [newSymbolInput, setNewSymbolInput] = useState("");
   
   const [, setConfigLoading] = useState(false);
 
@@ -519,7 +520,38 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
   }
 }
   
+async function addNewSymbol() {
+  const s = newSymbolInput.trim().toUpperCase();
+  if (!s) return;
 
+  const row: SymbolConfigRow = {
+    symbol: s,
+    interval,
+    entry_band: 100,
+    sma_offset: 150,
+    min_kink: 1,
+    peak_lookback: 3,
+    sma_fast: 10,
+    sma_slow: 100,
+    sma_middle: 100,
+    adaptive_band: 0,
+    adaptive_band_mult: 1,
+    use_slow_exit: 1,
+    size: null,
+  };
+
+  await saveSymbolConfig(row);
+
+  setSymbolConfigMap((prev) => ({
+    ...prev,
+    [s]: row,
+  }));
+
+  setSymbol(s);
+  setNewSymbolInput("");
+  setPresetMessage(`Neues Instrument angelegt: ${s}`);
+}
+  
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
@@ -2284,6 +2316,18 @@ return () => {
             </select>
           </label>
         </div>
+
+    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+  <input
+    value={newSymbolInput}
+    onChange={(e) => setNewSymbolInput(e.target.value)}
+    placeholder="Neues Symbol z.B. EURUSD"
+    style={{ flex: 1 }}
+  />
+  <button onClick={addNewSymbol}>
+    Add
+  </button>
+</div>
 
         <div>Status: {status} | TEST V4</div>
         <div>
