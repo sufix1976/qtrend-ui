@@ -882,6 +882,16 @@ async function saveAllSizes() {
                 armed = true;
               }
 
+              console.log("LONG DEBUG", {
+  time: dist[i].time,
+  d,
+  extreme,
+  rebound: d - extreme,
+  minKink: minKinkUI,
+  armed,
+  trigger: d - extreme >= minKinkUI,
+});
+
               if (armed && d - extreme >= minKinkVal) {
                 const c = candleByTime(dist[i].time);
                 if (c) out.push({ time: c.time, value: c.low });
@@ -1537,6 +1547,16 @@ function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
         extreme = d;
         armed = true;
       }
+
+      console.log("SHORT DEBUG", {
+  time: dist[i].time,
+  d,
+  extreme,
+  rebound: extreme - d,
+  minKink: minKinkUI,
+  armed,
+  trigger: extreme - d >= minKinkUI,
+});
 
       if (armed && extreme - d >= minKinkUI) {
         const c = candleByTime(dist[i].time);
