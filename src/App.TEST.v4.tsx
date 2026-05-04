@@ -527,9 +527,9 @@ async function addNewSymbol() {
   const row: SymbolConfigRow = {
     symbol: s,
     interval,
-    entry_band: 100,
-    sma_offset: 150,
-    min_kink: 1,
+    entry_band: s.endsWith("USD") && s.length === 6 ? 0.0015 : 100,
+    sma_offset: s.endsWith("USD") && s.length === 6 ? 0.003 : 150,
+    min_kink: s.endsWith("USD") && s.length === 6 ? 0.0003 : 1,
     peak_lookback: 3,
     sma_fast: 10,
     sma_slow: 100,
@@ -2498,7 +2498,7 @@ return () => {
     <div style={{ color: "#94a3b8" }}>Size</div>
     <div></div>
 
-    {SYMBOLS.map((s) => (
+    {availableSymbols.map((s) => (
       <Fragment key={s}>
         <div>{s}</div>
 
