@@ -366,7 +366,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeLoading, setSizeLoading] = useState(false);
   const [symbolConfigMap, setSymbolConfigMap] = useState<SymbolConfigMap>({});
-  const [newSymbolInput, setNewSymbolInput] = useState("");
+  
   const [, setConfigLoading] = useState(false);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
