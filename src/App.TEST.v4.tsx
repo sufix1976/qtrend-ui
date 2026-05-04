@@ -2567,11 +2567,11 @@ return () => {
 
 <input
   type="range"
-  min={symbol.endsWith("USD") && symbol.length === 6 ? 0 : ENTRY_BAND_MIN_BY_SYMBOL[symbol] ?? Math.max(0, entryBand * 0.5)}
-  max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : entryBand * 2}
-  step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : entryBand < 2 ? 0.001 : entryBand < 20 ? 0.01 : 1}
-  value={entryBandUI}
-  onChange={(e) => setEntryBandUI(Number(e.target.value))}
+  min={0}
+  max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
+  step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
+  value={smaOffset}
+  onChange={(e) => setSmaOffset(Number(e.target.value))}
   style={{ width: "100%" }}
 />
 
