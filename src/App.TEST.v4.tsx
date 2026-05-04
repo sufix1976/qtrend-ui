@@ -1660,6 +1660,9 @@ const filteredShortEntries = uniqueByTime([
   );
 }
 
+priceChart.timeScale().fitContent();
+distChart.timeScale().fitContent();
+
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
         
@@ -2598,7 +2601,7 @@ return () => {
 
   <input
     type="range"
-    min="0.01"
+    min="0.001"
     max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
     step={symbol === "EURUSD" ? 0.00001 : 1}
     value={smaOffsetUI}
