@@ -2705,8 +2705,8 @@ return () => {
 
   <input
     type="range"
-    min="0.01"
-    max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
+    step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
+    max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
     step="0.01"
     value={smaOffsetUI}
     onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
