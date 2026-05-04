@@ -867,57 +867,49 @@ async function saveAllSizes() {
         }
 
         function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          if (!dist.length) return out;
+  const out: MarkerPoint[] = [];
+  if (!dist.length) return out;
 
-          let extreme = dist[0].value;
-          let armed = true;
+  let extreme = dist[0].value;
+  let extremeIndex = 0;
+  let armed = true;
 
-          let extremeIndex = 0;
+  for (let i = 1; i < dist.length; i++) {
+    const d = dist[i].value;
 
-          for (let i = 1; i < dist.length; i++) {
-            const d = dist[i].value;
+    if (side === "long") {
+      if (d < extreme || i - extremeIndex > peakUI) {
+        extreme = d;
+        extremeIndex = i;
+        armed = true;
+      }
 
-            if (d < extreme || i - extremeIndex > peakUI) {
-  extreme = d;
-  extremeIndex = i;
-  armed = true;
+      if (armed && d - extreme >= minKinkUI) {
+        const c = candleByTime(dist[i].time);
+        if (c) out.push({ time: c.time, value: c.low });
+        armed = false;
+        extreme = d;
+        extremeIndex = i;
+      }
+    } else {
+      if (d > extreme || i - extremeIndex > peakUI) {
+        extreme = d;
+        extremeIndex = i;
+        armed = true;
+      }
+
+      if (armed && extreme - d >= minKinkUI) {
+        const c = candleByTime(dist[i].time);
+        if (c) out.push({ time: c.time, value: c.high });
+        armed = false;
+        extreme = d;
+        extremeIndex = i;
+      }
+    }
+  }
+
+  return dedupeMarkers(out);
 }
-
-              console.log("LONG DEBUG", {
-  time: dist[i].time,
-  d,
-  extreme,
-  rebound: d - extreme,
-  minKink: minKinkUI,
-  armed,
-  trigger: d - extreme >= minKinkUI,
-});
-
-              if (armed && d - extreme >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.low });
-                armed = false;
-                extreme = d;
-              }
-            } else {
-              if (d > extreme || i - extremeIndex > peakUI) {
-  extreme = d;
-  extremeIndex = i;
-  armed = true;
-}
-
-              if (armed && extreme - d >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.high });
-                armed = false;
-                extreme = d;
-              }
-            }
-          }
-
-          return dedupeMarkers(out);
-        }
 
         function buildRecoveredKinksFromOutliers(
           outliers: MarkerPoint[],
