@@ -138,7 +138,6 @@ const SYMBOLS = [
   "CORN",
   "SOLUSD",
   "TSLA",
-  "EURUSD",
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
@@ -157,7 +156,6 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
-  EURUSD: 0.003,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -176,7 +174,6 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   CORN: 3,
   SOLUSD: 3,
   TSLA: 3,
-  EURUSD: 0.00015,
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
@@ -194,8 +191,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.08,
   CORN: 0.08,
   SOLUSD: 0.08,
-  EURUSD: 0.00008,
-  TSLA: 0.08,
+  TSLA: 0.08
 };
 
 
@@ -215,7 +211,6 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   CORN: 0.7,
   SOLUSD: 0.08,
   TSLA: 2,
-  EURUSD: 0.00002,
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -233,8 +228,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.01,
   CORN: 0.3,
   SOLUSD: 0.02,
-  TSLA: 0.5,
-  EURUSD: 0.02,
+  TSLA: 0.5
 };
 
  const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
@@ -253,7 +247,6 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
-  EURUSD: 0.003, 
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
@@ -1660,9 +1653,6 @@ const filteredShortEntries = uniqueByTime([
   );
 }
 
-priceChart.timeScale().fitContent();
-distChart.timeScale().fitContent();
-
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
         
@@ -2601,9 +2591,9 @@ return () => {
 
   <input
     type="range"
-    min="0.001"
+    min="0.01"
     max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
-    step={symbol === "EURUSD" ? 0.00001 : 1}
+    step="0.01"
     value={smaOffsetUI}
     onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
     style={{ width: "100%" }}
