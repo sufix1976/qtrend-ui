@@ -2570,8 +2570,8 @@ return () => {
   min={0}
   max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
   step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
-  value={smaOffset}
-  onChange={(e) => setSmaOffset(Number(e.target.value))}
+  value={entryBandUI}
+  onChange={(e) => setEntryBandUI(Number(e.target.value))}
   style={{ width: "100%" }}
 />
 
@@ -2707,7 +2707,7 @@ return () => {
     type="range"
     step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
     max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
-    step="0.01"
+    
     value={smaOffsetUI}
     onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
     style={{ width: "100%" }}
