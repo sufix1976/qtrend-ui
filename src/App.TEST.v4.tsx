@@ -140,6 +140,22 @@ const SYMBOLS = [
   "TSLA",
 ];
 
+function uniqueSymbols(base: string[], cfgMap: SymbolConfigMap): string[] {
+  const set = new Set<string>();
+
+  for (const s of base) {
+    const x = String(s || "").trim().toUpperCase();
+    if (x) set.add(x);
+  }
+
+  for (const s of Object.keys(cfgMap || {})) {
+    const x = String(s || "").trim().toUpperCase();
+    if (x) set.add(x);
+  }
+
+  return Array.from(set).sort();
+}
+
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 160,
   ETHUSD: 10,
@@ -350,6 +366,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [sizeMessage, setSizeMessage] = useState("");
   const [sizeLoading, setSizeLoading] = useState(false);
   const [symbolConfigMap, setSymbolConfigMap] = useState<SymbolConfigMap>({});
+  const [newSymbolInput, setNewSymbolInput] = useState("");
   const [, setConfigLoading] = useState(false);
 
   const entryBand = useMemo(() => ENTRY_BAND_BY_SYMBOL[symbol] ?? 100, [symbol]);
@@ -357,6 +374,11 @@ const [scannerMessage, setScannerMessage] = useState("");
   const minKinkMove = useMemo(() => MIN_KINK_MOVE_BY_SYMBOL[symbol] ?? 1, [symbol]);
   const assumedSpread = useMemo(() => SPREAD_BY_SYMBOL[symbol] ?? 0, [symbol]);
   const assumedSlippage = useMemo(() => SLIPPAGE_BY_SYMBOL[symbol] ?? 0, [symbol]);
+
+  const availableSymbols = useMemo(
+  () => uniqueSymbols(SYMBOLS, symbolConfigMap),
+  [symbolConfigMap]
+);
   
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
@@ -2243,7 +2265,7 @@ return () => {
           <label>
             Symbol{" "}
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-              {SYMBOLS.map((s) => (
+              {availableSymbols.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
