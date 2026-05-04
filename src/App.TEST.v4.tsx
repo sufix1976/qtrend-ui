@@ -900,10 +900,10 @@ async function saveAllSizes() {
       }
 
       // erst neuer Swing wenn dist wieder deutlich fällt
-      if (!armed && d < extreme - minKinkUI * 0.5) {
-        extreme = d;
-        armed = true;
-      }
+      if (!armed && d <= -entryBandUI) {
+  extreme = d;
+  armed = true;
+}
 
     } else {
       // neues höheres Extrem
@@ -929,10 +929,10 @@ async function saveAllSizes() {
       }
 
       // erst neuer Swing wenn dist wieder deutlich steigt
-      if (!armed && d > extreme + minKinkUI * 0.5) {
-        extreme = d;
-        armed = true;
-      }
+      if (!armed && d >= entryBandUI) {
+  extreme = d;
+  armed = true;
+}
     }
   }
 
