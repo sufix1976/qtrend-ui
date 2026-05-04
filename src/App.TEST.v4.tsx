@@ -871,63 +871,67 @@ async function saveAllSizes() {
   if (!dist.length) return out;
 
   let extreme = dist[0].value;
-  let extremeIndex = 0;
   let armed = true;
 
   for (let i = 1; i < dist.length; i++) {
     const d = dist[i].value;
 
     if (side === "long") {
-      if (d < extreme || i - extremeIndex > peakUI) {
+      // neues tieferes Extrem
+      if (d < extreme) {
         extreme = d;
-        extremeIndex = i;
         armed = true;
       }
 
-      console.log("LONG DEBUG", {
-        time: dist[i].time,
-        d,
-        extreme,
-        extremeIndex,
-        age: i - extremeIndex,
-        rebound: d - extreme,
-        minKink: minKinkUI,
-        armed,
-        trigger: d - extreme >= minKinkUI,
-      });
+      const rebound = d - extreme;
 
-      if (armed && d - extreme >= minKinkUI) {
+      // echter Long-Knick
+      if (armed && rebound >= minKinkUI) {
         const c = candleByTime(dist[i].time);
-        if (c) out.push({ time: c.time, value: c.low });
+
+        if (c) {
+          out.push({
+            time: c.time,
+            value: c.low,
+          });
+        }
+
         armed = false;
-        extreme = d;
-        extremeIndex = i;
       }
+
+      // erst neuer Swing wenn dist wieder deutlich fällt
+      if (!armed && d < extreme - minKinkUI * 0.5) {
+        extreme = d;
+        armed = true;
+      }
+
     } else {
-      if (d > extreme || i - extremeIndex > peakUI) {
+      // neues höheres Extrem
+      if (d > extreme) {
         extreme = d;
-        extremeIndex = i;
         armed = true;
       }
 
-      console.log("SHORT DEBUG", {
-        time: dist[i].time,
-        d,
-        extreme,
-        extremeIndex,
-        age: i - extremeIndex,
-        rebound: extreme - d,
-        minKink: minKinkUI,
-        armed,
-        trigger: extreme - d >= minKinkUI,
-      });
+      const rebound = extreme - d;
 
-      if (armed && extreme - d >= minKinkUI) {
+      // echter Short-Knick
+      if (armed && rebound >= minKinkUI) {
         const c = candleByTime(dist[i].time);
-        if (c) out.push({ time: c.time, value: c.high });
+
+        if (c) {
+          out.push({
+            time: c.time,
+            value: c.high,
+          });
+        }
+
         armed = false;
+      }
+
+      // erst neuer Swing wenn dist wieder deutlich steigt
+      if (!armed && d > extreme + minKinkUI * 0.5) {
         extreme = d;
-        extremeIndex = i;
+        armed = true;
       }
     }
   }
