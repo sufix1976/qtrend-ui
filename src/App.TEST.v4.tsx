@@ -1961,8 +1961,8 @@ createSeriesMarkers(
   buildTextMarkers(
     coreLongProjected.map((p) => ({
       ...p,
-      text: "CORE_AL",
-      color: "#00ff88",
+      text: "C_AL",
+color: "#ffffff",
     })),
     "belowBar"
   )
@@ -1973,8 +1973,8 @@ createSeriesMarkers(
   buildTextMarkers(
     coreShortProjected.map((p) => ({
       ...p,
-      text: "CORE_AS",
-      color: "#ff4d6d",
+      text: "C_AS",
+color: "#ffff00",
     })),
     "aboveBar"
   )
