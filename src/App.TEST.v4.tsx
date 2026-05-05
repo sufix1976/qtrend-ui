@@ -1964,7 +1964,7 @@ createSeriesMarkers(
       text: "C_AL",
 color: "#ffffff",
     })),
-    "belowBar"
+    "aboveBar"
   )
 );
 
