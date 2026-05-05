@@ -40,31 +40,19 @@ export function calcDistance(smaFast, smaSlow) {
     });
   }
 
-  return out;
-}
-
-export function detectKinks(
-  dist,
-  zones,
-  lookbackMinutes,
-  minKinkHeight
-) {
+  return export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
   const longKinks = [];
   const shortKinks = [];
 
   const debug = {
-  lastLongHeight: null,
-  lastShortHeight: null,
-  lastLongRef: null,
-  lastShortRef: null,
-};
+    lastLongHeight: null,
+    lastShortHeight: null,
+    lastLongRef: null,
+    lastShortRef: null,
+  };
 
   if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
-    return {
-  longKinks,
-  shortKinks,
-  debug,
-};
+    return { longKinks, shortKinks, debug };
   }
 
   const zoneMap = new Map();
@@ -82,7 +70,6 @@ export function detectKinks(
     const longAllowed = Boolean(zone?.longZone);
     const shortAllowed = Boolean(zone?.shortZone);
 
-    // LONG
     if (longAllowed) {
       if (!longExtreme || curr.value < longExtreme.value) {
         longExtreme = { time: curr.time, value: curr.value };
@@ -102,37 +89,36 @@ export function detectKinks(
         }
 
         if (ref) {
+          const kinkHeight = ref.value - longExtreme.value;
 
-  const kinkHeight =
-    ref.value - longExtreme.value;
+          debug.lastLongHeight = kinkHeight;
+          debug.lastLongRef = {
+            currValue: curr.value,
+            refValue: ref.value,
+            extremeValue: longExtreme.value,
+            minKinkHeight,
+          };
 
-  debug.lastLongHeight = kinkHeight;
+          if (kinkHeight >= minKinkHeight && curr.value >= ref.value) {
+            longKinks.push({
+              time: curr.time,
+              value: curr.value,
+              extremeTime: longExtreme.time,
+              extremeValue: longExtreme.value,
+              refTime: ref.time,
+              refValue: ref.value,
+            });
 
-  debug.lastLongRef = {
-    currValue: curr.value,
-    refValue: ref.value,
-    extremeValue: longExtreme.value,
-    minKinkHeight,
-  };
+            longExtreme = null;
+          }
+        }
+      } else {
+        longExtreme = null;
+      }
+    } else {
+      longExtreme = null;
+    }
 
-  if (
-    kinkHeight >= minKinkHeight &&
-    curr.value >= ref.value
-  ) {
-    longKinks.push({
-      time: curr.time,
-      value: curr.value,
-      extremeTime: longExtreme.time,
-      extremeValue: longExtreme.value,
-      refTime: ref.time,
-      refValue: ref.value,
-    });
-
-    longExtreme = null;
-  }
-}
-
-    // SHORT
     if (shortAllowed) {
       if (!shortExtreme || curr.value > shortExtreme.value) {
         shortExtreme = { time: curr.time, value: curr.value };
@@ -151,39 +137,41 @@ export function detectKinks(
           }
         }
 
-       if (ref) {
+        if (ref) {
+          const kinkHeight = shortExtreme.value - ref.value;
 
-  const kinkHeight =
-    shortExtreme.value - ref.value;
+          debug.lastShortHeight = kinkHeight;
+          debug.lastShortRef = {
+            currValue: curr.value,
+            refValue: ref.value,
+            extremeValue: shortExtreme.value,
+            minKinkHeight,
+          };
 
-  debug.lastShortHeight = kinkHeight;
+          if (kinkHeight >= minKinkHeight && curr.value <= ref.value) {
+            shortKinks.push({
+              time: curr.time,
+              value: curr.value,
+              extremeTime: shortExtreme.time,
+              extremeValue: shortExtreme.value,
+              refTime: ref.time,
+              refValue: ref.value,
+            });
 
-  debug.lastShortRef = {
-    currValue: curr.value,
-    refValue: ref.value,
-    extremeValue: shortExtreme.value,
-    minKinkHeight,
-  };
-
-  if (
-    kinkHeight >= minKinkHeight &&
-    curr.value <= ref.value
-  ) {
-    shortKinks.push({
-      time: curr.time,
-      value: curr.value,
-      extremeTime: shortExtreme.time,
-      extremeValue: shortExtreme.value,
-      refTime: ref.time,
-      refValue: ref.value,
-    });
-
-    shortExtreme = null;
+            shortExtreme = null;
+          }
+        }
+      } else {
+        shortExtreme = null;
+      }
+    } else {
+      shortExtreme = null;
+    }
   }
-}
 
   return { longKinks, shortKinks, debug };
 }
+
 
 export function computeQTrendCore(candles, cfg) {
   const smaFast = calcSMA(candles, cfg.smaFast);
