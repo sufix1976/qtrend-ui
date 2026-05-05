@@ -40,7 +40,7 @@ export function calcDistance(smaFast, smaSlow) {
     });
   }
 
-  return export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
+  export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
   const longKinks = [];
   const shortKinks = [];
 
