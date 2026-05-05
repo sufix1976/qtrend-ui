@@ -206,6 +206,7 @@ export function computeQTrendCore(candles, cfg) {
 
   const kinks = detectKinks(
   dist,
+  zones,
   Number(cfg.kinkLookbackMinutes || 10)
 );
 
