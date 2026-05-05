@@ -43,7 +43,7 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, lookbackMinutes) {
+export function detectKinks(dist, zones, lookbackMinutes) {
   const longKinks = [];
   const shortKinks = [];
 
@@ -210,6 +210,7 @@ export function computeQTrendCore(candles, cfg) {
 
   const kinks = detectKinks(
   dist,
+  zones,
   Number(cfg.kinkLookbackMinutes || 10)
 );
 
