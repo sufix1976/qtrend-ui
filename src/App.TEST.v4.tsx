@@ -2751,78 +2751,35 @@ return () => {
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
+          
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <label style={{ flex: 1 }}>
-              Fast
-              <select
-                value={smaFastUI}
-                onChange={(e) => setSmaFastUI(Number(e.target.value))}
-                style={{ width: "100%" }}
-              >
-                <option value={7}>7</option>
-                <option value={8}>8</option>
-
-                <option value={9}>9</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={30}>30</option>
-                <option value={40}>40</option>
-              </select>
-            </label>
-
-            <label style={{ flex: 1 }}>
-              Slow
-              <select
-                value={smaSlowUI}
-                onChange={(e) => setSmaSlowUI(Number(e.target.value))}
-                style={{ width: "100%" }}
-              >
-                <option value={70}>70</option>
-                <option value={80}>80</option>
-                <option value={90}>90</option>
-                <option value={100}>100</option>
-                <option value={120}>120</option>
-                <option value={150}>150</option>
-                <option value={200}>200</option>
-              </select>
-            </label>
-          </div>
-
-          <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
-  Aktiv: SMA {smaFastUI} / {smaSlowUI}
-</div>
-
-          <div style={{ marginTop: 8 }}>
-  <div style={{ color: "#ccc", fontSize: 12 }}>
-    SMA Offset: {smaOffsetUI}
-  </div>
+    <div style={{ marginTop: 6 }}>
+  <div>Fast SMA: {smaFastUI}</div>
 
   <input
     type="range"
-    step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
-    max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
-    
-    value={smaOffsetUI}
-    onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
+    min="1"
+    max="40"
+    step="1"
+    value={smaFastUI}
+    onChange={(e) => setSmaFastUI(Number(e.target.value))}
     style={{ width: "100%" }}
   />
 </div>
 
-<div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
-  Middle SMA: {smaMiddleUI}
-</div>
+<div style={{ marginTop: 10 }}>
+  <div>Slow SMA: {smaSlowUI}</div>
 
-<input
-  type="range"
-  min={20}
-  max={250}
-  step={1}
-  value={smaMiddleUI}
-  onChange={(e) => setSmaMiddleUI(Number(e.target.value))}
-  style={{ width: "100%" }}
-/>
-        </div>
+  <input
+    type="range"
+    min="1"
+    max="200"
+    step="1"
+    value={smaSlowUI}
+    onChange={(e) => setSmaSlowUI(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
+</div>
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ display: "flex", gap: 8 }}>
