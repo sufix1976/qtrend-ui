@@ -915,6 +915,7 @@ console.log("QTREND CORE CHECK", {
   lastShortKink: coreCheck.kinks.shortKinks.at(-1) ?? null,
   longKinksCount: coreCheck.kinks.longKinks.length,
   shortKinksCount: coreCheck.kinks.shortKinks.length,
+  zoneStats: coreCheck.debug,
 });
 
         const distIndexByTime = new Map<number, number>();
