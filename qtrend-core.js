@@ -43,17 +43,12 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, zones, lookbackMinutes) {
+export function detectKinks(dist, lookbackMinutes) {
   const longKinks = [];
   const shortKinks = [];
 
-  if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
+  if (!Array.isArray(dist) || dist.length < 5) {
     return { longKinks, shortKinks };
-  }
-
-  const zoneMap = new Map();
-  for (const z of zones) {
-    zoneMap.set(Number(z.time), z);
   }
 
   let longExtreme = null;
@@ -61,24 +56,24 @@ export function detectKinks(dist, zones, lookbackMinutes) {
 
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
-    const zone = zoneMap.get(Number(curr.time));
-
-    const longAllowed = Boolean(zone?.longZone);
-    const shortAllowed = Boolean(zone?.shortZone);
 
     // ---------- LONG ----------
-    if (longAllowed) {
-      if (!longExtreme || curr.value < longExtreme.value) {
-        longExtreme = {
-          time: curr.time,
-          value: curr.value,
-        };
-      }
+    if (
+      !longExtreme ||
+      curr.value < longExtreme.value
+    ) {
+      longExtreme = {
+        time: curr.time,
+        value: curr.value,
+      };
+    }
 
+    if (longExtreme) {
       const maxTime = longExtreme.time + lookbackMinutes * 60;
 
       if (curr.time <= maxTime) {
         const refTime = longExtreme.time - lookbackMinutes * 60;
+
         let ref = null;
 
         for (let j = i; j >= 0; j--) {
@@ -88,7 +83,10 @@ export function detectKinks(dist, zones, lookbackMinutes) {
           }
         }
 
-        if (ref && curr.value >= ref.value) {
+        if (
+          ref &&
+          curr.value >= ref.value
+        ) {
           longKinks.push({
             time: curr.time,
             value: curr.value,
@@ -103,23 +101,25 @@ export function detectKinks(dist, zones, lookbackMinutes) {
       } else {
         longExtreme = null;
       }
-    } else {
-      longExtreme = null;
     }
 
     // ---------- SHORT ----------
-    if (shortAllowed) {
-      if (!shortExtreme || curr.value > shortExtreme.value) {
-        shortExtreme = {
-          time: curr.time,
-          value: curr.value,
-        };
-      }
+    if (
+      !shortExtreme ||
+      curr.value > shortExtreme.value
+    ) {
+      shortExtreme = {
+        time: curr.time,
+        value: curr.value,
+      };
+    }
 
+    if (shortExtreme) {
       const maxTime = shortExtreme.time + lookbackMinutes * 60;
 
       if (curr.time <= maxTime) {
         const refTime = shortExtreme.time - lookbackMinutes * 60;
+
         let ref = null;
 
         for (let j = i; j >= 0; j--) {
@@ -129,7 +129,10 @@ export function detectKinks(dist, zones, lookbackMinutes) {
           }
         }
 
-        if (ref && curr.value <= ref.value) {
+        if (
+          ref &&
+          curr.value <= ref.value
+        ) {
           shortKinks.push({
             time: curr.time,
             value: curr.value,
@@ -144,12 +147,13 @@ export function detectKinks(dist, zones, lookbackMinutes) {
       } else {
         shortExtreme = null;
       }
-    } else {
-      shortExtreme = null;
     }
   }
 
-  return { longKinks, shortKinks };
+  return {
+    longKinks,
+    shortKinks,
+  };
 }
 
 export function computeQTrendCore(candles, cfg) {
@@ -206,7 +210,6 @@ export function computeQTrendCore(candles, cfg) {
 
   const kinks = detectKinks(
   dist,
-  zones,
   Number(cfg.kinkLookbackMinutes || 10)
 );
 
