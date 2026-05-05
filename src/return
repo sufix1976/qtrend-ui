@@ -56,8 +56,23 @@ export function detectKinks(dist, zones, lookbackMinutes) {
 
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
+    
+const zoneMap = new Map();
+for (const z of zones || []) {
+  zoneMap.set(Number(z.time), z);
+}
 
-    // ---------- LONG ----------
+for (let i = 1; i < dist.length; i++) {
+  const curr = dist[i];
+
+  const zone = zoneMap.get(Number(curr.time));
+
+  const longAllowed = Boolean(zone?.longZone);
+  const shortAllowed = Boolean(zone?.shortZone);
+
+  // ---------- LONG ----------
+  if (longAllowed) {
+
     if (
       !longExtreme ||
       curr.value < longExtreme.value
@@ -103,7 +118,13 @@ export function detectKinks(dist, zones, lookbackMinutes) {
       }
     }
 
-    // ---------- SHORT ----------
+  } else {
+    longExtreme = null;
+  }
+
+  // ---------- SHORT ----------
+  if (shortAllowed) {
+
     if (
       !shortExtreme ||
       curr.value > shortExtreme.value
@@ -148,7 +169,11 @@ export function detectKinks(dist, zones, lookbackMinutes) {
         shortExtreme = null;
       }
     }
+
+  } else {
+    shortExtreme = null;
   }
+}
 
   return {
     longKinks,
