@@ -52,6 +52,13 @@ export function detectKinks(
   const longKinks = [];
   const shortKinks = [];
 
+  const debug = {
+  lastLongHeight: null,
+  lastShortHeight: null,
+  lastLongRef: null,
+  lastShortRef: null,
+};
+
   if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
     return { longKinks, shortKinks };
   }
@@ -92,6 +99,14 @@ export function detectKinks(
 
         const kinkHeight =
   ref.value - longExtreme.value;
+
+        debug.lastLongHeight = kinkHeight;
+debug.lastLongRef = {
+  currValue: curr.value,
+  refValue: ref.value,
+  extremeValue: longExtreme.value,
+  minKinkHeight,
+};
 
 if (
   ref &&
@@ -138,6 +153,14 @@ if (
         const kinkHeight =
   shortExtreme.value - ref.value;
 
+        debug.lastShortHeight = kinkHeight;
+debug.lastShortRef = {
+  currValue: curr.value,
+  refValue: ref.value,
+  extremeValue: shortExtreme.value,
+  minKinkHeight,
+};
+
 if (
   ref &&
   kinkHeight >= minKinkHeight &&
@@ -162,7 +185,7 @@ if (
     }
   }
 
-  return { longKinks, shortKinks };
+  return { longKinks, shortKinks, debug };
 }
 
 export function computeQTrendCore(candles, cfg) {
