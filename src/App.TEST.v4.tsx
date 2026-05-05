@@ -1860,6 +1860,24 @@ coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
   value: 1,
 }))
 
+        const coreLongProjected = projectMarkerPointsToCandles(
+  coreCheck.kinks.longKinks.map((p: MarkerPoint) => ({
+    ...p,
+    value: 1,
+  })),
+  candles,
+  "below-mid"
+);
+
+const coreShortProjected = projectMarkerPointsToCandles(
+  coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
+    ...p,
+    value: 1,
+  })),
+  candles,
+  "above-mid"
+);
+
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
@@ -1957,7 +1975,7 @@ createSeriesMarkers(
         createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
-    coreLongProjected.map((p) => ({
+    coreLongProjected.map((p: MarkerPoint) => ({
       ...p,
       text: "C_AL",
 color: "#ffffff",
@@ -1969,7 +1987,7 @@ color: "#ffffff",
 createSeriesMarkers(
   candidateShortSeries,
   buildTextMarkers(
-    coreShortProjected.map((p) => ({
+    coreShortProjected.map((p: MarkerPoint) => ({
       ...p,
       text: "C_AS",
 color: "#ffff00",
