@@ -101,39 +101,36 @@ export function detectKinks(
           }
         }
 
-        const kinkHeight =
-  ref.value - longExtreme.value;
+        if (ref) {
 
-        debug.lastLongHeight = kinkHeight;
-debug.lastLongRef = {
-  currValue: curr.value,
-  refValue: ref.value,
-  extremeValue: longExtreme.value,
-  minKinkHeight,
-};
+  const kinkHeight =
+    ref.value - longExtreme.value;
 
-if (
-  ref &&
-  kinkHeight >= minKinkHeight &&
-  curr.value >= ref.value
-) {
-          longKinks.push({
-            time: curr.time,
-            value: curr.value,
-            extremeTime: longExtreme.time,
-            extremeValue: longExtreme.value,
-            refTime: ref.time,
-            refValue: ref.value,
-          });
+  debug.lastLongHeight = kinkHeight;
 
-          longExtreme = null;
-        }
-      } else {
-        longExtreme = null;
-      }
-    } else {
-      longExtreme = null;
-    }
+  debug.lastLongRef = {
+    currValue: curr.value,
+    refValue: ref.value,
+    extremeValue: longExtreme.value,
+    minKinkHeight,
+  };
+
+  if (
+    kinkHeight >= minKinkHeight &&
+    curr.value >= ref.value
+  ) {
+    longKinks.push({
+      time: curr.time,
+      value: curr.value,
+      extremeTime: longExtreme.time,
+      extremeValue: longExtreme.value,
+      refTime: ref.time,
+      refValue: ref.value,
+    });
+
+    longExtreme = null;
+  }
+}
 
     // SHORT
     if (shortAllowed) {
@@ -154,40 +151,36 @@ if (
           }
         }
 
-        const kinkHeight =
-  shortExtreme.value - ref.value;
+       if (ref) {
 
-        debug.lastShortHeight = kinkHeight;
-debug.lastShortRef = {
-  currValue: curr.value,
-  refValue: ref.value,
-  extremeValue: shortExtreme.value,
-  minKinkHeight,
-};
+  const kinkHeight =
+    shortExtreme.value - ref.value;
 
-if (
-  ref &&
-  kinkHeight >= minKinkHeight &&
-  curr.value <= ref.value
-) {
-          shortKinks.push({
-            time: curr.time,
-            value: curr.value,
-            extremeTime: shortExtreme.time,
-            extremeValue: shortExtreme.value,
-            refTime: ref.time,
-            refValue: ref.value,
-          });
+  debug.lastShortHeight = kinkHeight;
 
-          shortExtreme = null;
-        }
-      } else {
-        shortExtreme = null;
-      }
-    } else {
-      shortExtreme = null;
-    }
+  debug.lastShortRef = {
+    currValue: curr.value,
+    refValue: ref.value,
+    extremeValue: shortExtreme.value,
+    minKinkHeight,
+  };
+
+  if (
+    kinkHeight >= minKinkHeight &&
+    curr.value <= ref.value
+  ) {
+    shortKinks.push({
+      time: curr.time,
+      value: curr.value,
+      extremeTime: shortExtreme.time,
+      extremeValue: shortExtreme.value,
+      refTime: ref.time,
+      refValue: ref.value,
+    });
+
+    shortExtreme = null;
   }
+}
 
   return { longKinks, shortKinks, debug };
 }
