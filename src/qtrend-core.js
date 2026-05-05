@@ -43,7 +43,12 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, zones, lookbackMinutes) {
+export function detectKinks(
+  dist,
+  zones,
+  lookbackMinutes,
+  minKinkHeight
+) {
   const longKinks = [];
   const shortKinks = [];
 
@@ -85,7 +90,14 @@ export function detectKinks(dist, zones, lookbackMinutes) {
           }
         }
 
-        if (ref && curr.value >= ref.value) {
+        const kinkHeight =
+  ref.value - longExtreme.value;
+
+if (
+  ref &&
+  kinkHeight >= minKinkHeight &&
+  curr.value >= ref.value
+) {
           longKinks.push({
             time: curr.time,
             value: curr.value,
@@ -123,7 +135,14 @@ export function detectKinks(dist, zones, lookbackMinutes) {
           }
         }
 
-        if (ref && curr.value <= ref.value) {
+        const kinkHeight =
+  shortExtreme.value - ref.value;
+
+if (
+  ref &&
+  kinkHeight >= minKinkHeight &&
+  curr.value <= ref.value
+) {
           shortKinks.push({
             time: curr.time,
             value: curr.value,
@@ -201,7 +220,8 @@ export function computeQTrendCore(candles, cfg) {
   const kinks = detectKinks(
   dist,
   zones,
-  Number(cfg.kinkLookbackMinutes || 10)
+  Number(cfg.kinkLookbackMinutes || 10),
+  Number(cfg.minKinkHeight || 0)
 );
 
   return {
