@@ -2688,7 +2688,7 @@ return () => {
   <input
     type="range"
     min="1"
-    max="10"
+    max="60"
     step="1"
     value={kinkConfirmBarsUI}
     onChange={(e) => setKinkConfirmBarsUI(Number(e.target.value))}
