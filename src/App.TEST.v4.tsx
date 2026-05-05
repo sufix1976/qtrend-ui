@@ -1945,7 +1945,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
     position: "belowBar",
     color: "#ffffff",
     shape: "arrowDown",
-    text: "_",
+    text: "EXL",
   })) as any
 );
 
@@ -1956,7 +1956,7 @@ createSeriesMarkers(
     position: "aboveBar",
     color: "#ffffff",
     shape: "arrowUp",
-    text: "_",
+    text: "EXS",
   })) as any
 );
 
