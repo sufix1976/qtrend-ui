@@ -4117,7 +4117,7 @@ function chartifyCandles(candles: Candle[]): Candle[] {
   }));
 }
 
-function chartifyLinePoints<T extends { time: number }>(points: T[]): T[] {
+function chartifyLinePoints(points: any[]): any[] {
   return points.map((p) => ({
     ...p,
     time: Number(p.time),
