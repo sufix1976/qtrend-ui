@@ -1851,13 +1851,19 @@ console.log("LONG SETUP CHECK", {
 });
 
         const coreLongProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.longKinks,
+  coreCheck.kinks.longKinks.map((p) => ({
+    ...p,
+    value: 1,
+  })),
   candles,
   "below-mid"
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.shortKinks,
+  coreCheck.kinks.shortKinks.map((p) => ({
+    ...p,
+    value: 1,
+  })),
   candles,
   "above-mid"
 );
