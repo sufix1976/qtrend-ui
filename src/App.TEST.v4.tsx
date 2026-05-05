@@ -1570,6 +1570,8 @@ if (!distMiddle.length) {
   smaOffset: smaOffsetUI,
   entryBand: entryBandUI,
   kinkLookbackMinutes: kinkConfirmBarsUI,
+  minKinkHeight: minKinkUI,        
+          
 });
 
 console.log("QTREND CORE CHECK 2", {
