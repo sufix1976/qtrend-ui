@@ -8,6 +8,7 @@ export function calcSMA(candles, length) {
 
   for (let i = length - 1; i < candles.length; i++) {
     let sum = 0;
+
     for (let j = 0; j < length; j++) {
       sum += Number(candles[i - j].close);
     }
@@ -23,6 +24,7 @@ export function calcSMA(candles, length) {
 
 export function calcDistance(smaFast, smaSlow) {
   const slowMap = new Map();
+
   for (const p of smaSlow || []) {
     slowMap.set(Number(p.time), Number(p.value));
   }
@@ -32,6 +34,7 @@ export function calcDistance(smaFast, smaSlow) {
   for (const f of smaFast || []) {
     const t = Number(f.time);
     const s = slowMap.get(t);
+
     if (!Number.isFinite(s)) continue;
 
     out.push({
@@ -40,7 +43,10 @@ export function calcDistance(smaFast, smaSlow) {
     });
   }
 
-  export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
+  return out;
+}
+
+export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
   const longKinks = [];
   const shortKinks = [];
 
@@ -56,6 +62,7 @@ export function calcDistance(smaFast, smaSlow) {
   }
 
   const zoneMap = new Map();
+
   for (const z of zones) {
     zoneMap.set(Number(z.time), z);
   }
@@ -70,9 +77,13 @@ export function calcDistance(smaFast, smaSlow) {
     const longAllowed = Boolean(zone?.longZone);
     const shortAllowed = Boolean(zone?.shortZone);
 
+    // ---------- LONG ----------
     if (longAllowed) {
       if (!longExtreme || curr.value < longExtreme.value) {
-        longExtreme = { time: curr.time, value: curr.value };
+        longExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
       }
 
       const maxTime = longExtreme.time + lookbackMinutes * 60;
@@ -119,9 +130,13 @@ export function calcDistance(smaFast, smaSlow) {
       longExtreme = null;
     }
 
+    // ---------- SHORT ----------
     if (shortAllowed) {
       if (!shortExtreme || curr.value > shortExtreme.value) {
-        shortExtreme = { time: curr.time, value: curr.value };
+        shortExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
       }
 
       const maxTime = shortExtreme.time + lookbackMinutes * 60;
@@ -172,10 +187,9 @@ export function calcDistance(smaFast, smaSlow) {
   return { longKinks, shortKinks, debug };
 }
 
-
 export function computeQTrendCore(candles, cfg) {
-  const smaFast = calcSMA(candles, cfg.smaFast);
-  const smaSlow = calcSMA(candles, cfg.smaSlow);
+  const smaFast = calcSMA(candles, Number(cfg.smaFast || 10));
+  const smaSlow = calcSMA(candles, Number(cfg.smaSlow || 100));
 
   const dist = calcDistance(smaFast, smaSlow);
 
@@ -189,11 +203,6 @@ export function computeQTrendCore(candles, cfg) {
     slowMap.set(Number(p.time), Number(p.value));
   }
 
-  const distMap = new Map();
-  for (const p of dist) {
-    distMap.set(Number(p.time), Number(p.value));
-  }
-
   const zones = [];
 
   for (const d of dist) {
@@ -204,15 +213,15 @@ export function computeQTrendCore(candles, cfg) {
 
     if (!Number.isFinite(fast) || !Number.isFinite(slow)) continue;
 
-    const upperOffset = slow + cfg.smaOffset;
-    const lowerOffset = slow - cfg.smaOffset;
+    const upperOffset = slow + Number(cfg.smaOffset || 0);
+    const lowerOffset = slow - Number(cfg.smaOffset || 0);
 
     const longZone =
-      d.value <= -cfg.entryBand &&
+      d.value <= -Number(cfg.entryBand || 0) &&
       fast <= lowerOffset;
 
     const shortZone =
-      d.value >= cfg.entryBand &&
+      d.value >= Number(cfg.entryBand || 0) &&
       fast >= upperOffset;
 
     zones.push({
@@ -220,17 +229,19 @@ export function computeQTrendCore(candles, cfg) {
       dist: d.value,
       fast,
       slow,
+      upperOffset,
+      lowerOffset,
       longZone,
       shortZone,
     });
   }
 
   const kinks = detectKinks(
-  dist,
-  zones,
-  Number(cfg.kinkLookbackMinutes || 10),
-  Number(cfg.minKinkHeight || 0)
-);
+    dist,
+    zones,
+    Number(cfg.kinkLookbackMinutes || 10),
+    Number(cfg.minKinkHeight || 0)
+  );
 
   return {
     smaFast,
@@ -246,6 +257,9 @@ export function computeQTrendCore(candles, cfg) {
 
     debug: {
       lastZone: zones[zones.length - 1] || null,
+      zonesCount: zones.length,
+      longZoneCount: zones.filter((z) => z.longZone).length,
+      shortZoneCount: zones.filter((z) => z.shortZone).length,
     },
   };
 }
