@@ -907,7 +907,7 @@ async function saveAllSizes() {
   kinkLookbackMinutes: kinkConfirmBarsUI,
 });
 
-console.log("QTREND CORE CHECK", {
+console.log("QTREND CORE CHECK 2", {
   symbol,
   interval,
   lastZone: coreCheck.debug.lastZone,
