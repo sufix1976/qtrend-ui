@@ -60,7 +60,11 @@ export function detectKinks(
 };
 
   if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
-    return { longKinks, shortKinks };
+    return {
+  longKinks,
+  shortKinks,
+  debug,
+};
   }
 
   const zoneMap = new Map();
