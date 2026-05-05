@@ -1948,6 +1948,9 @@ createSeriesMarkers(
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
+        candidateLongSeries.setData(coreLongProjected as any);
+        candidateShortSeries.setData(coreShortProjected as any);
+
 
         createSeriesMarkers(
   candidateLongSeries,
