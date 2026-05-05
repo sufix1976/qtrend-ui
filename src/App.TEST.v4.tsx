@@ -1274,7 +1274,7 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
       lineVisible: false,
-      pointMarkersVisible: false,
+      pointMarkersVisible: true,
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -1283,7 +1283,7 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#ef4444",
       lineVisible: false,
-      pointMarkersVisible: false,
+      pointMarkersVisible: true,
       priceLineVisible: false,
       lastValueVisible: false,
     });
