@@ -1850,23 +1850,15 @@ console.log("LONG SETUP CHECK", {
   dynamicBandLast: lastDynBand,
 });
 
-        const coreLongProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.longKinks.map((p) => ({
-    ...p,
-    value: 1,
-  })),
-  candles,
-  "below-mid"
-);
+        coreCheck.kinks.longKinks.map((p: MarkerPoint) => ({
+  ...p,
+  value: 1,
+}))
 
-const coreShortProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.shortKinks.map((p) => ({
-    ...p,
-    value: 1,
-  })),
-  candles,
-  "above-mid"
-);
+coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
+  ...p,
+  value: 1,
+}))
 
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
