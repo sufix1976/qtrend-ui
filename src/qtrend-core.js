@@ -102,6 +102,14 @@ export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
         if (ref) {
           const kinkHeight = ref.value - longExtreme.value;
 
+          const reboundBars =
+  (curr.time - longExtreme.time) / 60;
+
+const reboundSpeed =
+  reboundBars > 0
+    ? (curr.value - longExtreme.value) / reboundBars
+    : 0;
+
           debug.lastLongHeight = kinkHeight;
           debug.lastLongRef = {
             currValue: curr.value,
@@ -110,7 +118,11 @@ export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
             minKinkHeight,
           };
 
-          if (kinkHeight >= minKinkHeight && curr.value >= ref.value) {
+          if (
+  kinkHeight >= minKinkHeight &&
+  curr.value >= ref.value &&
+  reboundSpeed >= 0.2
+) {
             longKinks.push({
               time: curr.time,
               value: curr.value,
