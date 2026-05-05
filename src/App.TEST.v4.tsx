@@ -1938,14 +1938,14 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
        
 
-    /*    createSeriesMarkers(
+        createSeriesMarkers(
   strategyLongExitSeries,
   longExitProjected.map((p) => ({
     time: p.time,
     position: "belowBar",
     color: "#ffffff",
     shape: "arrowDown",
-    text: "EXL",
+    text: "_",
   })) as any
 );
 
@@ -1956,10 +1956,10 @@ createSeriesMarkers(
     position: "aboveBar",
     color: "#ffffff",
     shape: "arrowUp",
-    text: "EXS",
+    text: "_",
   })) as any
 );
-*/
+
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
