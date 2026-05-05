@@ -905,6 +905,7 @@ async function saveAllSizes() {
   smaOffset: smaOffsetUI,
   entryBand: entryBandUI,
   kinkLookbackMinutes: kinkConfirmBarsUI,
+  minKinkHeight: minKinkUI,        
 });
 
 console.log("QTREND CORE CHECK 2", {
