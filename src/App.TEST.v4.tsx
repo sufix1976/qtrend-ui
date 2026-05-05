@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { computeQTrendCore } from "./qtrend-core";
 import {
   createChart,
   createSeriesMarkers,
@@ -896,6 +897,24 @@ async function saveAllSizes() {
           adaptiveBandVal,
           adaptiveBandMultVal
         );
+
+        const coreCheck = computeQTrendCore(candles, {
+  smaFast: smaFastUI,
+  smaSlow: smaSlowUI,
+  smaOffset: smaOffsetUI,
+  entryBand: entryBandUI,
+  kinkLookbackMinutes: kinkConfirmBarsUI,
+});
+
+console.log("QTREND CORE CHECK", {
+  symbol,
+  interval,
+  lastZone: coreCheck.debug.lastZone,
+  lastLongKink: coreCheck.kinks.longKinks.at(-1) ?? null,
+  lastShortKink: coreCheck.kinks.shortKinks.at(-1) ?? null,
+  longKinksCount: coreCheck.kinks.longKinks.length,
+  shortKinksCount: coreCheck.kinks.shortKinks.length,
+});
 
         const distIndexByTime = new Map<number, number>();
         dist.forEach((p, i) => distIndexByTime.set(p.time, i));
