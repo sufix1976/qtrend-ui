@@ -1846,6 +1846,18 @@ console.log("LONG SETUP CHECK", {
   dynamicBandLast: lastDynBand,
 });
 
+        const coreLongProjected = projectMarkerPointsToCandles(
+  coreCheck.kinks.longKinks,
+  candles,
+  "below-mid"
+);
+
+const coreShortProjected = projectMarkerPointsToCandles(
+  coreCheck.kinks.shortKinks,
+  candles,
+  "above-mid"
+);
+
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
@@ -1936,7 +1948,30 @@ createSeriesMarkers(
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-        
+
+        createSeriesMarkers(
+  candidateLongSeries,
+  buildTextMarkers(
+    coreLongProjected.map((p) => ({
+      ...p,
+      text: "CORE_AL",
+      color: "#00ff88",
+    })),
+    "belowBar"
+  )
+);
+
+createSeriesMarkers(
+  candidateShortSeries,
+  buildTextMarkers(
+    coreShortProjected.map((p) => ({
+      ...p,
+      text: "CORE_AS",
+      color: "#ff4d6d",
+    })),
+    "aboveBar"
+  )
+);
 
         createSeriesMarkers(
   outlierLongSeries,
