@@ -1996,7 +1996,7 @@ color: "#ffff00",
   )
 );
 
-        createSeriesMarkers(
+   /*     createSeriesMarkers(
   outlierLongSeries,
   buildTextMarkers(
     outlierLongProjected.map((p) => ({ ...p, text: "AL", color: "#00ffff" })),
@@ -2011,6 +2011,7 @@ createSeriesMarkers(
     "aboveBar"
   )
 );
+*/
        
 
         createSeriesMarkers(
