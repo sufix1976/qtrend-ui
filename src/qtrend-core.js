@@ -51,11 +51,12 @@ export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight
   const shortKinks = [];
 
   const debug = {
-    lastLongHeight: null,
-    lastShortHeight: null,
-    lastLongRef: null,
-    lastShortRef: null,
-  };
+  lastLongHeight: null,
+  lastShortHeight: null,
+  lastLongRef: null,
+  lastShortRef: null,
+  events: [],
+};
 
   if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
     return { longKinks, shortKinks, debug };
@@ -144,6 +145,24 @@ const reboundSpeed =
             extremeValue: longExtreme.value,
             minKinkHeight,
           };
+
+          debug.events.push({
+  side: "LONG",
+  time: curr.time,
+  allowed: longAllowed,
+  longArmed,
+  currValue: curr.value,
+  extremeValue: longExtreme.value,
+  kinkHeight,
+  minKinkHeight,
+  fastTurnsUp,
+  fastTurnsDown,
+  pass:
+    longArmed &&
+    kinkHeight >= minKinkHeight &&
+    fastTurnsUp,
+});
+          
 if (
   longArmed &&
   kinkHeight >= minKinkHeight &&
@@ -212,7 +231,23 @@ const reboundSpeed =
             minKinkHeight,
           };
 
-        
+debug.events.push({
+  side: "SHORT",
+  time: curr.time,
+  allowed: shortAllowed,
+  shortArmed,
+  currValue: curr.value,
+  extremeValue: shortExtreme.value,
+  kinkHeight,
+  minKinkHeight,
+  fastTurnsUp,
+  fastTurnsDown,
+  pass:
+    shortArmed &&
+    kinkHeight >= minKinkHeight &&
+    fastTurnsDown,
+});
+          
 
             if (
   shortArmed &&
