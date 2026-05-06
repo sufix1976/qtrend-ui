@@ -890,6 +890,9 @@ console.log("QTREND CORE CHECK 2", {
   kinkDebug: coreCheck.kinks.debug,
 });
 
+        console.log("QTREND DEBUG EVENTS COUNT", coreCheck.kinks.debug.events?.length);
+console.log("QTREND DEBUG LAST EVENTS", coreCheck.kinks.debug.events?.slice(-10));
+
         console.table(
   (coreCheck.kinks.debug.events || [])
     .slice(-80)
