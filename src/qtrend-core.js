@@ -320,20 +320,12 @@ export function computeQTrendCore(candles, cfg) {
     const upperOffset = slow + Number(cfg.smaOffset || 0);
     const lowerOffset = slow - Number(cfg.smaOffset || 0);
 
-    const prevSlow = slowMap.get(t - 300);
+    for (const p of smaTurns.up) {
+  if (Number(p.time) === t) trend = "UT";
+}
 
-const slowTurnsUp =
-  Number.isFinite(prevSlow) &&
-  slow > prevSlow;
-
-const slowTurnsDown =
-  Number.isFinite(prevSlow) &&
-  slow < prevSlow;
-
-    if (slowTurnsUp) {
-  trend = "UT";
-} else if (slowTurnsDown) {
-  trend = "DT";
+for (const p of smaTurns.down) {
+  if (Number(p.time) === t) trend = "DT";
 }
 
     
