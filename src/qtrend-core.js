@@ -92,15 +92,21 @@ let shortArmed = true;
 const fastNow = fastMap.get(Number(curr.time));
 const fastPrev = fastMap.get(Number(prev?.time));
 
+const fastPrev2 = i >= 2 ? fastMap.get(Number(dist[i - 2]?.time)) : null;
+
 const fastTurnsUp =
   Number.isFinite(fastNow) &&
   Number.isFinite(fastPrev) &&
-  fastNow > fastPrev;
+  Number.isFinite(fastPrev2) &&
+  fastNow > fastPrev &&
+  fastPrev > fastPrev2;
 
 const fastTurnsDown =
   Number.isFinite(fastNow) &&
   Number.isFinite(fastPrev) &&
-  fastNow < fastPrev;
+  Number.isFinite(fastPrev2) &&
+  fastNow < fastPrev &&
+  fastPrev < fastPrev2;
 
     if (fastTurnsDown) longArmed = true;
 if (fastTurnsUp) shortArmed = true;
