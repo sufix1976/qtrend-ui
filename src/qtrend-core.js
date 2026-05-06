@@ -254,7 +254,7 @@ function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
 
   let trend = null;
 
-  let trend: "up" | "down" | null = null;
+ 
 
   for (let i = confirmBars; i < smaSlow.length; i++) {
     let rising = true;
