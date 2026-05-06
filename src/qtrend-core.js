@@ -119,8 +119,7 @@ const reboundSpeed =
           };
 
           if (
-  kinkHeight >= minKinkHeight &&
-  curr.value >= ref.value &&
+  (curr.value - longExtreme.value) >= minKinkHeight &&
   reboundSpeed >= 0.2
 ) {
             longKinks.push({
