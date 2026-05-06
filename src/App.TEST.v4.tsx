@@ -1658,8 +1658,8 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = sim.acceptedLongEntryPoints;
 const validShortCandidates = sim.acceptedShortEntryPoints;
 
-const strategyLongPoints = sim.acceptedLongEntryPoints;
-const strategyShortPoints = sim.acceptedShortEntryPoints;
+const strategyLongPoints = rawLongCandidates;
+const strategyShortPoints = rawShortCandidates;
 
         console.log("UI LAST MARKERS", {
   symbol,
