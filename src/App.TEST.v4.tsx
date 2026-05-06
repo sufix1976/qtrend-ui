@@ -1779,8 +1779,8 @@ const smaTurnMarkers = [
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         
-        const rawLongCandidates = filteredLongEntries;
-        const rawShortCandidates = filteredShortEntries;
+       const rawLongCandidates = filteredCoreSignals.longs;
+const rawShortCandidates = filteredCoreSignals.shorts;
 
 const sim = simulateStrategyTESTv4(
   candles,
