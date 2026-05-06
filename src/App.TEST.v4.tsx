@@ -115,34 +115,7 @@ type ScannerRow = {
 
 type SymbolSizeMap = Record<string, number>;
 
-function filterAlternatingSignals(longs: MarkerPoint[], shorts: MarkerPoint[]) {
-  const merged = [
-    ...longs.map((p) => ({ ...p, side: "long" as const })),
-    ...shorts.map((p) => ({ ...p, side: "short" as const })),
-  ].sort((a, b) => a.time - b.time);
 
-  const outLongs: MarkerPoint[] = [];
-  const outShorts: MarkerPoint[] = [];
-
-  let lastSide: "long" | "short" | null = null;
-
-  for (const p of merged) {
-    if (p.side === lastSide) continue;
-
-    if (p.side === "long") {
-      outLongs.push(p);
-      lastSide = "long";
-    } else {
-      outShorts.push(p);
-      lastSide = "short";
-    }
-  }
-
-  return {
-    longs: outLongs,
-    shorts: outShorts,
-  };
-}
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const LIMIT = 10000;
