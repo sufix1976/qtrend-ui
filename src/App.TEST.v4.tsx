@@ -1655,53 +1655,7 @@ const simRaw = simulateStrategyTESTv4(
   useSlowExitUI
 );
 
-        function filterEntriesWithExitReset(
-  longs: MarkerPoint[],
-  shorts: MarkerPoint[],
-  longExits: MarkerPoint[],
-  shortExits: MarkerPoint[]
-) {
-  const merged = [
-    ...longs.map((p) => ({ ...p, kind: "long" as const })),
-    ...shorts.map((p) => ({ ...p, kind: "short" as const })),
-    ...longExits.map((p) => ({ ...p, kind: "exl" as const })),
-    ...shortExits.map((p) => ({ ...p, kind: "exs" as const })),
-  ].sort((a, b) => a.time - b.time);
-
-  const outLongs: MarkerPoint[] = [];
-  const outShorts: MarkerPoint[] = [];
-
-  let activeSide: "long" | "short" | null = null;
-
-  for (const p of merged) {
-    if (p.kind === "exl" && activeSide === "long") {
-      activeSide = null;
-      continue;
-    }
-
-    if (p.kind === "exs" && activeSide === "short") {
-      activeSide = null;
-      continue;
-    }
-
-    if (p.kind === "long") {
-      if (activeSide === "long") continue;
-      outLongs.push(p);
-      activeSide = "long";
-    }
-
-    if (p.kind === "short") {
-      if (activeSide === "short") continue;
-      outShorts.push(p);
-      activeSide = "short";
-    }
-  }
-
-  return {
-    longs: outLongs,
-    shorts: outShorts,
-  };
-}
+       
 
 const visibleCoreSignals = filterEntriesWithExitReset(
   rawLongCandidates,
