@@ -83,6 +83,9 @@ let shortArmed = true;
   let waitingForLongTurn = false;
 let waitingForShortTurn = false;
 
+  let longLocked = false;
+let shortLocked = false;
+
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
     const zone = zoneMap.get(Number(curr.time));
@@ -127,6 +130,7 @@ if (fastTurnsUp) shortArmed = true;
     // LONG Extrem Tracking
 if (longAllowed) {
   if (!longExtreme || curr.value < longExtreme.value) {
+    longLocked = false; // neuer Move beginnt
     longExtreme = { time: curr.time, value: curr.value };
     waitingForLongTurn = false; // Extrem läuft weiter
   } else {
@@ -136,10 +140,11 @@ if (longAllowed) {
     }
 
     if (
-      waitingForLongTurn &&
-      curr.value > prev.value && // erster Dist-Anstieg
-      (curr.value - longExtreme.value) >= minKinkHeight
-    ) {
+  !longLocked &&
+  waitingForLongTurn &&
+  curr.value > prev.value &&
+  (curr.value - longExtreme.value) >= minKinkHeight
+) {
       longKinks.push({
         time: curr.time,
         value: curr.value,
@@ -155,10 +160,13 @@ if (longAllowed) {
   longExtreme = null;
   waitingForLongTurn = false;
 }
+
+    longLocked = true;
     
 
     if (shortAllowed) {
   if (!shortExtreme || curr.value > shortExtreme.value) {
+    shortLocked = false;
     shortExtreme = { time: curr.time, value: curr.value };
     waitingForShortTurn = false;
   } else {
@@ -167,10 +175,11 @@ if (longAllowed) {
     }
 
     if (
-      waitingForShortTurn &&
-      curr.value < prev.value &&
-      (shortExtreme.value - curr.value) >= minKinkHeight
-    ) {
+  !shortLocked &&
+  waitingForShortTurn &&
+  curr.value < prev.value &&
+  (shortExtreme.value - curr.value) >= minKinkHeight
+){
       shortKinks.push({
         time: curr.time,
         value: curr.value,
@@ -190,7 +199,7 @@ if (longAllowed) {
 
   return { longKinks, shortKinks, debug };
 }
-
+shortLocked = true;
 
 
 function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
