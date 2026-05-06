@@ -46,7 +46,7 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
+export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight) {
   const longKinks = [];
   const shortKinks = [];
 
@@ -67,6 +67,12 @@ export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
     zoneMap.set(Number(z.time), z);
   }
 
+  const fastMap = new Map();
+
+for (const p of smaFast || []) {
+  fastMap.set(Number(p.time), Number(p.value));
+}
+
   let longExtreme = null;
   let shortExtreme = null;
 
@@ -76,6 +82,21 @@ export function detectKinks(dist, zones, lookbackMinutes, minKinkHeight) {
 
     const longAllowed = Boolean(zone?.longZone);
     const shortAllowed = Boolean(zone?.shortZone);
+
+    const prev = dist[i - 1];
+
+const fastNow = fastMap.get(Number(curr.time));
+const fastPrev = fastMap.get(Number(prev?.time));
+
+const fastTurnsUp =
+  Number.isFinite(fastNow) &&
+  Number.isFinite(fastPrev) &&
+  fastNow > fastPrev;
+
+const fastTurnsDown =
+  Number.isFinite(fastNow) &&
+  Number.isFinite(fastPrev) &&
+  fastNow < fastPrev;
 
     // ---------- LONG ----------
     if (longAllowed) {
@@ -120,7 +141,8 @@ const reboundSpeed =
 
           if (
   (curr.value - longExtreme.value) >= minKinkHeight &&
-  reboundSpeed >= 0.2
+  reboundSpeed >= 0.2 &&
+  fastTurnsUp
 ) {
             longKinks.push({
               time: curr.time,
@@ -184,7 +206,8 @@ const reboundSpeed =
 
           if (
   (shortExtreme.value - curr.value) >= minKinkHeight &&
-  reboundSpeed >= 0.2
+  reboundSpeed >= 0.2 &&
+  fastTurnsDown
 ) {
             shortKinks.push({
               time: curr.time,
@@ -259,11 +282,12 @@ export function computeQTrendCore(candles, cfg) {
   }
 
   const kinks = detectKinks(
-    dist,
-    zones,
-    Number(cfg.kinkLookbackMinutes || 10),
-    Number(cfg.minKinkHeight || 0)
-  );
+  dist,
+  zones,
+  smaFast,
+  Number(cfg.kinkLookbackMinutes || 10),
+  Number(cfg.minKinkHeight || 0)
+);
 
   return {
     smaFast,
