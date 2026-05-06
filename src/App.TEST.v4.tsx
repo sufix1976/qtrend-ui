@@ -1728,12 +1728,7 @@ const sim = simulateStrategyTESTv4(
   };
 }
 
-        const visibleCoreSignals = filterEntriesWithExitReset(
-  rawLongCandidates,
-  rawShortCandidates,
-  sim.longExitPoints,
-  sim.shortExitPoints
-);
+        
 
 const validLongCandidates = sim.acceptedLongEntryPoints;
 const validShortCandidates = sim.acceptedShortEntryPoints;
