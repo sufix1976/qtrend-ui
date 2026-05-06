@@ -1588,8 +1588,15 @@ console.log("QTREND DEBUG LAST EVENTS", coreCheck.kinks.debug.events?.slice(-10)
 
         console.table(
   (coreCheck.kinks.debug.events || [])
-    .slice(-80)
-    .map((e: any) => ({
+  .filter((e: any) => {
+    const d = new Date(e.time * 1000);
+    return (
+      d.getFullYear() === 2026 &&
+      d.getMonth() === 3 &&
+      d.getDate() === 8
+    );
+  })
+  .map((e: any) => ({
       side: e.side,
       time: new Date(e.time * 1000).toLocaleString("de-DE"),
       allowed: e.allowed,
