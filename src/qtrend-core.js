@@ -55,10 +55,14 @@ export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight
     zoneMap.set(Number(z.time), z);
   }
 
-  let longWatch = false;
-  let shortWatch = false;
-  let longExtreme = null;
-  let shortExtreme = null;
+ let longWatch = false;
+let shortWatch = false;
+
+let wasLongZone = false;
+let wasShortZone = false;
+
+let longExtreme = null;
+let shortExtreme = null;
 
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
@@ -66,15 +70,21 @@ export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight
     const zone = zoneMap.get(Number(curr.time));
     if (!zone) continue;
 
-    if (zone.longZone && !longWatch) {
-      longWatch = true;
-      longExtreme = { time: curr.time, value: curr.value };
-    }
+   const enteredLongZone =
+  zone.longZone && !wasLongZone;
 
-    if (zone.shortZone && !shortWatch) {
-      shortWatch = true;
-      shortExtreme = { time: curr.time, value: curr.value };
-    }
+if (enteredLongZone && !longWatch) {
+  longWatch = true;
+  longExtreme = { time: curr.time, value: curr.value };
+}
+
+   const enteredShortZone =
+  zone.shortZone && !wasShortZone;
+
+if (enteredShortZone && !shortWatch) {
+  shortWatch = true;
+  shortExtreme = { time: curr.time, value: curr.value };
+}
 
     if (longWatch && longExtreme) {
       if (curr.value < longExtreme.value) {
