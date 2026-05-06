@@ -166,6 +166,14 @@ const reboundSpeed =
         if (ref) {
           const kinkHeight = shortExtreme.value - ref.value;
 
+          const reboundBars =
+  (curr.time - shortExtreme.time) / 60;
+
+const reboundSpeed =
+  reboundBars > 0
+    ? (shortExtreme.value - curr.value) / reboundBars
+    : 0;
+
           debug.lastShortHeight = kinkHeight;
           debug.lastShortRef = {
             currValue: curr.value,
@@ -174,7 +182,10 @@ const reboundSpeed =
             minKinkHeight,
           };
 
-          if (kinkHeight >= minKinkHeight && curr.value <= ref.value) {
+          if (
+  (shortExtreme.value - curr.value) >= minKinkHeight &&
+  reboundSpeed >= 0.2
+) {
             shortKinks.push({
               time: curr.time,
               value: curr.value,
