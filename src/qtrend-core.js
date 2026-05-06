@@ -51,12 +51,12 @@ export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight
   const shortKinks = [];
 
   const debug = {
-  lastLongHeight: null,
-  lastShortHeight: null,
-  lastLongRef: null,
-  lastShortRef: null,
-  events: [],
-};
+    lastLongHeight: null,
+    lastShortHeight: null,
+    lastLongRef: null,
+    lastShortRef: null,
+    events: [],
+  };
 
   if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
     return { longKinks, shortKinks, debug };
@@ -68,147 +68,172 @@ export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight
     zoneMap.set(Number(z.time), z);
   }
 
-  const fastMap = new Map();
-
-for (const p of smaFast || []) {
-  fastMap.set(Number(p.time), Number(p.value));
-}
-
   let longExtreme = null;
   let shortExtreme = null;
 
-  let longArmed = true;
-let shortArmed = true;
-
   let waitingForLongTurn = false;
-let waitingForShortTurn = false;
+  let waitingForShortTurn = false;
 
   let longLocked = false;
-let shortLocked = false;
+  let shortLocked = false;
 
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
+    const prev = dist[i - 1];
     const zone = zoneMap.get(Number(curr.time));
 
     const longAllowed = Boolean(zone?.longZone);
     const shortAllowed = Boolean(zone?.shortZone);
 
-    const prev = dist[i - 1];
-
-const fastNow = fastMap.get(Number(curr.time));
-const fastPrev = fastMap.get(Number(prev?.time));
-
-const fastPrev2 = i >= 2 ? fastMap.get(Number(dist[i - 2]?.time)) : null;
-
-const fastTurnsUp =
-  Number.isFinite(fastNow) &&
-  Number.isFinite(fastPrev) &&
-  Number.isFinite(fastPrev2) &&
-  fastNow > fastPrev &&
-  fastPrev > fastPrev2;
-
-const fastTurnsDown =
-  Number.isFinite(fastNow) &&
-  Number.isFinite(fastPrev) &&
-  Number.isFinite(fastPrev2) &&
-  fastNow < fastPrev &&
-  fastPrev < fastPrev2;
-
     const distTurnsUp =
-  Number.isFinite(curr.value) &&
-  Number.isFinite(prev?.value) &&
-  curr.value > prev.value;
+      Number.isFinite(curr.value) &&
+      Number.isFinite(prev?.value) &&
+      curr.value > prev.value;
 
-const distTurnsDown =
-  Number.isFinite(curr.value) &&
-  Number.isFinite(prev?.value) &&
-  curr.value < prev.value;
+    const distTurnsDown =
+      Number.isFinite(curr.value) &&
+      Number.isFinite(prev?.value) &&
+      curr.value < prev.value;
 
-    if (fastTurnsDown) longArmed = true;
-if (fastTurnsUp) shortArmed = true;
+    // ---------- LONG ----------
+    if (longAllowed) {
+      if (!longExtreme || curr.value < longExtreme.value) {
+        longExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
 
-    // LONG Extrem Tracking
-if (longAllowed) {
-  if (!longExtreme || curr.value < longExtreme.value) {
-    longLocked = false; // neuer Move beginnt
-    longExtreme = { time: curr.time, value: curr.value };
-    waitingForLongTurn = false; // Extrem läuft weiter
-  } else {
-    // kein neues Tief mehr
-    if (!waitingForLongTurn) {
-      waitingForLongTurn = true; // Extrem könnte fertig sein
-    }
+        waitingForLongTurn = false;
+        longLocked = false;
+      } else {
+        waitingForLongTurn = true;
 
-    if (
-  !longLocked &&
-  waitingForLongTurn &&
-  curr.value > prev.value &&
-  (curr.value - longExtreme.value) >= minKinkHeight
-) {
-      longKinks.push({
-        time: curr.time,
-        value: curr.value,
-        extremeTime: longExtreme.time,
-        extremeValue: longExtreme.value,
-      });
+        const kinkHeight = curr.value - longExtreme.value;
 
+        debug.lastLongHeight = kinkHeight;
+        debug.lastLongRef = {
+          currValue: curr.value,
+          extremeValue: longExtreme.value,
+          minKinkHeight,
+        };
+
+        debug.events.push({
+          side: "LONG",
+          time: curr.time,
+          allowed: longAllowed,
+          locked: longLocked,
+          waitingForTurn: waitingForLongTurn,
+          currValue: curr.value,
+          extremeValue: longExtreme.value,
+          kinkHeight,
+          minKinkHeight,
+          distTurnsUp,
+          distTurnsDown,
+          pass:
+            !longLocked &&
+            waitingForLongTurn &&
+            distTurnsUp &&
+            kinkHeight >= minKinkHeight,
+        });
+
+        if (
+          !longLocked &&
+          waitingForLongTurn &&
+          distTurnsUp &&
+          kinkHeight >= minKinkHeight
+        ) {
+          longKinks.push({
+            time: curr.time,
+            value: curr.value,
+            extremeTime: longExtreme.time,
+            extremeValue: longExtreme.value,
+          });
+
+          longLocked = true;
+          longExtreme = null;
+          waitingForLongTurn = false;
+        }
+      }
+    } else {
       longExtreme = null;
       waitingForLongTurn = false;
+      longLocked = false;
     }
-  }
-} else {
-  longExtreme = null;
-  waitingForLongTurn = false;
-}
 
-    longLocked = true;
-    
-
+    // ---------- SHORT ----------
     if (shortAllowed) {
-  if (!shortExtreme || curr.value > shortExtreme.value) {
-    shortLocked = false;
-    shortExtreme = { time: curr.time, value: curr.value };
-    waitingForShortTurn = false;
-  } else {
-    if (!waitingForShortTurn) {
-      waitingForShortTurn = true;
-    }
+      if (!shortExtreme || curr.value > shortExtreme.value) {
+        shortExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
 
-    if (
-  !shortLocked &&
-  waitingForShortTurn &&
-  curr.value < prev.value &&
-  (shortExtreme.value - curr.value) >= minKinkHeight
-){
-      shortKinks.push({
-        time: curr.time,
-        value: curr.value,
-        extremeTime: shortExtreme.time,
-        extremeValue: shortExtreme.value,
-      });
+        waitingForShortTurn = false;
+        shortLocked = false;
+      } else {
+        waitingForShortTurn = true;
 
+        const kinkHeight = shortExtreme.value - curr.value;
+
+        debug.lastShortHeight = kinkHeight;
+        debug.lastShortRef = {
+          currValue: curr.value,
+          extremeValue: shortExtreme.value,
+          minKinkHeight,
+        };
+
+        debug.events.push({
+          side: "SHORT",
+          time: curr.time,
+          allowed: shortAllowed,
+          locked: shortLocked,
+          waitingForTurn: waitingForShortTurn,
+          currValue: curr.value,
+          extremeValue: shortExtreme.value,
+          kinkHeight,
+          minKinkHeight,
+          distTurnsUp,
+          distTurnsDown,
+          pass:
+            !shortLocked &&
+            waitingForShortTurn &&
+            distTurnsDown &&
+            kinkHeight >= minKinkHeight,
+        });
+
+        if (
+          !shortLocked &&
+          waitingForShortTurn &&
+          distTurnsDown &&
+          kinkHeight >= minKinkHeight
+        ) {
+          shortKinks.push({
+            time: curr.time,
+            value: curr.value,
+            extremeTime: shortExtreme.time,
+            extremeValue: shortExtreme.value,
+          });
+
+          shortLocked = true;
+          shortExtreme = null;
+          waitingForShortTurn = false;
+        }
+      }
+    } else {
       shortExtreme = null;
       waitingForShortTurn = false;
+      shortLocked = false;
     }
-  }
-} else {
-  shortExtreme = null;
-  waitingForShortTurn = false;
-}
   }
 
   return { longKinks, shortKinks, debug };
 }
-shortLocked = true;
-
 
 function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
   const up = [];
   const down = [];
 
   let trend = null;
-
- 
 
   for (let i = confirmBars; i < smaSlow.length; i++) {
     let rising = true;
@@ -275,30 +300,28 @@ export function computeQTrendCore(candles, cfg) {
     const lowerOffset = slow - Number(cfg.smaOffset || 0);
 
     for (const p of smaTurns.up) {
-  if (Number(p.time) === t) trend = "UT";
-}
+      if (Number(p.time) === t) trend = "UT";
+    }
 
-for (const p of smaTurns.down) {
-  if (Number(p.time) === t) trend = "DT";
-}
-
-    
+    for (const p of smaTurns.down) {
+      if (Number(p.time) === t) trend = "DT";
+    }
 
     const longZone =
-  trend === "UT"
-    ? true
-    : (
-        d.value <= -Number(cfg.entryBand || 0) &&
-        fast <= lowerOffset
-      );
+      trend === "UT"
+        ? true
+        : (
+            d.value <= -Number(cfg.entryBand || 0) &&
+            fast <= lowerOffset
+          );
 
     const shortZone =
-  trend === "DT"
-    ? true
-    : (
-        d.value >= Number(cfg.entryBand || 0) &&
-        fast >= upperOffset
-      );
+      trend === "DT"
+        ? true
+        : (
+            d.value >= Number(cfg.entryBand || 0) &&
+            fast >= upperOffset
+          );
 
     zones.push({
       time: t,
@@ -307,18 +330,19 @@ for (const p of smaTurns.down) {
       slow,
       upperOffset,
       lowerOffset,
+      trend,
       longZone,
       shortZone,
     });
   }
 
   const kinks = detectKinks(
-  dist,
-  zones,
-  smaFast,
-  Number(cfg.kinkLookbackMinutes || 10),
-  Number(cfg.minKinkHeight || 0)
-);
+    dist,
+    zones,
+    smaFast,
+    Number(cfg.kinkLookbackMinutes || 10),
+    Number(cfg.minKinkHeight || 0)
+  );
 
   return {
     smaFast,
