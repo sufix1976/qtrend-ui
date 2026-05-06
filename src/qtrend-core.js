@@ -248,12 +248,11 @@ const reboundSpeed =
   return { longKinks, shortKinks, debug };
 }
 
-function buildSmaTurnMarkers(
-  smaSlow: LinePoint[],
-  confirmBars = 5
-): { up: MarkerPoint[]; down: MarkerPoint[] } {
-  const up: MarkerPoint[] = [];
-  const down: MarkerPoint[] = [];
+function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
+  const up = [];
+  const down = [];
+
+  let trend = null;
 
   let trend: "up" | "down" | null = null;
 
