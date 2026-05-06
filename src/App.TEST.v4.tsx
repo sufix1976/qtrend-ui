@@ -937,10 +937,7 @@ async function saveAllSizes() {
   minKinkHeight: minKinkUI,        
 });
 
-        const filteredCoreSignals = filterAlternatingSignals(
-  coreCheck.kinks.longKinks,
-  coreCheck.kinks.shortKinks
-);
+        
 
        
 
@@ -1610,6 +1607,11 @@ if (!distMiddle.length) {
           
 });
 
+        const filteredCoreSignals = filterAlternatingSignals(
+  coreCheck.kinks.longKinks,
+  coreCheck.kinks.shortKinks
+);
+
 console.log("QTREND CORE CHECK 2", {
   symbol,
   interval,
@@ -1730,6 +1732,7 @@ const trendShortKinks = buildTrendKinks("short");
 const outlierLongKinks = buildRecoveredKinksFromOutliers(outlierLongPoints, "long");
 const outlierShortKinks = buildRecoveredKinksFromOutliers(outlierShortPoints, "short");
 
+        /*
 const filteredLongEntries = uniqueByTime([
   ...trendLongKinks.filter((p) => trendAt(p.time) === "up"),
   ...outlierLongKinks.filter((p) => trendAt(p.time) !== "up"),
@@ -1739,6 +1742,8 @@ const filteredShortEntries = uniqueByTime([
   ...trendShortKinks.filter((p) => trendAt(p.time) === "down"),
   ...outlierShortKinks.filter((p) => trendAt(p.time) !== "down"),
 ]);
+
+*/
 
         const chartCandles = chartifyCandles(candles);
         const chartSmaFast = chartifyLinePoints(smaFast);
