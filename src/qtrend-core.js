@@ -108,6 +108,16 @@ const fastTurnsDown =
   fastNow < fastPrev &&
   fastPrev < fastPrev2;
 
+    const distTurnsUp =
+  Number.isFinite(curr.value) &&
+  Number.isFinite(prev?.value) &&
+  curr.value > prev.value;
+
+const distTurnsDown =
+  Number.isFinite(curr.value) &&
+  Number.isFinite(prev?.value) &&
+  curr.value < prev.value;
+
     if (fastTurnsDown) longArmed = true;
 if (fastTurnsUp) shortArmed = true;
 
@@ -166,13 +176,13 @@ const reboundSpeed =
   pass:
     longArmed &&
     kinkHeight >= minKinkHeight &&
-    fastTurnsUp,
+    distTurnsUp
 });
           
 if (
   longArmed &&
   kinkHeight >= minKinkHeight &&
-  fastTurnsUp
+  distTurnsUp
 ) {
           
             longKinks.push({
@@ -251,14 +261,14 @@ debug.events.push({
   pass:
     shortArmed &&
     kinkHeight >= minKinkHeight &&
-    fastTurnsDown,
+    distTurnsDown
 });
           
 
             if (
   shortArmed &&
   kinkHeight >= minKinkHeight &&
-  fastTurnsDown
+  distTurnsDown
 ) {
             
             shortKinks.push({
@@ -285,6 +295,8 @@ debug.events.push({
 
   return { longKinks, shortKinks, debug };
 }
+
+
 
 function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
   const up = [];
