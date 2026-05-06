@@ -76,9 +76,8 @@ for (const p of smaFast || []) {
   let longExtreme = null;
   let shortExtreme = null;
 
-  let lastLongKinkIndex = -999999;
-let lastShortKinkIndex = -999999;
-const cooldownBars = 5;
+  let longArmed = true;
+let shortArmed = true;
 
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
@@ -101,6 +100,9 @@ const fastTurnsDown =
   Number.isFinite(fastNow) &&
   Number.isFinite(fastPrev) &&
   fastNow < fastPrev;
+
+    if (fastTurnsDown) longArmed = true;
+if (fastTurnsUp) shortArmed = true;
 
     // ---------- LONG ----------
     if (longAllowed) {
@@ -144,7 +146,7 @@ const reboundSpeed =
           };
 
 if (
-  i - lastLongKinkIndex >= cooldownBars &&
+  longArmed &&
   (curr.value - longExtreme.value) >= minKinkHeight &&
   reboundSpeed >= 0.2 &&
   fastTurnsUp
@@ -159,7 +161,7 @@ if (
               refValue: ref.value,
             });
 
-  lastLongKinkIndex = i;
+ longArmed = false;
 
             longExtreme = null;
           }
@@ -213,11 +215,14 @@ const reboundSpeed =
           };
 
           if (
-  i - lastShortKinkIndex >= cooldownBars &&
+
+            if (
+  shortArmed &&
   (shortExtreme.value - curr.value) >= minKinkHeight &&
   reboundSpeed >= 0.2 &&
   fastTurnsDown
 ) {
+            
             shortKinks.push({
               time: curr.time,
               value: curr.value,
@@ -227,7 +232,7 @@ const reboundSpeed =
               refValue: ref.value,
             });
 
-            lastShortKinkIndex = i;
+           shortArmed = false;
 
             shortExtreme = null;
           }
