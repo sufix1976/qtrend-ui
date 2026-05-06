@@ -890,45 +890,7 @@ console.log("QTREND CORE CHECK 2", {
   kinkDebug: coreCheck.kinks.debug,
 });
 
-        console.table(
-  (coreCheck.kinks.debug.events || []).slice(-120).map((e: any) => ({
-    side: e.side,
-    timeRaw: e.time,
-    time: new Date(e.time * 1000).toLocaleString("de-DE", {
-      timeZone: "Europe/Berlin",
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    allowed: e.allowed,
-    armed: e.side === "LONG" ? e.longArmed : e.shortArmed,
-    kink: Number(e.kinkHeight).toFixed(2),
-    min: e.minKinkHeight,
-    fastUp: e.fastTurnsUp,
-    fastDown: e.fastTurnsDown,
-    pass: e.pass,
-  }))
-);
-
-        console.log("QTREND DEBUG EVENTS COUNT", coreCheck.kinks.debug.events?.length);
-console.log("QTREND DEBUG LAST EVENTS", coreCheck.kinks.debug.events?.slice(-10));
-
-        console.table(
-  (coreCheck.kinks.debug.events || [])
-    .slice(-80)
-    .map((e: any) => ({
-      side: e.side,
-      time: new Date(e.time * 1000).toLocaleString("de-DE"),
-      allowed: e.allowed,
-      armed: e.side === "LONG" ? e.longArmed : e.shortArmed,
-      kink: Number(e.kinkHeight).toFixed(2),
-      min: e.minKinkHeight,
-      fastUp: e.fastTurnsUp,
-      fastDown: e.fastTurnsDown,
-      pass: e.pass,
-    }))
-);
+        
 
         const distIndexByTime = new Map<number, number>();
         dist.forEach((p, i) => distIndexByTime.set(p.time, i));
@@ -1599,6 +1561,46 @@ console.log("QTREND CORE CHECK 2", {
   zoneStats: coreCheck.debug,
 kinkDebug: coreCheck.kinks.debug,
 });
+
+        console.table(
+  (coreCheck.kinks.debug.events || []).slice(-120).map((e: any) => ({
+    side: e.side,
+    timeRaw: e.time,
+    time: new Date(e.time * 1000).toLocaleString("de-DE", {
+      timeZone: "Europe/Berlin",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    allowed: e.allowed,
+    armed: e.side === "LONG" ? e.longArmed : e.shortArmed,
+    kink: Number(e.kinkHeight).toFixed(2),
+    min: e.minKinkHeight,
+    fastUp: e.fastTurnsUp,
+    fastDown: e.fastTurnsDown,
+    pass: e.pass,
+  }))
+);
+
+        console.log("QTREND DEBUG EVENTS COUNT", coreCheck.kinks.debug.events?.length);
+console.log("QTREND DEBUG LAST EVENTS", coreCheck.kinks.debug.events?.slice(-10));
+
+        console.table(
+  (coreCheck.kinks.debug.events || [])
+    .slice(-80)
+    .map((e: any) => ({
+      side: e.side,
+      time: new Date(e.time * 1000).toLocaleString("de-DE"),
+      allowed: e.allowed,
+      armed: e.side === "LONG" ? e.longArmed : e.shortArmed,
+      kink: Number(e.kinkHeight).toFixed(2),
+      min: e.minKinkHeight,
+      fastUp: e.fastTurnsUp,
+      fastDown: e.fastTurnsDown,
+      pass: e.pass,
+    }))
+);
 
         
 
