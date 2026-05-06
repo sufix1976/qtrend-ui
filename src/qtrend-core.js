@@ -80,6 +80,9 @@ for (const p of smaFast || []) {
   let longArmed = true;
 let shortArmed = true;
 
+  let waitingForLongTurn = false;
+let waitingForShortTurn = false;
+
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
     const zone = zoneMap.get(Number(curr.time));
@@ -121,179 +124,67 @@ const distTurnsDown =
     if (fastTurnsDown) longArmed = true;
 if (fastTurnsUp) shortArmed = true;
 
-    // ---------- LONG ----------
-    if (longAllowed) {
-      if (!longExtreme || curr.value < longExtreme.value) {
-        longExtreme = {
-          time: curr.time,
-          value: curr.value,
-        };
-      }
-
-      const maxTime = longExtreme.time + lookbackMinutes * 60;
-
-      if (curr.time <= maxTime) {
-        const refTime = longExtreme.time - lookbackMinutes * 60;
-        let ref = null;
-
-        for (let j = i; j >= 0; j--) {
-          if (dist[j].time <= refTime) {
-            ref = dist[j];
-            break;
-          }
-        }
-
-        if (ref) {
-          const kinkHeight = ref.value - longExtreme.value;
-
-          const reboundBars =
-  (curr.time - longExtreme.time) / 60;
-
-const reboundSpeed =
-  reboundBars > 0
-    ? (curr.value - longExtreme.value) / reboundBars
-    : 0;
-
-          debug.lastLongHeight = kinkHeight;
-          debug.lastLongRef = {
-            currValue: curr.value,
-            refValue: ref.value,
-            extremeValue: longExtreme.value,
-            minKinkHeight,
-          };
-
-          debug.events.push({
-  side: "LONG",
-  time: curr.time,
-  allowed: longAllowed,
-  longArmed,
-  currValue: curr.value,
-  extremeValue: longExtreme.value,
-  kinkHeight,
-  minKinkHeight,
-  fastTurnsUp,
-  fastTurnsDown,
-  pass:
-    longArmed &&
-    kinkHeight >= minKinkHeight &&
-    distTurnsUp
-});
-          
-if (
-  longArmed &&
-  kinkHeight >= minKinkHeight &&
-  distTurnsUp
-) {
-          
-            longKinks.push({
-              time: curr.time,
-              value: curr.value,
-              extremeTime: longExtreme.time,
-              extremeValue: longExtreme.value,
-              refTime: ref.time,
-              refValue: ref.value,
-            });
-
- longArmed = false;
-
-            longExtreme = null;
-          }
-        }
-      } else {
-        longExtreme = null;
-      }
-    } else {
-      longExtreme = null;
+    // LONG Extrem Tracking
+if (longAllowed) {
+  if (!longExtreme || curr.value < longExtreme.value) {
+    longExtreme = { time: curr.time, value: curr.value };
+    waitingForLongTurn = false; // Extrem läuft weiter
+  } else {
+    // kein neues Tief mehr
+    if (!waitingForLongTurn) {
+      waitingForLongTurn = true; // Extrem könnte fertig sein
     }
 
-    // ---------- SHORT ----------
-    if (shortAllowed) {
-      if (!shortExtreme || curr.value > shortExtreme.value) {
-        shortExtreme = {
-          time: curr.time,
-          value: curr.value,
-        };
-      }
+    if (
+      waitingForLongTurn &&
+      curr.value > prev.value && // erster Dist-Anstieg
+      (curr.value - longExtreme.value) >= minKinkHeight
+    ) {
+      longKinks.push({
+        time: curr.time,
+        value: curr.value,
+        extremeTime: longExtreme.time,
+        extremeValue: longExtreme.value,
+      });
 
-      const maxTime = shortExtreme.time + lookbackMinutes * 60;
-
-      if (curr.time <= maxTime) {
-        const refTime = shortExtreme.time - lookbackMinutes * 60;
-        let ref = null;
-
-        for (let j = i; j >= 0; j--) {
-          if (dist[j].time <= refTime) {
-            ref = dist[j];
-            break;
-          }
-        }
-
-        if (ref) {
-          const kinkHeight = shortExtreme.value - ref.value;
-
-          const reboundBars =
-  (curr.time - shortExtreme.time) / 60;
-
-const reboundSpeed =
-  reboundBars > 0
-    ? (shortExtreme.value - curr.value) / reboundBars
-    : 0;
-
-          debug.lastShortHeight = kinkHeight;
-          debug.lastShortRef = {
-            currValue: curr.value,
-            refValue: ref.value,
-            extremeValue: shortExtreme.value,
-            minKinkHeight,
-          };
-
-debug.events.push({
-  side: "SHORT",
-  time: curr.time,
-  allowed: shortAllowed,
-  shortArmed,
-  currValue: curr.value,
-  extremeValue: shortExtreme.value,
-  kinkHeight,
-  minKinkHeight,
-  fastTurnsUp,
-  fastTurnsDown,
-  pass:
-    shortArmed &&
-    kinkHeight >= minKinkHeight &&
-    distTurnsDown
-});
-          
-
-            if (
-  shortArmed &&
-  kinkHeight >= minKinkHeight &&
-  distTurnsDown
-) {
-            
-            shortKinks.push({
-              time: curr.time,
-              value: curr.value,
-              extremeTime: shortExtreme.time,
-              extremeValue: shortExtreme.value,
-              refTime: ref.time,
-              refValue: ref.value,
-            });
-
-           shortArmed = false;
-
-            shortExtreme = null;
-          }
-        }
-      } else {
-        shortExtreme = null;
-      }
-    } else {
-      shortExtreme = null;
+      longExtreme = null;
+      waitingForLongTurn = false;
     }
   }
+} else {
+  longExtreme = null;
+  waitingForLongTurn = false;
+}
+    
 
-  return { longKinks, shortKinks, debug };
+    if (shortAllowed) {
+  if (!shortExtreme || curr.value > shortExtreme.value) {
+    shortExtreme = { time: curr.time, value: curr.value };
+    waitingForShortTurn = false;
+  } else {
+    if (!waitingForShortTurn) {
+      waitingForShortTurn = true;
+    }
+
+    if (
+      waitingForShortTurn &&
+      curr.value < prev.value &&
+      (shortExtreme.value - curr.value) >= minKinkHeight
+    ) {
+      shortKinks.push({
+        time: curr.time,
+        value: curr.value,
+        extremeTime: shortExtreme.time,
+        extremeValue: shortExtreme.value,
+      });
+
+      shortExtreme = null;
+      waitingForShortTurn = false;
+    }
+  }
+} else {
+  shortExtreme = null;
+  waitingForShortTurn = false;
 }
 
 
