@@ -1574,10 +1574,6 @@ if (!distMiddle.length) {
           
 });
 
-        const filteredCoreSignals = filterAlternatingSignals(
-  coreCheck.kinks.longKinks,
-  coreCheck.kinks.shortKinks
-);
 
 console.log("QTREND CORE CHECK 2", {
   symbol,
