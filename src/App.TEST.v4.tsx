@@ -1667,9 +1667,8 @@ const smaTurnMarkers = [
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
-        
-       const rawLongCandidates = filteredCoreSignals.longs;
-const rawShortCandidates = filteredCoreSignals.shorts;
+        const rawLongCandidates = coreCheck.kinks.longKinks;
+const rawShortCandidates = coreCheck.kinks.shortKinks;
 
 const sim = simulateStrategyTESTv4(
   candles,
@@ -1690,8 +1689,8 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = sim.acceptedLongEntryPoints;
 const validShortCandidates = sim.acceptedShortEntryPoints;
 
-const strategyLongPoints = rawLongCandidates;
-const strategyShortPoints = rawShortCandidates;
+const strategyLongPoints = sim.acceptedLongEntryPoints;
+const strategyShortPoints = sim.acceptedShortEntryPoints;
 
         console.log("UI LAST MARKERS", {
   symbol,
@@ -1746,7 +1745,7 @@ console.log("LONG SETUP CHECK", {
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
-  filteredCoreSignals.longs.map((p: MarkerPoint) => ({
+  strategyLongPoints.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
@@ -1755,7 +1754,7 @@ console.log("LONG SETUP CHECK", {
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  filteredCoreSignals.shorts.map((p: MarkerPoint) => ({
+  strategyShortPoints.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
