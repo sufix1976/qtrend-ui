@@ -76,6 +76,10 @@ for (const p of smaFast || []) {
   let longExtreme = null;
   let shortExtreme = null;
 
+  let lastLongKinkIndex = -999999;
+let lastShortKinkIndex = -999999;
+const cooldownBars = 5;
+
   for (let i = 1; i < dist.length; i++) {
     const curr = dist[i];
     const zone = zoneMap.get(Number(curr.time));
@@ -139,11 +143,13 @@ const reboundSpeed =
             minKinkHeight,
           };
 
-          if (
+if (
+  i - lastLongKinkIndex >= cooldownBars &&
   (curr.value - longExtreme.value) >= minKinkHeight &&
   reboundSpeed >= 0.2 &&
   fastTurnsUp
 ) {
+          
             longKinks.push({
               time: curr.time,
               value: curr.value,
@@ -152,6 +158,8 @@ const reboundSpeed =
               refTime: ref.time,
               refValue: ref.value,
             });
+
+  lastLongKinkIndex = i;
 
             longExtreme = null;
           }
@@ -205,6 +213,7 @@ const reboundSpeed =
           };
 
           if (
+  i - lastShortKinkIndex >= cooldownBars &&
   (shortExtreme.value - curr.value) >= minKinkHeight &&
   reboundSpeed >= 0.2 &&
   fastTurnsDown
@@ -217,6 +226,8 @@ const reboundSpeed =
               refTime: ref.time,
               refValue: ref.value,
             });
+
+            lastShortKinkIndex = i;
 
             shortExtreme = null;
           }
