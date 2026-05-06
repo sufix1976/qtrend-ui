@@ -186,6 +186,10 @@ if (longAllowed) {
   shortExtreme = null;
   waitingForShortTurn = false;
 }
+  }
+
+  return { longKinks, shortKinks, debug };
+}
 
 
 
