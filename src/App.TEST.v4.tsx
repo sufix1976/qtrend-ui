@@ -1852,18 +1852,44 @@ console.log("LONG SETUP CHECK", {
   dynamicBandLast: lastDynBand,
 });
 
-        coreCheck.kinks.longKinks.map((p: MarkerPoint) => ({
-  ...p,
-  value: 1,
-}))
+       
 
-coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
-  ...p,
-  value: 1,
-}))
+        function filterAlternatingSignals(longs: MarkerPoint[], shorts: MarkerPoint[]) {
+  const merged = [
+    ...longs.map((p) => ({ ...p, side: "long" as const })),
+    ...shorts.map((p) => ({ ...p, side: "short" as const })),
+  ].sort((a, b) => a.time - b.time);
+
+  const outLongs: MarkerPoint[] = [];
+  const outShorts: MarkerPoint[] = [];
+
+  let lastSide: "long" | "short" | null = null;
+
+  for (const p of merged) {
+    if (p.side === lastSide) continue;
+
+    if (p.side === "long") {
+      outLongs.push(p);
+      lastSide = "long";
+    } else {
+      outShorts.push(p);
+      lastSide = "short";
+    }
+  }
+
+  return {
+    longs: outLongs,
+    shorts: outShorts,
+  };
+}
+
+        const filteredCoreSignals = filterAlternatingSignals(
+  coreCheck.kinks.longKinks,
+  coreCheck.kinks.shortKinks
+);
 
         const coreLongProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.longKinks.map((p: MarkerPoint) => ({
+  filteredCoreSignals.longs.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
@@ -1872,7 +1898,7 @@ coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  coreCheck.kinks.shortKinks.map((p: MarkerPoint) => ({
+  filteredCoreSignals.shorts.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
