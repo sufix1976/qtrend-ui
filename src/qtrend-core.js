@@ -46,21 +46,145 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight) {
+export function detectKinks(
+  dist,
+  zones,
+  smaFast,
+  lookbackMinutes,
+  minKinkHeight
+) {
   const longKinks = [];
   const shortKinks = [];
 
   const debug = {
-    lastLongHeight: null,
-    lastShortHeight: null,
-    lastLongRef: null,
-    lastShortRef: null,
     events: [],
   };
 
-  if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 5) {
+  if (!Array.isArray(dist) || !Array.isArray(zones)) {
     return { longKinks, shortKinks, debug };
   }
+
+  const zoneMap = new Map();
+
+  for (const z of zones) {
+    zoneMap.set(Number(z.time), z);
+  }
+
+  let longWatch = false;
+  let shortWatch = false;
+
+  let longExtreme = null;
+  let shortExtreme = null;
+
+  for (let i = 1; i < dist.length; i++) {
+    const curr = dist[i];
+    const prev = dist[i - 1];
+
+    const zone = zoneMap.get(Number(curr.time));
+
+    if (!zone) continue;
+
+    // =========================
+    // LONG WATCH START
+    // =========================
+
+    if (zone.longZone && !longWatch) {
+      longWatch = true;
+
+      longExtreme = {
+        time: curr.time,
+        value: curr.value,
+      };
+    }
+
+    // =========================
+    // SHORT WATCH START
+    // =========================
+
+    if (zone.shortZone && !shortWatch) {
+      shortWatch = true;
+
+      shortExtreme = {
+        time: curr.time,
+        value: curr.value,
+      };
+    }
+
+    // =========================
+    // LONG WATCH
+    // =========================
+
+    if (longWatch && longExtreme) {
+      // neues Tief
+      if (curr.value < longExtreme.value) {
+        longExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
+      }
+
+      const recovery = curr.value - longExtreme.value;
+
+      // echter Recovery-Knick
+      if (
+        curr.value > prev.value &&
+        recovery >= minKinkHeight
+      ) {
+        longKinks.push({
+          time: curr.time,
+          value: curr.value,
+          extremeTime: longExtreme.time,
+          extremeValue: longExtreme.value,
+        });
+
+        longWatch = false;
+        longExtreme = null;
+      }
+    }
+
+    // =========================
+    // SHORT WATCH
+    // =========================
+
+    if (shortWatch && shortExtreme) {
+      // neues Hoch
+      if (curr.value > shortExtreme.value) {
+        shortExtreme = {
+          time: curr.time,
+          value: curr.value,
+        };
+      }
+
+      const recovery = shortExtreme.value - curr.value;
+
+      // echter Recovery-Knick
+      if (
+        curr.value < prev.value &&
+        recovery >= minKinkHeight
+      ) {
+        shortKinks.push({
+          time: curr.time,
+          value: curr.value,
+          extremeTime: shortExtreme.time,
+          extremeValue: shortExtreme.value,
+        });
+
+        shortWatch = false;
+        shortExtreme = null;
+      }
+    }
+
+    debug.events.push({
+      time: curr.time,
+      longWatch,
+      shortWatch,
+      longExtreme: longExtreme?.value ?? null,
+      shortExtreme: shortExtreme?.value ?? null,
+    });
+  }
+
+  return { longKinks, shortKinks, debug };
+}
 
   const zoneMap = new Map();
 
