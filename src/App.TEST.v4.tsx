@@ -1022,6 +1022,9 @@ console.log("QTREND CORE CHECK 2", {
         const trendLongKinks = buildTrendKinks("long");
         const trendShortKinks = buildTrendKinks("short");
 
+        const outlierLongPoints: MarkerPoint[] = [];
+        const outlierShortPoints: MarkerPoint[] = [];
+
         const outlierLongKinks = buildRecoveredKinksFromOutliers(outlierLongPoints, "long");
         const outlierShortKinks = buildRecoveredKinksFromOutliers(outlierShortPoints, "short");
 
