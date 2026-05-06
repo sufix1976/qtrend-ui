@@ -94,12 +94,26 @@ if (enteredShortZone && !shortWatch) {
       const recovery = curr.value - longExtreme.value;
 
       if (curr.value > prev.value && recovery >= minKinkHeight) {
-        longKinks.push({
-          time: curr.time,
-          value: curr.value,
-          extremeTime: longExtreme.time,
-          extremeValue: longExtreme.value,
-        });
+        const slopeNow = curr.value - prev.value;
+const slopePrev =
+  i >= 2
+    ? prev.value - dist[i - 2].value
+    : 0;
+
+longKinks.push({
+  time: curr.time,
+  value: curr.value,
+  extremeTime: longExtreme.time,
+  extremeValue: longExtreme.value,
+
+  recovery,
+  slopeNow,
+  slopePrev,
+  candlesFromExtreme:
+    i - dist.findIndex(
+      (d) => d.time === longExtreme.time
+    ),
+});
 
         longWatch = false;
         longExtreme = null;
@@ -114,12 +128,26 @@ if (enteredShortZone && !shortWatch) {
       const recovery = shortExtreme.value - curr.value;
 
       if (curr.value < prev.value && recovery >= minKinkHeight) {
-        shortKinks.push({
-          time: curr.time,
-          value: curr.value,
-          extremeTime: shortExtreme.time,
-          extremeValue: shortExtreme.value,
-        });
+        const slopeNow = curr.value - prev.value;
+const slopePrev =
+  i >= 2
+    ? prev.value - dist[i - 2].value
+    : 0;
+
+shortKinks.push({
+  time: curr.time,
+  value: curr.value,
+  extremeTime: shortExtreme.time,
+  extremeValue: shortExtreme.value,
+
+  recovery,
+  slopeNow,
+  slopePrev,
+  candlesFromExtreme:
+    i - dist.findIndex(
+      (d) => d.time === shortExtreme.time
+    ),
+});
 
         shortWatch = false;
         shortExtreme = null;
