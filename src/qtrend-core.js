@@ -144,11 +144,9 @@ const reboundSpeed =
             extremeValue: longExtreme.value,
             minKinkHeight,
           };
-
 if (
   longArmed &&
-  (curr.value - longExtreme.value) >= minKinkHeight &&
-  reboundSpeed >= 0.2 &&
+  kinkHeight >= minKinkHeight &&
   fastTurnsUp
 ) {
           
@@ -218,8 +216,7 @@ const reboundSpeed =
 
             if (
   shortArmed &&
-  (shortExtreme.value - curr.value) >= minKinkHeight &&
-  reboundSpeed >= 0.2 &&
+  kinkHeight >= minKinkHeight &&
   fastTurnsDown
 ) {
             
