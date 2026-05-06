@@ -214,7 +214,7 @@ const reboundSpeed =
             minKinkHeight,
           };
 
-          if (
+        
 
             if (
   shortArmed &&
