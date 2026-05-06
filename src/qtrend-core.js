@@ -266,6 +266,8 @@ export function computeQTrendCore(candles, cfg) {
 
   const zones = [];
 
+  let trend = null;
+
   for (const d of dist) {
     const t = Number(d.time);
 
@@ -277,13 +279,27 @@ export function computeQTrendCore(candles, cfg) {
     const upperOffset = slow + Number(cfg.smaOffset || 0);
     const lowerOffset = slow - Number(cfg.smaOffset || 0);
 
+    if (fast > slow) {
+  trend = "UT";
+} else if (fast < slow) {
+  trend = "DT";
+}
+
     const longZone =
-      d.value <= -Number(cfg.entryBand || 0) &&
-      fast <= lowerOffset;
+  trend === "UT"
+    ? true
+    : (
+        d.value <= -Number(cfg.entryBand || 0) &&
+        fast <= lowerOffset
+      );
 
     const shortZone =
-      d.value >= Number(cfg.entryBand || 0) &&
-      fast >= upperOffset;
+  trend === "DT"
+    ? true
+    : (
+        d.value >= Number(cfg.entryBand || 0) &&
+        fast >= upperOffset
+      );
 
     zones.push({
       time: t,
