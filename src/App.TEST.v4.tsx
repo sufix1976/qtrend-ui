@@ -1811,17 +1811,7 @@ const coreShortProjected = projectMarkerPointsToCandles(
   "above-mid"
 );
 
-const outlierLongProjected = projectMarkerPointsToCandles(
-  strategyLongPoints,
-  candles,
-  "below-far"
-);
 
-const outlierShortProjected = projectMarkerPointsToCandles(
-  strategyShortPoints,
-  candles,
-  "above-far"
-);
 
 
         
@@ -1835,8 +1825,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   validShortCandidates.length
 );
         
-        const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
-        const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
+       
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
