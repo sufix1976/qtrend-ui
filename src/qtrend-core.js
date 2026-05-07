@@ -123,12 +123,13 @@ longKinks.push({
   extremeValue: longExtreme.value,
 
   recovery,
-  slopeNow,
-  slopePrev,
-  candlesFromExtreme:
-    i - dist.findIndex(
-      (d) => d.time === longExtreme.time
-    ),
+slopeNow,
+slopePrev,
+slopeChange: slopeNow - slopePrev,
+candlesFromExtreme:
+  i - dist.findIndex(
+    (d) => d.time === longExtreme.time
+  ),
 });
 
         longWatch = false;
@@ -167,12 +168,13 @@ shortKinks.push({
   extremeValue: shortExtreme.value,
 
   recovery,
-  slopeNow,
-  slopePrev,
-  candlesFromExtreme:
-    i - dist.findIndex(
-      (d) => d.time === shortExtreme.time
-    ),
+slopeNow,
+slopePrev,
+slopeChange: slopeNow - slopePrev,
+candlesFromExtreme:
+  i - dist.findIndex(
+    (d) => d.time === longExtreme.time
+  ),
 });
 
         shortWatch = false;
