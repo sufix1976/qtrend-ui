@@ -1693,7 +1693,7 @@ for (let i = 1; i < smaFast.length; i++) {
 
   if (!prevFast || !currFast || !prevLower || !currLower || !prevUpper || !currUpper) continue;
 
-  const tolerance = smaOffsetUI * 0.25;
+  const tolerance = smaOffsetUI * 0.1;
 
   let wasBelow = false;
 
