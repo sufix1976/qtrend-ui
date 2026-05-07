@@ -99,10 +99,16 @@ if (enteredShortZone && !shortWatch) {
 
       const recovery = curr.value - longExtreme.value;
 
+      const candlesFromExtreme =
+  i - dist.findIndex(
+    (d) => d.time === longExtreme.time
+  );
+
      if (
   curr.value > prev.value &&
   recovery >= minKinkHeight &&
-  slopePrev < 0
+  slopePrev < 0 &&
+  candlesFromExtreme >= 5
 ) {
         const slopeNow = curr.value - prev.value;
 const slopePrev =
@@ -137,10 +143,16 @@ longKinks.push({
 
       const recovery = shortExtreme.value - curr.value;
 
-      if (
+      const candlesFromExtreme =
+  i - dist.findIndex(
+    (d) => d.time === shortExtreme.time
+  );
+
+    if (
   curr.value < prev.value &&
   recovery >= minKinkHeight &&
-  slopePrev > 0
+  slopePrev > 0 &&
+  candlesFromExtreme >= 5
 ) {
         const slopeNow = curr.value - prev.value;
 const slopePrev =
