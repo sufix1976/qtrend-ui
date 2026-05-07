@@ -1688,28 +1688,7 @@ const smaTurnMarkers = [
   .sort((a, b) => Number(a.time) - Number(b.time));
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
-        createSeriesMarkers(
-  reclaimLongSeries,
-  (sim.reclaimLongEntries || []).map((p: MarkerPoint) => ({
-    time: p.time,
-    position: "belowBar",
-    color: "#00ff88",
-    shape: "circle",
-    text: "RL?",
-  }))
-);
-
-createSeriesMarkers(
-  reclaimShortSeries,
-  (sim.reclaimShortEntries || []).map((p: MarkerPoint) => ({
-    time: p.time,
-    position: "aboveBar",
-    color: "#ff4d6d",
-    shape: "circle",
-    text: "RS?",
-  }))
-);
-
+       
        const rawLongCandidates = coreCheck.kinks.longKinks;
 const rawShortCandidates = coreCheck.kinks.shortKinks;
 
@@ -3138,8 +3117,7 @@ function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
     longPoints,
     shortPoints,
     flatPoints,
-    reclaimLongEntries,
-    reclaimShortEntries,
+    
   };
 }
 
