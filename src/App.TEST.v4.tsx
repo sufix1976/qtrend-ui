@@ -3689,13 +3689,7 @@ function simulateStrategyTESTv4(
   return Number.isFinite(v) ? Number(v) : null;
 }
 
-  const longExitPoints: MarkerPoint[] = [];
-  const shortExitPoints: MarkerPoint[] = [];
-  const acceptedLongEntryPoints: MarkerPoint[] = [];
-  const acceptedShortEntryPoints: MarkerPoint[] = [];
-
-  const reclaimLongEntries: MarkerPoint[] = [];
-const reclaimShortEntries: MarkerPoint[] = [];
+  
   
 
 for (let i = 1; i < candles.length; i++) {
@@ -3751,35 +3745,20 @@ if (
 
   const entryEvents = [
   ...longEntries.map((p) => ({
-  time: p.time,
-  value: p.value,
-  index: candleIndexByTime.get(p.time) ?? -1,
-  side: "long" as const,
-  source: "core" as const,
-})),
+    time: p.time,
+    value: p.value,
+    index: candleIndexByTime.get(p.time) ?? -1,
+    side: "long" as const,
+    source: p.text ?? "LONG",
+  })),
   ...shortEntries.map((p) => ({
-  time: p.time,
-  value: p.value,
-  index: candleIndexByTime.get(p.time) ?? -1,
-  side: "short" as const,
-  source: "core" as const,
-})),
-  ...reclaimLongEntries.map((p) => ({
-  time: p.time,
-  value: p.value,
-  index: candleIndexByTime.get(p.time) ?? -1,
-  side: "long" as const,
-  source: "reclaim" as const,
-})),
-  ...reclaimShortEntries.map((p) => ({
-  time: p.time,
-  value: p.value,
-  index: candleIndexByTime.get(p.time) ?? -1,
-  side: "short" as const,
-  source: "reclaim" as const,
-})),
+    time: p.time,
+    value: p.value,
+    index: candleIndexByTime.get(p.time) ?? -1,
+    side: "short" as const,
+    source: p.text ?? "SHORT",
+  })),
 ]
-  
   .filter((x) => x.index >= 0)
   .sort((a, b) => a.index - b.index);
   
