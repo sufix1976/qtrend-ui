@@ -73,7 +73,7 @@ let shortExtreme = null;
   i >= 2
     ? prev.value - dist[i - 2].value
     : 0;
-    const minSlope = Math.max(1, Number(minKinkHeight) * 0.05);
+    
     const slopeChange = slopeNow - slopePrev;
     
     if (!zone) continue;
@@ -109,7 +109,7 @@ if (enteredShortZone && !shortWatch) {
      if (
   recovery >= minKinkHeight &&
   slopePrev < 0 &&
-  slopeNow > minSlope &&
+  slopeNow > 0 &&
   slopeChange > 0 &&
   candlesFromExtreme >= 5
 ) {
@@ -156,7 +156,7 @@ candlesFromExtreme:
     if (
   recovery >= minKinkHeight &&
   slopePrev > 0 &&
-  slopeNow < -minSlope &&
+  slopeNow < 0 &&
   slopeChange < 0 &&
   candlesFromExtreme >= 5
 ) {
