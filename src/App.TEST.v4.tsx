@@ -898,7 +898,7 @@ async function saveAllSizes() {
         
 
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        const distanceModes = buildDistanceModes(dist, 5);
+        
 
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -1598,6 +1598,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
         
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+        const distanceModes = buildDistanceModes(dist, 5);
         
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -2144,7 +2145,7 @@ createSeriesMarkers(
         createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
-    distanceModes.upPoints.map((p) => ({
+    distanceModes.upPoints.map((p: MarkerPoint) => ({
       ...p,
       text: "DM_UP",
       color: "#00ffaa",
@@ -2156,7 +2157,7 @@ createSeriesMarkers(
 createSeriesMarkers(
   candidateShortSeries,
   buildTextMarkers(
-    distanceModes.downPoints.map((p) => ({
+    distanceModes.downPoints.map((p: MarkerPoint) => ({
       ...p,
       text: "DM_DOWN",
       color: "#ff5577",
