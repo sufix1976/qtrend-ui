@@ -3638,37 +3638,39 @@ for (let i = 1; i < candles.length; i++) {
   const prevUpper = lineValueAt(smaUpperMap, prev.time);
   const currUpper = lineValueAt(smaUpperMap, curr.time);
 
-  if (
-    prevFast != null &&
-    currFast != null &&
-    prevLower != null &&
-    currLower != null &&
-    recentlyBelowLower === true
-    currFast >= currLower - Math.max(1, Math.abs(currLower) * 0.00015)
-  ) {
-    reclaimLongEntries.push({
-      time: curr.time,
-      value: curr.low,
-      text: "RL",
-      color: "#00ff88",
-    });
-  }
+const reclaimTolerance = 0; // erstmal exakt, später wieder Vorgriff
 
-  if (
-    prevFast != null &&
-    currFast != null &&
-    prevUpper != null &&
-    currUpper != null &&
-    recentlyAboveUpper === true
-    currFast <= currUpper + Math.max(1, Math.abs(currUpper) * 0.00015)
-  ) {
-    reclaimShortEntries.push({
-      time: curr.time,
-      value: curr.high,
-      text: "RS",
-      color: "#ff4d6d",
-    });
-  }
+if (
+  prevFast != null &&
+  currFast != null &&
+  prevLower != null &&
+  currLower != null &&
+  prevFast < prevLower &&
+  currFast >= currLower - reclaimTolerance
+) {
+  reclaimLongEntries.push({
+    time: curr.time,
+    value: curr.low,
+    text: "RL",
+    color: "#00ff88",
+  });
+}
+
+if (
+  prevFast != null &&
+  currFast != null &&
+  prevUpper != null &&
+  currUpper != null &&
+  prevFast > prevUpper &&
+  currFast <= currUpper + reclaimTolerance
+) {
+  reclaimShortEntries.push({
+    time: curr.time,
+    value: curr.high,
+    text: "RS",
+    color: "#ff4d6d",
+  });
+}
 }
 
   const candleIndexByTime = new Map<number, number>();
