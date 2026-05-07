@@ -2092,7 +2092,7 @@ createSeriesMarkers(
   ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
 );
 
-        createSeriesMarkers(
+      /*  createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
     distanceModes.upPoints.map((p: MarkerPoint) => ({
@@ -2114,7 +2114,7 @@ createSeriesMarkers(
     })),
     "aboveBar"
   )
-);
+); */
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
