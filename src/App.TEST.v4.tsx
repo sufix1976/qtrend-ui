@@ -3909,12 +3909,6 @@ const currLower = smaLowerMap.get(p.time) ?? null;
 
    const longExitBySmaBreak =
   (
-    prevUpper !== null &&
-    currUpper !== null &&
-    prevFast > prevUpper &&
-    currFast <= currUpper
-  ) ||
-  (
     useSlowExit &&
     prevSlow !== null &&
     currSlow !== null &&
@@ -3930,12 +3924,6 @@ const currLower = smaLowerMap.get(p.time) ?? null;
 
 const shortExitBySmaBreak =
   (
-    prevUpper !== null &&
-    currUpper !== null &&
-    prevFast < prevUpper &&
-    currFast >= currUpper
-  ) ||
-  (
     useSlowExit &&
     prevSlow !== null &&
     currSlow !== null &&
@@ -3943,10 +3931,10 @@ const shortExitBySmaBreak =
     currFast >= currSlow
   ) ||
   (
-    prevLower !== null &&
-    currLower !== null &&
-    prevFast < prevLower &&
-    currFast >= currLower
+    prevUpper !== null &&
+    currUpper !== null &&
+    prevFast < prevUpper &&
+    currFast >= currUpper
   );
 
 if (position === "long" && longExitBySmaBreak) {
