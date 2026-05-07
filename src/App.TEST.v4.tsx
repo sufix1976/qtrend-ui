@@ -1873,8 +1873,22 @@ const coreShortProjected = projectMarkerPointsToCandles(
         candidateShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
-        strategyLongExitSeries.setData([]);
-strategyShortExitSeries.setData([]);
+        
+const longExitProjected = projectMarkerPointsToCandles(
+  sim.longExitPoints,
+  candles,
+  "below-near"
+);
+
+const shortExitProjected = projectMarkerPointsToCandles(
+  sim.shortExitPoints,
+  candles,
+  "above-near"
+);
+
+strategyLongExitSeries.setData(longExitProjected as any);
+strategyShortExitSeries.setData(shortExitProjected as any);
+        
 outlierLongSeries.setData([]);
 outlierShortSeries.setData([]);
 blockedLongSeries.setData([]);
@@ -1882,6 +1896,28 @@ blockedShortSeries.setData([]);
 realBuySeries.setData([]);
 realSellSeries.setData([]);
 realCloseSeries.setData([]);
+
+        createSeriesMarkers(
+  strategyLongExitSeries,
+  longExitProjected.map((p) => ({
+    time: p.time,
+    position: "belowBar",
+    color: "#ffffff",
+    shape: "arrowDown",
+    text: "EXL",
+  })) as any
+);
+
+createSeriesMarkers(
+  strategyShortExitSeries,
+  shortExitProjected.map((p) => ({
+    time: p.time,
+    position: "aboveBar",
+    color: "#ffffff",
+    shape: "arrowUp",
+    text: "EXS",
+  })) as any
+);
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
