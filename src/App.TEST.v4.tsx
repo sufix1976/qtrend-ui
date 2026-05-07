@@ -1695,10 +1695,23 @@ for (let i = 1; i < smaFast.length; i++) {
 
   const tolerance = smaOffsetUI * 0.05;
 
-  if (
-    prevFast.value < prevLower.value &&
-    currFast.value >= currLower.value - tolerance
-  ) {
+  let wasBelow = false;
+
+for (let j = Math.max(0, i - 5); j < i; j++) {
+  const f = smaFast[j];
+  const l = smaLower[j];
+
+  if (f && l && f.value < l.value) {
+    wasBelow = true;
+    break;
+  }
+}
+
+if (
+  wasBelow &&
+  currFast.value >= currLower.value - tolerance
+) {
+  
     rawLongCandidates.push({
       time: currFast.time,
       value: currFast.value,
@@ -1706,10 +1719,23 @@ for (let i = 1; i < smaFast.length; i++) {
     });
   }
 
-  if (
-    prevFast.value > prevUpper.value &&
-    currFast.value <= currUpper.value + tolerance
-  ) {
+  let wasAbove = false;
+
+for (let j = Math.max(0, i - 5); j < i; j++) {
+  const f = smaFast[j];
+  const u = smaUpper[j];
+
+  if (f && u && f.value > u.value) {
+    wasAbove = true;
+    break;
+  }
+}
+
+if (
+  wasAbove &&
+  currFast.value <= currUpper.value + tolerance
+) {
+    
     rawShortCandidates.push({
       time: currFast.time,
       value: currFast.value,
