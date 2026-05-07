@@ -1678,69 +1678,61 @@ const smaTurnMarkers = [
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 */
        
-       const rawLongCandidates: MarkerPoint[] = [];
+const rawLongCandidates: MarkerPoint[] = [];
 const rawShortCandidates: MarkerPoint[] = [];
 
-for (let i = 1; i < smaFast.length; i++) {
-  const prevFast = smaFast[i - 1];
-  const currFast = smaFast[i];
+const fastMap = new Map<number, number>();
+const lowerMap = new Map<number, number>();
+const upperMap = new Map<number, number>();
 
-  const prevLower = smaLower[i - 1];
-  const currLower = smaLower[i];
+smaFast.forEach((p) => fastMap.set(p.time, p.value));
+smaLower.forEach((p) => lowerMap.set(p.time, p.value));
+smaUpper.forEach((p) => upperMap.set(p.time, p.value));
 
-  const prevUpper = smaUpper[i - 1];
-  const currUpper = smaUpper[i];
+for (let i = 1; i < candles.length; i++) {
+  const curr = candles[i];
 
-  if (!prevFast || !currFast || !prevLower || !currLower || !prevUpper || !currUpper) continue;
+  const currFast = fastMap.get(curr.time);
+  const currLower = lowerMap.get(curr.time);
+  const currUpper = upperMap.get(curr.time);
 
-  const tolerance = smaOffsetUI * 0.1;
+  if (currFast == null || currLower == null || currUpper == null) continue;
+
+  const tolerance = smaOffsetUI * 0.25;
 
   let wasBelow = false;
+  let wasAbove = false;
 
-for (let j = Math.max(0, i - 5); j < i; j++) {
-  const f = smaFast[j];
-  const l = smaLower[j];
+  for (let j = Math.max(0, i - 5); j < i; j++) {
+    const t = candles[j].time;
+    const f = fastMap.get(t);
+    const l = lowerMap.get(t);
+    const u = upperMap.get(t);
 
-  if (f && l && f.value < l.value) {
-    wasBelow = true;
-    break;
+    if (f != null && l != null && f < l) wasBelow = true;
+    if (f != null && u != null && f > u) wasAbove = true;
   }
-}
 
-if (
-  wasBelow &&
-  currFast.value > prevFast.value &&
-  currFast.value >= currLower.value - tolerance
-) {
-  
+  if (
+    wasBelow &&
+    i > 0 &&
+    currFast >= currLower - tolerance
+  ) {
     rawLongCandidates.push({
-      time: currFast.time,
-      value: currFast.value,
+      time: curr.time,
+      value: curr.low,
       text: "RL",
     });
   }
 
-  let wasAbove = false;
-
-for (let j = Math.max(0, i - 5); j < i; j++) {
-  const f = smaFast[j];
-  const u = smaUpper[j];
-
-  if (f && u && f.value > u.value) {
-    wasAbove = true;
-    break;
-  }
-}
-
-if (
-  wasAbove &&
-  currFast.value < prevFast.value &&
-  currFast.value <= currUpper.value + tolerance
-) {
-    
+  if (
+    wasAbove &&
+    i > 0 &&
+    currFast <= currUpper + tolerance
+  ) {
     rawShortCandidates.push({
-      time: currFast.time,
-      value: currFast.value,
+      time: curr.time,
+      value: curr.high,
       text: "RS",
     });
   }
