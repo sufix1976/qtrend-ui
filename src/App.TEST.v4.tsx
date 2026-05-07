@@ -843,7 +843,62 @@ async function saveAllSizes() {
           return trend;
         }
 
+        function buildDistanceModes(
+  dist: LinePoint[],
+  confirmBars = 5
+) {
+  const upPoints: MarkerPoint[] = [];
+  const downPoints: MarkerPoint[] = [];
+
+  let mode: "UP" | "DOWN" | null = null;
+
+  for (let i = confirmBars; i < dist.length; i++) {
+    let rising = true;
+    let falling = true;
+
+    for (let j = i - confirmBars + 1; j <= i; j++) {
+      if (dist[j].value <= dist[j - 1].value) {
+        rising = false;
+      }
+
+      if (dist[j].value >= dist[j - 1].value) {
+        falling = false;
+      }
+    }
+
+    if (rising && mode !== "UP") {
+      mode = "UP";
+
+      upPoints.push({
+        time: dist[i].time,
+        value: dist[i].value,
+        text: "DM_UP",
+        color: "#00ffaa",
+      });
+    }
+
+    if (falling && mode !== "DOWN") {
+      mode = "DOWN";
+
+      downPoints.push({
+        time: dist[i].time,
+        value: dist[i].value,
+        text: "DM_DOWN",
+        color: "#ff5577",
+      });
+    }
+  }
+
+  return {
+    upPoints,
+    downPoints,
+  };
+}
+
+        
+
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+        const distanceModes = buildDistanceModes(dist, 5);
 
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -2072,6 +2127,18 @@ createSeriesMarkers(
       shape: "arrowUp" as const,
       text: "UT",
     })),
+
+    createSeriesMarkers(
+  candidateLongSeries,
+  buildTextMarkers(
+    distanceModes.upPoints.map((p) => ({
+      ...p,
+      text: "DM_UP",
+      color: "#00ffaa",
+    })),
+    "belowBar"
+  )
+);
     ...smaTurns.down.map((p) => ({
       time: p.time as any,
       position: "aboveBar" as const,
@@ -2079,6 +2146,18 @@ createSeriesMarkers(
       shape: "arrowDown" as const,
       text: "DT",
     })),
+
+      createSeriesMarkers(
+  candidateShortSeries,
+  buildTextMarkers(
+    distanceModes.downPoints.map((p) => ({
+      ...p,
+      text: "DM_DOWN",
+      color: "#ff5577",
+    })),
+    "aboveBar"
+  )
+);
   ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
 );
 
