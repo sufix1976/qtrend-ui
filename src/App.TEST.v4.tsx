@@ -890,6 +890,30 @@ console.log("QTREND CORE CHECK 2", {
   kinkDebug: coreCheck.kinks.debug,
 });
 
+        (window as any).coreCheck = coreCheck;
+
+console.table(
+  coreCheck.kinks.longKinks.map((k: any) => ({
+    side: "LONG",
+    time: new Date(k.time * 1000).toLocaleString("de-DE"),
+    recovery: k.recovery,
+    slopeNow: k.slopeNow,
+    slopePrev: k.slopePrev,
+    candlesFromExtreme: k.candlesFromExtreme,
+  }))
+);
+
+console.table(
+  coreCheck.kinks.shortKinks.map((k: any) => ({
+    side: "SHORT",
+    time: new Date(k.time * 1000).toLocaleString("de-DE"),
+    recovery: k.recovery,
+    slopeNow: k.slopeNow,
+    slopePrev: k.slopePrev,
+    candlesFromExtreme: k.candlesFromExtreme,
+  }))
+);
+
         
 
         const distIndexByTime = new Map<number, number>();
