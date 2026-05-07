@@ -93,7 +93,11 @@ if (enteredShortZone && !shortWatch) {
 
       const recovery = curr.value - longExtreme.value;
 
-      if (curr.value > prev.value && recovery >= minKinkHeight) {
+     if (
+  curr.value > prev.value &&
+  recovery >= minKinkHeight &&
+  slopePrev < 0
+) {
         const slopeNow = curr.value - prev.value;
 const slopePrev =
   i >= 2
@@ -127,7 +131,11 @@ longKinks.push({
 
       const recovery = shortExtreme.value - curr.value;
 
-      if (curr.value < prev.value && recovery >= minKinkHeight) {
+      if (
+  curr.value < prev.value &&
+  recovery >= minKinkHeight &&
+  slopePrev > 0
+) {
         const slopeNow = curr.value - prev.value;
 const slopePrev =
   i >= 2
