@@ -3225,7 +3225,7 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   }
 }
 
-function buildDistanceModes(
+function _buildDistanceModes(
   dist: LinePoint[],
   confirmBars = 5
 ) {
