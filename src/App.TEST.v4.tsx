@@ -3225,57 +3225,7 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   }
 }
 
-function _buildDistanceModes(
-  dist: LinePoint[],
-  confirmBars = 5
-) {
-  const upPoints: MarkerPoint[] = [];
-  const downPoints: MarkerPoint[] = [];
 
-  let mode: "UP" | "DOWN" | null = null;
-
-  for (let i = confirmBars; i < dist.length; i++) {
-    let rising = true;
-    let falling = true;
-
-    for (let j = i - confirmBars + 1; j <= i; j++) {
-      if (dist[j].value <= dist[j - 1].value) {
-        rising = false;
-      }
-
-      if (dist[j].value >= dist[j - 1].value) {
-        falling = false;
-      }
-    }
-
-    if (rising && mode !== "UP") {
-      mode = "UP";
-
-      upPoints.push({
-        time: dist[i].time,
-        value: dist[i].value,
-        text: "DM_UP",
-        color: "#00ffaa",
-      });
-    }
-
-    if (falling && mode !== "DOWN") {
-      mode = "DOWN";
-
-      downPoints.push({
-        time: dist[i].time,
-        value: dist[i].value,
-        text: "DM_DOWN",
-        color: "#ff5577",
-      });
-    }
-  }
-
-  return {
-    upPoints,
-    downPoints,
-  };
-}
 
 function buildSmaTurnMarkers(
   smaSlow: LinePoint[],
