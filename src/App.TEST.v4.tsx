@@ -1977,8 +1977,8 @@ createSeriesMarkers(
   buildTextMarkers(
     coreLongProjected.map((p: MarkerPoint) => ({
       ...p,
-      text: "RL",
-      color: "#00ff88",
+      text: p.text ?? "RL",
+      color: p.color ?? "#00ff88",
     })),
     "belowBar"
   )
@@ -1989,8 +1989,8 @@ createSeriesMarkers(
   buildTextMarkers(
     coreShortProjected.map((p: MarkerPoint) => ({
       ...p,
-      text: "RS",
-      color: "#ff4d6d",
+      text: p.text ?? "RS",
+      color: p.color ?? "#ff4d6d",
     })),
     "aboveBar"
   )
