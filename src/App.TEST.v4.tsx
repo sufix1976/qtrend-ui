@@ -3689,7 +3689,10 @@ function simulateStrategyTESTv4(
   return Number.isFinite(v) ? Number(v) : null;
 }
 
-  
+  const longExitPoints: MarkerPoint[] = [];
+const shortExitPoints: MarkerPoint[] = [];
+const acceptedLongEntryPoints: MarkerPoint[] = [];
+const acceptedShortEntryPoints: MarkerPoint[] = [];
   
 
 for (let i = 1; i < candles.length; i++) {
@@ -3715,7 +3718,7 @@ if (
   prevFast < prevLower &&
   currFast >= currLower - reclaimTolerance
 ) {
-  reclaimLongEntries.push({
+  ...longEntries.map((p) => ({
     time: curr.time,
     value: curr.low,
     text: "RL",
@@ -3731,7 +3734,7 @@ if (
   prevFast > prevUpper &&
   currFast <= currUpper + reclaimTolerance
 ) {
-  reclaimShortEntries.push({
+  ...shortEntries.map((p) => ({
     time: curr.time,
     value: curr.high,
     text: "RS",
