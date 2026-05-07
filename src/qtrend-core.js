@@ -68,6 +68,12 @@ let shortExtreme = null;
     const curr = dist[i];
     const prev = dist[i - 1];
     const zone = zoneMap.get(Number(curr.time));
+    const slopeNow = curr.value - prev.value;
+    const slopePrev =
+  i >= 2
+    ? prev.value - dist[i - 2].value
+    : 0;
+    
     if (!zone) continue;
 
    const enteredLongZone =
