@@ -1771,13 +1771,13 @@ for (let i = 2; i < smaFast.length; i++) {
 
   // KL = gelbe SMA dreht unten nach oben, bevor RL kommt
 
-  const trend = trendAt(curr.time);
+  const trendNow = trendAt(curr.time);
   if (
     prev1.value < currLower &&
     slopePrev < 0 &&
     slopeNow > 0
   ) {
-    const counterTrend = trend === "DT";
+    const counterTrend = trendNow === "down";
 
 kinkLongCandidates.push({
   time: curr.time,
@@ -1788,13 +1788,13 @@ kinkLongCandidates.push({
   }
 
   // KS = gelbe SMA dreht oben nach unten, bevor RS kommt
-  const trend = trendAt(curr.time);
+  const trendNow = trendAt(curr.time);
   if (
     prev1.value > currUpper &&
     slopePrev > 0 &&
     slopeNow < 0
   ) {
-    const counterTrend = trend === "UT";
+    const counterTrend = trendNow === "up";
 
 kinkShortCandidates.push({
   time: curr.time,
