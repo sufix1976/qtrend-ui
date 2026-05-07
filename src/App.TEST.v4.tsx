@@ -3669,8 +3669,8 @@ function simulateStrategyTESTv4(
   const candleMap = new Map<number, Candle>();
   for (const c of candles) candleMap.set(c.time, c);
 
-  const distMapIndex = new Map<number, number>();
-  dist.forEach((p, i) => distMapIndex.set(p.time, i));
+  const candleIndexByTime = new Map<number, number>();
+  candles.forEach((c, i) => candleIndexByTime.set(c.time, i));
 
   const smaFastMap = new Map<number, number>();
   for (const p of smaFast) smaFastMap.set(p.time, p.value);
@@ -3684,90 +3684,32 @@ function simulateStrategyTESTv4(
   const smaLowerMap = new Map<number, number>();
   for (const p of smaLower) smaLowerMap.set(p.time, p.value);
 
-  function lineValueAt(map: Map<number, number>, time: number): number | null {
-  const v = map.get(time);
-  return Number.isFinite(v) ? Number(v) : null;
-}
-
   const longExitPoints: MarkerPoint[] = [];
-const shortExitPoints: MarkerPoint[] = [];
-const acceptedLongEntryPoints: MarkerPoint[] = [];
-const acceptedShortEntryPoints: MarkerPoint[] = [];
-  
+  const shortExitPoints: MarkerPoint[] = [];
+  const acceptedLongEntryPoints: MarkerPoint[] = [];
+  const acceptedShortEntryPoints: MarkerPoint[] = [];
 
-for (let i = 1; i < candles.length; i++) {
-  const prev = candles[i - 1];
-  const curr = candles[i];
+  const entryEvents = [
+    ...longEntries.map((p) => ({
+      time: p.time,
+      value: p.value,
+      index: candleIndexByTime.get(p.time) ?? -1,
+      side: "long" as const,
+      source: p.text ?? "LONG",
+    })),
+    ...shortEntries.map((p) => ({
+      time: p.time,
+      value: p.value,
+      index: candleIndexByTime.get(p.time) ?? -1,
+      side: "short" as const,
+      source: p.text ?? "SHORT",
+    })),
+  ]
+    .filter((x) => x.index >= 0)
+    .sort((a, b) => a.index - b.index);
 
-  const prevFast = lineValueAt(smaFastMap, prev.time);
-  const currFast = lineValueAt(smaFastMap, curr.time);
-
-  const prevLower = lineValueAt(smaLowerMap, prev.time);
-  const currLower = lineValueAt(smaLowerMap, curr.time);
-
-  const prevUpper = lineValueAt(smaUpperMap, prev.time);
-  const currUpper = lineValueAt(smaUpperMap, curr.time);
-
-const reclaimTolerance = 0; // erstmal exakt, später wieder Vorgriff
-
-if (
-  prevFast != null &&
-  currFast != null &&
-  prevLower != null &&
-  currLower != null &&
-  prevFast < prevLower &&
-  currFast >= currLower - reclaimTolerance
-) {
-  ...longEntries.map((p) => ({
-    time: curr.time,
-    value: curr.low,
-    text: "RL",
-    color: "#00ff88",
-  });
-}
-
-if (
-  prevFast != null &&
-  currFast != null &&
-  prevUpper != null &&
-  currUpper != null &&
-  prevFast > prevUpper &&
-  currFast <= currUpper + reclaimTolerance
-) {
-  ...shortEntries.map((p) => ({
-    time: curr.time,
-    value: curr.high,
-    text: "RS",
-    color: "#ff4d6d",
-  });
-}
-}
-
-  const candleIndexByTime = new Map<number, number>();
-  candles.forEach((c, i) => candleIndexByTime.set(c.time, i));
-
- const entryEvents = [
-  ...longEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    index: candleIndexByTime.get(p.time) ?? -1,
-    side: "long" as const,
-    source: p.text ?? "LONG",
-  })),
-  ...shortEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    index: candleIndexByTime.get(p.time) ?? -1,
-    side: "short" as const,
-    source: p.text ?? "SHORT",
-  })),
-]
-  .filter((x) => x.index >= 0)
-  .sort((a, b) => a.index - b.index);
-  
-  
-
-  let position: PositionSide = "flat";
+  let currentEntryPtr = 0;
+  let position: "flat" | "long" | "short" = "flat";
   let openTrade: { side: "long" | "short"; entryPrice: number; entryIndex: number } | null = null;
 
   let tradeCount = 0;
@@ -3775,8 +3717,6 @@ if (
   let lossCount = 0;
   let grossProfit = 0;
   let grossLoss = 0;
-
-  let currentEntryPtr = 0;
 
   const perSideCost = assumedSpread / 2 + assumedSlippage;
 
@@ -3809,127 +3749,108 @@ if (
     position = "flat";
   };
 
-  
-
-  for (let i = 0; i < dist.length; i++) {
-    const p = dist[i];
-    const candle = candleMap.get(p.time);
-    if (!candle) continue;
+  for (let i = 0; i < candles.length; i++) {
+    const candle = candles[i];
 
     while (currentEntryPtr < entryEvents.length && entryEvents[currentEntryPtr].index === i) {
-  const evt = entryEvents[currentEntryPtr];
+      const evt = entryEvents[currentEntryPtr];
 
-  if (evt.side === "long") {
-    if (position === "short" && openTrade) {
-      shortExitPoints.push({ time: candle.time, value: candle.high });
-      closeTrade(candle, "short");
+      if (evt.side === "long") {
+        if (position === "short" && openTrade) {
+          shortExitPoints.push({ time: candle.time, value: candle.high });
+          closeTrade(candle, "short");
+        }
+
+        if (position === "flat") {
+          openTrade = {
+            side: "long",
+            entryPrice: realisticEntryPrice("long", candle),
+            entryIndex: i,
+          };
+          position = "long";
+          acceptedLongEntryPoints.push({ time: evt.time, value: evt.value, text: evt.source });
+        }
+      }
+
+      if (evt.side === "short") {
+        if (position === "long" && openTrade) {
+          longExitPoints.push({ time: candle.time, value: candle.low });
+          closeTrade(candle, "long");
+        }
+
+        if (position === "flat") {
+          openTrade = {
+            side: "short",
+            entryPrice: realisticEntryPrice("short", candle),
+            entryIndex: i,
+          };
+          position = "short";
+          acceptedShortEntryPoints.push({ time: evt.time, value: evt.value, text: evt.source });
+        }
+      }
+
+      currentEntryPtr += 1;
     }
-
-    if (position === "flat") {
-      openTrade = {
-        side: "long",
-        entryPrice: realisticEntryPrice("long", candle),
-        entryIndex: i,
-      };
-      position = "long";
-
-      acceptedLongEntryPoints.push({
-        time: evt.time,
-        value: evt.value,
-      });
-    }
-  } else {
-    if (position === "long" && openTrade) {
-      longExitPoints.push({ time: candle.time, value: candle.low });
-      closeTrade(candle, "long");
-    }
-
-    if (position === "flat") {
-      openTrade = {
-        side: "short",
-        entryPrice: realisticEntryPrice("short", candle),
-        entryIndex: i,
-      };
-      position = "short";
-
-      acceptedShortEntryPoints.push({
-        time: evt.time,
-        value: evt.value,
-      });
-    }
-  }
-
-  currentEntryPtr += 1;
-}
 
     if (!openTrade || i <= openTrade.entryIndex || i <= 0) continue;
 
-    const prevTime = dist[i - 1]?.time;
-    if (!prevTime) continue;
+    const prev = candles[i - 1];
 
-    const prevFast = smaFastMap.get(prevTime) ?? null;
-    const currFast = smaFastMap.get(p.time) ?? null;
+    const prevFast = smaFastMap.get(prev.time) ?? null;
+    const currFast = smaFastMap.get(candle.time) ?? null;
 
-    if (
-      prevFast === null ||
-      currFast === null ||
-      !Number.isFinite(prevFast) ||
-      !Number.isFinite(currFast)
-    ) {
+    const prevUpper = smaUpperMap.get(prev.time) ?? null;
+    const currUpper = smaUpperMap.get(candle.time) ?? null;
+
+    const prevSlow = smaSlowMap.get(prev.time) ?? null;
+    const currSlow = smaSlowMap.get(candle.time) ?? null;
+
+    const prevLower = smaLowerMap.get(prev.time) ?? null;
+    const currLower = smaLowerMap.get(candle.time) ?? null;
+
+    if (prevFast === null || currFast === null) continue;
+
+    const longExitBySmaBreak =
+      (
+        useSlowExit &&
+        prevSlow !== null &&
+        currSlow !== null &&
+        prevFast > prevSlow &&
+        currFast <= currSlow
+      ) ||
+      (
+        prevLower !== null &&
+        currLower !== null &&
+        prevFast > prevLower &&
+        currFast <= currLower
+      );
+
+    const shortExitBySmaBreak =
+      (
+        useSlowExit &&
+        prevSlow !== null &&
+        currSlow !== null &&
+        prevFast < prevSlow &&
+        currFast >= currSlow
+      ) ||
+      (
+        prevUpper !== null &&
+        currUpper !== null &&
+        prevFast < prevUpper &&
+        currFast >= currUpper
+      );
+
+    if (position === "long" && longExitBySmaBreak) {
+      longExitPoints.push({ time: candle.time, value: candle.low, text: "EXL" });
+      closeTrade(candle, "long");
       continue;
     }
 
-    
-    const prevUpper = smaUpperMap.get(prevTime) ?? null;
-const currUpper = smaUpperMap.get(p.time) ?? null;
-
-const prevSlow = smaSlowMap.get(prevTime) ?? null;
-const currSlow = smaSlowMap.get(p.time) ?? null;
-
-const prevLower = smaLowerMap.get(prevTime) ?? null;
-const currLower = smaLowerMap.get(p.time) ?? null;
-
-   const longExitBySmaBreak =
-  (
-    useSlowExit &&
-    prevSlow !== null &&
-    currSlow !== null &&
-    prevFast > prevSlow &&
-    currFast <= currSlow
-  ) ||
-  (
-    prevLower !== null &&
-    currLower !== null &&
-    prevFast > prevLower &&
-    currFast <= currLower
-  );
-
-const shortExitBySmaBreak =
-  (
-    useSlowExit &&
-    prevSlow !== null &&
-    currSlow !== null &&
-    prevFast < prevSlow &&
-    currFast >= currSlow
-  ) ||
-  (
-    prevUpper !== null &&
-    currUpper !== null &&
-    prevFast < prevUpper &&
-    currFast >= currUpper
-  );
-
-if (position === "long" && longExitBySmaBreak) {
-  longExitPoints.push({ time: candle.time, value: candle.low });
-  closeTrade(candle, "long");
-  continue;
-}
-
-if (position === "short" && shortExitBySmaBreak) {
-  shortExitPoints.push({ time: candle.time, value: candle.high });
-  closeTrade(candle, "short");
-  continue;
-}
+    if (position === "short" && shortExitBySmaBreak) {
+      shortExitPoints.push({ time: candle.time, value: candle.high, text: "EXS" });
+      closeTrade(candle, "short");
+      continue;
+    }
   }
 
   const netPnL = grossProfit - grossLoss;
