@@ -127,8 +127,9 @@ slopeNow,
 slopePrev,
 slopeChange: slopeNow - slopePrev,
 candlesFromExtreme:
+ 
   i - dist.findIndex(
-    (d) => d.time === longExtreme.time
+    (d) => d && longExtreme && d.time === longExtreme.time
   ),
 });
 
@@ -173,7 +174,7 @@ slopePrev,
 slopeChange: slopeNow - slopePrev,
 candlesFromExtreme:
   i - dist.findIndex(
-    (d) => d.time === longExtreme.time
+    (d) => d && shortExtreme && d.time === shortExtreme.time
   ),
 });
 
