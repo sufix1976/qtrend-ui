@@ -1752,14 +1752,61 @@ for (let i = 1; i < smaFast.length; i++) {
     });
   }
 }
+
+const kinkLongCandidates: MarkerPoint[] = [];
+const kinkShortCandidates: MarkerPoint[] = [];
+
+for (let i = 2; i < smaFast.length; i++) {
+  const prev2 = smaFast[i - 2];
+  const prev1 = smaFast[i - 1];
+  const curr = smaFast[i];
+
+  const currLower = lowerMap.get(curr.time);
+  const currUpper = upperMap.get(curr.time);
+
+  if (currLower == null || currUpper == null) continue;
+
+  const slopePrev = prev1.value - prev2.value;
+  const slopeNow = curr.value - prev1.value;
+
+  // KL = gelbe SMA dreht unten nach oben, bevor RL kommt
+  if (
+    prev1.value < currLower &&
+    slopePrev < 0 &&
+    slopeNow > 0
+  ) {
+    kinkLongCandidates.push({
+      time: curr.time,
+      value: curr.value,
+      text: "KL",
+      color: "#00ffaa",
+    });
+  }
+
+  // KS = gelbe SMA dreht oben nach unten, bevor RS kommt
+  if (
+    prev1.value > currUpper &&
+    slopePrev > 0 &&
+    slopeNow < 0
+  ) {
+    kinkShortCandidates.push({
+      time: curr.time,
+      value: curr.value,
+      text: "KS",
+      color: "#ff77aa",
+    });
+  }
+}
+
+        
         
 
 const sim = simulateStrategyTESTv4(
   candles,
   dist,
   distMiddle,
-  rawLongCandidates,
-  rawShortCandidates,
+  [...rawLongCandidates, ...kinkLongCandidates],
+  [...rawShortCandidates, ...kinkShortCandidates],
   dynamicBand,
   assumedSpread,
   assumedSlippage,
@@ -1773,8 +1820,8 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = rawLongCandidates;
-const strategyShortPoints = rawShortCandidates;
+const strategyLongPoints = [...rawLongCandidates, ...kinkLongCandidates].sort((a, b) => a.time - b.time);
+const strategyShortPoints = [...rawShortCandidates, ...kinkShortCandidates].sort((a, b) => a.time - b.time);
 
         console.log("UI LAST MARKERS", {
   symbol,
