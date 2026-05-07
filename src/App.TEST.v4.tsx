@@ -3697,7 +3697,7 @@ for (let i = 1; i < candles.length; i++) {
   side: "short" as const,
   source: "reclaim" as const,
 })),
-]
+].sort((a, b) => a.time - b.time);
   
   .filter((x) => x.index >= 0)
   .sort((a, b) => a.index - b.index);
