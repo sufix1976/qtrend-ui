@@ -1773,10 +1773,13 @@ for (let i = 2; i < smaFast.length; i++) {
 
   const trendNowLong = trendAt(curr.time);
   if (
-    prev1.value < currLower &&
-    slopePrev < 0 &&
-    slopeNow > 0
-  ) {
+  (
+    prev1.value < currLower ||
+    trendNowLong === "up"
+  ) &&
+  slopePrev < 0 &&
+  slopeNow > 0
+) {
 
     const counterTrendLong = trendNowLong === "down";
 const trendLong = trendNowLong === "up";
@@ -1800,10 +1803,13 @@ kinkLongCandidates.push({
   // KS = gelbe SMA dreht oben nach unten, bevor RS kommt
   const trendNowShort = trendAt(curr.time);
   if (
-    prev1.value > currUpper &&
-    slopePrev > 0 &&
-    slopeNow < 0
-  ) {
+  (
+    prev1.value > currUpper ||
+    trendNowShort === "down"
+  ) &&
+  slopePrev > 0 &&
+  slopeNow < 0
+) {
 
 const counterTrendShort = trendNowShort === "up";
 const trendShort = trendNowShort === "down";
