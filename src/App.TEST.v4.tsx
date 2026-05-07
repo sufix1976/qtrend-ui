@@ -3653,7 +3653,7 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
 
 function simulateStrategyTESTv4(
   candles: Candle[],
-  dist: LinePoint[],
+  _dist: LinePoint[],
   _distMiddle: LinePoint[],
   longEntries: MarkerPoint[],
   shortEntries: MarkerPoint[],
