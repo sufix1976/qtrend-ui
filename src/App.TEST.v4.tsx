@@ -3746,7 +3746,7 @@ if (
   const candleIndexByTime = new Map<number, number>();
   candles.forEach((c, i) => candleIndexByTime.set(c.time, i));
 
-  const entryEvents = [
+ const entryEvents = [
   ...longEntries.map((p) => ({
     time: p.time,
     value: p.value,
