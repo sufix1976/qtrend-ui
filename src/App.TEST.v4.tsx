@@ -1777,14 +1777,23 @@ for (let i = 2; i < smaFast.length; i++) {
     slopePrev < 0 &&
     slopeNow > 0
   ) {
+
     const counterTrendLong = trendNowLong === "down";
-    
+const trendLong = trendNowLong === "up";
 
 kinkLongCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrendLong ? "KL_CT" : "KL",
-  color: counterTrendLong ? "#66ccff" : "#00ffaa",
+  text: counterTrendLong
+    ? "KL_CT"
+    : trendLong
+    ? "KL_T"
+    : "KL",
+  color: counterTrendLong
+    ? "#66ccff"
+    : trendLong
+    ? "#00ff88"
+    : "#00ffaa",
 });
   }
 
@@ -1795,14 +1804,25 @@ kinkLongCandidates.push({
     slopePrev > 0 &&
     slopeNow < 0
   ) {
-    const counterTrendShort = trendNowShort === "up";
+
+const counterTrendShort = trendNowShort === "up";
+const trendShort = trendNowShort === "down";
 
 kinkShortCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrendShort ? "KS_CT" : "KS",
-  color: counterTrendShort ? "#ffaa66" : "#ff77aa",
+  text: counterTrendShort
+    ? "KS_CT"
+    : trendShort
+    ? "KS_T"
+    : "KS",
+  color: counterTrendShort
+    ? "#ffaa66"
+    : trendShort
+    ? "#ff4477"
+    : "#ff77aa",
 });
+    
   }
 }
 
