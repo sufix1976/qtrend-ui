@@ -899,6 +899,7 @@ console.table(
     recovery: k.recovery,
     slopeNow: k.slopeNow,
     slopePrev: k.slopePrev,
+    slopeChange: k.slopeChange,
     candlesFromExtreme: k.candlesFromExtreme,
   }))
 );
@@ -910,6 +911,7 @@ console.table(
     recovery: k.recovery,
     slopeNow: k.slopeNow,
     slopePrev: k.slopePrev,
+    slopeChange: k.slopeChange,
     candlesFromExtreme: k.candlesFromExtreme,
   }))
 );
@@ -1581,7 +1583,8 @@ console.table(
     recovery: k.recovery,
     slopeNow: k.slopeNow,
     slopePrev: k.slopePrev,
-    candlesFromExtreme: k.candlesFromExtreme,
+slopeChange: k.slopeChange,
+candlesFromExtreme: k.candlesFromExtreme,
   }))
 );
 
@@ -1592,7 +1595,8 @@ console.table(
     recovery: k.recovery,
     slopeNow: k.slopeNow,
     slopePrev: k.slopePrev,
-    candlesFromExtreme: k.candlesFromExtreme,
+slopeChange: k.slopeChange,
+candlesFromExtreme: k.candlesFromExtreme,
   }))
 );
         
