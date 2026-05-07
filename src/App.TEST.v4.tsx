@@ -1771,36 +1771,37 @@ for (let i = 2; i < smaFast.length; i++) {
 
   // KL = gelbe SMA dreht unten nach oben, bevor RL kommt
 
-  const trendNow = trendAt(curr.time);
+  const trendNowLong = trendAt(curr.time);
   if (
     prev1.value < currLower &&
     slopePrev < 0 &&
     slopeNow > 0
   ) {
-    const counterTrend = trendNow === "down";
+    const counterTrendLong = trendNowLong === "down";
+    
 
 kinkLongCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrend ? "KL_CT" : "KL",
-  color: counterTrend ? "#66ccff" : "#00ffaa",
+  text: counterTrendLong ? "KL_CT" : "KL",
+  color: counterTrendLong ? "#66ccff" : "#00ffaa",
 });
   }
 
   // KS = gelbe SMA dreht oben nach unten, bevor RS kommt
-  const trendNow = trendAt(curr.time);
+  const trendNowShort = trendAt(curr.time);
   if (
     prev1.value > currUpper &&
     slopePrev > 0 &&
     slopeNow < 0
   ) {
-    const counterTrend = trendNow === "up";
+    const counterTrendShort = trendNowShort === "up";
 
 kinkShortCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrend ? "KS_CT" : "KS",
-  color: counterTrend ? "#ffaa66" : "#ff77aa",
+  text: counterTrendShort ? "KS_CT" : "KS",
+  color: counterTrendShort ? "#ffaa66" : "#ff77aa",
 });
   }
 }
