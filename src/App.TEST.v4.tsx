@@ -1681,58 +1681,73 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 const rawLongCandidates: MarkerPoint[] = [];
 const rawShortCandidates: MarkerPoint[] = [];
 
-const fastMap = new Map<number, number>();
 const lowerMap = new Map<number, number>();
 const upperMap = new Map<number, number>();
 
-smaFast.forEach((p) => fastMap.set(p.time, p.value));
 smaLower.forEach((p) => lowerMap.set(p.time, p.value));
 smaUpper.forEach((p) => upperMap.set(p.time, p.value));
 
-for (let i = 1; i < candles.length; i++) {
-  const curr = candles[i];
+const tolerance = 0;
 
-  const currFast = fastMap.get(curr.time);
-  const currLower = lowerMap.get(curr.time);
-  const currUpper = upperMap.get(curr.time);
+for (let i = 1; i < smaFast.length; i++) {
+  const prevFast = smaFast[i - 1];
+  const currFast = smaFast[i];
 
-  if (currFast == null || currLower == null || currUpper == null) continue;
+  const prevLower = lowerMap.get(prevFast.time);
+  const currLower = lowerMap.get(currFast.time);
 
-  const tolerance = smaOffsetUI * 0.25;
+  const prevUpper = upperMap.get(prevFast.time);
+  const currUpper = upperMap.get(currFast.time);
+
+  if (
+    prevLower == null ||
+    currLower == null ||
+    prevUpper == null ||
+    currUpper == null
+  ) {
+    continue;
+  }
 
   let wasBelow = false;
   let wasAbove = false;
 
   for (let j = Math.max(0, i - 5); j < i; j++) {
-    const t = candles[j].time;
-    const f = fastMap.get(t);
-    const l = lowerMap.get(t);
-    const u = upperMap.get(t);
+    const f = smaFast[j];
 
-    if (f != null && l != null && f < l) wasBelow = true;
-    if (f != null && u != null && f > u) wasAbove = true;
+    const l = lowerMap.get(f.time);
+    const u = upperMap.get(f.time);
+
+    if (l != null && f.value < l) {
+      wasBelow = true;
+    }
+
+    if (u != null && f.value > u) {
+      wasAbove = true;
+    }
   }
 
+  // RL
   if (
     wasBelow &&
-    i > 0 &&
-    currFast >= currLower - tolerance
+    prevFast.value < prevLower &&
+    currFast.value >= currLower - tolerance
   ) {
     rawLongCandidates.push({
-      time: curr.time,
-      value: curr.low,
+      time: currFast.time,
+      value: currFast.value,
       text: "RL",
     });
   }
 
+  // RS
   if (
     wasAbove &&
-    i > 0 &&
-    currFast <= currUpper + tolerance
+    prevFast.value > prevUpper &&
+    currFast.value <= currUpper + tolerance
   ) {
     rawShortCandidates.push({
-      time: curr.time,
-      value: curr.high,
+      time: currFast.time,
+      value: currFast.value,
       text: "RS",
     });
   }
