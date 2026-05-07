@@ -2128,7 +2128,20 @@ createSeriesMarkers(
       text: "UT",
     })),
 
-    createSeriesMarkers(
+   
+    ...smaTurns.down.map((p) => ({
+      time: p.time as any,
+      position: "aboveBar" as const,
+      color: "#ff4d6d",
+      shape: "arrowDown" as const,
+      text: "DT",
+    })),
+
+    
+  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
+);
+
+        createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
     distanceModes.upPoints.map((p) => ({
@@ -2139,15 +2152,8 @@ createSeriesMarkers(
     "belowBar"
   )
 );
-    ...smaTurns.down.map((p) => ({
-      time: p.time as any,
-      position: "aboveBar" as const,
-      color: "#ff4d6d",
-      shape: "arrowDown" as const,
-      text: "DT",
-    })),
 
-      createSeriesMarkers(
+createSeriesMarkers(
   candidateShortSeries,
   buildTextMarkers(
     distanceModes.downPoints.map((p) => ({
@@ -2158,9 +2164,6 @@ createSeriesMarkers(
     "aboveBar"
   )
 );
-  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
-);
-
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
