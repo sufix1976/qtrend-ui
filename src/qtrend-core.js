@@ -105,9 +105,10 @@ if (enteredShortZone && !shortWatch) {
   );
 
      if (
-  curr.value > prev.value &&
   recovery >= minKinkHeight &&
   slopePrev < 0 &&
+  slopeNow > 0 &&
+  slopeChange > 0 &&
   candlesFromExtreme >= 5
 ) {
         const slopeNow = curr.value - prev.value;
@@ -151,9 +152,10 @@ candlesFromExtreme:
   );
 
     if (
-  curr.value < prev.value &&
   recovery >= minKinkHeight &&
   slopePrev > 0 &&
+  slopeNow < 0 &&
+  slopeChange < 0 &&
   candlesFromExtreme >= 5
 ) {
         const slopeNow = curr.value - prev.value;
