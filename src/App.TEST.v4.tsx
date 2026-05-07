@@ -1548,7 +1548,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
         
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        const distanceModes = buildDistanceModes(dist, 5);
+        //const distanceModes = buildDistanceModes(dist, 5);
         
         const distAsCandles = dist.map((p) => ({
           time: p.time,
