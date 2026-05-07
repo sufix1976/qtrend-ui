@@ -74,6 +74,7 @@ let shortExtreme = null;
     ? prev.value - dist[i - 2].value
     : 0;
     const minSlope = Math.max(1, Number(minKinkHeight) * 0.05);
+    const slopeChange = slopeNow - slopePrev;
     
     if (!zone) continue;
 
