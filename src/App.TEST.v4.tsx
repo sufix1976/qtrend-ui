@@ -3608,25 +3608,93 @@ function simulateStrategyTESTv4(
   const smaLowerMap = new Map<number, number>();
   for (const p of smaLower) smaLowerMap.set(p.time, p.value);
 
+  function lineValueAt(map: Map<number, number>, time: number): number | null {
+  const v = map.get(time);
+  return Number.isFinite(v) ? Number(v) : null;
+}
+
   const longExitPoints: MarkerPoint[] = [];
   const shortExitPoints: MarkerPoint[] = [];
   const acceptedLongEntryPoints: MarkerPoint[] = [];
   const acceptedShortEntryPoints: MarkerPoint[] = [];
 
+  const reclaimLongEntries: MarkerPoint[] = [];
+const reclaimShortEntries: MarkerPoint[] = [];
+
+for (let i = 1; i < candles.length; i++) {
+  const prev = candles[i - 1];
+  const curr = candles[i];
+
+  const prevFast = lineValueAt(smaFastMap, prev.time);
+  const currFast = lineValueAt(smaFastMap, curr.time);
+
+  const prevLower = lineValueAt(smaLowerMap, prev.time);
+  const currLower = lineValueAt(smaLowerMap, curr.time);
+
+  const prevUpper = lineValueAt(smaUpperMap, prev.time);
+  const currUpper = lineValueAt(smaUpperMap, curr.time);
+
+  if (
+    prevFast != null &&
+    currFast != null &&
+    prevLower != null &&
+    currLower != null &&
+    prevFast < prevLower &&
+    currFast >= currLower
+  ) {
+    reclaimLongEntries.push({
+      time: curr.time,
+      value: curr.low,
+      text: "RL",
+      color: "#00ff88",
+    });
+  }
+
+  if (
+    prevFast != null &&
+    currFast != null &&
+    prevUpper != null &&
+    currUpper != null &&
+    prevFast > prevUpper &&
+    currFast <= currUpper
+  ) {
+    reclaimShortEntries.push({
+      time: curr.time,
+      value: curr.high,
+      text: "RS",
+      color: "#ff4d6d",
+    });
+  }
+}
+  
+
   const entryEvents = [
-    ...longEntries.map((p) => ({
-      time: p.time,
-      value: p.value,
-      side: "long" as const,
-      index: distMapIndex.get(p.time) ?? -1,
-    })),
-    ...shortEntries.map((p) => ({
-      time: p.time,
-      value: p.value,
-      side: "short" as const,
-      index: distMapIndex.get(p.time) ?? -1,
-    })),
-  ]
+  ...longEntries.map((p) => ({
+    time: p.time,
+    value: p.value,
+    side: "long" as const,
+    source: "core" as const,
+  })),
+  ...shortEntries.map((p) => ({
+    time: p.time,
+    value: p.value,
+    side: "short" as const,
+    source: "core" as const,
+  })),
+  ...reclaimLongEntries.map((p) => ({
+    time: p.time,
+    value: p.value,
+    side: "long" as const,
+    source: "reclaim" as const,
+  })),
+  ...reclaimShortEntries.map((p) => ({
+    time: p.time,
+    value: p.value,
+    side: "short" as const,
+    source: "reclaim" as const,
+  })),
+].sort((a, b) => a.time - b.time);
+  
     .filter((x) => x.index >= 0)
     .sort((a, b) => a.index - b.index);
 
