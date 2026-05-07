@@ -1434,19 +1434,7 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
-    const reclaimLongSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  lastValueVisible: false,
-  priceLineVisible: false,
-  lineVisible: false,
-});
-
-const reclaimShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  lastValueVisible: false,
-  priceLineVisible: false,
-  lineVisible: false,
-});
+    
 
     
 
