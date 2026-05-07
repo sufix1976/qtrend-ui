@@ -3666,7 +3666,9 @@ for (let i = 1; i < candles.length; i++) {
     });
   }
 }
-  
+
+  const candleIndexByTime = new Map<number, number>();
+  candles.forEach((c, i) => candleIndexByTime.set(c.time, i));
 
   const entryEvents = [
   ...longEntries.map((p) => ({
