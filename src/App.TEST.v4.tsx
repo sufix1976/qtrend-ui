@@ -1434,6 +1434,20 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
+    const reclaimLongSeries = chart.addSeries(LineSeries, {
+  priceScaleId: "",
+  lastValueVisible: false,
+  priceLineVisible: false,
+  lineVisible: false,
+});
+
+const reclaimShortSeries = chart.addSeries(LineSeries, {
+  priceScaleId: "",
+  lastValueVisible: false,
+  priceLineVisible: false,
+  lineVisible: false,
+});
+
     
 
     async function loadData() {
@@ -1674,6 +1688,27 @@ const smaTurnMarkers = [
   .sort((a, b) => Number(a.time) - Number(b.time));
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+        createSeriesMarkers(
+  reclaimLongSeries,
+  reclaimLongEntries.map((p) => ({
+    time: p.time,
+    position: "belowBar",
+    color: "#00ff88",
+    shape: "circle",
+    text: "RL?",
+  }))
+);
+
+createSeriesMarkers(
+  reclaimShortSeries,
+  reclaimShortEntries.map((p) => ({
+    time: p.time,
+    position: "aboveBar",
+    color: "#ff4d6d",
+    shape: "circle",
+    text: "RS?",
+  }))
+);
 
        const rawLongCandidates = coreCheck.kinks.longKinks;
 const rawShortCandidates = coreCheck.kinks.shortKinks;
@@ -3620,6 +3655,7 @@ function simulateStrategyTESTv4(
 
   const reclaimLongEntries: MarkerPoint[] = [];
 const reclaimShortEntries: MarkerPoint[] = [];
+  
 
 for (let i = 1; i < candles.length; i++) {
   const prev = candles[i - 1];
