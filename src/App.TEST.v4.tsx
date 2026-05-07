@@ -3695,8 +3695,7 @@ for (let i = 1; i < candles.length; i++) {
   })),
 ].sort((a, b) => a.time - b.time);
   
-    .filter((x) => x.index >= 0)
-    .sort((a, b) => a.index - b.index);
+  
 
   let position: PositionSide = "flat";
   let openTrade: { side: "long" | "short"; entryPrice: number; entryIndex: number } | null = null;
