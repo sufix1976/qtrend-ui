@@ -1434,14 +1434,14 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
-    const reclaimLongSeries = chart.addSeries(LineSeries, {
+    const reclaimLongSeries = priceChart.addSeries(LineSeries, {
   priceScaleId: "",
   lastValueVisible: false,
   priceLineVisible: false,
   lineVisible: false,
 });
 
-const reclaimShortSeries = chart.addSeries(LineSeries, {
+const reclaimShortSeries = priceChart.addSeries(LineSeries, {
   priceScaleId: "",
   lastValueVisible: false,
   priceLineVisible: false,
@@ -1690,7 +1690,7 @@ const smaTurnMarkers = [
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
         createSeriesMarkers(
   reclaimLongSeries,
-  reclaimLongEntries.map((p) => ({
+  (sim.reclaimLongEntries || []).map((p: MarkerPoint) => ({
     time: p.time,
     position: "belowBar",
     color: "#00ff88",
@@ -1701,7 +1701,7 @@ createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
 createSeriesMarkers(
   reclaimShortSeries,
-  reclaimShortEntries.map((p) => ({
+  (sim.reclaimShortEntries || []).map((p: MarkerPoint) => ({
     time: p.time,
     position: "aboveBar",
     color: "#ff4d6d",
@@ -3138,6 +3138,8 @@ function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
     longPoints,
     shortPoints,
     flatPoints,
+    reclaimLongEntries,
+    reclaimShortEntries,
   };
 }
 
