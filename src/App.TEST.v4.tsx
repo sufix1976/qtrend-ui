@@ -1654,7 +1654,7 @@ candlesFromExtreme: k.candlesFromExtreme,
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
 
-        const candleTimes = new Set(chartCandles.map((c) => c.time));
+     /*   const candleTimes = new Set(chartCandles.map((c) => c.time));
 
 const smaTurnMarkers = [
   ...smaTurns.up.map((p) => ({
@@ -1676,9 +1676,48 @@ const smaTurnMarkers = [
   .sort((a, b) => Number(a.time) - Number(b.time));
 
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+*/
        
-       const rawLongCandidates = coreCheck.kinks.longKinks;
-const rawShortCandidates = coreCheck.kinks.shortKinks;
+       const rawLongCandidates: MarkerPoint[] = [];
+const rawShortCandidates: MarkerPoint[] = [];
+
+for (let i = 1; i < smaFast.length; i++) {
+  const prevFast = smaFast[i - 1];
+  const currFast = smaFast[i];
+
+  const prevLower = smaLower[i - 1];
+  const currLower = smaLower[i];
+
+  const prevUpper = smaUpper[i - 1];
+  const currUpper = smaUpper[i];
+
+  if (!prevFast || !currFast || !prevLower || !currLower || !prevUpper || !currUpper) continue;
+
+  const tolerance = smaOffsetUI * 0.05;
+
+  if (
+    prevFast.value < prevLower.value &&
+    currFast.value >= currLower.value - tolerance
+  ) {
+    rawLongCandidates.push({
+      time: currFast.time,
+      value: currFast.value,
+      text: "RL",
+    });
+  }
+
+  if (
+    prevFast.value > prevUpper.value &&
+    currFast.value <= currUpper.value + tolerance
+  ) {
+    rawShortCandidates.push({
+      time: currFast.time,
+      value: currFast.value,
+      text: "RS",
+    });
+  }
+}
+        
 
 const sim = simulateStrategyTESTv4(
   candles,
@@ -1810,21 +1849,15 @@ const outlierShortProjected = projectMarkerPointsToCandles(
         candidateShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
-        strategyLongExitSeries.setData(longExitProjected as any);
-        strategyShortExitSeries.setData(shortExitProjected as any);
-        outlierLongSeries.setData(outlierLongProjected as any);
-        outlierShortSeries.setData(outlierShortProjected as any);
-       
-       
-
-
-
-
-        blockedLongSeries.setData(blockedLongProjected as any);
-        blockedShortSeries.setData(blockedShortProjected as any);
-        realBuySeries.setData([]);
-        realSellSeries.setData([]);
-        realCloseSeries.setData([]);
+        strategyLongExitSeries.setData([]);
+strategyShortExitSeries.setData([]);
+outlierLongSeries.setData([]);
+outlierShortSeries.setData([]);
+blockedLongSeries.setData([]);
+blockedShortSeries.setData([]);
+realBuySeries.setData([]);
+realSellSeries.setData([]);
+realCloseSeries.setData([]);
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
@@ -1832,26 +1865,28 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
        
 
-        createSeriesMarkers(
-  strategyLongExitSeries,
-  longExitProjected.map((p) => ({
-    time: p.time,
-    position: "belowBar",
-    color: "#ffffff",
-    shape: "arrowDown",
-    text: "EXL",
-  })) as any
+       createSeriesMarkers(
+  candidateLongSeries,
+  buildTextMarkers(
+    coreLongProjected.map((p: MarkerPoint) => ({
+      ...p,
+      text: "RL",
+      color: "#00ff88",
+    })),
+    "belowBar"
+  )
 );
 
 createSeriesMarkers(
-  strategyShortExitSeries,
-  shortExitProjected.map((p) => ({
-    time: p.time,
-    position: "aboveBar",
-    color: "#ffffff",
-    shape: "arrowUp",
-    text: "EXS",
-  })) as any
+  candidateShortSeries,
+  buildTextMarkers(
+    coreShortProjected.map((p: MarkerPoint) => ({
+      ...p,
+      text: "RS",
+      color: "#ff4d6d",
+    })),
+    "aboveBar"
+  )
 );
 
         
@@ -1866,29 +1901,7 @@ createSeriesMarkers(
         candidateShortSeries.setData(coreShortProjected as any);
 
 
-        createSeriesMarkers(
-  candidateLongSeries,
-  buildTextMarkers(
-    coreLongProjected.map((p: MarkerPoint) => ({
-      ...p,
-      text: "C_AL",
-color: "#ffffff",
-    })),
-    "aboveBar"
-  )
-);
-
-createSeriesMarkers(
-  candidateShortSeries,
-  buildTextMarkers(
-    coreShortProjected.map((p: MarkerPoint) => ({
-      ...p,
-      text: "C_AS",
-color: "#ffff00",
-    })),
-    "aboveBar"
-  )
-);
+     
 
    /*     createSeriesMarkers(
   outlierLongSeries,
