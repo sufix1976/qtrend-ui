@@ -3670,30 +3670,37 @@ for (let i = 1; i < candles.length; i++) {
 
   const entryEvents = [
   ...longEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    side: "long" as const,
-    source: "core" as const,
-  })),
+  time: p.time,
+  value: p.value,
+  index: candleIndexByTime.get(p.time) ?? -1,
+  side: "long" as const,
+  source: "core" as const,
+})),
   ...shortEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    side: "short" as const,
-    source: "core" as const,
-  })),
+  time: p.time,
+  value: p.value,
+  index: candleIndexByTime.get(p.time) ?? -1,
+  side: "short" as const,
+  source: "core" as const,
+})),
   ...reclaimLongEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    side: "long" as const,
-    source: "reclaim" as const,
-  })),
+  time: p.time,
+  value: p.value,
+  index: candleIndexByTime.get(p.time) ?? -1,
+  side: "long" as const,
+  source: "reclaim" as const,
+})),
   ...reclaimShortEntries.map((p) => ({
-    time: p.time,
-    value: p.value,
-    side: "short" as const,
-    source: "reclaim" as const,
-  })),
-].sort((a, b) => a.time - b.time);
+  time: p.time,
+  value: p.value,
+  index: candleIndexByTime.get(p.time) ?? -1,
+  side: "short" as const,
+  source: "reclaim" as const,
+})),
+]
+  
+  .filter((x) => x.index >= 0)
+  .sort((a, b) => a.index - b.index);
   
   
 
