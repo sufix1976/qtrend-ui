@@ -3643,7 +3643,7 @@ for (let i = 1; i < candles.length; i++) {
     currFast != null &&
     prevLower != null &&
     currLower != null &&
-    prevFast < prevLower &&
+    recentlyBelowLower === true
     currFast >= currLower - Math.max(1, Math.abs(currLower) * 0.00015)
   ) {
     reclaimLongEntries.push({
@@ -3659,7 +3659,7 @@ for (let i = 1; i < candles.length; i++) {
     currFast != null &&
     prevUpper != null &&
     currUpper != null &&
-    prevFast > prevUpper &&
+    recentlyAboveUpper === true
     currFast <= currUpper + Math.max(1, Math.abs(currUpper) * 0.00015)
   ) {
     reclaimShortEntries.push({
