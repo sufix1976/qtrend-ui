@@ -2739,6 +2739,39 @@ return () => {
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>⚙️ Parameter TEST V4</div>
 
+<div style={{ marginTop: 8, color: "#93c5fd", fontWeight: 700 }}>
+  Distanz / Momentum
+</div>
+
+<div>Dist SMA: {smaMiddleUI}</div>
+<input
+  type="range"
+  min={1}
+  max={300}
+  step={1}
+  value={smaMiddleUI}
+  onChange={(e) => setSmaMiddleUI(Number(e.target.value))}
+/>
+
+<div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+  <input
+    type="checkbox"
+    checked={adaptiveBandUI}
+    onChange={(e) => setAdaptiveBandUI(e.target.checked)}
+  />
+  <span>Adaptive Band</span>
+</div>
+
+<div>Adaptive Mult: {adaptiveBandMultUI}</div>
+<input
+  type="range"
+  min={0.1}
+  max={5}
+  step={0.1}
+  value={adaptiveBandMultUI}
+  onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
+/>
+        
           <div>Entry Band: {entryBandUI}</div>
 
 <input
