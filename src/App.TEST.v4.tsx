@@ -1744,6 +1744,14 @@ const upperMap = new Map<number, number>();
 smaLower.forEach((p) => lowerMap.set(p.time, p.value));
 smaUpper.forEach((p) => upperMap.set(p.time, p.value));
 
+        const outerLowerMap = new Map<number, number>();
+const outerUpperMap = new Map<number, number>();
+
+smaSlow.forEach((p) => {
+  outerUpperMap.set(p.time, p.value + smaOffsetUI + outerOffsetUI);
+  outerLowerMap.set(p.time, p.value - smaOffsetUI - outerOffsetUI);
+});
+
 const tolerance = 0;
 
 for (let i = 1; i < smaFast.length; i++) {
@@ -1840,20 +1848,29 @@ for (let i = 2; i < smaFast.length; i++) {
 
     const counterTrendLong = trendNowLong === "down";
 const trendLong = trendNowLong === "up";
+const currOuterLower = outerLowerMap.get(curr.time);
+const blockTrendLong =
+  trendLong &&
+  currOuterLower != null &&
+  curr.value < currOuterLower;
 
 kinkLongCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrendLong
-    ? "KL_CT"
-    : trendLong
-    ? "KL_T"
-    : "KL",
-  color: counterTrendLong
-    ? "#66ccff"
-    : trendLong
-    ? "#00ff88"
-    : "#00ffaa",
+ text: counterTrendLong
+  ? "KL_CT"
+  : blockTrendLong
+  ? "KL_T_BLOCK"
+  : trendLong
+  ? "KL_T"
+  : "KL",
+color: counterTrendLong
+  ? "#66ccff"
+  : blockTrendLong
+  ? "#9ca3af"
+  : trendLong
+  ? "#00ff88"
+  : "#00ffaa",
 });
   }
 
@@ -1870,34 +1887,53 @@ kinkLongCandidates.push({
 
 const counterTrendShort = trendNowShort === "up";
 const trendShort = trendNowShort === "down";
+const currOuterUpper = outerUpperMap.get(curr.time);
+const blockTrendShort =
+  trendShort &&
+  currOuterUpper != null &&
+  curr.value > currOuterUpper;
 
 kinkShortCandidates.push({
   time: curr.time,
   value: curr.value,
-  text: counterTrendShort
-    ? "KS_CT"
-    : trendShort
-    ? "KS_T"
-    : "KS",
-  color: counterTrendShort
-    ? "#ffaa66"
-    : trendShort
-    ? "#ff4477"
-    : "#ff77aa",
+ text: counterTrendShort
+  ? "KS_CT"
+  : blockTrendShort
+  ? "KS_T_BLOCK"
+  : trendShort
+  ? "KS_T"
+  : "KS",
+color: counterTrendShort
+  ? "#ffaa66"
+  : blockTrendShort
+  ? "#9ca3af"
+  : trendShort
+  ? "#ff4477"
+  : "#ff77aa",
 });
     
   }
 }
 
         
+ const allLongEntries = [...rawLongCandidates, ...kinkLongCandidates];
+const allShortEntries = [...rawShortCandidates, ...kinkShortCandidates];
+
+const tradeLongEntries = allLongEntries.filter(
+  (p) => p.text !== "KL_T_BLOCK"
+);
+
+const tradeShortEntries = allShortEntries.filter(
+  (p) => p.text !== "KS_T_BLOCK"
+);
         
 
 const sim = simulateStrategyTESTv4(
   candles,
   dist,
   distMiddle,
-  [...rawLongCandidates, ...kinkLongCandidates],
-  [...rawShortCandidates, ...kinkShortCandidates],
+  tradeLongEntries,
+  tradeShortEntries,
   dynamicBand,
   assumedSpread,
   assumedSlippage,
@@ -1911,8 +1947,8 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = [...rawLongCandidates, ...kinkLongCandidates].sort((a, b) => a.time - b.time);
-const strategyShortPoints = [...rawShortCandidates, ...kinkShortCandidates].sort((a, b) => a.time - b.time);
+const strategyLongPoints = allLongEntries.sort((a, b) => a.time - b.time);
+const strategyShortPoints = allShortEntries.sort((a, b) => a.time - b.time);
 
         console.log("UI LAST MARKERS", {
   symbol,
