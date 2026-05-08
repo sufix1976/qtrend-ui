@@ -1751,6 +1751,8 @@ smaSlow.forEach((p) => {
   outerUpperMap.set(p.time, p.value + smaOffsetUI + outerOffsetUI);
   outerLowerMap.set(p.time, p.value - smaOffsetUI - outerOffsetUI);
 });
+        const distMiddleMap = new Map<number, number>();
+distMiddle.forEach((p) => distMiddleMap.set(p.time, p.value));
 
 const tolerance = 0;
 
@@ -1849,11 +1851,26 @@ for (let i = 2; i < smaFast.length; i++) {
     const counterTrendLong = trendNowLong === "down";
 const trendLong = trendNowLong === "up";
 
-    const currOuterUpper = outerUpperMap.get(curr.time);
-const blockTrendLong =
-  trendLong &&
-  currOuterUpper != null &&
-  curr.value > currOuterUpper;
+    const currOuterLower = outerLowerMap.get(curr.time);
+
+const dmPrev2Short = distMiddleMap.get(prev2.time);
+const dmPrev1Short = distMiddleMap.get(prev1.time);
+const dmCurrShort = distMiddleMap.get(curr.time);
+
+const blockOuterShort =
+  trendShort &&
+  currOuterLower != null &&
+  curr.value < currOuterLower;
+
+const blockDistTurnShort =
+  trendShort &&
+  dmPrev2Short != null &&
+  dmPrev1Short != null &&
+  dmCurrShort != null &&
+  dmPrev1Short < dmPrev2Short &&
+  dmCurrShort > dmPrev1Short;
+
+const blockTrendShort = blockOuterShort || blockDistTurnShort;
 
 kinkLongCandidates.push({
   time: curr.time,
@@ -1889,11 +1906,26 @@ color: counterTrendLong
 const counterTrendShort = trendNowShort === "up";
 const trendShort = trendNowShort === "down";
 
-    const currOuterLower = outerLowerMap.get(curr.time);
-const blockTrendShort =
-  trendShort &&
-  currOuterLower != null &&
-  curr.value < currOuterLower;
+    const currOuterUpper = outerUpperMap.get(curr.time);
+
+const dmPrev2Long = distMiddleMap.get(prev2.time);
+const dmPrev1Long = distMiddleMap.get(prev1.time);
+const dmCurrLong = distMiddleMap.get(curr.time);
+
+const blockOuterLong =
+  trendLong &&
+  currOuterUpper != null &&
+  curr.value > currOuterUpper;
+
+const blockDistTurnLong =
+  trendLong &&
+  dmPrev2Long != null &&
+  dmPrev1Long != null &&
+  dmCurrLong != null &&
+  dmPrev1Long > dmPrev2Long &&
+  dmCurrLong < dmPrev1Long;
+
+const blockTrendLong = blockOuterLong || blockDistTurnLong;
 
 kinkShortCandidates.push({
   time: curr.time,
