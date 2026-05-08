@@ -1838,6 +1838,9 @@ for (let i = 2; i < smaFast.length; i++) {
   const slopePrev = prev1.value - prev2.value;
   const slopeNow = curr.value - prev1.value;
 
+  const kinkStrength = Math.abs(slopeNow - slopePrev);
+const minKinkStrength = minKinkUI;
+
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
 
@@ -1859,7 +1862,8 @@ const distFalling =
   if (
     (prev1.value < currLower || trendNowLong === "up") &&
     slopePrev < 0 &&
-    slopeNow > 0
+slopeNow > 0 &&
+kinkStrength >= minKinkStrength
   ) {
     const counterTrendLong = trendNowLong === "down";
     const trendLong = trendNowLong === "up";
@@ -1898,7 +1902,8 @@ const distFalling =
   if (
     (prev1.value > currUpper || trendNowShort === "down") &&
     slopePrev > 0 &&
-    slopeNow < 0
+slopeNow < 0 &&
+kinkStrength >= minKinkStrength
   ) {
     const counterTrendShort = trendNowShort === "up";
     const trendShort = trendNowShort === "down";
