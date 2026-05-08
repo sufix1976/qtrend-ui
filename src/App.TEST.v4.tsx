@@ -1848,11 +1848,12 @@ for (let i = 2; i < smaFast.length; i++) {
 
     const counterTrendLong = trendNowLong === "down";
 const trendLong = trendNowLong === "up";
-const currOuterLower = outerLowerMap.get(curr.time);
+
+    const currOuterUpper = outerUpperMap.get(curr.time);
 const blockTrendLong =
   trendLong &&
-  currOuterLower != null &&
-  curr.value < currOuterLower;
+  currOuterUpper != null &&
+  curr.value > currOuterUpper;
 
 kinkLongCandidates.push({
   time: curr.time,
@@ -1887,11 +1888,12 @@ color: counterTrendLong
 
 const counterTrendShort = trendNowShort === "up";
 const trendShort = trendNowShort === "down";
-const currOuterUpper = outerUpperMap.get(curr.time);
+
+    const currOuterLower = outerLowerMap.get(curr.time);
 const blockTrendShort =
   trendShort &&
-  currOuterUpper != null &&
-  curr.value > currOuterUpper;
+  currOuterLower != null &&
+  curr.value < currOuterLower;
 
 kinkShortCandidates.push({
   time: curr.time,
