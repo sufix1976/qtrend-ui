@@ -1845,19 +1845,15 @@ for (let i = 2; i < smaFast.length; i++) {
   const dmPrev1 = distMiddleMap.get(prev1.time);
   const dmCurr = distMiddleMap.get(curr.time);
 
-  const distTurnDown =
-    dmPrev2 != null &&
-    dmPrev1 != null &&
-    dmCurr != null &&
-    dmPrev1 > dmPrev2 &&
-    dmCurr < dmPrev1;
+const distRising =
+  dmPrev1 != null &&
+  dmCurr != null &&
+  dmCurr > dmPrev1;
 
-  const distTurnUp =
-    dmPrev2 != null &&
-    dmPrev1 != null &&
-    dmCurr != null &&
-    dmPrev1 < dmPrev2 &&
-    dmCurr > dmPrev1;
+const distFalling =
+  dmPrev1 != null &&
+  dmCurr != null &&
+  dmCurr < dmPrev1;
 
   // KL
   if (
@@ -1876,7 +1872,7 @@ for (let i = 2; i < smaFast.length; i++) {
       curr.value > currOuterUpper;
 
     const blockTrendLong =
-      trendLong && (blockOuterLong || distTurnDown);
+  trendLong && (blockOuterLong || distFalling);
 
     kinkLongCandidates.push({
       time: curr.time,
@@ -1915,7 +1911,7 @@ for (let i = 2; i < smaFast.length; i++) {
       curr.value < currOuterLower;
 
     const blockTrendShort =
-      trendShort && (blockOuterShort || distTurnUp);
+  trendShort && (blockOuterShort || distRising);
 
     kinkShortCandidates.push({
       time: curr.time,
