@@ -2017,11 +2017,25 @@ console.log("LONG SETUP CHECK", {
 });
 
        
+function compressSameTextMarkers(points: MarkerPoint[]): MarkerPoint[] {
+  const out: MarkerPoint[] = [];
+  let lastText = "";
 
+  for (const p of points) {
+    const txt = p.text ?? "";
+
+    if (txt && txt === lastText) continue;
+
+    out.push(p);
+    lastText = txt;
+  }
+
+  return out;
+}
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
-  strategyLongPoints.map((p: MarkerPoint) => ({
+  compressSameTextMarkers(strategyLongPoints).map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
@@ -2030,7 +2044,7 @@ console.log("LONG SETUP CHECK", {
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  strategyShortPoints.map((p: MarkerPoint) => ({
+  compressSameTextMarkers(strategyShortPoints).map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
