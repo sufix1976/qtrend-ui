@@ -2017,25 +2017,44 @@ console.log("LONG SETUP CHECK", {
 });
 
        
-function compressSameTextMarkers(points: MarkerPoint[]): MarkerPoint[] {
-  const out: MarkerPoint[] = [];
+function compressEntryMarkers(
+  longPoints: MarkerPoint[],
+  shortPoints: MarkerPoint[]
+) {
+  const all = [
+    ...longPoints.map((p) => ({ ...p, side: "long" as const })),
+    ...shortPoints.map((p) => ({ ...p, side: "short" as const })),
+  ].sort((a, b) => a.time - b.time);
+
+  const outLong: MarkerPoint[] = [];
+  const outShort: MarkerPoint[] = [];
+
   let lastText = "";
 
-  for (const p of points) {
+  for (const p of all) {
     const txt = p.text ?? "";
 
     if (txt && txt === lastText) continue;
 
-    out.push(p);
+    if (p.side === "long") {
+      outLong.push(p);
+    } else {
+      outShort.push(p);
+    }
+
     lastText = txt;
   }
 
-  return out;
+  return {
+    long: outLong,
+    short: outShort,
+  };
 }
+        const compressedEntries = compressEntryMarkers(strategyLongPoints, strategyShortPoints);
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
-  compressSameTextMarkers(strategyLongPoints).map((p: MarkerPoint) => ({
+ compressedEntries.long.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
@@ -2044,7 +2063,7 @@ function compressSameTextMarkers(points: MarkerPoint[]): MarkerPoint[] {
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  compressSameTextMarkers(strategyShortPoints).map((p: MarkerPoint) => ({
+  compressedEntries.short.map((p: MarkerPoint) => ({
     ...p,
     value: 1,
   })),
