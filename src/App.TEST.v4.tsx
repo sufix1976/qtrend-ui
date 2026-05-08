@@ -2021,41 +2021,7 @@ console.log("LONG SETUP CHECK", {
   dynamicBandLast: lastDynBand,
 });
 
-       
-function compressEntryMarkers(
-  longPoints: MarkerPoint[],
-  shortPoints: MarkerPoint[]
-) {
-  const all = [
-    ...longPoints.map((p) => ({ ...p, side: "long" as const })),
-    ...shortPoints.map((p) => ({ ...p, side: "short" as const })),
-  ].sort((a, b) => a.time - b.time);
-
-  const outLong: MarkerPoint[] = [];
-  const outShort: MarkerPoint[] = [];
-
-  let lastText = "";
-
-  for (const p of all) {
-    const txt = p.text ?? "";
-
-    if (txt && txt === lastText) continue;
-
-    if (p.side === "long") {
-      outLong.push(p);
-    } else {
-      outShort.push(p);
-    }
-
-    lastText = txt;
-  }
-
-  return {
-    long: outLong,
-    short: outShort,
-  };
-}
-      
+   
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
