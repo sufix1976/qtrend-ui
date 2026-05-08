@@ -2059,19 +2059,13 @@ function compressEntryMarkers(
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
- compressedEntries.long.map((p: MarkerPoint) => ({
-    ...p,
-    value: 1,
-  })),
+  sim.acceptedLongEntryPoints,
   candles,
   "below-mid"
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  compressedEntries.short.map((p: MarkerPoint) => ({
-    ...p,
-    value: 1,
-  })),
+  sim.acceptedShortEntryPoints,
   candles,
   "above-mid"
 );
