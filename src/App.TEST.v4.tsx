@@ -1841,7 +1841,7 @@ for (let i = 2; i < smaFast.length; i++) {
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
 
-  const dmPrev2 = distMiddleMap.get(prev2.time);
+  
   const dmPrev1 = distMiddleMap.get(prev1.time);
   const dmCurr = distMiddleMap.get(curr.time);
 
