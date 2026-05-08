@@ -387,6 +387,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
+  const [kinkStrengthFactorUI, setKinkStrengthFactorUI] = useState(0.15);
   const [kinkConfirmBarsUI, setKinkConfirmBarsUI] = useState(3);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
@@ -1839,7 +1840,7 @@ for (let i = 2; i < smaFast.length; i++) {
   const slopeNow = curr.value - prev1.value;
 
  const kinkStrength = Math.abs(slopeNow);
-const minKinkStrength = minKinkUI * 0.15;
+ const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
 
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
@@ -2374,6 +2375,7 @@ return () => {
   entryBandUI,
   peakUI,
   minKinkUI,
+  kinkStrengthFactorUI,  
   kinkConfirmBarsUI,  
   smaFastUI,
   smaSlowUI,
@@ -2936,6 +2938,23 @@ return () => {
             onChange={(e) => setMinKinkUI(Number(e.target.value))}
             style={{ width: "100%" }}
           />
+
+          <div style={{ marginTop: 6 }}>
+  Kink Strength Faktor: {kinkStrengthFactorUI.toFixed(2)}
+</div>
+
+<input
+  type="range"
+  min={0}
+  max={1}
+  step={0.01}
+  value={kinkStrengthFactorUI}
+  onChange={(e) =>
+    setKinkStrengthFactorUI(Number(e.target.value))
+  }
+  style={{ width: "100%" }}
+/>
+          
           <div style={{ marginTop: 8 }}>
   <div style={{ color: "#ccc", fontSize: 12 }}>
     Kink Confirm Bars: {kinkConfirmBarsUI}
