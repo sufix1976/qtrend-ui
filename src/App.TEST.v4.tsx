@@ -1646,6 +1646,20 @@ candlesFromExtreme: k.candlesFromExtreme,
         
         const chartSmaUpper = chartifyLinePoints(smaUpper);
         const chartSmaLower = chartifyLinePoints(smaLower);
+
+        const chartOuterUpper = chartifyLinePoints(
+  smaSlow.map((p) => ({
+    time: p.time,
+    value: p.value + smaOffsetUI + outerOffsetUI,
+  }))
+);
+
+const chartOuterLower = chartifyLinePoints(
+  smaSlow.map((p) => ({
+    time: p.time,
+    value: p.value - smaOffsetUI - outerOffsetUI,
+  }))
+);
         
         const chartDist = chartifyLinePoints(dist);
         const chartDistMiddle = chartifyLinePoints(distMiddle);
