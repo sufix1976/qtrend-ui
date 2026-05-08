@@ -396,6 +396,9 @@ const [scannerMessage, setScannerMessage] = useState("");
   
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [distExtremeUI, setDistExtremeUI] = useState(entryBand);
+  const [outerOffsetUI, setOuterOffsetUI] = useState(
+  Math.max(1, smaOffsetUI * 0.5)
+);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -1275,7 +1278,20 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 }); 
-   
+
+    const outerUpperSeries = priceChart.addSeries(LineSeries, {
+  color: "rgba(180,180,180,0.7)",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const outerLowerSeries = priceChart.addSeries(LineSeries, {
+  color: "rgba(180,180,180,0.7)",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1677,6 +1693,9 @@ const _dynamicLowerBand = alignLineToCandles(
         
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
+
+        outerUpperSeries.setData(chartOuterUpper as any);
+        outerLowerSeries.setData(chartOuterLower as any);
 
      /*   const candleTimes = new Set(chartCandles.map((c) => c.time));
 
@@ -2253,6 +2272,8 @@ return () => {
 
         priceChart.removeSeries(smaUpperSeries);
         priceChart.removeSeries(smaLowerSeries);
+        priceChart.removeSeries(outerUpperSeries);
+        priceChart.removeSeries(outerLowerSeries);
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
@@ -2291,6 +2312,7 @@ return () => {
   smaFastUI,
   smaSlowUI,
   smaOffsetUI,
+  outerOffsetUI,
   smaMiddleUI,
   distExtremeUI,  
   assumedSpread,
@@ -2795,6 +2817,16 @@ return () => {
   step={entryBand < 1 ? 0.001 : 1}
   value={distExtremeUI}
   onChange={(e) => setDistExtremeUI(Number(e.target.value))}
+/>
+
+          <div>Outer Offset: {outerOffsetUI}</div>
+<input
+  type="range"
+  min={0}
+  max={Math.max(10, smaOffsetUI * 3)}
+  step={smaOffsetUI < 1 ? 0.001 : 1}
+  value={outerOffsetUI}
+  onChange={(e) => setOuterOffsetUI(Number(e.target.value))}
 />
 
 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
