@@ -2055,7 +2055,7 @@ function compressEntryMarkers(
     short: outShort,
   };
 }
-        const compressedEntries = compressEntryMarkers(strategyLongPoints, strategyShortPoints);
+      
         
 
         const coreLongProjected = projectMarkerPointsToCandles(
