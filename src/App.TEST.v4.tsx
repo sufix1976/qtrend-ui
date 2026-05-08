@@ -1839,7 +1839,7 @@ for (let i = 2; i < smaFast.length; i++) {
   const slopeNow = curr.value - prev1.value;
 
  const kinkStrength = Math.abs(slopeNow);
-const minKinkStrength = minKinkUI * 0.25;
+const minKinkStrength = minKinkUI * 0.15;
 
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
