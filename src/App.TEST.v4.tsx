@@ -3715,21 +3715,6 @@ function buildRealMarkersFromServer(events: any[]) {
   return { buy, sell, close };
 }
 
-function buildBandOffsetLine(
-  base: LinePoint[],
-  band: LinePoint[],
-  direction: 1 | -1
-): LinePoint[] {
-  const bandMap = new Map<number, number>();
-  for (const p of band) bandMap.set(p.time, p.value);
-
-  return base.map((p) => ({
-    time: p.time,
-    value: p.value + (bandMap.get(p.time) ?? 0) * direction,
-  }));
-}
-
-
 
 
 
