@@ -395,6 +395,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [smaOffsetUI, setSmaOffsetUI] = useState(150);
   
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
+  const [distExtremeUI, setDistExtremeUI] = useState(entryBand);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -2123,8 +2124,19 @@ createSeriesMarkers(
 }));
 
 zeroSeries.setData(zeroLine as any);
-        upperBandSeries.setData(dynamicUpperBand as any);
-        lowerBandSeries.setData(dynamicLowerBand as any);
+        const distExtremeUpperLine = chartCandles.map((c) => ({
+  time: c.time,
+  value: distExtremeUI,
+}));
+
+const distExtremeLowerLine = chartCandles.map((c) => ({
+  time: c.time,
+  value: -distExtremeUI,
+}));
+
+zeroSeries.setData(zeroLine as any);
+upperBandSeries.setData(distExtremeUpperLine as any);
+lowerBandSeries.setData(distExtremeLowerLine as any);
 
         
 
@@ -2259,6 +2271,7 @@ return () => {
   smaSlowUI,
   smaOffsetUI,
   smaMiddleUI,
+  distExtremeUI,  
   assumedSpread,
   assumedSlippage,
   adaptiveBandUI,
@@ -2751,6 +2764,16 @@ return () => {
   step={1}
   value={smaMiddleUI}
   onChange={(e) => setSmaMiddleUI(Number(e.target.value))}
+/>
+
+          <div>Dist Extreme: {distExtremeUI}</div>
+<input
+  type="range"
+  min={0}
+  max={Math.max(1, entryBand * 5)}
+  step={entryBand < 1 ? 0.001 : 1}
+  value={distExtremeUI}
+  onChange={(e) => setDistExtremeUI(Number(e.target.value))}
 />
 
 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
