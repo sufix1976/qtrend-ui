@@ -1820,8 +1820,7 @@ for (let i = 1; i < smaFast.length; i++) {
   }
 }
 
-const distMiddleMap = new Map<number, number>();
-distMiddle.forEach((p) => distMiddleMap.set(p.time, p.value));
+
 
 const kinkLongCandidates: MarkerPoint[] = [];
 const kinkShortCandidates: MarkerPoint[] = [];
