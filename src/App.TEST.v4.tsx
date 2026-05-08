@@ -1440,6 +1440,20 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
+    const dynamicUpperBandSeries = distChart.addSeries(LineSeries, {
+  color: "rgba(180,180,180,0.75)",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const dynamicLowerBandSeries = distChart.addSeries(LineSeries, {
+  color: "rgba(180,180,180,0.75)",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     
 
     
@@ -1645,8 +1659,7 @@ const _dynamicLowerBand = alignLineToCandles(
   chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
 );
 
-void _dynamicUpperBand;
-void _dynamicLowerBand;
+
 
         if (chartType === "candles") {
   mainSeries.setData(chartCandles as any);
@@ -2141,6 +2154,8 @@ const distExtremeLowerLine = chartCandles.map((c) => ({
 zeroSeries.setData(zeroLine as any);
 upperBandSeries.setData(distExtremeUpperLine as any);
 lowerBandSeries.setData(distExtremeLowerLine as any);
+        dynamicUpperBandSeries.setData(_dynamicUpperBand as any);
+dynamicLowerBandSeries.setData(_dynamicLowerBand as any);
 
         
 
@@ -2261,6 +2276,8 @@ return () => {
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
+        distChart.removeSeries(dynamicUpperBandSeries);
+        distChart.removeSeries(dynamicLowerBandSeries);
       } catch {}
     };
     }, [
