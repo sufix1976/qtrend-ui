@@ -3285,7 +3285,30 @@ async function saveSymbolConfig(row: SymbolConfigRow): Promise<void> {
   }
 }
 
+function buildBandOffsetLine(
+  middle: LinePoint[],
+  band: LinePoint[],
+  direction: 1 | -1
+): LinePoint[] {
+  const bandMap = new Map<number, number>();
+  for (const p of band) {
+    bandMap.set(p.time, p.value);
+  }
 
+  const out: LinePoint[] = [];
+
+  for (const p of middle) {
+    const b = bandMap.get(p.time);
+    if (b == null || !Number.isFinite(b)) continue;
+
+    out.push({
+      time: p.time,
+      value: p.value + direction * b,
+    });
+  }
+
+  return out;
+}
 
 function buildSmaTurnMarkers(
   smaSlow: LinePoint[],
