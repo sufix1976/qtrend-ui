@@ -1635,15 +1635,18 @@ candlesFromExtreme: k.candlesFromExtreme,
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
-       /* const dynamicUpperBand = alignLineToCandles(
-          chartCandles,
-          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, 1))
-        );
-        const dynamicLowerBand = alignLineToCandles(
-          chartCandles,
-          chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
-        );
-        */
+       const _dynamicUpperBand = alignLineToCandles(
+  chartCandles,
+  chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, 1))
+);
+
+const _dynamicLowerBand = alignLineToCandles(
+  chartCandles,
+  chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
+);
+
+void _dynamicUpperBand;
+void _dynamicLowerBand;
 
         if (chartType === "candles") {
   mainSeries.setData(chartCandles as any);
