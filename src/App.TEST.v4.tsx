@@ -1820,6 +1820,9 @@ for (let i = 1; i < smaFast.length; i++) {
   }
 }
 
+const distMiddleMap = new Map<number, number>();
+distMiddle.forEach((p) => distMiddleMap.set(p.time, p.value));
+
 const kinkLongCandidates: MarkerPoint[] = [];
 const kinkShortCandidates: MarkerPoint[] = [];
 
@@ -1836,119 +1839,105 @@ for (let i = 2; i < smaFast.length; i++) {
   const slopePrev = prev1.value - prev2.value;
   const slopeNow = curr.value - prev1.value;
 
-  // KL = gelbe SMA dreht unten nach oben, bevor RL kommt
-
   const trendNowLong = trendAt(curr.time);
-  if (
-  (
-    prev1.value < currLower ||
-    trendNowLong === "up"
-  ) &&
-  slopePrev < 0 &&
-  slopeNow > 0
-) {
-
-    const counterTrendLong = trendNowLong === "down";
-const trendLong = trendNowLong === "up";
-
-    const currOuterLower = outerLowerMap.get(curr.time);
-
-const dmPrev2Short = distMiddleMap.get(prev2.time);
-const dmPrev1Short = distMiddleMap.get(prev1.time);
-const dmCurrShort = distMiddleMap.get(curr.time);
-
-const blockOuterShort =
-  trendShort &&
-  currOuterLower != null &&
-  curr.value < currOuterLower;
-
-const blockDistTurnShort =
-  trendShort &&
-  dmPrev2Short != null &&
-  dmPrev1Short != null &&
-  dmCurrShort != null &&
-  dmPrev1Short < dmPrev2Short &&
-  dmCurrShort > dmPrev1Short;
-
-const blockTrendShort = blockOuterShort || blockDistTurnShort;
-
-kinkLongCandidates.push({
-  time: curr.time,
-  value: curr.value,
- text: counterTrendLong
-  ? "KL_CT"
-  : blockTrendLong
-  ? "KL_T_BLOCK"
-  : trendLong
-  ? "KL_T"
-  : "KL",
-color: counterTrendLong
-  ? "#66ccff"
-  : blockTrendLong
-  ? "#9ca3af"
-  : trendLong
-  ? "#00ff88"
-  : "#00ffaa",
-});
-  }
-
-  // KS = gelbe SMA dreht oben nach unten, bevor RS kommt
   const trendNowShort = trendAt(curr.time);
-  if (
-  (
-    prev1.value > currUpper ||
-    trendNowShort === "down"
-  ) &&
-  slopePrev > 0 &&
-  slopeNow < 0
-) {
 
-const counterTrendShort = trendNowShort === "up";
-const trendShort = trendNowShort === "down";
+  const dmPrev2 = distMiddleMap.get(prev2.time);
+  const dmPrev1 = distMiddleMap.get(prev1.time);
+  const dmCurr = distMiddleMap.get(curr.time);
+
+  const distTurnDown =
+    dmPrev2 != null &&
+    dmPrev1 != null &&
+    dmCurr != null &&
+    dmPrev1 > dmPrev2 &&
+    dmCurr < dmPrev1;
+
+  const distTurnUp =
+    dmPrev2 != null &&
+    dmPrev1 != null &&
+    dmCurr != null &&
+    dmPrev1 < dmPrev2 &&
+    dmCurr > dmPrev1;
+
+  // KL
+  if (
+    (prev1.value < currLower || trendNowLong === "up") &&
+    slopePrev < 0 &&
+    slopeNow > 0
+  ) {
+    const counterTrendLong = trendNowLong === "down";
+    const trendLong = trendNowLong === "up";
 
     const currOuterUpper = outerUpperMap.get(curr.time);
 
-const dmPrev2Long = distMiddleMap.get(prev2.time);
-const dmPrev1Long = distMiddleMap.get(prev1.time);
-const dmCurrLong = distMiddleMap.get(curr.time);
+    const blockOuterLong =
+      trendLong &&
+      currOuterUpper != null &&
+      curr.value > currOuterUpper;
 
-const blockOuterLong =
-  trendLong &&
-  currOuterUpper != null &&
-  curr.value > currOuterUpper;
+    const blockTrendLong =
+      trendLong && (blockOuterLong || distTurnDown);
 
-const blockDistTurnLong =
-  trendLong &&
-  dmPrev2Long != null &&
-  dmPrev1Long != null &&
-  dmCurrLong != null &&
-  dmPrev1Long > dmPrev2Long &&
-  dmCurrLong < dmPrev1Long;
+    kinkLongCandidates.push({
+      time: curr.time,
+      value: curr.value,
+      text: counterTrendLong
+        ? "KL_CT"
+        : blockTrendLong
+        ? "KL_T_BLOCK"
+        : trendLong
+        ? "KL_T"
+        : "KL",
+      color: counterTrendLong
+        ? "#66ccff"
+        : blockTrendLong
+        ? "#9ca3af"
+        : trendLong
+        ? "#00ff88"
+        : "#00ffaa",
+    });
+  }
 
-const blockTrendLong = blockOuterLong || blockDistTurnLong;
+  // KS
+  if (
+    (prev1.value > currUpper || trendNowShort === "down") &&
+    slopePrev > 0 &&
+    slopeNow < 0
+  ) {
+    const counterTrendShort = trendNowShort === "up";
+    const trendShort = trendNowShort === "down";
 
-kinkShortCandidates.push({
-  time: curr.time,
-  value: curr.value,
- text: counterTrendShort
-  ? "KS_CT"
-  : blockTrendShort
-  ? "KS_T_BLOCK"
-  : trendShort
-  ? "KS_T"
-  : "KS",
-color: counterTrendShort
-  ? "#ffaa66"
-  : blockTrendShort
-  ? "#9ca3af"
-  : trendShort
-  ? "#ff4477"
-  : "#ff77aa",
-});
-    
+    const currOuterLower = outerLowerMap.get(curr.time);
+
+    const blockOuterShort =
+      trendShort &&
+      currOuterLower != null &&
+      curr.value < currOuterLower;
+
+    const blockTrendShort =
+      trendShort && (blockOuterShort || distTurnUp);
+
+    kinkShortCandidates.push({
+      time: curr.time,
+      value: curr.value,
+      text: counterTrendShort
+        ? "KS_CT"
+        : blockTrendShort
+        ? "KS_T_BLOCK"
+        : trendShort
+        ? "KS_T"
+        : "KS",
+      color: counterTrendShort
+        ? "#ffaa66"
+        : blockTrendShort
+        ? "#9ca3af"
+        : trendShort
+        ? "#ff4477"
+        : "#ff77aa",
+    });
   }
 }
-
         
  const allLongEntries = [...rawLongCandidates, ...kinkLongCandidates];
 const allShortEntries = [...rawShortCandidates, ...kinkShortCandidates];
