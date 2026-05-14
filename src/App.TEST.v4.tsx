@@ -1965,59 +1965,67 @@ const distKinkShortCandidates: MarkerPoint[] = [];
 
 const lowerExtreme = -distExtremeUI;
 const upperExtreme = distExtremeUI;
+const distKinkConfirm = distExtremeUI * 0.15;
 
 let longExtremePoint: LinePoint | null = null;
 let shortExtremePoint: LinePoint | null = null;
 
+let longArmed = true;
+let shortArmed = true;
+
 for (let i = 1; i < dist.length; i++) {
-  const prev = dist[i - 1];
   const curr = dist[i];
 
-  // LONG-Zone: Dist unter unterer roter Linie
-  if (curr.value < lowerExtreme) {
+  // wieder scharf schalten erst nach Verlassen der Extremzone
+  if (curr.value >= lowerExtreme) longArmed = true;
+  if (curr.value <= upperExtreme) shortArmed = true;
+
+  // LONG-Zone: tiefsten Punkt merken
+  if (longArmed && curr.value < lowerExtreme) {
     if (!longExtremePoint || curr.value < longExtremePoint.value) {
       longExtremePoint = curr;
     }
   }
 
-  // Sobald Dist vom Tief wieder hochdreht -> KL_D auf Tiefpunkt setzen
+  // LONG-Entry erst nach echtem Rebound, Marker auf Entry-Kerze
   if (
+    longArmed &&
     longExtremePoint &&
-    prev.value < lowerExtreme &&
-    curr.value > prev.value
+    curr.value - longExtremePoint.value >= distKinkConfirm
   ) {
     distKinkLongCandidates.push({
-  time: longExtremePoint.time,
-  value: 1,
-  text: "KL_D",
-  color: "#66ffcc",
-});
+      time: curr.time,
+      value: 1,
+      text: "KL_D",
+      color: "#66ffcc",
+    });
 
     longExtremePoint = null;
+    longArmed = false;
   }
 
-  // SHORT-Zone: Dist über oberer roter Linie
-  if (curr.value > upperExtreme) {
+  // SHORT-Zone: höchsten Punkt merken
+  if (shortArmed && curr.value > upperExtreme) {
     if (!shortExtremePoint || curr.value > shortExtremePoint.value) {
       shortExtremePoint = curr;
     }
   }
 
-  // Sobald Dist vom Hoch wieder runterdreht -> KS_D auf Hochpunkt setzen
+  // SHORT-Entry erst nach echter Bewegung runter, Marker auf Entry-Kerze
   if (
+    shortArmed &&
     shortExtremePoint &&
-    prev.value > upperExtreme &&
-    curr.value < prev.value
+    shortExtremePoint.value - curr.value >= distKinkConfirm
   ) {
-
     distKinkShortCandidates.push({
-  time: shortExtremePoint.time,
-  value: 1,
-  text: "KS_D",
-  color: "#ff99aa",
-});
+      time: curr.time,
+      value: 1,
+      text: "KS_D",
+      color: "#ff99aa",
+    });
 
     shortExtremePoint = null;
+    shortArmed = false;
   }
 }
         
