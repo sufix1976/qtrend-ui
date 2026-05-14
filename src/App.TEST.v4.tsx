@@ -3014,17 +3014,7 @@ return () => {
   onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
 />
         
-          <div>Entry Band: {entryBandUI}</div>
-
-<input
-  type="range"
-  min={0}
-  max={symbol.endsWith("USD") && symbol.length === 6 ? 0.02 : 500}
-  step={symbol.endsWith("USD") && symbol.length === 6 ? 0.0001 : 0.01}
-  value={entryBandUI}
-  onChange={(e) => setEntryBandUI(Number(e.target.value))}
-  style={{ width: "100%" }}
-/>
+  
 
           <div style={{ marginTop: 6 }}>Min Kink: {minKinkUI}</div>
           <input
