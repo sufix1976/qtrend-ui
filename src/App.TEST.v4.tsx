@@ -1987,11 +1987,11 @@ for (let i = 1; i < dist.length; i++) {
     curr.value > prev.value
   ) {
     distKinkLongCandidates.push({
-      time: longExtremePoint.time,
-      value: longExtremePoint.value,
-      text: "KL_D",
-      color: "#66ffcc",
-    });
+  time: longExtremePoint.time,
+  value: longExtremePoint.value,
+  text: "LONG_D",
+  color: "#00ffff",
+});
 
     longExtremePoint = null;
   }
@@ -2235,7 +2235,7 @@ createSeriesMarkers(
         const distKinkLongProjected = projectMarkerPointsToCandles(
   distKinkLongCandidates,
   candles,
-  "below-near"
+  "below-mid"
 );
 
 const distKinkShortProjected = projectMarkerPointsToCandles(
