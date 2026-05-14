@@ -1745,14 +1745,15 @@ const upperMap = new Map<number, number>();
 smaLower.forEach((p) => lowerMap.set(p.time, p.value));
 smaUpper.forEach((p) => upperMap.set(p.time, p.value));
 
-        const outerLowerMap = new Map<number, number>();
+const outerLowerMap = new Map<number, number>();
 const outerUpperMap = new Map<number, number>();
 
 smaSlow.forEach((p) => {
   outerUpperMap.set(p.time, p.value + smaOffsetUI + outerOffsetUI);
   outerLowerMap.set(p.time, p.value - smaOffsetUI - outerOffsetUI);
 });
-        const distMiddleMap = new Map<number, number>();
+
+const distMiddleMap = new Map<number, number>();
 distMiddle.forEach((p) => distMiddleMap.set(p.time, p.value));
 
 const tolerance = 0;
@@ -1763,7 +1764,6 @@ for (let i = 1; i < smaFast.length; i++) {
 
   const prevLower = lowerMap.get(prevFast.time);
   const currLower = lowerMap.get(currFast.time);
-
   const prevUpper = upperMap.get(prevFast.time);
   const currUpper = upperMap.get(currFast.time);
 
@@ -1772,29 +1772,20 @@ for (let i = 1; i < smaFast.length; i++) {
     currLower == null ||
     prevUpper == null ||
     currUpper == null
-  ) {
-    continue;
-  }
+  ) continue;
 
   let wasBelow = false;
   let wasAbove = false;
 
   for (let j = Math.max(0, i - 5); j < i; j++) {
     const f = smaFast[j];
-
     const l = lowerMap.get(f.time);
     const u = upperMap.get(f.time);
 
-    if (l != null && f.value < l) {
-      wasBelow = true;
-    }
-
-    if (u != null && f.value > u) {
-      wasAbove = true;
-    }
+    if (l != null && f.value < l) wasBelow = true;
+    if (u != null && f.value > u) wasAbove = true;
   }
 
-  // RL
   if (
     wasBelow &&
     prevFast.value < prevLower &&
@@ -1807,7 +1798,6 @@ for (let i = 1; i < smaFast.length; i++) {
     });
   }
 
-  // RS
   if (
     wasAbove &&
     prevFast.value > prevUpper &&
@@ -1819,10 +1809,7 @@ for (let i = 1; i < smaFast.length; i++) {
       text: "RS",
     });
   }
-
 }
-
-
 
 const kinkLongCandidates: MarkerPoint[] = [];
 const kinkShortCandidates: MarkerPoint[] = [];
@@ -1840,38 +1827,33 @@ for (let i = 2; i < smaFast.length; i++) {
   const slopePrev = prev1.value - prev2.value;
   const slopeNow = curr.value - prev1.value;
 
- const kinkStrength = Math.abs(slopeNow);
- const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
-
- 
+  const kinkStrength = Math.abs(slopeNow);
+  const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
 
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
 
-  
-const dmPrev1 = distMiddleMap.get(prev1.time);
-const dmCurr = distMiddleMap.get(curr.time);
+  const dmPrev1 = distMiddleMap.get(prev1.time);
+  const dmCurr = distMiddleMap.get(curr.time);
 
-const distRising =
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmCurr > dmPrev1;
+  const distRising =
+    dmPrev1 != null &&
+    dmCurr != null &&
+    dmCurr > dmPrev1;
 
-const distFalling =
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmCurr < dmPrev1;
+  const distFalling =
+    dmPrev1 != null &&
+    dmCurr != null &&
+    dmCurr < dmPrev1;
 
-  // KL
   if (
     (prev1.value < currLower || trendNowLong === "up") &&
     slopePrev < 0 &&
-slopeNow > 0 &&
-kinkStrength >= minKinkStrength
+    slopeNow > 0 &&
+    kinkStrength >= minKinkStrength
   ) {
     const counterTrendLong = trendNowLong === "down";
     const trendLong = trendNowLong === "up";
-
     const currOuterUpper = outerUpperMap.get(curr.time);
 
     const blockOuterLong =
@@ -1880,7 +1862,7 @@ kinkStrength >= minKinkStrength
       curr.value > currOuterUpper;
 
     const blockTrendLong =
-  trendLong && (blockOuterLong || distFalling);
+      trendLong && (blockOuterLong || distFalling);
 
     kinkLongCandidates.push({
       time: curr.time,
@@ -1902,16 +1884,14 @@ kinkStrength >= minKinkStrength
     });
   }
 
-  // KS
   if (
     (prev1.value > currUpper || trendNowShort === "down") &&
     slopePrev > 0 &&
-slopeNow < 0 &&
-kinkStrength >= minKinkStrength
+    slopeNow < 0 &&
+    kinkStrength >= minKinkStrength
   ) {
     const counterTrendShort = trendNowShort === "up";
     const trendShort = trendNowShort === "down";
-
     const currOuterLower = outerLowerMap.get(curr.time);
 
     const blockOuterShort =
@@ -1920,7 +1900,7 @@ kinkStrength >= minKinkStrength
       curr.value < currOuterLower;
 
     const blockTrendShort =
-  trendShort && (blockOuterShort || distRising);
+      trendShort && (blockOuterShort || distRising);
 
     kinkShortCandidates.push({
       time: curr.time,
