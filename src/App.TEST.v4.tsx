@@ -1939,6 +1939,46 @@ kinkStrength >= minKinkStrength
     });
   }
 }
+
+      const distKinkLongCandidates: MarkerPoint[] = [];
+const distKinkShortCandidates: MarkerPoint[] = [];
+
+for (let i = 2; i < distMiddle.length; i++) {
+  const prev2 = distMiddle[i - 2];
+  const prev1 = distMiddle[i - 1];
+  const curr = distMiddle[i];
+
+  const lowerExtreme = -distExtremeUI;
+  const upperExtreme = distExtremeUI;
+
+  const distLong =
+    prev2.value > prev1.value &&
+    curr.value > prev1.value &&
+    prev1.value < lowerExtreme;
+
+  const distShort =
+    prev2.value < prev1.value &&
+    curr.value < prev1.value &&
+    prev1.value > upperExtreme;
+
+  if (distLong) {
+    distKinkLongCandidates.push({
+      time: curr.time,
+      value: prev1.value,
+      text: "KL_D",
+      color: "#66ffcc",
+    });
+  }
+
+  if (distShort) {
+    distKinkShortCandidates.push({
+      time: curr.time,
+      value: prev1.value,
+      text: "KS_D",
+      color: "#ff99aa",
+    });
+  }
+}
         
  const allLongEntries = [...rawLongCandidates, ...kinkLongCandidates];
 const allShortEntries = [...rawShortCandidates, ...kinkShortCandidates];
@@ -1971,8 +2011,15 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = allLongEntries.sort((a, b) => a.time - b.time);
-const strategyShortPoints = allShortEntries.sort((a, b) => a.time - b.time);
+const strategyLongPoints = [
+  ...allLongEntries,
+  ...distKinkLongCandidates,
+].sort((a, b) => a.time - b.time);
+
+const strategyShortPoints = [
+  ...allShortEntries,
+  ...distKinkShortCandidates,
+].sort((a, b) => a.time - b.time);
 
         console.log("UI LAST MARKERS", {
   symbol,
