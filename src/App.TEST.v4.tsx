@@ -1988,9 +1988,9 @@ for (let i = 1; i < dist.length; i++) {
   ) {
     distKinkLongCandidates.push({
   time: longExtremePoint.time,
-  value: longExtremePoint.value,
-  text: "LONG_D",
-  color: "#00ffff",
+  value: 1,
+  text: "KL_D",
+  color: "#66ffcc",
 });
 
     longExtremePoint = null;
@@ -2009,12 +2009,13 @@ for (let i = 1; i < dist.length; i++) {
     prev.value > upperExtreme &&
     curr.value < prev.value
   ) {
+
     distKinkShortCandidates.push({
-      time: shortExtremePoint.time,
-      value: shortExtremePoint.value,
-      text: "KS_D",
-      color: "#ff99aa",
-    });
+  time: shortExtremePoint.time,
+  value: 1,
+  text: "KS_D",
+  color: "#ff99aa",
+});
 
     shortExtremePoint = null;
   }
