@@ -1820,21 +1820,6 @@ for (let i = 1; i < smaFast.length; i++) {
     });
   }
 
-  if (distLongSignal) {
-  rawLongCandidates.push({
-    time: curr.time,
-    text: "KL_D",
-    color: "#66ffcc",
-  });
-}
-
-if (distShortSignal) {
-  rawShortCandidates.push({
-    time: curr.time,
-    text: "KS_D",
-    color: "#ff99aa",
-  });
-}
 }
 
 
@@ -1881,12 +1866,29 @@ const distShortSignal =
   dmCurr < dmPrev1 &&
   dmPrev1 > upperExtreme;
 
+  if (distLongSignal) {
+  rawLongCandidates.push({
+    time: curr.time,
+    value: curr.value,
+    text: "KL_D",
+    color: "#66ffcc",
+  });
+}
+
+if (distShortSignal) {
+  rawShortCandidates.push({
+    time: curr.time,
+    value: curr.value,
+    text: "KS_D",
+    color: "#ff99aa",
+  });
+}
+
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
 
   
-  const dmPrev1 = distMiddleMap.get(prev1.time);
-  const dmCurr = distMiddleMap.get(curr.time);
+
 
 const distRising =
   dmPrev1 != null &&
