@@ -1960,50 +1960,63 @@ kinkStrength >= minKinkStrength
   }
 }
 
-      const distKinkLongCandidates: MarkerPoint[] = [];
+     const distKinkLongCandidates: MarkerPoint[] = [];
 const distKinkShortCandidates: MarkerPoint[] = [];
 
-for (let i = 2; i < dist.length; i++) {
-  
-  const prev1 = dist[i - 1];
+const lowerExtreme = -distExtremeUI;
+const upperExtreme = distExtremeUI;
+
+let longExtremePoint: LinePoint | null = null;
+let shortExtremePoint: LinePoint | null = null;
+
+for (let i = 1; i < dist.length; i++) {
+  const prev = dist[i - 1];
   const curr = dist[i];
 
-  const lowerExtreme = -distExtremeUI;
-  const upperExtreme = distExtremeUI;
+  // LONG-Zone: Dist unter unterer roter Linie
+  if (curr.value < lowerExtreme) {
+    if (!longExtremePoint || curr.value < longExtremePoint.value) {
+      longExtremePoint = curr;
+    }
+  }
 
- const lookback = 6;
-const minRebound = distExtremeUI * 0.12;
-
-const start = Math.max(0, i - lookback);
-const window = dist.slice(start, i + 1);
-
-const lowest = Math.min(...window.map((p) => p.value));
-const highest = Math.max(...window.map((p) => p.value));
-
-const distLong =
-  lowest < lowerExtreme &&
-  curr.value - lowest >= minRebound;
-
-const distShort =
-  highest > upperExtreme &&
-  highest - curr.value >= minRebound;
-
-  if (distLong) {
+  // Sobald Dist vom Tief wieder hochdreht -> KL_D auf Tiefpunkt setzen
+  if (
+    longExtremePoint &&
+    prev.value < lowerExtreme &&
+    curr.value > prev.value
+  ) {
     distKinkLongCandidates.push({
-      time: curr.time,
-      value: prev1.value,
+      time: longExtremePoint.time,
+      value: longExtremePoint.value,
       text: "KL_D",
       color: "#66ffcc",
     });
+
+    longExtremePoint = null;
   }
 
-  if (distShort) {
+  // SHORT-Zone: Dist über oberer roter Linie
+  if (curr.value > upperExtreme) {
+    if (!shortExtremePoint || curr.value > shortExtremePoint.value) {
+      shortExtremePoint = curr;
+    }
+  }
+
+  // Sobald Dist vom Hoch wieder runterdreht -> KS_D auf Hochpunkt setzen
+  if (
+    shortExtremePoint &&
+    prev.value > upperExtreme &&
+    curr.value < prev.value
+  ) {
     distKinkShortCandidates.push({
-      time: curr.time,
-      value: prev1.value,
+      time: shortExtremePoint.time,
+      value: shortExtremePoint.value,
       text: "KS_D",
       color: "#ff99aa",
     });
+
+    shortExtremePoint = null;
   }
 }
         
