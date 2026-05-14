@@ -1965,7 +1965,7 @@ const distKinkShortCandidates: MarkerPoint[] = [];
 
 const lowerExtreme = -distExtremeUI;
 const upperExtreme = distExtremeUI;
-const distKinkConfirm = distExtremeUI * 0.15;
+const distKinkConfirm = distExtremeUI * 0.07;
 
 let longExtremePoint: LinePoint | null = null;
 let shortExtremePoint: LinePoint | null = null;
