@@ -2765,7 +2765,7 @@ return () => {
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
        // <div>Entry band: {entryBandUI}</div>
-        <div>Peak lookback: {peakUI}</div>
+        //<div>Peak lookback: {peakUI}</div>
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
@@ -3059,16 +3059,7 @@ return () => {
   />
 </div>
 
-          <div style={{ marginTop: 6 }}>Peak Lookback: {peakUI}</div>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            step={1}
-            value={peakUI}
-            onChange={(e) => setPeakUI(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
+         
 
 
           <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
