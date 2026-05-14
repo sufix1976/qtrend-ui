@@ -1266,6 +1266,27 @@ console.table(
       lastValueVisible: false,
     });
 
+    const smaSlowTRUSeries = priceChart.addSeries(LineSeries, {
+  color: "#00ff88",
+  lineWidth: 4,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaSlowTRDSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff4d6d",
+  lineWidth: 4,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const smaSlowTRNSeries = priceChart.addSeries(LineSeries, {
+  color: "#a3a3a3",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const smaUpperSeries = priceChart.addSeries(LineSeries, {
   color: "#ff4d6d",
   lineWidth: 2,
@@ -1664,6 +1685,52 @@ candlesFromExtreme: k.candlesFromExtreme,
         const chartCandles = chartifyCandles(candles);
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
+
+        const smaSlowTRU: WhitespaceLinePoint[] = [];
+const smaSlowTRD: WhitespaceLinePoint[] = [];
+const smaSlowTRN: WhitespaceLinePoint[] = [];
+
+for (let i = 1; i < candles.length; i++) {
+  const c = candles[i];
+  const fast = smaFast.find((p) => p.time === c.time);
+  const slow = smaSlow.find((p) => p.time === c.time);
+  const dm = distMiddle.find((p) => p.time === c.time);
+  const dmPrev = distMiddle.find((p) => p.time === candles[i - 1].time);
+
+  if (!fast || !slow || !dm || !dmPrev) continue;
+
+  let score = 0;
+
+  if (fast.value > slow.value) score += 1;
+  if (fast.value < slow.value) score -= 1;
+
+  if (dm.value > 0) score += 1;
+  if (dm.value < 0) score -= 1;
+
+  if (dm.value > dmPrev.value) score += 1;
+  if (dm.value < dmPrev.value) score -= 1;
+
+  if (c.close > slow.value) score += 1;
+  if (c.close < slow.value) score -= 1;
+
+  const state =
+    score >= 2 ? "TRU" : score <= -2 ? "TRD" : "TRN";
+
+  smaSlowTRU.push({
+    time: c.time,
+    value: state === "TRU" ? slow.value : undefined,
+  });
+
+  smaSlowTRD.push({
+    time: c.time,
+    value: state === "TRD" ? slow.value : undefined,
+  });
+
+  smaSlowTRN.push({
+    time: c.time,
+    value: state === "TRN" ? slow.value : undefined,
+  });
+}
         
         const chartSmaUpper = chartifyLinePoints(smaUpper);
         const chartSmaLower = chartifyLinePoints(smaLower);
@@ -1725,6 +1792,10 @@ const _dynamicLowerBand = alignLineToCandles(
 
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
+
+        smaSlowTRUSeries.setData(smaSlowTRU as any);
+        smaSlowTRDSeries.setData(smaSlowTRD as any);
+        smaSlowTRNSeries.setData(smaSlowTRN as any);
         
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
@@ -2484,6 +2555,9 @@ return () => {
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
+        priceChart.removeSeries(smaSlowTRUSeries);
+        priceChart.removeSeries(smaSlowTRDSeries);
+        priceChart.removeSeries(smaSlowTRNSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(distKinkLongSeries);
