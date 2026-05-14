@@ -3018,28 +3018,6 @@ return () => {
             onChange={(e) => setMinKinkUI(Number(e.target.value))}
             style={{ width: "100%" }}
           />
-
-          <div style={{ marginTop: 6 }}>
-  Kink Strength Faktor: {kinkStrengthFactorUI.toFixed(2)}
-</div>
-
-<input
-  type="range"
-  min={0}
-  max={1}
-  step={0.01}
-  value={kinkStrengthFactorUI}
-  onChange={(e) =>
-    setKinkStrengthFactorUI(Number(e.target.value))
-  }
-  style={{ width: "100%" }}
-/>
-          
-          
-
-         
-
-
           
 
           <div style={{ marginTop: 6 }}>Adaptive Multiplier: {adaptiveBandMultUI.toFixed(2)}</div>
