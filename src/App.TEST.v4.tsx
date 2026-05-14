@@ -3043,21 +3043,7 @@ return () => {
   style={{ width: "100%" }}
 />
           
-          <div style={{ marginTop: 8 }}>
-  <div style={{ color: "#ccc", fontSize: 12 }}>
-    Kink Confirm Bars: {kinkConfirmBarsUI}
-  </div>
-
-  <input
-    type="range"
-    min="1"
-    max="60"
-    step="1"
-    value={kinkConfirmBarsUI}
-    onChange={(e) => setKinkConfirmBarsUI(Number(e.target.value))}
-    style={{ width: "100%" }}
-  />
-</div>
+          
 
          
 
