@@ -2031,11 +2031,13 @@ for (let i = 1; i < dist.length; i++) {
         
 const allLongEntries = [
   ...rawLongCandidates,
+  ...kinkLongCandidates,
   ...distKinkLongCandidates,
 ];
 
 const allShortEntries = [
   ...rawShortCandidates,
+  ...kinkShortCandidates,
   ...distKinkShortCandidates,
 ];
 
