@@ -2029,8 +2029,17 @@ for (let i = 1; i < dist.length; i++) {
   }
 }
         
- const allLongEntries = [...rawLongCandidates, ...kinkLongCandidates];
-const allShortEntries = [...rawShortCandidates, ...kinkShortCandidates];
+const allLongEntries = [
+  ...rawLongCandidates,
+  ...kinkLongCandidates,
+  ...distKinkLongCandidates,
+];
+
+const allShortEntries = [
+  ...rawShortCandidates,
+  ...kinkShortCandidates,
+  ...distKinkShortCandidates,
+];
 
 const tradeLongEntries = allLongEntries.filter(
   (p) => p.text !== "KL_T_BLOCK"
