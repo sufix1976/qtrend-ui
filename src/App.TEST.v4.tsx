@@ -2260,7 +2260,7 @@ const distKinkShortProjected = projectMarkerPointsToCandles(
   "above-near"
 );
 
-        createSeriesMarkers(
+/*        createSeriesMarkers(
   distKinkLongSeries,
   buildTextMarkers(distKinkLongProjected, "belowBar")
 );
@@ -2272,7 +2272,7 @@ createSeriesMarkers(
 
 distKinkLongSeries.setData(distKinkLongProjected as any);
 distKinkShortSeries.setData(distKinkShortProjected as any);
-
+*/
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
