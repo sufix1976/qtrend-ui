@@ -1964,7 +1964,7 @@ kinkStrength >= minKinkStrength
 const distKinkShortCandidates: MarkerPoint[] = [];
 
 for (let i = 2; i < dist.length; i++) {
-  const prev2 = dist[i - 2];
+  
   const prev1 = dist[i - 1];
   const curr = dist[i];
 
