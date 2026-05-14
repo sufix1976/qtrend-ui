@@ -1603,7 +1603,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
         
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
-        //const distanceModes = buildDistanceModes(dist, 5);
+       
         
         const distAsCandles = dist.map((p) => ({
           time: p.time,
@@ -2764,8 +2764,7 @@ return () => {
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
-       // <div>Entry band: {entryBandUI}</div>
-        //<div>Peak lookback: {peakUI}</div>
+       
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
@@ -2995,14 +2994,7 @@ return () => {
   onChange={(e) => setOuterOffsetUI(Number(e.target.value))}
 />
 
-<div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-  <input
-    type="checkbox"
-    checked={adaptiveBandUI}
-    onChange={(e) => setAdaptiveBandUI(e.target.checked)}
-  />
-  <span>Adaptive Band</span>
-</div>
+
 
 <div>Adaptive Mult: {adaptiveBandMultUI}</div>
 <input
@@ -3048,17 +3040,7 @@ return () => {
          
 
 
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              id="adaptive-band-toggle"
-              type="checkbox"
-              checked={adaptiveBandUI}
-              onChange={(e) => setAdaptiveBandUI(e.target.checked)}
-            />
-            <label htmlFor="adaptive-band-toggle" style={{ cursor: "pointer" }}>
-              Adaptive Band
-            </label>
-          </div>
+          
 
           <div style={{ marginTop: 6 }}>Adaptive Multiplier: {adaptiveBandMultUI.toFixed(2)}</div>
           <input
