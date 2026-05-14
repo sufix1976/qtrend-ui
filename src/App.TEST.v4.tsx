@@ -1971,15 +1971,22 @@ for (let i = 2; i < dist.length; i++) {
   const lowerExtreme = -distExtremeUI;
   const upperExtreme = distExtremeUI;
 
-  const distLong =
-    prev2.value > prev1.value &&
-    curr.value > prev1.value &&
-    prev1.value < lowerExtreme;
+ const lookback = 6;
+const minRebound = distExtremeUI * 0.12;
 
-  const distShort =
-    prev2.value < prev1.value &&
-    curr.value < prev1.value &&
-    prev1.value > upperExtreme;
+const start = Math.max(0, i - lookback);
+const window = dist.slice(start, i + 1);
+
+const lowest = Math.min(...window.map((p) => p.value));
+const highest = Math.max(...window.map((p) => p.value));
+
+const distLong =
+  lowest < lowerExtreme &&
+  curr.value - lowest >= minRebound;
+
+const distShort =
+  highest > upperExtreme &&
+  highest - curr.value >= minRebound;
 
   if (distLong) {
     distKinkLongCandidates.push({
