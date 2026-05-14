@@ -2764,7 +2764,7 @@ return () => {
         <div>Last: {lastPrice !== null ? lastPrice.toFixed(2) : "-"}</div>
         <div>Time: {lastTime ? formatTime(lastTime) : "-"}</div>
         <div>TF: {interval}</div>
-        <div>Entry band: {entryBandUI}</div>
+       // <div>Entry band: {entryBandUI}</div>
         <div>Peak lookback: {peakUI}</div>
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
