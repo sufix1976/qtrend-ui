@@ -1843,46 +1843,7 @@ for (let i = 2; i < smaFast.length; i++) {
  const kinkStrength = Math.abs(slopeNow);
  const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
 
-  const dmPrev2 = distMiddleMap.get(prev2.time);
-const dmPrev1 = distMiddleMap.get(prev1.time);
-const dmCurr = distMiddleMap.get(curr.time);
-
-const lowerExtreme = -distExtremeUI;
-const upperExtreme = distExtremeUI;
-
-const distLongSignal =
-  dmPrev2 != null &&
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmPrev2 > dmPrev1 &&
-  dmCurr > dmPrev1 &&
-  dmPrev1 < lowerExtreme;
-
-const distShortSignal =
-  dmPrev2 != null &&
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmPrev2 < dmPrev1 &&
-  dmCurr < dmPrev1 &&
-  dmPrev1 > upperExtreme;
-
-  if (distLongSignal) {
-  rawLongCandidates.push({
-    time: curr.time,
-    value: curr.value,
-    text: "KL_D",
-    color: "#66ffcc",
-  });
-}
-
-if (distShortSignal) {
-  rawShortCandidates.push({
-    time: curr.time,
-    value: curr.value,
-    text: "KS_D",
-    color: "#ff99aa",
-  });
-}
+ 
 
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
