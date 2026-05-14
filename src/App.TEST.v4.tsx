@@ -2209,6 +2209,19 @@ createSeriesMarkers(
   )
 );
 
+    createSeriesMarkers(
+  distKinkLongSeries,
+  buildTextMarkers(distKinkLongProjected, "belowBar")
+);
+
+createSeriesMarkers(
+  distKinkShortSeries,
+  buildTextMarkers(distKinkShortProjected, "aboveBar")
+);
+
+distKinkLongSeries.setData(distKinkLongProjected as any);
+distKinkShortSeries.setData(distKinkShortProjected as any);
+
         const distKinkLongProjected = projectMarkerPointsToCandles(
   distKinkLongCandidates,
   candles,
