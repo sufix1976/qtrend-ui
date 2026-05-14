@@ -2220,8 +2220,7 @@ const coreShortProjected = projectMarkerPointsToCandles(
 
         candidateLongSeries.setData([]);
         candidateShortSeries.setData([]);
-        distKinkLongSeries.setData([]);
-        distKinkShortSeries.setData([]);
+        
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
         
