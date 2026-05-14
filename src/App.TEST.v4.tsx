@@ -2768,8 +2768,7 @@ return () => {
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-        <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
-        <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
+        
 
     <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <div style={{ fontWeight: 700, marginBottom: 6 }}>🛡 Max Loss Schutz</div>
@@ -2996,15 +2995,7 @@ return () => {
 
 
 
-<div>Adaptive Mult: {adaptiveBandMultUI}</div>
-<input
-  type="range"
-  min={0.1}
-  max={5}
-  step={0.1}
-  value={adaptiveBandMultUI}
-  onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
-/>
+
         
   
 
@@ -3035,39 +3026,7 @@ return () => {
   style={{ width: "100%" }}
 />
           
-          
 
-         
-
-
-          
-
-          <div style={{ marginTop: 6 }}>Adaptive Multiplier: {adaptiveBandMultUI.toFixed(2)}</div>
-          <input
-            type="range"
-            min={0.25}
-            max={3}
-            step={0.05}
-            value={adaptiveBandMultUI}
-            onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
-            style={{ width: "100%", opacity: adaptiveBandUI ? 1 : 0.45 }}
-          />
-        </div>
-
-    <label
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    fontSize: 13,
-  }}
->
-  <input
-    type="checkbox"
-    checked={useSlowExitUI}
-    onChange={(e) => setUseSlowExitUI(e.target.checked)}
-  />
   Use SMA Slow Exit
 </label>
 
