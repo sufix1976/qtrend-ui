@@ -400,8 +400,8 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [outerOffsetUI, setOuterOffsetUI] = useState(
   Math.max(1, smaOffsetUI * 0.5)
 );
-  const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
-  const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
+  const [adaptiveBandUI] = useState(false);
+const [adaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
@@ -423,8 +423,7 @@ const [scannerMessage, setScannerMessage] = useState("");
     setSmaSlowUI(Number(cfg.sma_slow ?? 100));
     setSmaOffsetUI(Number(cfg.sma_offset ?? 150));
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
-    setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
-    setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
+    
     setUseSlowExitUI(
   cfg?.use_slow_exit == null
     ? true
@@ -450,8 +449,7 @@ const [scannerMessage, setScannerMessage] = useState("");
     setSmaFastUI(10);
     setSmaSlowUI(100);
     setSmaMiddleUI(100);
-    setAdaptiveBandUI(false);
-    setAdaptiveBandMultUI(1);
+   
 
     setPresetMessage(`Default geladen für ${symbol}`);
   }
@@ -687,8 +685,7 @@ useEffect(() => {
     setSmaFastUI(10);
     setSmaSlowUI(100);
     setSmaMiddleUI(100);
-    setAdaptiveBandUI(false);
-    setAdaptiveBandMultUI(1);
+  
 
     setPresetMessage(`Backend-Konfig zurückgesetzt für ${symbol}`);
   } catch (e) {
