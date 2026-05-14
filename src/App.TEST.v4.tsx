@@ -1849,7 +1849,8 @@ for (let i = 2; i < smaFast.length; i++) {
   const trendNowShort = trendAt(curr.time);
 
   
-
+const dmPrev1 = distMiddleMap.get(prev1.time);
+const dmCurr = distMiddleMap.get(curr.time);
 
 const distRising =
   dmPrev1 != null &&
