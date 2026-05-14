@@ -1312,6 +1312,26 @@ const outerLowerSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
+    const distKinkLongSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#66ffcc",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 5,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const distKinkShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ff99aa",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 5,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const strategyLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
       color: "#22c55e",
@@ -2109,6 +2129,8 @@ const coreShortProjected = projectMarkerPointsToCandles(
 
         candidateLongSeries.setData([]);
         candidateShortSeries.setData([]);
+        distKinkLongSeries.setData([]);
+        distKinkShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
         
@@ -2185,6 +2207,18 @@ createSeriesMarkers(
     })),
     "aboveBar"
   )
+);
+
+        const distKinkLongProjected = projectMarkerPointsToCandles(
+  distKinkLongCandidates,
+  candles,
+  "below-near"
+);
+
+const distKinkShortProjected = projectMarkerPointsToCandles(
+  distKinkShortCandidates,
+  candles,
+  "above-near"
 );
 
         
@@ -2265,7 +2299,22 @@ createSeriesMarkers(
     })),
     "aboveBar"
   )
-); */
+); 
+
+createSeriesMarkers(
+  distKinkLongSeries,
+  buildTextMarkers(distKinkLongProjected, "belowBar")
+);
+
+createSeriesMarkers(
+  distKinkShortSeries,
+  buildTextMarkers(distKinkShortProjected, "aboveBar")
+);
+
+distKinkLongSeries.setData(distKinkLongProjected as any);
+distKinkShortSeries.setData(distKinkShortProjected as any);
+
+*/
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
@@ -2393,6 +2442,8 @@ return () => {
         priceChart.removeSeries(smaSlowSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
+        priceChart.removeSeries(distKinkLongSeries);
+        priceChart.removeSeries(distKinkShortSeries);
         priceChart.removeSeries(strategyLongSeries);
         priceChart.removeSeries(strategyShortSeries);
         priceChart.removeSeries(strategyLongExitSeries);
