@@ -3028,7 +3028,7 @@ return () => {
           
 
   Use SMA Slow Exit
-</label>
+
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
