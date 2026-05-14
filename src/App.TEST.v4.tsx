@@ -1478,10 +1478,19 @@ const dynamicLowerBandSeries = distChart.addSeries(LineSeries, {
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
       try {
+        console.log("LOADDATA START", { symbol, interval });
         setStatus("loading");
         setError("");
 
         const [candles, liveBrokerState, aggRows, backendStrategyState, workerEvents] = await Promise.all([
+
+          console.log("FETCHES DONE", {
+  candles: candles?.length,
+  liveBrokerState,
+  aggRows: aggRows?.length,
+  backendStrategyState,
+  workerEvents: workerEvents?.length,
+});
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
