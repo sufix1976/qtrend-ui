@@ -1819,6 +1819,22 @@ for (let i = 1; i < smaFast.length; i++) {
       text: "RS",
     });
   }
+
+  if (distLongSignal) {
+  rawLongCandidates.push({
+    time: curr.time,
+    text: "KL_D",
+    color: "#66ffcc",
+  });
+}
+
+if (distShortSignal) {
+  rawShortCandidates.push({
+    time: curr.time,
+    text: "KS_D",
+    color: "#ff99aa",
+  });
+}
 }
 
 
@@ -1841,6 +1857,29 @@ for (let i = 2; i < smaFast.length; i++) {
 
  const kinkStrength = Math.abs(slopeNow);
  const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
+
+  const dmPrev2 = distMiddleMap.get(prev2.time);
+const dmPrev1 = distMiddleMap.get(prev1.time);
+const dmCurr = distMiddleMap.get(curr.time);
+
+const lowerExtreme = -distExtremeUI;
+const upperExtreme = distExtremeUI;
+
+const distLongSignal =
+  dmPrev2 != null &&
+  dmPrev1 != null &&
+  dmCurr != null &&
+  dmPrev2 > dmPrev1 &&
+  dmCurr > dmPrev1 &&
+  dmPrev1 < lowerExtreme;
+
+const distShortSignal =
+  dmPrev2 != null &&
+  dmPrev1 != null &&
+  dmCurr != null &&
+  dmPrev2 < dmPrev1 &&
+  dmCurr < dmPrev1 &&
+  dmPrev1 > upperExtreme;
 
   const trendNowLong = trendAt(curr.time);
   const trendNowShort = trendAt(curr.time);
@@ -4074,38 +4113,64 @@ function simulateStrategyTESTv4(
       const evt = entryEvents[currentEntryPtr];
 
       if (evt.side === "long") {
-        if (position === "short" && openTrade) {
-          shortExitPoints.push({ time: candle.time, value: candle.high });
-          closeTrade(candle, "short");
-        }
 
-        if (position === "flat") {
-          openTrade = {
-            side: "long",
-            entryPrice: realisticEntryPrice("long", candle),
-            entryIndex: i,
-          };
-          position = "long";
-          acceptedLongEntryPoints.push({ time: evt.time, value: evt.value, text: evt.source });
-        }
-      }
+  // gleicher Trade schon offen → ignorieren
+  if (position === "long") continue;
 
-      if (evt.side === "short") {
-        if (position === "long" && openTrade) {
-          longExitPoints.push({ time: candle.time, value: candle.low });
-          closeTrade(candle, "long");
-        }
+  // Flip von Short → Long
+  if (position === "short" && openTrade) {
+    shortExitPoints.push({
+      time: candle.time,
+      value: candle.high
+    });
 
-        if (position === "flat") {
-          openTrade = {
-            side: "short",
-            entryPrice: realisticEntryPrice("short", candle),
-            entryIndex: i,
-          };
-          position = "short";
-          acceptedShortEntryPoints.push({ time: evt.time, value: evt.value, text: evt.source });
-        }
-      }
+    closeTrade(candle, "short");
+  }
+
+  openTrade = {
+    side: "long",
+    entryPrice: realisticEntryPrice("long", candle),
+    entryIndex: i,
+  };
+
+  position = "long";
+
+  acceptedLongEntryPoints.push({
+    time: evt.time,
+    value: evt.value,
+    text: evt.source
+  });
+}
+
+if (evt.side === "short") {
+
+  // gleicher Trade schon offen → ignorieren
+  if (position === "short") continue;
+
+  // Flip von Long → Short
+  if (position === "long" && openTrade) {
+    longExitPoints.push({
+      time: candle.time,
+      value: candle.low
+    });
+
+    closeTrade(candle, "long");
+  }
+
+  openTrade = {
+    side: "short",
+    entryPrice: realisticEntryPrice("short", candle),
+    entryIndex: i,
+  };
+
+  position = "short";
+
+  acceptedShortEntryPoints.push({
+    time: evt.time,
+    value: evt.value,
+    text: evt.source
+  });
+}
 
       currentEntryPtr += 1;
     }
