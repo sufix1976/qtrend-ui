@@ -1333,25 +1333,7 @@ const outerLowerSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
-    const distKinkLongSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#66ffcc",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 5,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
-
-const distKinkShortSeries = priceChart.addSeries(LineSeries, {
-  priceScaleId: "",
-  color: "#ff99aa",
-  lineVisible: false,
-  pointMarkersVisible: true,
-  pointMarkersRadius: 5,
-  priceLineVisible: false,
-  lastValueVisible: false,
-});
+   
 
     const strategyLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -2319,23 +2301,6 @@ createSeriesMarkers(
 );
 
  
-
-
-   
-
-/*         createSeriesMarkers(
-  distKinkLongSeries,
-  buildTextMarkers(distKinkLongProjected, "belowBar")
-);
-
-createSeriesMarkers(
-  distKinkShortSeries,
-  buildTextMarkers(distKinkShortProjected, "aboveBar")
-);
-
-distKinkLongSeries.setData(distKinkLongProjected as any);
-distKinkShortSeries.setData(distKinkShortProjected as any);
-*/
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
@@ -2347,89 +2312,8 @@ distKinkShortSeries.setData(distKinkShortProjected as any);
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
 
-
-     
-
-   /*     createSeriesMarkers(
-  outlierLongSeries,
-  buildTextMarkers(
-    outlierLongProjected.map((p) => ({ ...p, text: "AL", color: "#00ffff" })),
-    "belowBar"
-  )
-);
-
-createSeriesMarkers(
-  outlierShortSeries,
-  buildTextMarkers(
-    outlierShortProjected.map((p) => ({ ...p, text: "AS", color: "#ff00ff" })),
-    "aboveBar"
-  )
-);
-*/
        
 
-        createSeriesMarkers(
-  smaSlowSeries,
-  [
-    ...smaTurns.up.map((p) => ({
-      time: p.time as any,
-      position: "inBar" as const,
-      color: "#00ff88",
-      shape: "arrowUp" as const,
-      text: "UT",
-    })),
-
-   
-    ...smaTurns.down.map((p) => ({
-      time: p.time as any,
-      position: "aboveBar" as const,
-      color: "#ff4d6d",
-      shape: "arrowDown" as const,
-      text: "DT",
-    })),
-
-    
-  ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
-);
-
-      /*  createSeriesMarkers(
-  candidateLongSeries,
-  buildTextMarkers(
-    distanceModes.upPoints.map((p: MarkerPoint) => ({
-      ...p,
-      text: "DM_UP",
-      color: "#00ffaa",
-    })),
-    "belowBar"
-  )
-);
-
-createSeriesMarkers(
-  candidateShortSeries,
-  buildTextMarkers(
-    distanceModes.downPoints.map((p: MarkerPoint) => ({
-      ...p,
-      text: "DM_DOWN",
-      color: "#ff5577",
-    })),
-    "aboveBar"
-  )
-); 
-
-createSeriesMarkers(
-  distKinkLongSeries,
-  buildTextMarkers(distKinkLongProjected, "belowBar")
-);
-
-createSeriesMarkers(
-  distKinkShortSeries,
-  buildTextMarkers(distKinkShortProjected, "aboveBar")
-);
-
-distKinkLongSeries.setData(distKinkLongProjected as any);
-distKinkShortSeries.setData(distKinkShortProjected as any);
-
-*/
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
         const zeroLine = chartCandles.map(c => ({
@@ -2560,8 +2444,7 @@ return () => {
         priceChart.removeSeries(smaSlowTRNSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
-        priceChart.removeSeries(distKinkLongSeries);
-        priceChart.removeSeries(distKinkShortSeries);
+        
         priceChart.removeSeries(strategyLongSeries);
         priceChart.removeSeries(strategyShortSeries);
         priceChart.removeSeries(strategyLongExitSeries);
