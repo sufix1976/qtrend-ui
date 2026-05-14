@@ -400,8 +400,8 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [outerOffsetUI, setOuterOffsetUI] = useState(
   Math.max(1, smaOffsetUI * 0.5)
 );
-  const [adaptiveBandUI] = useState(false);
-const [adaptiveBandMultUI] = useState(1);
+  const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
+  const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
@@ -423,7 +423,8 @@ const [adaptiveBandMultUI] = useState(1);
     setSmaSlowUI(Number(cfg.sma_slow ?? 100));
     setSmaOffsetUI(Number(cfg.sma_offset ?? 150));
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
-    
+    setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
+    setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
     setUseSlowExitUI(
   cfg?.use_slow_exit == null
     ? true
@@ -449,7 +450,8 @@ const [adaptiveBandMultUI] = useState(1);
     setSmaFastUI(10);
     setSmaSlowUI(100);
     setSmaMiddleUI(100);
-   
+    setAdaptiveBandUI(false);
+    setAdaptiveBandMultUI(1);
 
     setPresetMessage(`Default geladen für ${symbol}`);
   }
@@ -685,7 +687,8 @@ useEffect(() => {
     setSmaFastUI(10);
     setSmaSlowUI(100);
     setSmaMiddleUI(100);
-  
+    setAdaptiveBandUI(false);
+    setAdaptiveBandMultUI(1);
 
     setPresetMessage(`Backend-Konfig zurückgesetzt für ${symbol}`);
   } catch (e) {
@@ -2765,7 +2768,8 @@ return () => {
         <div>Min kink: {minKinkUI}</div>
         <div>Assumed spread: {assumedSpread}</div>
         <div>Assumed slippage: {assumedSlippage}</div>
-        
+        <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
+        <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
 
     <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <div style={{ fontWeight: 700, marginBottom: 6 }}>🛡 Max Loss Schutz</div>
@@ -2992,7 +2996,15 @@ return () => {
 
 
 
-
+<div>Adaptive Mult: {adaptiveBandMultUI}</div>
+<input
+  type="range"
+  min={0.1}
+  max={5}
+  step={0.1}
+  value={adaptiveBandMultUI}
+  onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
+/>
         
   
 
@@ -3023,9 +3035,41 @@ return () => {
   style={{ width: "100%" }}
 />
           
+          
 
+         
+
+
+          
+
+          <div style={{ marginTop: 6 }}>Adaptive Multiplier: {adaptiveBandMultUI.toFixed(2)}</div>
+          <input
+            type="range"
+            min={0.25}
+            max={3}
+            step={0.05}
+            value={adaptiveBandMultUI}
+            onChange={(e) => setAdaptiveBandMultUI(Number(e.target.value))}
+            style={{ width: "100%", opacity: adaptiveBandUI ? 1 : 0.45 }}
+          />
+        </div>
+
+    <label
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    fontSize: 13,
+  }}
+>
+  <input
+    type="checkbox"
+    checked={useSlowExitUI}
+    onChange={(e) => setUseSlowExitUI(e.target.checked)}
+  />
   Use SMA Slow Exit
-
+</label>
 
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>SMA Test</div>
