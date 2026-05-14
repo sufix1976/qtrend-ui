@@ -387,7 +387,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
-  const [kinkStrengthFactorUI, setKinkStrengthFactorUI] = useState(0.15);
+  const [kinkStrengthFactorUI] = useState(0.15);
   const [kinkConfirmBarsUI] = useState(3);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
