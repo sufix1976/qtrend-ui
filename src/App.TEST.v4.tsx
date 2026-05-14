@@ -2248,17 +2248,7 @@ createSeriesMarkers(
  
 
 
-        const distKinkLongProjected = projectMarkerPointsToCandles(
-  distKinkLongCandidates,
-  candles,
-  "below-mid"
-);
-
-const distKinkShortProjected = projectMarkerPointsToCandles(
-  distKinkShortCandidates,
-  candles,
-  "above-near"
-);
+   
 
 /*         createSeriesMarkers(
   distKinkLongSeries,
