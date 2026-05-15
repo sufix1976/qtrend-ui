@@ -832,26 +832,6 @@ async function saveAllSizes() {
 
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
 
-        const trendEvents = [
-          ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
-          ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
-        ].sort((a, b) => a.time - b.time);
-
-        function trendAt(time: number): "up" | "down" | null {
-          let trend: "up" | "down" | null = null;
-
-          for (const e of trendEvents) {
-            if (e.time > time) break;
-            trend = e.trend;
-          }
-
-          return trend;
-        }
-
-    
-
-        
-
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
 
@@ -903,116 +883,7 @@ async function saveAllSizes() {
 (window as any).coreCheck = coreCheck;
         
 
-        const distIndexByTime = new Map<number, number>();
-        dist.forEach((p, i) => distIndexByTime.set(p.time, i));
 
-        function candleByTime(time: number): Candle | null {
-          return candles.find((c) => c.time === time) ?? null;
-        }
-
-        function uniqueByTime(points: MarkerPoint[]): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          const seen = new Set<number>();
-
-          for (const p of points) {
-            if (!Number.isFinite(p.time) || seen.has(p.time)) continue;
-            seen.add(p.time);
-            out.push(p);
-          }
-
-          return out.sort((a, b) => a.time - b.time);
-        }
-
-        function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          if (!dist.length) return out;
-
-          let extreme = dist[0].value;
-          let armed = true;
-
-          for (let i = 1; i < dist.length; i++) {
-            const d = dist[i].value;
-
-            if (side === "long") {
-              if (d < extreme) {
-                extreme = d;
-                armed = true;
-              }
-
-              if (armed && d - extreme >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.low });
-                armed = false;
-                extreme = d;
-              }
-            } else {
-              if (d > extreme) {
-                extreme = d;
-                armed = true;
-              }
-
-              if (armed && extreme - d >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.high });
-                armed = false;
-                extreme = d;
-              }
-            }
-          }
-
-          return dedupeMarkers(out);
-        }
-
-        function buildRecoveredKinksFromOutliers(
-          outliers: MarkerPoint[],
-          side: "long" | "short"
-        ): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          const maxSearchBars = 80;
-
-          for (const o of outliers) {
-            const startIndex = distIndexByTime.get(o.time);
-            if (startIndex == null || startIndex < 0) continue;
-
-            let extreme = dist[startIndex]?.value;
-            if (!Number.isFinite(extreme)) continue;
-
-            const end = Math.min(dist.length - 1, startIndex + maxSearchBars);
-
-            for (let i = startIndex + 1; i <= end; i++) {
-              const d = dist[i].value;
-
-              if (side === "long") {
-                if (d < extreme) extreme = d;
-
-                if (d - extreme >= minKinkVal) {
-                  const c = candleByTime(dist[i].time);
-                  if (c) out.push({ time: c.time, value: c.low });
-                  break;
-                }
-              } else {
-                if (d > extreme) extreme = d;
-
-                if (extreme - d >= minKinkVal) {
-                  const c = candleByTime(dist[i].time);
-                  if (c) out.push({ time: c.time, value: c.high });
-                  break;
-                }
-              }
-            }
-          }
-
-          return dedupeMarkers(out);
-        }
-
-        const trendLongKinks = buildTrendKinks("long");
-        const trendShortKinks = buildTrendKinks("short");
-
-        const outlierLongPoints: MarkerPoint[] = [];
-        const outlierShortPoints: MarkerPoint[] = [];
-
-        const outlierLongKinks = buildRecoveredKinksFromOutliers(outlierLongPoints, "long");
-        const outlierShortKinks = buildRecoveredKinksFromOutliers(outlierShortPoints, "short");
 
         
 
