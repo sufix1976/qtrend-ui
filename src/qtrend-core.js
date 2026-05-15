@@ -400,6 +400,22 @@ export function buildKinkSignals(
       const blockTrendShort =
         trendShort && (blockOuterShort || distRising);
 
+      if (curr.time === 177859900) {
+  console.log("CORE SHORT BLOCK DEBUG 177859900", {
+    currTime: curr.time,
+    currValue: curr.value,
+    trendNowShort,
+    trendShort,
+    counterTrendShort,
+    currOuterLower,
+    blockOuterShort,
+    distRising,
+    blockTrendShort,
+    dmPrev1,
+    dmCurr,
+  });
+}
+
       kinkShortCandidates.push({
         time: curr.time,
         value: curr.value,
