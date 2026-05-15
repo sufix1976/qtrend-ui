@@ -2043,6 +2043,28 @@ const tradeShortEntries = allShortEntries.filter(
   (p) => p.text !== "KS_T_BLOCK"
 );
 
+        console.log("CORE VS UI ENTRY CHECK", {
+  symbol,
+  interval,
+
+  ui: {
+    allLong: allLongEntries.length,
+    allShort: allShortEntries.length,
+    tradeLong: tradeLongEntries.length,
+    tradeShort: tradeShortEntries.length,
+    lastLong: allLongEntries.at(-1) ?? null,
+    lastShort: allShortEntries.at(-1) ?? null,
+  },
+
+  core: {
+    allLong: coreCheck.allLongEntries?.length ?? 0,
+    allShort: coreCheck.allShortEntries?.length ?? 0,
+    tradeLong: coreCheck.tradeLongEntries?.length ?? 0,
+    tradeShort: coreCheck.tradeShortEntries?.length ?? 0,
+    lastLong: coreCheck.allLongEntries?.at(-1) ?? null,
+    lastShort: coreCheck.allShortEntries?.at(-1) ?? null,
+  },
+});
 
         
 
