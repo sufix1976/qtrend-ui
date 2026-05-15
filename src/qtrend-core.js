@@ -343,8 +343,14 @@ export function buildKinkSignals(
         currOuterUpper != null &&
         curr.value > currOuterUpper;
 
-      const blockTrendLong =
-        trendLong && (blockOuterLong || distFalling);
+      const trendPullbackLong =
+  dmPrev1 != null &&
+  dmPrev1 <= 0 &&
+  dmCurr != null &&
+  dmCurr > dmPrev1;
+
+const blockTrendLong =
+  trendLong && (!trendPullbackLong || blockOuterLong || distFalling);
 
       kinkLongCandidates.push({
         time: curr.time,
@@ -390,8 +396,14 @@ export function buildKinkSignals(
         currOuterLower != null &&
         curr.value < currOuterLower;
 
-      const blockTrendShort =
-  trendShort && (blockOuterShort || distRising || curr.value < currOuterLower);
+      const trendPullbackShort =
+  dmPrev1 != null &&
+  dmPrev1 >= 0 &&
+  dmCurr != null &&
+  dmCurr < dmPrev1;
+
+const blockTrendShort =
+  trendShort && (!trendPullbackShort || blockOuterShort || distRising);
 
       if (curr.time === 177859900) {
   console.log("CORE SHORT BLOCK DEBUG 177859900", {
