@@ -2018,14 +2018,30 @@ kinkStrength >= minKinkStrength
   }
 }
 
-   const distKinkLongCandidates = coreCheck.distKinkLongCandidates;
-const distKinkShortCandidates = coreCheck.distKinkShortCandidates;
+   const distKinkLongCandidates: MarkerPoint[] = [];
+const distKinkShortCandidates: MarkerPoint[] = [];
 
-const allLongEntries = coreCheck.allLongEntries;
-const allShortEntries = coreCheck.allShortEntries;
+// ... kompletter KL_D / KS_D Block ...
 
-const tradeLongEntries = coreCheck.tradeLongEntries;
-const tradeShortEntries = coreCheck.tradeShortEntries;
+const allLongEntries = [
+  ...rawLongCandidates,
+  ...kinkLongCandidates,
+  ...distKinkLongCandidates,
+];
+
+const allShortEntries = [
+  ...rawShortCandidates,
+  ...kinkShortCandidates,
+  ...distKinkShortCandidates,
+];
+
+const tradeLongEntries = allLongEntries.filter(
+  (p) => p.text !== "KL_T_BLOCK"
+);
+
+const tradeShortEntries = allShortEntries.filter(
+  (p) => p.text !== "KS_T_BLOCK"
+);
 
 
         
