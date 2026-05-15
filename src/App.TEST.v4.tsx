@@ -1400,7 +1400,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
 
        
         
-        console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
+        
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
        
         
@@ -1607,42 +1607,7 @@ for (let i = 1; i < smaFast.length; i++) {
 
 
 
-const kinkLongCandidates: MarkerPoint[] = [];
-const kinkShortCandidates: MarkerPoint[] = [];
 
-for (let i = 2; i < smaFast.length; i++) {
-  const prev2 = smaFast[i - 2];
-  const prev1 = smaFast[i - 1];
-  const curr = smaFast[i];
-
-  const currLower = lowerMap.get(curr.time);
-  const currUpper = upperMap.get(curr.time);
-
-  if (currLower == null || currUpper == null) continue;
-
-  const slopePrev = prev1.value - prev2.value;
-  const slopeNow = curr.value - prev1.value;
-
- const kinkStrength = Math.abs(slopeNow);
- const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
-
-
-
-  
-  const dmPrev1 = distMiddleMap.get(prev1.time);
-  const dmCurr = distMiddleMap.get(curr.time);
-
-const distRising =
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmCurr > dmPrev1;
-
-const distFalling =
-  dmPrev1 != null &&
-  dmCurr != null &&
-  dmCurr < dmPrev1;
-
-}
 
    const distKinkLongCandidates: MarkerPoint[] = [];
 const distKinkShortCandidates: MarkerPoint[] = [];
