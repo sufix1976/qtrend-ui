@@ -889,48 +889,18 @@ async function saveAllSizes() {
 
   useSlowExit: useSlowExitUI,
 });
-        
 
-       
-
-console.log("QTREND CORE CHECK 2", {
+        console.log("QTREND CORE CHECK 2", {
   symbol,
   interval,
-  lastZone: coreCheck.debug.lastZone,
-  lastLongKink: coreCheck.kinks.longKinks.at(-1) ?? null,
-  lastShortKink: coreCheck.kinks.shortKinks.at(-1) ?? null,
-  longKinksCount: coreCheck.kinks.longKinks.length,
-  shortKinksCount: coreCheck.kinks.shortKinks.length,
-  zoneStats: coreCheck.debug,
-  kinkDebug: coreCheck.kinks.debug,
+  lastLongKink: coreCheck.kinkLongCandidates.at(-1) ?? null,
+  lastShortKink: coreCheck.kinkShortCandidates.at(-1) ?? null,
+  longKinksCount: coreCheck.kinkLongCandidates.length,
+  shortKinksCount: coreCheck.kinkShortCandidates.length,
+  coreDebug: coreCheck.debug,
 });
 
-        (window as any).coreCheck = coreCheck;
-
-console.table(
-  coreCheck.kinks.longKinks.map((k: any) => ({
-    side: "LONG",
-    time: new Date(k.time * 1000).toLocaleString("de-DE"),
-    recovery: k.recovery,
-    slopeNow: k.slopeNow,
-    slopePrev: k.slopePrev,
-    slopeChange: k.slopeChange,
-    candlesFromExtreme: k.candlesFromExtreme,
-  }))
-);
-
-console.table(
-  coreCheck.kinks.shortKinks.map((k: any) => ({
-    side: "SHORT",
-    time: new Date(k.time * 1000).toLocaleString("de-DE"),
-    recovery: k.recovery,
-    slopeNow: k.slopeNow,
-    slopePrev: k.slopePrev,
-    slopeChange: k.slopeChange,
-    candlesFromExtreme: k.candlesFromExtreme,
-  }))
-);
-
+(window as any).coreCheck = coreCheck;
         
 
         const distIndexByTime = new Map<number, number>();
