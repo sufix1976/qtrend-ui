@@ -769,11 +769,17 @@ for (let i = 1; i < trendStates.length; i++) {
   }
 }
 
-  const allLongEntries = [
+ const allLongEntries = [
+  ...rawLongCandidates,
+  ...kinkLongCandidates,
+  ...distKinkLongCandidates,
   ...trendSwitchLongEntries,
 ];
 
- const allShortEntries = [
+const allShortEntries = [
+  ...rawShortCandidates,
+  ...kinkShortCandidates,
+  ...distKinkShortCandidates,
   ...trendSwitchShortEntries,
 ];
   
