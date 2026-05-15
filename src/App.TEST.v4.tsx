@@ -2035,15 +2035,8 @@ const sim = simulateStrategyTESTv4(
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = [
-  ...allLongEntries,
-  ...distKinkLongCandidates,
-].sort((a, b) => a.time - b.time);
-
-const strategyShortPoints = [
-  ...allShortEntries,
-  ...distKinkShortCandidates,
-].sort((a, b) => a.time - b.time);
+const strategyLongPoints = coreCheck.tradeLongEntries;
+const strategyShortPoints = coreCheck.tradeShortEntries;
 
         console.log("UI LAST MARKERS", {
   symbol,
