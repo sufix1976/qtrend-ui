@@ -2027,8 +2027,7 @@ const allShortEntries = coreCheck.allShortEntries;
 const tradeLongEntries = coreCheck.tradeLongEntries;
 const tradeShortEntries = coreCheck.tradeShortEntries;
 
-const _blockedLongEntries = coreCheck.blockedLongEntries;
-const _blockedShortEntries = coreCheck.blockedShortEntries;
+
         
 
 const sim = simulateStrategyTESTv4(
