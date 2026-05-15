@@ -1838,12 +1838,14 @@ const allLongEntries = [
   ...rawLongCandidates,
   ...kinkLongCandidates,
   ...distKinkLongCandidates,
+  ...trendSwitchLongEntries,
 ];
 
 const allShortEntries = [
   ...rawShortCandidates,
   ...kinkShortCandidates,
   ...distKinkShortCandidates,
+  ...trendSwitchShortEntries,
 ];
 
 const tradeLongEntries = allLongEntries.filter(
