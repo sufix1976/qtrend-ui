@@ -726,18 +726,57 @@ const kinks = buildKinkSignals(
     useSlowExit
   );
 
-  const allLongEntries = uniqueMarkers([
-    ...reclaim.rawLongCandidates,
-    ...kinks.kinkLongCandidates,
-    ...distKinks.distKinkLongCandidates,
-  ]);
+  const trendSwitchLongEntries = [];
+const trendSwitchShortEntries = [];
 
-  const allShortEntries = uniqueMarkers([
-    ...reclaim.rawShortCandidates,
-    ...kinks.kinkShortCandidates,
-    ...distKinks.distKinkShortCandidates,
-  ]);
+for (let i = 1; i < trendStates.length; i++) {
+  const prev = trendStates[i - 1];
+  const curr = trendStates[i];
 
+  if (!prev || !curr) continue;
+
+  const d = dist.find((x) => x.time === curr.time);
+  if (!d) continue;
+
+  // SOFORT LONG bei Wechsel auf TRU
+  // aber NICHT wenn Dist oben überdehnt
+  if (
+    prev.state !== "TRU" &&
+    curr.state === "TRU" &&
+    d.value < distExtreme
+  ) {
+    trendSwitchLongEntries.push({
+      time: curr.time,
+      value: 1,
+      text: "TRU",
+      color: "#00ff88",
+    });
+  }
+
+  // SOFORT SHORT bei Wechsel auf TRD
+  // aber NICHT wenn Dist unten überdehnt
+  if (
+    prev.state !== "TRD" &&
+    curr.state === "TRD" &&
+    d.value > -distExtreme
+  ) {
+    trendSwitchShortEntries.push({
+      time: curr.time,
+      value: 1,
+      text: "TRD",
+      color: "#ff4d6d",
+    });
+  }
+}
+
+  const allLongEntries = [
+  ...trendSwitchLongEntries,
+];
+
+ const allShortEntries = [
+  ...trendSwitchShortEntries,
+];
+  
   const blockedLongEntries = allLongEntries.filter(
     (p) => p.text === "KL_T_BLOCK"
   );
