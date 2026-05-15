@@ -3150,46 +3150,7 @@ function buildBandOffsetLine(
   return out;
 }
 
-function buildSmaTurnMarkers(
-  smaSlow: LinePoint[],
-  confirmBars = 5
-): { up: MarkerPoint[]; down: MarkerPoint[] } {
-  const up: MarkerPoint[] = [];
-  const down: MarkerPoint[] = [];
 
-  let trend: "up" | "down" | null = null;
-
-  for (let i = confirmBars; i < smaSlow.length; i++) {
-    let rising = true;
-    let falling = true;
-
-    for (let j = 0; j < confirmBars; j++) {
-      const curr = smaSlow[i - j].value;
-      const prev = smaSlow[i - j - 1].value;
-
-      if (curr <= prev) rising = false;
-      if (curr >= prev) falling = false;
-    }
-
-    if (rising && trend !== "up") {
-      trend = "up";
-      up.push({
-        time: smaSlow[i].time,
-        value: smaSlow[i].value,
-      });
-    }
-
-    if (falling && trend !== "down") {
-      trend = "down";
-      down.push({
-        time: smaSlow[i].time,
-        value: smaSlow[i].value,
-      });
-    }
-  }
-
-  return { up, down };
-}
 
 function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
   const longPoints: MarkerPoint[] = [];
