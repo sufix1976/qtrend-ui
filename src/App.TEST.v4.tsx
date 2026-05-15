@@ -1518,29 +1518,7 @@ const _dynamicLowerBand = alignLineToCandles(
         outerUpperSeries.setData(chartOuterUpper as any);
         outerLowerSeries.setData(chartOuterLower as any);
 
-     /*   const candleTimes = new Set(chartCandles.map((c) => c.time));
 
-const smaTurnMarkers = [
-  ...smaTurns.up.map((p) => ({
-    time: p.time as any,
-    position: "aboveBar" as const,
-    color: "#00ff88",
-    shape: "arrowUp" as const,
-    text: "UT",
-  })),
-  ...smaTurns.down.map((p) => ({
-    time: p.time as any,
-    position: "aboveBar" as const,
-    color: "#ff4d6d",
-    shape: "arrowDown" as const,
-    text: "DT",
-  })),
-]
-  .filter((m) => candleTimes.has(m.time))
-  .sort((a, b) => Number(a.time) - Number(b.time));
-
-createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
-*/
        
 const rawLongCandidates: MarkerPoint[] = [];
 const rawShortCandidates: MarkerPoint[] = [];
@@ -1664,7 +1642,7 @@ const distFalling =
   dmCurr != null &&
   dmCurr < dmPrev1;
 
-
+}
 
    const distKinkLongCandidates: MarkerPoint[] = [];
 const distKinkShortCandidates: MarkerPoint[] = [];
