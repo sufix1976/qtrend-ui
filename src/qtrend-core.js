@@ -273,8 +273,9 @@ export function buildKinkSignals(
   minKink,
   kinkStrengthFactor,
   distMiddle,
-  oldTrendEvents
+  trendStates
 ) {
+  
   const lowerMap = new Map();
   const upperMap = new Map();
   const outerLowerMap = new Map();
@@ -289,16 +290,6 @@ export function buildKinkSignals(
 
   const distMiddleMap = mapByTime(distMiddle);
 
-  function oldTrendAt(time) {
-    let trend = null;
-
-    for (const e of oldTrendEvents || []) {
-      if (e.time > time) break;
-      trend = e.trend;
-    }
-
-    return trend;
-  }
 
   const kinkLongCandidates = [];
   const kinkShortCandidates = [];
@@ -319,8 +310,8 @@ export function buildKinkSignals(
     const kinkStrength = Math.abs(slopeNow);
     const minKinkStrength = minKink * kinkStrengthFactor;
 
-    const trendNowLong = oldTrendAt(curr.time);
-    const trendNowShort = oldTrendAt(curr.time);
+    const trendNowLong = trendAt(trendStates, curr.time);
+    const trendNowShort = trendAt(trendStates, curr.time);
 
     const dmPrev1 = distMiddleMap.get(prev1.time);
     const dmCurr = distMiddleMap.get(curr.time);
@@ -336,13 +327,14 @@ export function buildKinkSignals(
       dmCurr < dmPrev1;
 
     if (
-      (prev1.value < currLower || trendNowLong === "up") &&
+      (prev1.value < currLower || trendNowLong === "TRU") &&
       slopePrev < 0 &&
       slopeNow > 0 &&
       kinkStrength >= minKinkStrength
     ) {
-      const counterTrendLong = trendNowLong === "down";
-      const trendLong = trendNowLong === "up";
+
+      const counterTrendLong = trendNowLong === "TRD";
+      const trendLong = trendNowLong === "TRU";
 
       const currOuterUpper = outerUpperMap.get(curr.time);
 
@@ -382,13 +374,14 @@ export function buildKinkSignals(
     }
 
     if (
-      (prev1.value > currUpper || trendNowShort === "down") &&
+      (prev1.value > currUpper || trendNowShort === "TRD") &&
       slopePrev > 0 &&
       slopeNow < 0 &&
       kinkStrength >= minKinkStrength
     ) {
-      const counterTrendShort = trendNowShort === "up";
-      const trendShort = trendNowShort === "down";
+
+      const counterTrendShort = trendNowShort === "TRU";
+      const trendShort = trendNowShort === "TRD";
 
       const currOuterLower = outerLowerMap.get(curr.time);
 
@@ -704,7 +697,7 @@ const kinks = buildKinkSignals(
   minKink,
   kinkStrengthFactor,
   distMiddle,
-  oldTrendEvents
+  trendStates
 );
 
   const distKinks = buildDistKinkSignals(
