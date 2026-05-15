@@ -441,7 +441,7 @@ export function buildKinkSignals(
   smaFastLen: smaFast.length,
   smaSlowLen: smaSlow.length,
   distMiddleLen: distMiddle.length,
-  oldTrendEventsLen: oldTrendEvents.length,
+  trendStatesLen: trendStates.length,
   minKink,
   kinkStrengthFactor,
   longCount: kinkLongCandidates.length,
