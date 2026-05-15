@@ -137,55 +137,93 @@ export function computeTrendState(
   candles,
   smaFast,
   smaSlow,
-  distMiddle
+  distMiddle,
+  trendLength = 10
 ) {
-  const fastMap = mapByTime(smaFast);
-  const slowMap = mapByTime(smaSlow);
-  const middleMap = mapByTime(distMiddle);
-
   const out = [];
 
-  for (let i = 1; i < candles.length; i++) {
+  if (!Array.isArray(candles) || candles.length < trendLength + 5) {
+    return out;
+  }
+
+  function smaOf(values, len, index) {
+    if (index < len - 1) return null;
+
+    let sum = 0;
+    for (let j = 0; j < len; j++) {
+      sum += values[index - j];
+    }
+
+    return sum / len;
+  }
+
+  function trueRange(i) {
     const c = candles[i];
+    const p = candles[i - 1];
 
-    const fast = fastMap.get(c.time);
-    const slow = slowMap.get(c.time);
-    const middle = middleMap.get(c.time);
+    if (!c || !p) return 0;
 
-    const prevMiddle = middleMap.get(candles[i - 1].time);
+    return Math.max(
+      c.high - c.low,
+      Math.abs(c.high - p.close),
+      Math.abs(c.low - p.close)
+    );
+  }
+
+  const highs = candles.map((c) => Number(c.high));
+  const lows = candles.map((c) => Number(c.low));
+
+  const trValues = candles.map((_, i) => (i === 0 ? 0 : trueRange(i)));
+
+  let trend = "TRN";
+
+  for (let i = 1; i < candles.length; i++) {
+    const smaHighBase = smaOf(highs, trendLength, i);
+    const smaLowBase = smaOf(lows, trendLength, i);
+
+    const atrRaw = smaOf(trValues, 200, i);
+    const atrSmooth = atrRaw == null ? null : atrRaw * 0.8;
 
     if (
-      !Number.isFinite(fast) ||
-      !Number.isFinite(slow) ||
-      !Number.isFinite(middle) ||
-      !Number.isFinite(prevMiddle)
+      smaHighBase == null ||
+      smaLowBase == null ||
+      atrSmooth == null
     ) {
+      out.push({
+        time: candles[i].time,
+        trend,
+        score: 0,
+        trendValue: null,
+        smaHigh: null,
+        smaLow: null,
+      });
       continue;
     }
 
-    let score = 0;
+    const smaHigh = smaHighBase + atrSmooth;
+    const smaLow = smaLowBase - atrSmooth;
 
-    if (fast > slow) score += 1;
-    if (fast < slow) score -= 1;
+    const prevClose = candles[i - 1].close;
+    const currClose = candles[i].close;
 
-    if (middle > 0) score += 1;
-    if (middle < 0) score -= 1;
+    const crossedUp =
+      prevClose <= smaHigh &&
+      currClose > smaHigh;
 
-    if (middle > prevMiddle) score += 1;
-    if (middle < prevMiddle) score -= 1;
+    const crossedDown =
+      prevClose >= smaLow &&
+      currClose < smaLow;
 
-    if (c.close > slow) score += 1;
-    if (c.close < slow) score -= 1;
-
-    let trend = "TRN";
-
-    if (score >= 2) trend = "TRU";
-    else if (score <= -2) trend = "TRD";
+    if (crossedUp) trend = "TRU";
+    if (crossedDown) trend = "TRD";
 
     out.push({
-      time: c.time,
+      time: candles[i].time,
       trend,
-      score,
+      score: trend === "TRU" ? 1 : trend === "TRD" ? -1 : 0,
+      trendValue: trend === "TRU" ? smaLow : trend === "TRD" ? smaHigh : null,
+      smaHigh,
+      smaLow,
     });
   }
 
@@ -656,6 +694,8 @@ export function computeQTrendCore(candles, cfg = {}) {
   const distExtreme = Number(cfg.distExtreme ?? cfg.entryBand ?? 100);
   const useSlowExit = cfg.useSlowExit == null ? true : Boolean(cfg.useSlowExit);
 
+  const trendLength = Number(cfg.trendLength ?? 10);
+
   const smaFast = sanitizeLinePoints(calcSMA(safeCandles, smaFastLen));
   const smaSlow = sanitizeLinePoints(calcSMA(safeCandles, smaSlowLen));
   const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
@@ -684,12 +724,13 @@ export function computeQTrendCore(candles, cfg = {}) {
     })),
   ].sort((a, b) => a.time - b.time);
 
-  const trendStates = computeTrendState(
-    safeCandles,
-    smaFast,
-    smaSlow,
-    distMiddle
-  );
+const trendStates = computeTrendState(
+  safeCandles,
+  smaFast,
+  smaSlow,
+  distMiddle,
+  trendLength
+);
 
   const reclaim = buildReclaimSignals(
     safeCandles,
