@@ -746,67 +746,77 @@ const kinks = buildKinkSignals(
     (p) => p.text === "KS_T_BLOCK"
   );
 
-  const trendFilteredLongEntries = allLongEntries.map((p) => {
-  if (p.text !== "KL_T") return p;
+ const distMap = new Map(dist.map((p) => [p.time, p.value]));
 
-  const d = dist.find((x) => x.time === p.time);
+let virtualState = "flat";
+let lastTrendMode = "TRN";
 
-  if (!d) {
-    return {
-      ...p,
-      text: "KL_T_BLOCK",
-      reason: "NO_DIST",
-      color: "#9ca3af",
-    };
+const tradeLongEntries = [];
+const tradeShortEntries = [];
+
+const mixedEvents = [
+  ...allLongEntries.map((p) => ({ ...p, side: "long", kind: "entry" })),
+  ...allShortEntries.map((p) => ({ ...p, side: "short", kind: "entry" })),
+  ...exits.longExits.map((p) => ({ ...p, side: "flat", kind: "exit_long" })),
+  ...exits.shortExits.map((p) => ({ ...p, side: "flat", kind: "exit_short" })),
+].sort((a, b) => a.time - b.time);
+
+for (const e of mixedEvents) {
+  const tr = trendAt(trendStates, e.time);
+  const d = distMap.get(e.time);
+
+  if (e.kind === "exit_long" && virtualState === "long") {
+    virtualState = "flat";
+    continue;
   }
 
-  // KL_T darf NICHT oben in Extremzone liegen
-  if (d.value > distExtreme) {
-    return {
-      ...p,
-      text: "KL_T_BLOCK",
-      reason: "DIST_TOO_HIGH",
-      color: "#9ca3af",
-    };
+  if (e.kind === "exit_short" && virtualState === "short") {
+    virtualState = "flat";
+    continue;
   }
 
-  return p;
-});
+  if (e.kind !== "entry") continue;
 
-const trendFilteredShortEntries = allShortEntries.map((p) => {
-  if (p.text !== "KS_T") return p;
+  if (e.text === "KL_T") {
+    const allowedByTrendSwitch = tr === "TRU" && lastTrendMode !== "TRU";
+    const allowedByFlat = virtualState === "flat";
+    const allowedByDist = d == null || d <= distExtreme;
 
-  const d = dist.find((x) => x.time === p.time);
-
-  if (!d) {
-    return {
-      ...p,
-      text: "KS_T_BLOCK",
-      reason: "NO_DIST",
-      color: "#9ca3af",
-    };
+    if (!(allowedByTrendSwitch || allowedByFlat) || !allowedByDist) {
+      continue;
+    }
   }
 
-  // KS_T darf NICHT unten in Extremzone liegen
-  if (d.value < -distExtreme) {
-    return {
-      ...p,
-      text: "KS_T_BLOCK",
-      reason: "DIST_TOO_LOW",
-      color: "#9ca3af",
-    };
+  if (e.text === "KS_T") {
+    const allowedByTrendSwitch = tr === "TRD" && lastTrendMode !== "TRD";
+    const allowedByFlat = virtualState === "flat";
+    const allowedByDist = d == null || d >= -distExtreme;
+
+    if (!(allowedByTrendSwitch || allowedByFlat) || !allowedByDist) {
+      continue;
+    }
   }
 
-  return p;
-});
+  if (e.text === "KL_T_BLOCK" || e.text === "KS_T_BLOCK") {
+    continue;
+  }
 
-const tradeLongEntries = trendFilteredLongEntries.filter(
-  (p) => p.text !== "KL_T_BLOCK"
-);
+  if (e.side === "long") {
+    if (virtualState !== "long") {
+      tradeLongEntries.push(e);
+      virtualState = "long";
+      lastTrendMode = tr;
+    }
+  }
 
-const tradeShortEntries = trendFilteredShortEntries.filter(
-  (p) => p.text !== "KS_T_BLOCK"
-);
+  if (e.side === "short") {
+    if (virtualState !== "short") {
+      tradeShortEntries.push(e);
+      virtualState = "short";
+      lastTrendMode = tr;
+    }
+  }
+}
 
   const eventStream = [
     ...tradeLongEntries.map((p) => ({
