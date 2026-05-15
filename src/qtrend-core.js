@@ -741,8 +741,8 @@ for (let i = 1; i < trendStates.length; i++) {
   // SOFORT LONG bei Wechsel auf TRU
   // aber NICHT wenn Dist oben überdehnt
   if (
-    prev.state !== "TRU" &&
-    curr.state === "TRU" &&
+    prev.trend !== "TRU" &&
+    curr.trend === "TRU" &&
     d.value < distExtreme
   ) {
     trendSwitchLongEntries.push({
@@ -756,8 +756,8 @@ for (let i = 1; i < trendStates.length; i++) {
   // SOFORT SHORT bei Wechsel auf TRD
   // aber NICHT wenn Dist unten überdehnt
   if (
-    prev.state !== "TRD" &&
-    curr.state === "TRD" &&
+    prev.trend !== "TRD" &&
+    curr.trend === "TRD" &&
     d.value > -distExtreme
   ) {
     trendSwitchShortEntries.push({
