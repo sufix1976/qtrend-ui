@@ -746,13 +746,67 @@ const kinks = buildKinkSignals(
     (p) => p.text === "KS_T_BLOCK"
   );
 
-  const tradeLongEntries = allLongEntries.filter(
-    (p) => p.text !== "KL_T_BLOCK"
-  );
+  const trendFilteredLongEntries = allLongEntries.map((p) => {
+  if (p.text !== "KL_T") return p;
 
-  const tradeShortEntries = allShortEntries.filter(
-    (p) => p.text !== "KS_T_BLOCK"
-  );
+  const d = dist.find((x) => x.time === p.time);
+
+  if (!d) {
+    return {
+      ...p,
+      text: "KL_T_BLOCK",
+      reason: "NO_DIST",
+      color: "#9ca3af",
+    };
+  }
+
+  // KL_T darf NICHT oben in Extremzone liegen
+  if (d.value > distExtreme) {
+    return {
+      ...p,
+      text: "KL_T_BLOCK",
+      reason: "DIST_TOO_HIGH",
+      color: "#9ca3af",
+    };
+  }
+
+  return p;
+});
+
+const trendFilteredShortEntries = allShortEntries.map((p) => {
+  if (p.text !== "KS_T") return p;
+
+  const d = dist.find((x) => x.time === p.time);
+
+  if (!d) {
+    return {
+      ...p,
+      text: "KS_T_BLOCK",
+      reason: "NO_DIST",
+      color: "#9ca3af",
+    };
+  }
+
+  // KS_T darf NICHT unten in Extremzone liegen
+  if (d.value < -distExtreme) {
+    return {
+      ...p,
+      text: "KS_T_BLOCK",
+      reason: "DIST_TOO_LOW",
+      color: "#9ca3af",
+    };
+  }
+
+  return p;
+});
+
+const tradeLongEntries = trendFilteredLongEntries.filter(
+  (p) => p.text !== "KL_T_BLOCK"
+);
+
+const tradeShortEntries = trendFilteredShortEntries.filter(
+  (p) => p.text !== "KS_T_BLOCK"
+);
 
   const eventStream = [
     ...tradeLongEntries.map((p) => ({
