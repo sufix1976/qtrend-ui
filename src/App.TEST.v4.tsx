@@ -1950,18 +1950,17 @@ console.log("LONG SETUP CHECK", {
    
         
 
-  const coreLongProjected = projectMarkerPointsToCandles(
-  sim.acceptedLongEntryPoints,
+const coreLongProjected = projectMarkerPointsToCandles(
+  coreCheck.tradeLongEntries,
   candles,
   "below-mid"
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  sim.acceptedShortEntryPoints,
+  coreCheck.tradeShortEntries,
   candles,
   "above-mid"
 );
-
 
 
 
