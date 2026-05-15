@@ -804,7 +804,7 @@ async function saveAllSizes() {
             : interval;
 
         const entryBandVal = Number(cfg?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? 100);
-        const minKinkVal = Number(cfg?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? 1);
+        
         const smaFastVal = Number(cfg?.sma_fast ?? 10);
         const smaSlowVal = Number(cfg?.sma_slow ?? 100);
         const smaMiddleVal = Number(cfg?.sma_middle ?? 100);
@@ -830,7 +830,7 @@ async function saveAllSizes() {
 
        
 
-        const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+        
 
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
