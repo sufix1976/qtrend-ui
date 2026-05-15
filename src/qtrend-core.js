@@ -769,17 +769,17 @@ for (let i = 1; i < trendStates.length; i++) {
   }
 }
 
- const allLongEntries = [
-  ...rawLongCandidates,
-  ...kinkLongCandidates,
-  ...distKinkLongCandidates,
+const allLongEntries = [
+  ...reclaim.rawLongCandidates,
+  ...kinks.kinkLongCandidates,
+  ...distKinks.distKinkLongCandidates,
   ...trendSwitchLongEntries,
 ];
 
 const allShortEntries = [
-  ...rawShortCandidates,
-  ...kinkShortCandidates,
-  ...distKinkShortCandidates,
+  ...reclaim.rawShortCandidates,
+  ...kinks.kinkShortCandidates,
+  ...distKinks.distKinkShortCandidates,
   ...trendSwitchShortEntries,
 ];
   
