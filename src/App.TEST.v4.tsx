@@ -875,15 +875,20 @@ async function saveAllSizes() {
           adaptiveBandMultVal
         );
 
-        const coreCheck = computeQTrendCore(candles, {
+       const coreCheck = computeQTrendCore(candles, {
   smaFast: smaFastUI,
   smaSlow: smaSlowUI,
-  smaOffset: smaOffsetUI,
-  entryBand: entryBandUI,
-  kinkLookbackMinutes: kinkConfirmBarsUI,
-  minKinkHeight: minKinkUI,        
-});
+  smaMiddle: smaMiddleUI,
 
+  smaOffset: smaOffsetUI,
+  outerOffset: outerOffsetUI,
+
+  minKink: minKinkUI,
+
+  distExtreme: distExtremeUI,
+
+  useSlowExit: useSlowExitUI,
+});
         
 
        
