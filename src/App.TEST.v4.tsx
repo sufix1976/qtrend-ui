@@ -2018,94 +2018,17 @@ kinkStrength >= minKinkStrength
   }
 }
 
-     const distKinkLongCandidates: MarkerPoint[] = [];
-const distKinkShortCandidates: MarkerPoint[] = [];
+   const distKinkLongCandidates = coreCheck.distKinkLongCandidates;
+const distKinkShortCandidates = coreCheck.distKinkShortCandidates;
 
-const lowerExtreme = -distExtremeUI;
-const upperExtreme = distExtremeUI;
-const distKinkConfirm = distExtremeUI * 0.07;
+const allLongEntries = coreCheck.allLongEntries;
+const allShortEntries = coreCheck.allShortEntries;
 
-let longExtremePoint: LinePoint | null = null;
-let shortExtremePoint: LinePoint | null = null;
+const tradeLongEntries = coreCheck.tradeLongEntries;
+const tradeShortEntries = coreCheck.tradeShortEntries;
 
-let longArmed = true;
-let shortArmed = true;
-
-for (let i = 1; i < dist.length; i++) {
-  const curr = dist[i];
-
-  // wieder scharf schalten erst nach Verlassen der Extremzone
-  if (curr.value >= lowerExtreme) longArmed = true;
-  if (curr.value <= upperExtreme) shortArmed = true;
-
-  // LONG-Zone: tiefsten Punkt merken
-  if (longArmed && curr.value < lowerExtreme) {
-    if (!longExtremePoint || curr.value < longExtremePoint.value) {
-      longExtremePoint = curr;
-    }
-  }
-
-  // LONG-Entry erst nach echtem Rebound, Marker auf Entry-Kerze
-  if (
-    longArmed &&
-    longExtremePoint &&
-    curr.value - longExtremePoint.value >= distKinkConfirm
-  ) {
-    distKinkLongCandidates.push({
-      time: curr.time,
-      value: 1,
-      text: "KL_D",
-      color: "#66ffcc",
-    });
-
-    longExtremePoint = null;
-    longArmed = false;
-  }
-
-  // SHORT-Zone: höchsten Punkt merken
-  if (shortArmed && curr.value > upperExtreme) {
-    if (!shortExtremePoint || curr.value > shortExtremePoint.value) {
-      shortExtremePoint = curr;
-    }
-  }
-
-  // SHORT-Entry erst nach echter Bewegung runter, Marker auf Entry-Kerze
-  if (
-    shortArmed &&
-    shortExtremePoint &&
-    shortExtremePoint.value - curr.value >= distKinkConfirm
-  ) {
-    distKinkShortCandidates.push({
-      time: curr.time,
-      value: 1,
-      text: "KS_D",
-      color: "#ff99aa",
-    });
-
-    shortExtremePoint = null;
-    shortArmed = false;
-  }
-}
-        
-const allLongEntries = [
-  ...rawLongCandidates,
-  ...kinkLongCandidates,
-  ...distKinkLongCandidates,
-];
-
-const allShortEntries = [
-  ...rawShortCandidates,
-  ...kinkShortCandidates,
-  ...distKinkShortCandidates,
-];
-
-const tradeLongEntries = allLongEntries.filter(
-  (p) => p.text !== "KL_T_BLOCK"
-);
-
-const tradeShortEntries = allShortEntries.filter(
-  (p) => p.text !== "KS_T_BLOCK"
-);
+const blockedLongEntries = coreCheck.blockedLongEntries;
+const blockedShortEntries = coreCheck.blockedShortEntries;
         
 
 const sim = simulateStrategyTESTv4(
