@@ -1464,14 +1464,16 @@ if (!distMiddle.length) {
           adaptiveBandMultUI
         );
 
-        const coreCheck = computeQTrendCore(candles, {
+       const coreCheck = computeQTrendCore(candles, {
   smaFast: smaFastUI,
   smaSlow: smaSlowUI,
+  smaMiddle: smaMiddleUI,
   smaOffset: smaOffsetUI,
-  entryBand: entryBandUI,
-  kinkLookbackMinutes: kinkConfirmBarsUI,
-  minKinkHeight: minKinkUI,        
-          
+  outerOffset: outerOffsetUI,
+  minKink: minKinkUI,
+  distExtreme: distExtremeUI,
+  kinkStrengthFactor: kinkStrengthFactorUI,
+  useSlowExit: useSlowExitUI,
 });
 
 
