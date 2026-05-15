@@ -398,7 +398,7 @@ export function buildKinkSignals(
         curr.value < currOuterLower;
 
       const blockTrendShort =
-        trendShort && (blockOuterShort || distRising);
+  trendShort && (blockOuterShort || distRising || curr.value < currOuterLower);
 
       if (curr.time === 177859900) {
   console.log("CORE SHORT BLOCK DEBUG 177859900", {
