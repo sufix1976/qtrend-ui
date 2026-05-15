@@ -1664,86 +1664,7 @@ const distFalling =
   dmCurr != null &&
   dmCurr < dmPrev1;
 
-  // KL
-  if (
-    (prev1.value < currLower || trendNowLong === "up") &&
-    slopePrev < 0 &&
-slopeNow > 0 &&
-kinkStrength >= minKinkStrength
-  ) {
-    const counterTrendLong = trendNowLong === "down";
-    const trendLong = trendNowLong === "up";
 
-    const currOuterUpper = outerUpperMap.get(curr.time);
-
-    const blockOuterLong =
-      trendLong &&
-      currOuterUpper != null &&
-      curr.value > currOuterUpper;
-
-    const blockTrendLong =
-  trendLong && (blockOuterLong || distFalling);
-
-    kinkLongCandidates.push({
-      time: curr.time,
-      value: curr.value,
-      text: counterTrendLong
-        ? "KL_CT"
-        : blockTrendLong
-        ? "KL_T_BLOCK"
-        : trendLong
-        ? "KL_T"
-        : "KL",
-      color: counterTrendLong
-        ? "#66ccff"
-        : blockTrendLong
-        ? "#9ca3af"
-        : trendLong
-        ? "#00ff88"
-        : "#00ffaa",
-    });
-  }
-
-  // KS
-  if (
-    (prev1.value > currUpper || trendNowShort === "down") &&
-    slopePrev > 0 &&
-slopeNow < 0 &&
-kinkStrength >= minKinkStrength
-  ) {
-    const counterTrendShort = trendNowShort === "up";
-    const trendShort = trendNowShort === "down";
-
-    const currOuterLower = outerLowerMap.get(curr.time);
-
-    const blockOuterShort =
-      trendShort &&
-      currOuterLower != null &&
-      curr.value < currOuterLower;
-
-    const blockTrendShort =
-  trendShort && (blockOuterShort || distRising);
-
-    kinkShortCandidates.push({
-      time: curr.time,
-      value: curr.value,
-      text: counterTrendShort
-        ? "KS_CT"
-        : blockTrendShort
-        ? "KS_T_BLOCK"
-        : trendShort
-        ? "KS_T"
-        : "KS",
-      color: counterTrendShort
-        ? "#ffaa66"
-        : blockTrendShort
-        ? "#9ca3af"
-        : trendShort
-        ? "#ff4477"
-        : "#ff77aa",
-    });
-  }
-}
 
    const distKinkLongCandidates: MarkerPoint[] = [];
 const distKinkShortCandidates: MarkerPoint[] = [];
@@ -1849,20 +1770,6 @@ for (let j = Math.max(0, dist.length - 30); j < dist.length; j++) {
   recentLongExtreme = Math.min(recentLongExtreme, dist[j].value);
 }
 
-console.log("LONG SETUP CHECK", {
-  symbol,
-  interval,
-  lastCandle: candles.at(-1),
-  lastDist,
-  lastTrend,
-  entryBandUI,
-  minKinkUI,
-  recentLongExtreme,
-  reboundNow: lastDist ? lastDist.value - recentLongExtreme : null,
-  kinkReady: lastDist ? lastDist.value - recentLongExtreme >= minKinkUI : false,
-  belowLowerBand: lastDist ? lastDist.value <= -entryBandUI : false,
-  dynamicBandLast: lastDynBand,
-});
 
    
         
