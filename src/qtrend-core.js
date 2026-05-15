@@ -1,17 +1,37 @@
 // qtrend-core.js
-// Eine Quelle für UI + Worker.
-// Keine Broker-Logik. Keine DB-Logik. Keine nachträglichen Marker.
+console.log("QTREND CORE FILE LOADED V2");
+// qtrend-core.js
+// Zentrale Signalengine für UI + Worker
+// Keine Broker- oder DB-Logik.
+
+export function sanitizeLinePoints(points) {
+  return (points || [])
+    .filter((p) => p && p.time != null && p.value != null)
+    .map((p) => ({
+      time: Number(p.time),
+      value: Number(p.value),
+    }))
+    .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+} 
 
 export function calcSMA(candles, length) {
   const out = [];
-  if (!Array.isArray(candles) || length <= 0) return out;
+
+  if (!Array.isArray(candles) || length <= 0) {
+    return out;
+  }
 
   for (let i = length - 1; i < candles.length; i++) {
     let sum = 0;
+
     for (let j = 0; j < length; j++) {
       sum += Number(candles[i - j].close);
     }
-    out.push({ time: Number(candles[i].time), value: sum / length });
+
+    out.push({
+      time: Number(candles[i].time),
+      value: sum / length,
+    });
   }
 
   return out;
@@ -19,14 +39,17 @@ export function calcSMA(candles, length) {
 
 export function calcDistance(smaFast, smaSlow) {
   const slowMap = new Map();
+
   for (const p of smaSlow || []) {
     slowMap.set(Number(p.time), Number(p.value));
   }
 
   const out = [];
+
   for (const f of smaFast || []) {
     const t = Number(f.time);
     const s = slowMap.get(t);
+
     if (!Number.isFinite(s)) continue;
 
     out.push({
@@ -38,170 +61,28 @@ export function calcDistance(smaFast, smaSlow) {
   return out;
 }
 
-export function detectKinks(dist, zones, smaFast, lookbackMinutes, minKinkHeight) {
-  const longKinks = [];
-  const shortKinks = [];
+export function uniqueMarkers(points) {
+  const out = [];
+  const seen = new Set();
 
-  const debug = {
-    events: [],
-  };
+  for (const p of points || []) {
+    if (!Number.isFinite(p.time)) continue;
 
-  if (!Array.isArray(dist) || !Array.isArray(zones) || dist.length < 2) {
-    return { longKinks, shortKinks, debug };
+    const key = `${p.time}_${p.text || ""}`;
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    out.push(p);
   }
 
-  const zoneMap = new Map();
-  for (const z of zones) {
-    zoneMap.set(Number(z.time), z);
-  }
-
- let longWatch = false;
-let shortWatch = false;
-
-let wasLongZone = false;
-let wasShortZone = false;
-
-let longExtreme = null;
-let shortExtreme = null;
-
-  for (let i = 1; i < dist.length; i++) {
-    const curr = dist[i];
-    const prev = dist[i - 1];
-    const zone = zoneMap.get(Number(curr.time));
-    const slopeNow = curr.value - prev.value;
-    const slopePrev =
-  i >= 2
-    ? prev.value - dist[i - 2].value
-    : 0;
-    
-    const slopeChange = slopeNow - slopePrev;
-    
-    if (!zone) continue;
-
-   const enteredLongZone =
-  zone.longZone && !wasLongZone;
-
-if (enteredLongZone && !longWatch) {
-  longWatch = true;
-  longExtreme = { time: curr.time, value: curr.value };
+  return out.sort((a, b) => a.time - b.time);
 }
 
-   const enteredShortZone =
-  zone.shortZone && !wasShortZone;
-
-if (enteredShortZone && !shortWatch) {
-  shortWatch = true;
-  shortExtreme = { time: curr.time, value: curr.value };
-}
-
-    if (longWatch && longExtreme) {
-      if (curr.value < longExtreme.value) {
-        longExtreme = { time: curr.time, value: curr.value };
-      }
-
-      const recovery = curr.value - longExtreme.value;
-
-      const candlesFromExtreme =
-  i - dist.findIndex(
-    (d) => d.time === longExtreme.time
-  );
-
-     if (
-  recovery >= minKinkHeight &&
-  slopePrev < 0 &&
-  slopeNow > 0 &&
-  slopeChange > 0 &&
-  candlesFromExtreme >= 5
-) {
-        const slopeNow = curr.value - prev.value;
-const slopePrev =
-  i >= 2
-    ? prev.value - dist[i - 2].value
-    : 0;
-
-longKinks.push({
-  time: curr.time,
-  value: curr.value,
-  extremeTime: longExtreme.time,
-  extremeValue: longExtreme.value,
-
-  recovery,
-slopeNow,
-slopePrev,
-slopeChange: slopeNow - slopePrev,
-candlesFromExtreme:
- 
-  i - dist.findIndex(
-    (d) => d && longExtreme && d.time === longExtreme.time
-  ),
-});
-
-        longWatch = false;
-        longExtreme = null;
-      }
-    }
-
-    if (shortWatch && shortExtreme) {
-      if (curr.value > shortExtreme.value) {
-        shortExtreme = { time: curr.time, value: curr.value };
-      }
-
-      const recovery = shortExtreme.value - curr.value;
-
-      const candlesFromExtreme =
-  i - dist.findIndex(
-    (d) => d.time === shortExtreme.time
-  );
-
-    if (
-  recovery >= minKinkHeight &&
-  slopePrev > 0 &&
-  slopeNow < 0 &&
-  slopeChange < 0 &&
-  candlesFromExtreme >= 5
-) {
-        const slopeNow = curr.value - prev.value;
-const slopePrev =
-  i >= 2
-    ? prev.value - dist[i - 2].value
-    : 0;
-
-shortKinks.push({
-  time: curr.time,
-  value: curr.value,
-  extremeTime: shortExtreme.time,
-  extremeValue: shortExtreme.value,
-
-  recovery,
-slopeNow,
-slopePrev,
-slopeChange: slopeNow - slopePrev,
-candlesFromExtreme:
-  i - dist.findIndex(
-    (d) => d && shortExtreme && d.time === shortExtreme.time
-  ),
-});
-
-        shortWatch = false;
-        shortExtreme = null;
-      }
-    }
-
-    debug.events.push({
-      time: curr.time,
-      longWatch,
-      shortWatch,
-      longExtreme: longExtreme?.value ?? null,
-      shortExtreme: shortExtreme?.value ?? null,
-    });
-  }
-
-  return { longKinks, shortKinks, debug };
-}
-
-function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
+export function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
   const up = [];
   const down = [];
+
   let trend = null;
 
   for (let i = confirmBars; i < smaSlow.length; i++) {
@@ -218,99 +99,741 @@ function buildSmaTurnMarkers(smaSlow, confirmBars = 5) {
 
     if (rising && trend !== "up") {
       trend = "up";
-      up.push({ time: smaSlow[i].time, value: smaSlow[i].value });
+
+      up.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
     }
 
     if (falling && trend !== "down") {
       trend = "down";
-      down.push({ time: smaSlow[i].time, value: smaSlow[i].value });
+
+      down.push({
+        time: smaSlow[i].time,
+        value: smaSlow[i].value,
+      });
     }
   }
 
   return { up, down };
 }
 
-export function computeQTrendCore(candles, cfg) {
-  const smaFast = calcSMA(candles, Number(cfg.smaFast || 10));
-  const smaSlow = calcSMA(candles, Number(cfg.smaSlow || 100));
-  const dist = calcDistance(smaFast, smaSlow);
-  const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+function candleByTime(candles, time) {
+  return candles.find((c) => c.time === time) || null;
+}
 
-  const fastMap = new Map();
-  for (const p of smaFast) fastMap.set(Number(p.time), Number(p.value));
+function mapByTime(points) {
+  const m = new Map();
 
-  const slowMap = new Map();
-  for (const p of smaSlow) slowMap.set(Number(p.time), Number(p.value));
+  for (const p of points || []) {
+    m.set(Number(p.time), Number(p.value));
+  }
 
-  const zones = [];
-  let trend = null;
+  return m;
+}
 
-  for (const d of dist) {
-    const t = Number(d.time);
-    const fast = fastMap.get(t);
-    const slow = slowMap.get(t);
+export function computeTrendState(
+  candles,
+  smaFast,
+  smaSlow,
+  distMiddle
+) {
+  const fastMap = mapByTime(smaFast);
+  const slowMap = mapByTime(smaSlow);
+  const middleMap = mapByTime(distMiddle);
 
-    if (!Number.isFinite(fast) || !Number.isFinite(slow)) continue;
+  const out = [];
 
-    const upperOffset = slow + Number(cfg.smaOffset || 0);
-    const lowerOffset = slow - Number(cfg.smaOffset || 0);
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
 
-    for (const p of smaTurns.up) {
-      if (Number(p.time) === t) trend = "UT";
+    const fast = fastMap.get(c.time);
+    const slow = slowMap.get(c.time);
+    const middle = middleMap.get(c.time);
+
+    const prevMiddle = middleMap.get(candles[i - 1].time);
+
+    if (
+      !Number.isFinite(fast) ||
+      !Number.isFinite(slow) ||
+      !Number.isFinite(middle) ||
+      !Number.isFinite(prevMiddle)
+    ) {
+      continue;
     }
 
-    for (const p of smaTurns.down) {
-      if (Number(p.time) === t) trend = "DT";
-    }
+    let score = 0;
 
-    const longZone =
-      trend === "UT"
-        ? true
-        : d.value <= -Number(cfg.entryBand || 0) && fast <= lowerOffset;
+    if (fast > slow) score += 1;
+    if (fast < slow) score -= 1;
 
-    const shortZone =
-      trend === "DT"
-        ? true
-        : d.value >= Number(cfg.entryBand || 0) && fast >= upperOffset;
+    if (middle > 0) score += 1;
+    if (middle < 0) score -= 1;
 
-    zones.push({
-      time: t,
-      dist: d.value,
-      fast,
-      slow,
-      upperOffset,
-      lowerOffset,
+    if (middle > prevMiddle) score += 1;
+    if (middle < prevMiddle) score -= 1;
+
+    if (c.close > slow) score += 1;
+    if (c.close < slow) score -= 1;
+
+    let trend = "TRN";
+
+    if (score >= 2) trend = "TRU";
+    else if (score <= -2) trend = "TRD";
+
+    out.push({
+      time: c.time,
       trend,
-      longZone,
-      shortZone,
+      score,
     });
   }
 
-  const kinks = detectKinks(
-    dist,
-    zones,
+  return out;
+}
+
+export function trendAt(trendStates, time) {
+  let last = null;
+
+  for (const t of trendStates || []) {
+    if (t.time > time) break;
+    last = t;
+  }
+
+  return last?.trend || "TRN";
+}
+
+export function buildReclaimSignals(
+  candles,
+  smaFast,
+  smaSlow,
+  smaOffset
+) {
+  const fastMap = mapByTime(smaFast);
+  const slowMap = mapByTime(smaSlow);
+
+  const rawLongCandidates = [];
+  const rawShortCandidates = [];
+
+  let longArmed = false;
+  let shortArmed = false;
+
+  for (const c of candles || []) {
+    const fast = fastMap.get(c.time);
+    const slow = slowMap.get(c.time);
+
+    if (!Number.isFinite(fast) || !Number.isFinite(slow)) continue;
+
+    const upper = slow + smaOffset;
+    const lower = slow - smaOffset;
+
+    if (fast < lower) {
+      longArmed = true;
+    }
+
+    if (fast > upper) {
+      shortArmed = true;
+    }
+
+    if (longArmed && fast >= lower) {
+      rawLongCandidates.push({
+        time: c.time,
+        value: c.low,
+        text: "RL",
+        reason: "RL",
+      });
+
+      longArmed = false;
+    }
+
+    if (shortArmed && fast <= upper) {
+      rawShortCandidates.push({
+        time: c.time,
+        value: c.high,
+        text: "RS",
+        reason: "RS",
+      });
+
+      shortArmed = false;
+    }
+  }
+
+  return {
+    rawLongCandidates: uniqueMarkers(rawLongCandidates),
+    rawShortCandidates: uniqueMarkers(rawShortCandidates),
+  };
+}
+
+export function buildKinkSignals(
+  candles,
+  smaFast,
+  smaSlow,
+  smaOffset,
+  outerOffset,
+  minKink,
+  kinkStrengthFactor,
+  distMiddle,
+  oldTrendEvents
+) {
+  const lowerMap = new Map();
+  const upperMap = new Map();
+  const outerLowerMap = new Map();
+  const outerUpperMap = new Map();
+
+  for (const p of smaSlow || []) {
+    lowerMap.set(Number(p.time), Number(p.value) - smaOffset);
+    upperMap.set(Number(p.time), Number(p.value) + smaOffset);
+    outerLowerMap.set(Number(p.time), Number(p.value) - smaOffset - outerOffset);
+    outerUpperMap.set(Number(p.time), Number(p.value) + smaOffset + outerOffset);
+  }
+
+  const distMiddleMap = mapByTime(distMiddle);
+
+  function oldTrendAt(time) {
+    let trend = null;
+
+    for (const e of oldTrendEvents || []) {
+      if (e.time > time) break;
+      trend = e.trend;
+    }
+
+    return trend;
+  }
+
+  const kinkLongCandidates = [];
+  const kinkShortCandidates = [];
+
+  for (let i = 2; i < smaFast.length; i++) {
+    const prev2 = smaFast[i - 2];
+    const prev1 = smaFast[i - 1];
+    const curr = smaFast[i];
+
+    const currLower = lowerMap.get(curr.time);
+    const currUpper = upperMap.get(curr.time);
+
+    if (currLower == null || currUpper == null) continue;
+
+    const slopePrev = prev1.value - prev2.value;
+    const slopeNow = curr.value - prev1.value;
+
+    const kinkStrength = Math.abs(slopeNow);
+    const minKinkStrength = minKink * kinkStrengthFactor;
+
+    const trendNowLong = oldTrendAt(curr.time);
+    const trendNowShort = oldTrendAt(curr.time);
+
+    const dmPrev1 = distMiddleMap.get(prev1.time);
+    const dmCurr = distMiddleMap.get(curr.time);
+
+    const distRising =
+      dmPrev1 != null &&
+      dmCurr != null &&
+      dmCurr > dmPrev1;
+
+    const distFalling =
+      dmPrev1 != null &&
+      dmCurr != null &&
+      dmCurr < dmPrev1;
+
+    if (
+      (prev1.value < currLower || trendNowLong === "up") &&
+      slopePrev < 0 &&
+      slopeNow > 0 &&
+      kinkStrength >= minKinkStrength
+    ) {
+      const counterTrendLong = trendNowLong === "down";
+      const trendLong = trendNowLong === "up";
+
+      const currOuterUpper = outerUpperMap.get(curr.time);
+
+      const blockOuterLong =
+        trendLong &&
+        currOuterUpper != null &&
+        curr.value > currOuterUpper;
+
+      const blockTrendLong =
+        trendLong && (blockOuterLong || distFalling);
+
+      kinkLongCandidates.push({
+        time: curr.time,
+        value: curr.value,
+        text: counterTrendLong
+          ? "KL_CT"
+          : blockTrendLong
+          ? "KL_T_BLOCK"
+          : trendLong
+          ? "KL_T"
+          : "KL",
+        reason: counterTrendLong
+          ? "KL_CT"
+          : blockTrendLong
+          ? "KL_T_BLOCK"
+          : trendLong
+          ? "KL_T"
+          : "KL",
+        color: counterTrendLong
+          ? "#66ccff"
+          : blockTrendLong
+          ? "#9ca3af"
+          : trendLong
+          ? "#00ff88"
+          : "#00ffaa",
+      });
+    }
+
+    if (
+      (prev1.value > currUpper || trendNowShort === "down") &&
+      slopePrev > 0 &&
+      slopeNow < 0 &&
+      kinkStrength >= minKinkStrength
+    ) {
+      const counterTrendShort = trendNowShort === "up";
+      const trendShort = trendNowShort === "down";
+
+      const currOuterLower = outerLowerMap.get(curr.time);
+
+      const blockOuterShort =
+        trendShort &&
+        currOuterLower != null &&
+        curr.value < currOuterLower;
+
+      const blockTrendShort =
+        trendShort && (blockOuterShort || distRising);
+
+      kinkShortCandidates.push({
+        time: curr.time,
+        value: curr.value,
+        text: counterTrendShort
+          ? "KS_CT"
+          : blockTrendShort
+          ? "KS_T_BLOCK"
+          : trendShort
+          ? "KS_T"
+          : "KS",
+        reason: counterTrendShort
+          ? "KS_CT"
+          : blockTrendShort
+          ? "KS_T_BLOCK"
+          : trendShort
+          ? "KS_T"
+          : "KS",
+        color: counterTrendShort
+          ? "#ffaa66"
+          : blockTrendShort
+          ? "#9ca3af"
+          : trendShort
+          ? "#ff4477"
+          : "#ff77aa",
+      });
+    }
+  }
+
+  console.log("CORE KINK DEBUG", {
+  smaFastLen: smaFast.length,
+  smaSlowLen: smaSlow.length,
+  distMiddleLen: distMiddle.length,
+  oldTrendEventsLen: oldTrendEvents.length,
+  minKink,
+  kinkStrengthFactor,
+  longCount: kinkLongCandidates.length,
+  shortCount: kinkShortCandidates.length,
+  lastLong: kinkLongCandidates.at(-1) ?? null,
+  lastShort: kinkShortCandidates.at(-1) ?? null,
+});
+
+  return {
+    kinkLongCandidates: uniqueMarkers(kinkLongCandidates),
+    kinkShortCandidates: uniqueMarkers(kinkShortCandidates),
+  };
+}
+
+export function buildDistKinkSignals(
+  candles,
+  dist,
+  distExtreme
+) {
+  const candleMap = new Map();
+  for (const c of candles || []) {
+    candleMap.set(Number(c.time), c);
+  }
+
+  const longCandidates = [];
+  const shortCandidates = [];
+
+  const confirm = Number(distExtreme) * 0.07;
+
+  let longArmed = true;
+  let shortArmed = true;
+
+  let longExtreme = null;
+  let shortExtreme = null;
+
+  for (const d of dist || []) {
+    const c = candleMap.get(Number(d.time));
+    if (!c) continue;
+
+    const val = Number(d.value);
+
+    // ---------- LONG: unter -distExtreme ----------
+    if (val < -distExtreme) {
+      if (longArmed) {
+        if (!longExtreme || val < longExtreme.value) {
+          longExtreme = {
+            time: d.time,
+            value: val,
+          };
+        }
+
+        if (
+          longExtreme &&
+          val - longExtreme.value >= confirm
+        ) {
+          longCandidates.push({
+            time: c.time,
+            value: c.low,
+            text: "KL_D",
+            reason: "KL_D",
+          });
+
+          longArmed = false;
+        }
+      }
+    } else {
+      // erst nach Verlassen der unteren Extremzone wieder scharf
+      longArmed = true;
+      longExtreme = null;
+    }
+
+    // ---------- SHORT: über +distExtreme ----------
+    if (val > distExtreme) {
+      if (shortArmed) {
+        if (!shortExtreme || val > shortExtreme.value) {
+          shortExtreme = {
+            time: d.time,
+            value: val,
+          };
+        }
+
+        if (
+          shortExtreme &&
+          shortExtreme.value - val >= confirm
+        ) {
+          shortCandidates.push({
+            time: c.time,
+            value: c.high,
+            text: "KS_D",
+            reason: "KS_D",
+          });
+
+          shortArmed = false;
+        }
+      }
+    } else {
+      // erst nach Verlassen der oberen Extremzone wieder scharf
+      shortArmed = true;
+      shortExtreme = null;
+    }
+  }
+
+  return {
+    distKinkLongCandidates: uniqueMarkers(longCandidates),
+    distKinkShortCandidates: uniqueMarkers(shortCandidates),
+  };
+}
+
+export function buildExitSignals(
+  candles,
+  smaFast,
+  smaSlow,
+  smaOffset,
+  useSlowExit = true
+) {
+  const fastMap = mapByTime(smaFast);
+  const slowMap = mapByTime(smaSlow);
+
+  const longExits = [];
+  const shortExits = [];
+
+  let wasLongAbove = false;
+  let wasShortBelow = false;
+
+  for (const c of candles || []) {
+    const fast = fastMap.get(c.time);
+    const slow = slowMap.get(c.time);
+
+    if (!Number.isFinite(fast) || !Number.isFinite(slow)) continue;
+
+    const upper = slow + smaOffset;
+    const lower = slow - smaOffset;
+
+    const longExitLine = useSlowExit ? slow : upper;
+    const shortExitLine = useSlowExit ? slow : lower;
+
+    if (fast > longExitLine) {
+      wasLongAbove = true;
+    }
+
+    if (fast < shortExitLine) {
+      wasShortBelow = true;
+    }
+
+    if (wasLongAbove && fast <= longExitLine) {
+      longExits.push({
+        time: c.time,
+        value: c.low,
+        text: "EXL",
+        reason: "EXL",
+      });
+
+      wasLongAbove = false;
+    }
+
+    if (wasShortBelow && fast >= shortExitLine) {
+      shortExits.push({
+        time: c.time,
+        value: c.high,
+        text: "EXS",
+        reason: "EXS",
+      });
+
+      wasShortBelow = false;
+    }
+  }
+
+  return {
+    longExits: uniqueMarkers(longExits),
+    shortExits: uniqueMarkers(shortExits),
+  };
+}
+
+export function computeQTrendCore(candles, cfg = {}) {
+  const safeCandles = Array.isArray(candles)
+    ? candles
+        .map((c) => ({
+          time: Number(c.time),
+          open: Number(c.open),
+          high: Number(c.high),
+          low: Number(c.low),
+          close: Number(c.close),
+        }))
+        .filter(
+          (c) =>
+            Number.isFinite(c.time) &&
+            Number.isFinite(c.open) &&
+            Number.isFinite(c.high) &&
+            Number.isFinite(c.low) &&
+            Number.isFinite(c.close)
+        )
+    : [];
+
+  const smaFastLen = Number(cfg.smaFast ?? 10);
+  const smaSlowLen = Number(cfg.smaSlow ?? 100);
+  const smaMiddleLen = Number(cfg.smaMiddle ?? 100);
+  const smaOffset = Number(cfg.smaOffset ?? 150);
+  const outerOffset = Number(cfg.outerOffset ?? Math.max(1, smaOffset * 0.5));
+  const minKink = Number(cfg.minKink ?? cfg.minKinkHeight ?? 1);
+  const distExtreme = Number(cfg.distExtreme ?? cfg.entryBand ?? 100);
+  const useSlowExit = cfg.useSlowExit == null ? true : Boolean(cfg.useSlowExit);
+
+  const smaFast = sanitizeLinePoints(calcSMA(safeCandles, smaFastLen));
+  const smaSlow = sanitizeLinePoints(calcSMA(safeCandles, smaSlowLen));
+  const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
+
+  const distAsCandles = dist.map((p) => ({
+    time: p.time,
+    open: p.value,
+    high: p.value,
+    low: p.value,
+    close: p.value,
+  }));
+
+  let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleLen));
+  if (!distMiddle.length) distMiddle = dist;
+
+  const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+
+  const oldTrendEvents = [
+    ...smaTurns.up.map((p) => ({
+      time: p.time,
+      trend: "up",
+    })),
+    ...smaTurns.down.map((p) => ({
+      time: p.time,
+      trend: "down",
+    })),
+  ].sort((a, b) => a.time - b.time);
+
+  const trendStates = computeTrendState(
+    safeCandles,
     smaFast,
-    Number(cfg.kinkLookbackMinutes || 10),
-    Number(cfg.minKinkHeight || 0)
+    smaSlow,
+    distMiddle
   );
+
+  const reclaim = buildReclaimSignals(
+    safeCandles,
+    smaFast,
+    smaSlow,
+    smaOffset
+  );
+
+ const kinkStrengthFactor = Number(cfg.kinkStrengthFactor ?? 0.15);
+
+const kinks = buildKinkSignals(
+  safeCandles,
+  smaFast,
+  smaSlow,
+  smaOffset,
+  outerOffset,
+  minKink,
+  kinkStrengthFactor,
+  distMiddle,
+  oldTrendEvents
+);
+
+  const distKinks = buildDistKinkSignals(
+    safeCandles,
+    dist,
+    distExtreme
+  );
+
+  const exits = buildExitSignals(
+    safeCandles,
+    smaFast,
+    smaSlow,
+    smaOffset,
+    useSlowExit
+  );
+
+  const allLongEntries = uniqueMarkers([
+    ...reclaim.rawLongCandidates,
+    ...kinks.kinkLongCandidates,
+    ...distKinks.distKinkLongCandidates,
+  ]);
+
+  const allShortEntries = uniqueMarkers([
+    ...reclaim.rawShortCandidates,
+    ...kinks.kinkShortCandidates,
+    ...distKinks.distKinkShortCandidates,
+  ]);
+
+  const blockedLongEntries = allLongEntries.filter(
+    (p) => p.text === "KL_T_BLOCK"
+  );
+
+  const blockedShortEntries = allShortEntries.filter(
+    (p) => p.text === "KS_T_BLOCK"
+  );
+
+  const tradeLongEntries = allLongEntries.filter(
+    (p) => p.text !== "KL_T_BLOCK"
+  );
+
+  const tradeShortEntries = allShortEntries.filter(
+    (p) => p.text !== "KS_T_BLOCK"
+  );
+
+  const eventStream = [
+    ...tradeLongEntries.map((p) => ({
+      ...p,
+      side: "long",
+      eventType: "entry",
+    })),
+    ...tradeShortEntries.map((p) => ({
+      ...p,
+      side: "short",
+      eventType: "entry",
+    })),
+    ...exits.longExits.map((p) => ({
+      ...p,
+      side: "flat",
+      eventType: "exit_long",
+    })),
+    ...exits.shortExits.map((p) => ({
+      ...p,
+      side: "flat",
+      eventType: "exit_short",
+    })),
+  ].sort((a, b) => a.time - b.time);
+
+  let state = "flat";
+  let latestStrategyEvent = null;
+
+  for (const e of eventStream) {
+    if (e.eventType === "entry") {
+      if (state === e.side) continue;
+
+      state = e.side;
+      latestStrategyEvent = e;
+      continue;
+    }
+
+    if (e.eventType === "exit_long" && state === "long") {
+      state = "flat";
+      latestStrategyEvent = e;
+      continue;
+    }
+
+    if (e.eventType === "exit_short" && state === "short") {
+      state = "flat";
+      latestStrategyEvent = e;
+      continue;
+    }
+  }
 
   return {
     smaFast,
     smaSlow,
     dist,
-    zones,
-    kinks,
+    distMiddle,
 
-    longEntries: [],
-    shortEntries: [],
-    longExits: [],
-    shortExits: [],
+    smaTurns,
+    oldTrendEvents,
+    trendStates,
+
+    rawLongCandidates: reclaim.rawLongCandidates,
+    rawShortCandidates: reclaim.rawShortCandidates,
+
+    kinkLongCandidates: kinks.kinkLongCandidates,
+    kinkShortCandidates: kinks.kinkShortCandidates,
+
+    distKinkLongCandidates: distKinks.distKinkLongCandidates,
+    distKinkShortCandidates: distKinks.distKinkShortCandidates,
+
+    allLongEntries,
+    allShortEntries,
+
+    blockedLongEntries,
+    blockedShortEntries,
+
+    tradeLongEntries,
+    tradeShortEntries,
+
+    longExits: exits.longExits,
+    shortExits: exits.shortExits,
+
+    eventStream,
+    latestStrategyEvent,
+    latestStrategyEventTime: latestStrategyEvent?.time ?? null,
+    latestStrategyEventType: latestStrategyEvent?.reason ?? null,
+    state,
 
     debug: {
-      lastZone: zones[zones.length - 1] || null,
-      zonesCount: zones.length,
-      longZoneCount: zones.filter((z) => z.longZone).length,
-      shortZoneCount: zones.filter((z) => z.shortZone).length,
+      lastCandle: safeCandles[safeCandles.length - 1] || null,
+      lastTrend: trendStates[trendStates.length - 1] || null,
+      lastEvent: latestStrategyEvent,
+      counts: {
+        rawLong: reclaim.rawLongCandidates.length,
+        rawShort: reclaim.rawShortCandidates.length,
+        kinkLong: kinks.kinkLongCandidates.length,
+        kinkShort: kinks.kinkShortCandidates.length,
+        distKinkLong: distKinks.distKinkLongCandidates.length,
+        distKinkShort: distKinks.distKinkShortCandidates.length,
+        tradeLong: tradeLongEntries.length,
+        tradeShort: tradeShortEntries.length,
+        longExits: exits.longExits.length,
+        shortExits: exits.shortExits.length,
+      },
     },
   };
 }
