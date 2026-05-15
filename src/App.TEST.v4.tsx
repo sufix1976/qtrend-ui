@@ -1616,13 +1616,11 @@ const distKinkShortCandidates: MarkerPoint[] = [];
 
 const allLongEntries = [
   ...rawLongCandidates,
-  ...kinkLongCandidates,
   ...distKinkLongCandidates,
 ];
 
 const allShortEntries = [
   ...rawShortCandidates,
-  ...kinkShortCandidates,
   ...distKinkShortCandidates,
 ];
 
