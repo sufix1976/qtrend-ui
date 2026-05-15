@@ -1025,22 +1025,20 @@ async function saveAllSizes() {
         ]);
 
         const sim = simulateStrategyTESTv4(
-          candles,
-          dist,
-          distMiddle,
-          filteredLongEntries,
-          filteredShortEntries,
-          dynamicBand,
-          SPREAD_BY_SYMBOL[s] ?? 0,
-          SLIPPAGE_BY_SYMBOL[s] ?? 0,
-          smaFast,
-          smaUpper,
-          smaSlow,
-          smaLower,
-          cfg?.use_slow_exit == null
-  ? true
-  : Boolean(cfg.use_slow_exit)
-        );
+  candles,
+  dist,
+  distMiddle,
+  coreCheck.tradeLongEntries,
+  coreCheck.tradeShortEntries,
+  dynamicBand,
+  assumedSpread,
+  assumedSlippage,
+  smaFast,
+  smaUpper,
+  smaSlow,
+  smaLower,
+  useSlowExitUI
+);
 
         const pf =
           sim.grossLoss > 0
