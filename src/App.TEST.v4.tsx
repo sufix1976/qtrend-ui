@@ -1396,25 +1396,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
   }
 }
 
-   /*     const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
 
-        const trendEvents = [
-          ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
-          ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
-        ].sort((a, b) => a.time - b.time);
-
-        function trendAt(time: number): "up" | "down" | null {
-          let trend: "up" | "down" | null = null;
-
-          for (const e of trendEvents) {
-            if (e.time > time) break;
-            trend = e.trend;
-          }
-
-          return trend;
-        }
-
-        */
 
        
         
@@ -1528,9 +1510,7 @@ const _dynamicLowerBand = alignLineToCandles(
         smaFastSeries.setData(chartSmaFast as any);
         smaSlowSeries.setData(chartSmaSlow as any);
 
-        smaSlowTRUSeries.setData(smaSlowTRU as any);
-        smaSlowTRDSeries.setData(smaSlowTRD as any);
-        smaSlowTRNSeries.setData(smaSlowTRN as any);
+       
         
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
@@ -1668,8 +1648,7 @@ for (let i = 2; i < smaFast.length; i++) {
  const kinkStrength = Math.abs(slopeNow);
  const minKinkStrength = minKinkUI * kinkStrengthFactorUI;
 
-  const trendNowLong = trendAt(curr.time);
-  const trendNowShort = trendAt(curr.time);
+
 
   
   const dmPrev1 = distMiddleMap.get(prev1.time);
@@ -1861,9 +1840,8 @@ console.log("UI ENTRY FRESHNESS", {
     newestEntryTime === (candles.at(-1)?.time ?? -1),
 });
 
-        const lastDist = dist.at(-1);
-const lastDynBand = dynamicBand.at(-1);
-const lastTrend = lastDist ? trendAt(lastDist.time) : null;
+
+
 
 let recentLongExtreme = Number.POSITIVE_INFINITY;
 
