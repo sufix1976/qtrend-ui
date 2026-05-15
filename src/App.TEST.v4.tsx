@@ -1102,6 +1102,20 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const trendUpSeries = priceChart.addSeries(LineSeries, {
+  color: "#00ff88",
+  lineWidth: 4,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const trendDownSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff4d6d",
+  lineWidth: 4,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
 
 
     const smaUpperSeries = priceChart.addSeries(LineSeries, {
@@ -1839,6 +1853,23 @@ createSeriesMarkers(
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
+const trendUpData = coreCheck.trendStates
+  .filter((t: any) => t.trend === "TRU" && t.trendValue != null)
+  .map((t: any) => ({
+    time: t.time,
+    value: t.trendValue,
+  }));
+
+const trendDownData = coreCheck.trendStates
+  .filter((t: any) => t.trend === "TRD" && t.trendValue != null)
+  .map((t: any) => ({
+    time: t.time,
+    value: t.trendValue,
+  }));
+
+trendUpSeries.setData(trendUpData as any);
+trendDownSeries.setData(trendDownData as any);
+        
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
 
@@ -1969,6 +2000,9 @@ return () => {
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
+
+    priceChart.removeSeries(trendUpSeries);
+priceChart.removeSeries(trendDownSeries);
        
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
