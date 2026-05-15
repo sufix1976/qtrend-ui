@@ -1614,29 +1614,7 @@ if (!distMiddle.length) {
 });
 
 
-console.table(
-  coreCheck.kinks.longKinks.map((k: any) => ({
-    side: "LONG",
-    time: new Date(k.time * 1000).toLocaleString("de-DE"),
-    recovery: k.recovery,
-    slopeNow: k.slopeNow,
-    slopePrev: k.slopePrev,
-slopeChange: k.slopeChange,
-candlesFromExtreme: k.candlesFromExtreme,
-  }))
-);
 
-console.table(
-  coreCheck.kinks.shortKinks.map((k: any) => ({
-    side: "SHORT",
-    time: new Date(k.time * 1000).toLocaleString("de-DE"),
-    recovery: k.recovery,
-    slopeNow: k.slopeNow,
-    slopePrev: k.slopePrev,
-slopeChange: k.slopeChange,
-candlesFromExtreme: k.candlesFromExtreme,
-  }))
-);
         
 
         const chartCandles = chartifyCandles(candles);
