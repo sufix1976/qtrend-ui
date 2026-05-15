@@ -1415,7 +1415,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
   }
 }
 
-        const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+   /*     const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
 
         const trendEvents = [
           ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
@@ -1433,7 +1433,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
           return trend;
         }
 
-        
+        */
 
        
         
