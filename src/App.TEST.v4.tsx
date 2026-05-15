@@ -2110,7 +2110,7 @@ console.log("LONG SETUP CHECK", {
    
         
 
-   const coreLongProjected = projectMarkerPointsToCandles(
+  const coreLongProjected = projectMarkerPointsToCandles(
   sim.acceptedLongEntryPoints,
   candles,
   "below-mid"
