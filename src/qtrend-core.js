@@ -177,6 +177,10 @@ export function computeTrendState(
 
   let trend = "TRN";
 
+  const fastMap = mapByTime(smaFast);
+const slowMap = mapByTime(smaSlow);
+const distMiddleMap = mapByTime(distMiddle);
+
   for (let i = 1; i < candles.length; i++) {
     const smaHighBase = smaOf(highs, trendLength, i);
     const smaLowBase = smaOf(lows, trendLength, i);
@@ -214,11 +218,11 @@ export function computeTrendState(
       prevClose >= smaLow &&
       currClose < smaLow;
 
-    const fastNow = mapByTime(smaFast).get(candles[i].time);
-const slowNow = mapByTime(smaSlow).get(candles[i].time);
+    const fastNow = fastMap.get(candles[i].time);
+const slowNow = slowMap.get(candles[i].time);
 
-const distNow = distMiddle?.find((p) => p.time === candles[i].time)?.value;
-const distPrev = distMiddle?.find((p) => p.time === candles[i - 1].time)?.value;
+const distNow = distMiddleMap.get(candles[i].time);
+const distPrev = distMiddleMap.get(candles[i - 1].time);
 
 const bullishRecovery =
   trend === "TRD" &&
