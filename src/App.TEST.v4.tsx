@@ -94,6 +94,7 @@ type SymbolConfigRow = {
   size: number | null;
   updated_at?: string;
   dist_extreme?: number | null;
+  trend_length?: number | null;
   outer_offset?: number | null;
 };
 
@@ -402,6 +403,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [outerOffsetUI, setOuterOffsetUI] = useState(
   Math.max(1, smaOffsetUI * 0.5)
 );
+  const [trendLengthUI, setTrendLengthUI] = useState(20);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -438,6 +440,10 @@ const [scannerMessage, setScannerMessage] = useState("");
 
 if (cfg.outer_offset != null) {
   setOuterOffsetUI(Number(cfg.outer_offset));
+}
+
+    if (cfg.trend_length != null) {
+  setTrendLengthUI(Number(cfg.trend_length));
 }
     
     if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
@@ -584,6 +590,7 @@ async function addNewSymbol() {
       adaptive_band: adaptiveBandUI ? 1 : 0,
       adaptive_band_mult: adaptiveBandMultUI,
       use_slow_exit: useSlowExitUI ? 1 : 0,
+      trend_length: trendLengthUI,
       dist_extreme: distExtremeUI,
       outer_offset: outerOffsetUI,
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
@@ -742,6 +749,7 @@ async function saveOneSize(symbolToSave: string) {
       adaptive_band: old?.adaptive_band ?? 0,
       adaptive_band_mult: old?.adaptive_band_mult ?? 1,
       dist_extreme: old?.dist_extreme ?? null,
+      trend_length: old?.trend_length ?? 20,
       outer_offset: old?.outer_offset ?? null,
       size,
     };
@@ -784,6 +792,7 @@ async function saveAllSizes() {
         adaptive_band_mult: old?.adaptive_band_mult ?? 1,
         dist_extreme: old?.dist_extreme ?? null,
         outer_offset: old?.outer_offset ?? null,
+        trend_length: old?.trend_length ?? 20,
         size: n,
       };
 
@@ -885,6 +894,7 @@ async function saveAllSizes() {
   distExtreme: distExtremeUI,
 
   useSlowExit: useSlowExitUI,
+         trendLength: trendLengthUI,
 });
 
         console.log("QTREND CORE CHECK 2", {
