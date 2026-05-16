@@ -890,15 +890,54 @@ const kinks = buildKinkSignals(
     distExtreme
   );
 
-  const exits = buildExitSignals(
-    safeCandles,
-    smaFast,
-    smaSlow,
-    smaOffset,
-    useSlowExit
-  );
+ const exits = buildExitSignals(
+  safeCandles,
+  smaFast,
+  smaSlow,
+  smaOffset,
+  useSlowExit
+);
 
-  const trendQualitySignals = buildTrendQualitySignals(
+const trendSwitchLongEntries = [];
+const trendSwitchShortEntries = [];
+
+for (let i = 1; i < trendStates.length; i++) {
+  const prev = trendStates[i - 1];
+  const curr = trendStates[i];
+
+  if (!prev || !curr) continue;
+
+  const d = dist.find((x) => x.time === curr.time);
+  if (!d) continue;
+
+  if (
+    prev.trend !== "TRU" &&
+    curr.trend === "TRU" &&
+    d.value < distExtreme
+  ) {
+    trendSwitchLongEntries.push({
+      time: curr.time,
+      value: 1,
+      text: "TRU",
+      color: "#00ff88",
+    });
+  }
+
+  if (
+    prev.trend !== "TRD" &&
+    curr.trend === "TRD" &&
+    d.value > -distExtreme
+  ) {
+    trendSwitchShortEntries.push({
+      time: curr.time,
+      value: 1,
+      text: "TRD",
+      color: "#ff4d6d",
+    });
+  }
+}
+
+const trendQualitySignals = buildTrendQualitySignals(
   safeCandles,
   [
     ...trendSwitchLongEntries,
@@ -942,49 +981,6 @@ const allShortEntries = [
   ...trendSwitchShortEntries,
   ...reactionShortEntries,
 ];
-
-  const trendSwitchLongEntries = [];
-const trendSwitchShortEntries = [];
-
-for (let i = 1; i < trendStates.length; i++) {
-  const prev = trendStates[i - 1];
-  const curr = trendStates[i];
-
-  if (!prev || !curr) continue;
-
-  const d = dist.find((x) => x.time === curr.time);
-  if (!d) continue;
-
-  // SOFORT LONG bei Wechsel auf TRU
-  // aber NICHT wenn Dist oben überdehnt
-  if (
-    prev.trend !== "TRU" &&
-    curr.trend === "TRU" &&
-    d.value < distExtreme
-  ) {
-    trendSwitchLongEntries.push({
-      time: curr.time,
-      value: 1,
-      text: "TRU",
-      color: "#00ff88",
-    });
-  }
-
-  // SOFORT SHORT bei Wechsel auf TRD
-  // aber NICHT wenn Dist unten überdehnt
-  if (
-    prev.trend !== "TRD" &&
-    curr.trend === "TRD" &&
-    d.value > -distExtreme
-  ) {
-    trendSwitchShortEntries.push({
-      time: curr.time,
-      value: 1,
-      text: "TRD",
-      color: "#ff4d6d",
-    });
-  }
-}
 
 
   
