@@ -665,6 +665,111 @@ export function buildExitSignals(
   };
 }
 
+export function buildTrendQualitySignals(
+  candles,
+  trendEntries,
+  smaFast,
+  dist,
+  confirmBars = 3
+) {
+  const out = [];
+
+  const candleIndex = new Map();
+  candles.forEach((c, i) => candleIndex.set(Number(c.time), i));
+
+  const fastMap = mapByTime(smaFast);
+  const distMap = mapByTime(dist);
+
+  for (const e of trendEntries || []) {
+    const idx = candleIndex.get(Number(e.time));
+    if (idx == null) continue;
+
+    const end = idx + confirmBars;
+    if (end >= candles.length) continue;
+
+    const entryCandle = candles[idx];
+    const checkCandles = candles.slice(idx + 1, end + 1);
+
+    const fastEntry = fastMap.get(entryCandle.time);
+    const fastEnd = fastMap.get(candles[end].time);
+
+    const distEntry = distMap.get(entryCandle.time);
+    const distEnd = distMap.get(candles[end].time);
+
+    if (
+      !Number.isFinite(fastEntry) ||
+      !Number.isFinite(fastEnd) ||
+      !Number.isFinite(distEntry) ||
+      !Number.isFinite(distEnd)
+    ) {
+      continue;
+    }
+
+    let score = 0;
+
+    if (e.text === "TRU") {
+      const madeNewHigh =
+        Math.max(...checkCandles.map((c) => c.high)) > entryCandle.high;
+
+      const distImproved = distEnd > distEntry;
+      const fastImproved = fastEnd > fastEntry;
+
+      const pullback =
+        entryCandle.close - Math.min(...checkCandles.map((c) => c.low));
+
+      const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
+      const pullbackOk = pullback <= range * 1.5;
+
+      if (madeNewHigh) score++;
+      if (distImproved) score++;
+      if (fastImproved) score++;
+      if (pullbackOk) score++;
+    }
+
+    if (e.text === "TRD") {
+      const madeNewLow =
+        Math.min(...checkCandles.map((c) => c.low)) < entryCandle.low;
+
+      const distImproved = distEnd < distEntry;
+      const fastImproved = fastEnd < fastEntry;
+
+      const pullback =
+        Math.max(...checkCandles.map((c) => c.high)) - entryCandle.close;
+
+      const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
+      const pullbackOk = pullback <= range * 1.5;
+
+      if (madeNewLow) score++;
+      if (distImproved) score++;
+      if (fastImproved) score++;
+      if (pullbackOk) score++;
+    }
+
+    const quality =
+      score >= 3 ? "S" :
+      score <= 1 ? "W" :
+      "M";
+
+    out.push({
+      time: candles[end].time,
+      value: e.value,
+      text: `${e.text}-${quality}`,
+      reason: `${e.text}-${quality}`,
+      quality,
+      sourceTime: e.time,
+      score,
+      color:
+        quality === "S"
+          ? "#00ff88"
+          : quality === "M"
+          ? "#facc15"
+          : "#ff4d6d",
+    });
+  }
+
+  return uniqueMarkers(out);
+}
+
 export function computeQTrendCore(candles, cfg = {}) {
   const safeCandles = Array.isArray(candles)
     ? candles
@@ -967,6 +1072,17 @@ if (
     }
   }
 
+  const trendQualitySignals = buildTrendQualitySignals(
+  safeCandles,
+  [
+    ...trendSwitchLongEntries,
+    ...trendSwitchShortEntries,
+  ],
+  smaFast,
+  dist,
+  3
+);
+
   return {
     smaFast,
     smaSlow,
@@ -976,6 +1092,7 @@ if (
     smaTurns,
     oldTrendEvents,
     trendStates,
+    trendQualitySignals,
 
     rawLongCandidates: reclaim.rawLongCandidates,
     rawShortCandidates: reclaim.rawShortCandidates,
