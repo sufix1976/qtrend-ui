@@ -177,10 +177,6 @@ export function computeTrendState(
 
   let trend = "TRN";
 
-  const fastMap = mapByTime(smaFast);
-const slowMap = mapByTime(smaSlow);
-const distMiddleMap = mapByTime(distMiddle);
-
   for (let i = 1; i < candles.length; i++) {
     const smaHighBase = smaOf(highs, trendLength, i);
     const smaLowBase = smaOf(lows, trendLength, i);
@@ -218,34 +214,8 @@ const distMiddleMap = mapByTime(distMiddle);
       prevClose >= smaLow &&
       currClose < smaLow;
 
-    const fastNow = fastMap.get(candles[i].time);
-const slowNow = slowMap.get(candles[i].time);
-
-const distNow = distMiddleMap.get(candles[i].time);
-const distPrev = distMiddleMap.get(candles[i - 1].time);
-
-const bullishRecovery =
-  trend === "TRD" &&
-  Number.isFinite(fastNow) &&
-  Number.isFinite(slowNow) &&
-  Number.isFinite(distNow) &&
-  Number.isFinite(distPrev) &&
-  currClose > smaLow &&
-  fastNow > slowNow &&
-  distNow > distPrev;
-
-const bearishRecovery =
-  trend === "TRU" &&
-  Number.isFinite(fastNow) &&
-  Number.isFinite(slowNow) &&
-  Number.isFinite(distNow) &&
-  Number.isFinite(distPrev) &&
-  currClose < smaHigh &&
-  fastNow < slowNow &&
-  distNow < distPrev;
-
-if (crossedUp || bullishRecovery) trend = "TRU";
-if (crossedDown || bearishRecovery) trend = "TRD";
+    if (crossedUp) trend = "TRU";
+    if (crossedDown) trend = "TRD";
 
     out.push({
       time: candles[i].time,
