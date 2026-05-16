@@ -706,6 +706,7 @@ export function buildTrendQualitySignals(
     }
 
     let score = 0;
+    let netProgressOk = false;
 
     if (e.text === "TRU") {
       const madeNewHigh =
@@ -719,7 +720,7 @@ export function buildTrendQualitySignals(
 
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
-      const netProgressOk =
+      netProgressOk =
   candles[end].close > entryCandle.close;
       if (netProgressOk) score++;
 
@@ -741,7 +742,7 @@ export function buildTrendQualitySignals(
 
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
-      const netProgressOk =
+      netProgressOk =
   candles[end].close < entryCandle.close;
       if (netProgressOk) score++;
 
