@@ -945,7 +945,7 @@ const trendQualitySignals = buildTrendQualitySignals(
   ],
   smaFast,
   dist,
-  4
+  12
 );
 
 const reactionLongEntries = trendQualitySignals
