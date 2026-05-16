@@ -1303,6 +1303,16 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
+    const trendQualitySeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#facc15",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 5,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
       lineWidth: 2,
@@ -1785,6 +1795,12 @@ const coreShortProjected = projectMarkerPointsToCandles(
   "inside-mid"
 );
 
+        console.log("TREND QUALITY CHECK", {
+  raw: coreCheck.trendQualitySignals?.length,
+  projected: trendQualityProjected.length,
+  last: coreCheck.trendQualitySignals?.at(-1),
+});
+
 
 
         
@@ -1887,8 +1903,9 @@ createSeriesMarkers(
     "aboveBar"
   )
 );
+      
         createSeriesMarkers(
-  realCloseSeries,
+  trendQualitySeries,
   buildTextMarkers(trendQualityProjected, "aboveBar")
 );
 
@@ -2060,6 +2077,7 @@ return () => {
         priceChart.removeSeries(realBuySeries);
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
+        priceChart.removeSeries(trendQualitySeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
         
