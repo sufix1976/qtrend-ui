@@ -2538,7 +2538,7 @@ return () => {
 <input
   type="range"
   min={0}
-  max={Math.max(entryBandUI * 10, distExtremeUI * 3, 5)}
+  max={Math.max(5, distExtremeUI * 3, entryBandUI * 10)}
   step={entryBand < 1 ? 0.001 : 1}
   value={distExtremeUI}
   onChange={(e) => setDistExtremeUI(Number(e.target.value))}
