@@ -883,9 +883,14 @@ for (const e of mixedEvents) {
     }
   }
 
-  if (e.text === "KL_T_BLOCK" || e.text === "KS_T_BLOCK") {
-    continue;
-  }
+  if (
+  e.text === "KL_T_BLOCK" ||
+  e.text === "KS_T_BLOCK" ||
+  e.text === "KL_CT" ||
+  e.text === "KS_CT"
+) {
+  continue;
+}
 
   if (e.side === "long") {
     if (virtualState !== "long") {
