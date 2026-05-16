@@ -883,11 +883,18 @@ for (const e of mixedEvents) {
     }
   }
 
-  if (
+ if (
   e.text === "KL_T_BLOCK" ||
   e.text === "KS_T_BLOCK" ||
+
   e.text === "KL_CT" ||
-  e.text === "KS_CT"
+  e.text === "KS_CT" ||
+
+  e.text === "KL_D" ||
+  e.text === "KS_D" ||
+
+  e.text === "KL_T" ||
+  e.text === "KS_T"
 ) {
   continue;
 }
