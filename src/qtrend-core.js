@@ -946,6 +946,7 @@ const allLongEntries = [
   ...kinks.kinkLongCandidates,
   ...distKinks.distKinkLongCandidates,
   ...trendSwitchLongEntries,
+  ...reactionLongEntries,
 ];
 
 const allShortEntries = [
@@ -953,6 +954,7 @@ const allShortEntries = [
   ...kinks.kinkShortCandidates,
   ...distKinks.distKinkShortCandidates,
   ...trendSwitchShortEntries,
+  ...reactionShortEntries,
 ];
   
   const blockedLongEntries = allLongEntries.filter(
@@ -1108,6 +1110,24 @@ if (
   dist,
   3
 );
+
+  const reactionLongEntries = trendQualitySignals
+  .filter((p) => p.text === "RTRU")
+  .map((p) => ({
+    ...p,
+    side: "long",
+    reason: "RTRU",
+    text: "RTRU",
+  }));
+
+const reactionShortEntries = trendQualitySignals
+  .filter((p) => p.text === "RTRD")
+  .map((p) => ({
+    ...p,
+    side: "short",
+    reason: "RTRD",
+    text: "RTRD",
+  }));
 
   return {
     smaFast,
