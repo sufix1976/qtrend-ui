@@ -214,8 +214,34 @@ export function computeTrendState(
       prevClose >= smaLow &&
       currClose < smaLow;
 
-    if (crossedUp) trend = "TRU";
-    if (crossedDown) trend = "TRD";
+    const fastNow = mapByTime(smaFast).get(candles[i].time);
+const slowNow = mapByTime(smaSlow).get(candles[i].time);
+
+const distNow = distMiddle?.find((p) => p.time === candles[i].time)?.value;
+const distPrev = distMiddle?.find((p) => p.time === candles[i - 1].time)?.value;
+
+const bullishRecovery =
+  trend === "TRD" &&
+  Number.isFinite(fastNow) &&
+  Number.isFinite(slowNow) &&
+  Number.isFinite(distNow) &&
+  Number.isFinite(distPrev) &&
+  currClose > smaLow &&
+  fastNow > slowNow &&
+  distNow > distPrev;
+
+const bearishRecovery =
+  trend === "TRU" &&
+  Number.isFinite(fastNow) &&
+  Number.isFinite(slowNow) &&
+  Number.isFinite(distNow) &&
+  Number.isFinite(distPrev) &&
+  currClose < smaHigh &&
+  fastNow < slowNow &&
+  distNow < distPrev;
+
+if (crossedUp || bullishRecovery) trend = "TRU";
+if (crossedDown || bearishRecovery) trend = "TRD";
 
     out.push({
       time: candles[i].time,
