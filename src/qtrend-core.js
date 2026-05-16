@@ -746,9 +746,9 @@ export function buildTrendQualitySignals(
     }
 
     const quality =
-      score >= 3 ? "S" :
-      score <= 1 ? "W" :
-      "M";
+  score >= 4 ? "S" :
+  score <= 1 ? "W" :
+  "M";
 
     out.push({
       time: candles[end].time,
