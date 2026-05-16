@@ -93,6 +93,8 @@ type SymbolConfigRow = {
   adaptive_band_mult: number | null;
   size: number | null;
   updated_at?: string;
+  dist_extreme?: number | null;
+  outer_offset?: number | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
@@ -430,6 +432,13 @@ const [scannerMessage, setScannerMessage] = useState("");
     ? true
     : Boolean(cfg.use_slow_exit)
 );
+    if (cfg.dist_extreme != null) {
+  setDistExtremeUI(Number(cfg.dist_extreme));
+}
+
+if (cfg.outer_offset != null) {
+  setOuterOffsetUI(Number(cfg.outer_offset));
+}
     
     if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
   setInterval(cfg.interval as IntervalOption);
@@ -543,6 +552,8 @@ async function addNewSymbol() {
     adaptive_band: 0,
     adaptive_band_mult: 1,
     use_slow_exit: 1,
+    dist_extreme: distExtremeUI,
+    outer_offset: outerOffsetUI,
     size: null,
   };
 
