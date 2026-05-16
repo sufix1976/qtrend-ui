@@ -1853,19 +1853,21 @@ createSeriesMarkers(
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 
-const trendUpData = coreCheck.trendStates
-  .filter((t: any) => t.trend === "TRU" && t.trendValue != null)
-  .map((t: any) => ({
-    time: t.time,
-    value: t.trendValue,
-  }));
+const trendUpData = coreCheck.trendStates.map((t: any) => ({
+  time: t.time,
+  value:
+    t.trend === "TRU" && t.trendValue != null
+      ? t.trendValue
+      : undefined,
+}));
 
-const trendDownData = coreCheck.trendStates
-  .filter((t: any) => t.trend === "TRD" && t.trendValue != null)
-  .map((t: any) => ({
-    time: t.time,
-    value: t.trendValue,
-  }));
+const trendDownData = coreCheck.trendStates.map((t: any) => ({
+  time: t.time,
+  value:
+    t.trend === "TRD" && t.trendValue != null
+      ? t.trendValue
+      : undefined,
+}));
 
 trendUpSeries.setData(trendUpData as any);
 trendDownSeries.setData(trendDownData as any);
