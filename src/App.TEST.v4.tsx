@@ -584,6 +584,8 @@ async function addNewSymbol() {
       adaptive_band: adaptiveBandUI ? 1 : 0,
       adaptive_band_mult: adaptiveBandMultUI,
       use_slow_exit: useSlowExitUI ? 1 : 0,
+      dist_extreme: distExtremeUI,
+      outer_offset: outerOffsetUI,
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
 
@@ -1940,7 +1942,10 @@ setGrossProfit(sim.grossProfit);
 setGrossLoss(sim.grossLoss);
 setNetPnL(sim.netPnL);
 
-const activeSize = Number(symbolSizes[symbol]) || 0;
+const activeSize =
+  Number(symbolSizes[symbol]) ||
+  Number(symbolConfigMap[symbol]?.size) ||
+  0;
 
 const grossProfitUsdVal = sim.grossProfit * activeSize;
 const grossLossUsdVal = sim.grossLoss * activeSize;
