@@ -897,6 +897,15 @@ async function saveAllSizes() {
          trendLength: trendLengthUI,
 });
 
+        console.log("TREND LENGTH CHECK", {
+  trendLengthUI,
+  trendStates: coreCheck.trendStates?.length,
+  firstTrend: coreCheck.trendStates?.[0],
+  lastTrend: coreCheck.trendStates?.at(-1),
+  tradeLong: coreCheck.tradeLongEntries?.length,
+  tradeShort: coreCheck.tradeShortEntries?.length,
+});
+
         console.log("QTREND CORE CHECK 2", {
   symbol,
   interval,
