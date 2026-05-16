@@ -883,7 +883,7 @@ for (const e of mixedEvents) {
     }
   }
 
- if (
+if (
   e.text === "KL_T_BLOCK" ||
   e.text === "KS_T_BLOCK" ||
 
@@ -894,7 +894,10 @@ for (const e of mixedEvents) {
   e.text === "KS_D" ||
 
   e.text === "KL_T" ||
-  e.text === "KS_T"
+  e.text === "KS_T" ||
+
+  e.text === "RL" ||
+  e.text === "RS"
 ) {
   continue;
 }
