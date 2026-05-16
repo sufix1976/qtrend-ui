@@ -2573,7 +2573,20 @@ return () => {
   onChange={(e) => setOuterOffsetUI(Number(e.target.value))}
 />
 
+<label>
+  Trend Length: {trendLengthUI}
+</label>
 
+<input
+  type="range"
+  min={5}
+  max={50}
+  step={1}
+  value={trendLengthUI}
+  onChange={(e) =>
+    setTrendLengthUI(Number(e.target.value))
+  }
+/>
 
 <div>Adaptive Mult: {adaptiveBandMultUI}</div>
 <input
