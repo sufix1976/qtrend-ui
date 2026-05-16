@@ -1779,6 +1779,12 @@ const coreShortProjected = projectMarkerPointsToCandles(
   "above-mid"
 );
 
+        const trendQualityProjected = projectMarkerPointsToCandles(
+  coreCheck.trendQualitySignals ?? [],
+  candles,
+  "inside-mid"
+);
+
 
 
         
@@ -1880,6 +1886,10 @@ createSeriesMarkers(
     })),
     "aboveBar"
   )
+);
+        createSeriesMarkers(
+  realCloseSeries,
+  buildTextMarkers(trendQualityProjected, "aboveBar")
 );
 
  
