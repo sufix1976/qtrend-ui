@@ -898,6 +898,51 @@ const kinks = buildKinkSignals(
     useSlowExit
   );
 
+  const trendQualitySignals = buildTrendQualitySignals(
+  safeCandles,
+  [
+    ...trendSwitchLongEntries,
+    ...trendSwitchShortEntries,
+  ],
+  smaFast,
+  dist,
+  5
+);
+
+const reactionLongEntries = trendQualitySignals
+  .filter((p) => p.text === "RTRU")
+  .map((p) => ({
+    ...p,
+    side: "long",
+    reason: "RTRU",
+    text: "RTRU",
+  }));
+
+const reactionShortEntries = trendQualitySignals
+  .filter((p) => p.text === "RTRD")
+  .map((p) => ({
+    ...p,
+    side: "short",
+    reason: "RTRD",
+    text: "RTRD",
+  }));
+
+const allLongEntries = [
+  ...reclaim.rawLongCandidates,
+  ...kinks.kinkLongCandidates,
+  ...distKinks.distKinkLongCandidates,
+  ...trendSwitchLongEntries,
+  ...reactionLongEntries,
+];
+
+const allShortEntries = [
+  ...reclaim.rawShortCandidates,
+  ...kinks.kinkShortCandidates,
+  ...distKinks.distKinkShortCandidates,
+  ...trendSwitchShortEntries,
+  ...reactionShortEntries,
+];
+
   const trendSwitchLongEntries = [];
 const trendSwitchShortEntries = [];
 
@@ -1086,50 +1131,7 @@ if (
     }
   }
 
-  const trendQualitySignals = buildTrendQualitySignals(
-  safeCandles,
-  [
-    ...trendSwitchLongEntries,
-    ...trendSwitchShortEntries,
-  ],
-  smaFast,
-  dist,
-  5
-);
 
-  const reactionLongEntries = trendQualitySignals
-  .filter((p) => p.text === "RTRU")
-  .map((p) => ({
-    ...p,
-    side: "long",
-    reason: "RTRU",
-    text: "RTRU",
-  }));
-
-const reactionShortEntries = trendQualitySignals
-  .filter((p) => p.text === "RTRD")
-  .map((p) => ({
-    ...p,
-    side: "short",
-    reason: "RTRD",
-    text: "RTRD",
-  }));
-
-  const allLongEntries = [
-  ...reclaim.rawLongCandidates,
-  ...kinks.kinkLongCandidates,
-  ...distKinks.distKinkLongCandidates,
-  ...trendSwitchLongEntries,
-  ...reactionLongEntries,
-];
-
-const allShortEntries = [
-  ...reclaim.rawShortCandidates,
-  ...kinks.kinkShortCandidates,
-  ...distKinks.distKinkShortCandidates,
-  ...trendSwitchShortEntries,
-  ...reactionShortEntries,
-];
 
   return {
     smaFast,
