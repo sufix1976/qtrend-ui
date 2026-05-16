@@ -138,7 +138,7 @@ export function computeTrendState(
   smaFast,
   smaSlow,
   distMiddle,
-  trendLength = 10
+  trendLength = 20
 ) {
   const out = [];
 
