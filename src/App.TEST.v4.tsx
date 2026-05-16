@@ -1856,8 +1856,7 @@ const trendData = coreCheck.trendStates
 
 trendSeries.setData(trendData as any);
 
-trendUpSeries.setData(trendUpData as any);
-trendDownSeries.setData(trendDownData as any);
+trendSeries.setData(trendData as any);
         
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
