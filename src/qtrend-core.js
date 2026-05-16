@@ -206,6 +206,29 @@ export function computeTrendState(
     const prevClose = candles[i - 1].close;
     const currClose = candles[i].close;
 
+    const slowNow = smaSlow.find((p) => p.time === candles[i].time)?.value;
+const slowPrev = smaSlow.find((p) => p.time === candles[i - 3]?.time)?.value;
+
+const distNow = distMiddle.find((p) => p.time === candles[i].time)?.value;
+
+const slowRising =
+  Number.isFinite(slowNow) &&
+  Number.isFinite(slowPrev) &&
+  slowNow > slowPrev;
+
+const slowFalling =
+  Number.isFinite(slowNow) &&
+  Number.isFinite(slowPrev) &&
+  slowNow < slowPrev;
+
+const distBullish =
+  Number.isFinite(distNow) &&
+  distNow > 0;
+
+const distBearish =
+  Number.isFinite(distNow) &&
+  distNow < 0;
+
     const crossedUp =
       prevClose <= smaHigh &&
       currClose > smaHigh;
@@ -214,8 +237,13 @@ export function computeTrendState(
       prevClose >= smaLow &&
       currClose < smaLow;
 
-    if (crossedUp) trend = "TRU";
-    if (crossedDown) trend = "TRD";
+    if (crossedUp && slowRising && distBullish) {
+  trend = "TRU";
+}
+
+if (crossedDown && slowFalling && distBearish) {
+  trend = "TRD";
+}
 
     out.push({
       time: candles[i].time,
