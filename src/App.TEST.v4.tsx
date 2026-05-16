@@ -1904,11 +1904,23 @@ createSeriesMarkers(
   )
 );
       
-        createSeriesMarkers(
-  trendQualitySeries,
-  buildTextMarkers(trendQualityProjected, "aboveBar")
+        trendQualitySeries.setData(
+  trendQualityProjected.map((p: any) => ({
+    time: p.time,
+    value: p.value,
+  })) as any
 );
 
+createSeriesMarkers(
+  trendQualitySeries,
+  trendQualityProjected.map((p: any) => ({
+    time: p.time,
+    position: "aboveBar",
+    color: p.color ?? "#facc15",
+    shape: "circle",
+    text: p.text,
+  })) as any
+);
  
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
