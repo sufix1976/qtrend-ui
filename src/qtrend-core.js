@@ -694,7 +694,7 @@ export function computeQTrendCore(candles, cfg = {}) {
   const distExtreme = Number(cfg.distExtreme ?? cfg.entryBand ?? 100);
   const useSlowExit = cfg.useSlowExit == null ? true : Boolean(cfg.useSlowExit);
 
-  const trendLength = Number(cfg.trendLength ?? 30);
+  const trendLength = Number(cfg.trendLength ?? 22);
 
   const smaFast = sanitizeLinePoints(calcSMA(safeCandles, smaFastLen));
   const smaSlow = sanitizeLinePoints(calcSMA(safeCandles, smaSlowLen));
