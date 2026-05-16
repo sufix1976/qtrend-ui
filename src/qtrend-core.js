@@ -941,21 +941,7 @@ for (let i = 1; i < trendStates.length; i++) {
   }
 }
 
-const allLongEntries = [
-  ...reclaim.rawLongCandidates,
-  ...kinks.kinkLongCandidates,
-  ...distKinks.distKinkLongCandidates,
-  ...trendSwitchLongEntries,
-  ...reactionLongEntries,
-];
 
-const allShortEntries = [
-  ...reclaim.rawShortCandidates,
-  ...kinks.kinkShortCandidates,
-  ...distKinks.distKinkShortCandidates,
-  ...trendSwitchShortEntries,
-  ...reactionShortEntries,
-];
   
   const blockedLongEntries = allLongEntries.filter(
     (p) => p.text === "KL_T_BLOCK"
@@ -1108,7 +1094,7 @@ if (
   ],
   smaFast,
   dist,
-  3
+  5
 );
 
   const reactionLongEntries = trendQualitySignals
@@ -1128,6 +1114,22 @@ const reactionShortEntries = trendQualitySignals
     reason: "RTRD",
     text: "RTRD",
   }));
+
+  const allLongEntries = [
+  ...reclaim.rawLongCandidates,
+  ...kinks.kinkLongCandidates,
+  ...distKinks.distKinkLongCandidates,
+  ...trendSwitchLongEntries,
+  ...reactionLongEntries,
+];
+
+const allShortEntries = [
+  ...reclaim.rawShortCandidates,
+  ...kinks.kinkShortCandidates,
+  ...distKinks.distKinkShortCandidates,
+  ...trendSwitchShortEntries,
+  ...reactionShortEntries,
+];
 
   return {
     smaFast,
