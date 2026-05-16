@@ -2063,6 +2063,7 @@ return () => {
   assumedSpread,
   assumedSlippage,
   adaptiveBandUI,
+    trendLengthUI,
   adaptiveBandMultUI,
   symbolSizes,
 ]);
