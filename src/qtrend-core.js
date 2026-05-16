@@ -719,6 +719,9 @@ export function buildTrendQualitySignals(
 
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
+      const netProgressOk =
+  candles[end].close > entryCandle.close;
+      if (netProgressOk) score++;
 
       if (madeNewHigh) score++;
       if (distImproved) score++;
@@ -738,6 +741,9 @@ export function buildTrendQualitySignals(
 
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
+      const netProgressOk =
+  candles[end].close < entryCandle.close;
+      if (netProgressOk) score++;
 
       if (madeNewLow) score++;
       if (distImproved) score++;
@@ -746,8 +752,9 @@ export function buildTrendQualitySignals(
     }
 
     const quality =
-  score >= 4 ? "S" :
-  score <= 1 ? "W" :
+  !netProgressOk ? "W" :
+  score >= 5 ? "S" :
+  score <= 2 ? "W" :
   "M";
 
     out.push({
