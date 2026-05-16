@@ -741,6 +741,8 @@ async function saveOneSize(symbolToSave: string) {
       sma_middle: old?.sma_middle ?? 100,
       adaptive_band: old?.adaptive_band ?? 0,
       adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+      dist_extreme: old?.dist_extreme ?? null,
+      outer_offset: old?.outer_offset ?? null,
       size,
     };
 
@@ -780,6 +782,8 @@ async function saveAllSizes() {
         sma_middle: old?.sma_middle ?? 100,
         adaptive_band: old?.adaptive_band ?? 0,
         adaptive_band_mult: old?.adaptive_band_mult ?? 1,
+        dist_extreme: old?.dist_extreme ?? null,
+        outer_offset: old?.outer_offset ?? null,
         size: n,
       };
 
