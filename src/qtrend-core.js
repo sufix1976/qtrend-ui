@@ -707,6 +707,7 @@ export function buildTrendQualitySignals(
 
     let score = 0;
     let netProgressOk = false;
+    let reversalSignal = null;
 
     if (e.text === "TRU") {
       const madeNewHigh =
@@ -723,7 +724,9 @@ export function buildTrendQualitySignals(
       netProgressOk =
   candles[end].close > entryCandle.close;
       if (netProgressOk) score++;
-
+if (!netProgressOk) {
+  reversalSignal = "RTRD";
+}
       if (madeNewHigh) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -745,7 +748,9 @@ export function buildTrendQualitySignals(
       netProgressOk =
   candles[end].close < entryCandle.close;
       if (netProgressOk) score++;
-
+if (!netProgressOk) {
+  reversalSignal = "RTRU";
+}
       if (madeNewLow) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -757,6 +762,19 @@ export function buildTrendQualitySignals(
   score >= 5 ? "S" :
   score <= 2 ? "W" :
   "M";
+
+    if (reversalSignal) {
+  out.push({
+    time: candles[end].time,
+    value: e.value,
+    text: reversalSignal,
+    reason: reversalSignal,
+    quality: "R",
+    sourceTime: e.time,
+    score,
+    color: "#ffffff",
+  });
+}
 
     out.push({
       time: candles[end].time,
