@@ -836,9 +836,24 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
     else if (bearScore >= 2 && bullScore <= 1) zone = "RZ";
     else zone = "NZ";
 
-    lastZone = zone;
+    if (zone !== lastZone) {
+  out.push({
+    time: c.time,
+    value: c.close,
+    zone,
+    bullScore,
+    bearScore,
+    text: zone,
+    color:
+      zone === "BZ"
+        ? "#00ff88"
+        : zone === "RZ"
+        ? "#ff4d6d"
+        : "#facc15",
+  });
+}
 
-    out.push({
+lastZone = zone;
       time: c.time,
       value: c.close,
       zone,
