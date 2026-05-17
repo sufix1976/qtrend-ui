@@ -1145,6 +1145,16 @@ async function saveAllSizes() {
   lastValueVisible: false,
 });
 
+    const zoneSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#facc15",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
 
 
     const smaUpperSeries = priceChart.addSeries(LineSeries, {
@@ -1940,7 +1950,29 @@ const trendData = coreCheck.trendStates
 
 trendSeries.setData(trendData as any);
 
-trendSeries.setData(trendData as any);
+        const zoneProjected = projectMarkerPointsToCandles(
+  coreCheck.trendZones ?? [],
+  candles,
+  "inside-mid"
+);
+
+zoneSeries.setData(
+  zoneProjected.map((p: any) => ({
+    time: p.time,
+    value: p.value,
+  })) as any
+);
+
+createSeriesMarkers(
+  zoneSeries,
+  zoneProjected.map((p: any) => ({
+    time: p.time,
+    position: "inBar",
+    color: p.color ?? "#facc15",
+    shape: "circle",
+    text: p.text,
+  })) as any
+);
         
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
@@ -2077,6 +2109,7 @@ return () => {
         priceChart.removeSeries(smaSlowSeries);
 
         priceChart.removeSeries(trendSeries);
+        priceChart.removeSeries(zoneSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         
