@@ -241,6 +241,17 @@ export function trendAt(trendStates, time) {
   return last?.trend || "TRN";
 }
 
+export function zoneAt(trendZones, time) {
+  let last = null;
+
+  for (const z of trendZones || []) {
+    if (z.time > time) break;
+    last = z;
+  }
+
+  return last?.zone || "NZ";
+}
+
 export function buildReclaimSignals(
   candles,
   smaFast,
@@ -755,7 +766,7 @@ export function buildTrendQualitySignals(
     }
 
     const currentZone =
-      zoneMap.get(Number(candles[end]?.time)) ?? "NZ";
+  zoneAt(trendZones, candles[end]?.time);
 
     const quality =
       score >= 5 ? "S" :
@@ -808,7 +819,49 @@ export function buildTrendQualitySignals(
     }
   }
 
-  
+  for (const s of activeStrongSignals) {
+  if (s.degraded) continue;
+
+  for (const c of candles || []) {
+    if (c.time <= s.time) continue;
+
+    const zone = zoneAt(trendZones, c.time);
+
+    if (
+      s.side === "TRU" &&
+      zone === "RZ"
+    ) {
+      out.push({
+        time: c.time,
+        value: c.close,
+        text: "TRU-D",
+        quality: "D",
+        reason: "ZoneDegrade",
+        color: "#ffffff",
+      });
+
+      s.degraded = true;
+      break;
+    }
+
+    if (
+      s.side === "TRD" &&
+      zone === "BZ"
+    ) {
+      out.push({
+        time: c.time,
+        value: c.close,
+        text: "TRD-D",
+        quality: "D",
+        reason: "ZoneDegrade",
+        color: "#ffffff",
+      });
+
+      s.degraded = true;
+      break;
+    }
+  }
+}
 
   return uniqueMarkers(out);
 }
