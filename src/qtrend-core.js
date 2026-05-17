@@ -854,6 +854,7 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
 }
 
 lastZone = zone;
+    out.push({
       time: c.time,
       value: c.close,
       zone,
