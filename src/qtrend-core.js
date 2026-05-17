@@ -674,6 +674,7 @@ export function buildTrendQualitySignals(
   confirmBars = 5
 ) {
   const out = [];
+  const activeStrongSignals = [];
 
   const candleIndex = new Map();
   candles.forEach((c, i) => candleIndex.set(Number(c.time), i));
@@ -814,6 +815,13 @@ if (
           : "#ff4d6d",
     });
   }
+  if (quality === "S") {
+  activeStrongSignals.push({
+    side: e.text,
+    time: candles[end].time,
+    degraded: false,
+  });
+}
 
   return uniqueMarkers(out);
 }
@@ -911,6 +919,51 @@ if (
   lastZone = pendingZone;
 }
   }
+
+  for (const s of activeStrongSignals) {
+  if (s.degraded) continue;
+
+  for (const c of candles || []) {
+    if (c.time <= s.time) continue;
+
+    const zone =
+      zoneMap.get(Number(c.time)) ?? "NZ";
+
+    if (
+      s.side === "TRU" &&
+      zone === "RZ"
+    ) {
+      out.push({
+        time: c.time,
+        value: c.close,
+        text: "TRU-D",
+        quality: "D",
+        reason: "ZoneDegrade",
+        color: "#ffffff",
+      });
+
+      s.degraded = true;
+      break;
+    }
+
+    if (
+      s.side === "TRD" &&
+      zone === "BZ"
+    ) {
+      out.push({
+        time: c.time,
+        value: c.close,
+        text: "TRD-D",
+        quality: "D",
+        reason: "ZoneDegrade",
+        color: "#ffffff",
+      });
+
+      s.degraded = true;
+      break;
+    }
+  }
+}
 
   return out;
 }
