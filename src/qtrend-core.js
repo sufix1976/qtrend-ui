@@ -182,7 +182,7 @@ export function computeTrendState(
     const smaLowBase = smaOf(lows, trendLength, i);
 
     const atrRaw = smaOf(trValues, 200, i);
-    const atrSmooth = atrRaw == null ? null : atrRaw * 0.8;
+    const atrSmooth = atrRaw == null ? null : atrRaw * 1.2;
 
     if (
       smaHighBase == null ||
