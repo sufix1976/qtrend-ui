@@ -854,21 +854,7 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
 }
 
 lastZone = zone;
-    out.push({
-      time: c.time,
-      value: c.close,
-      zone,
-      bullScore,
-      bearScore,
-      text: zone,
-      color:
-        zone === "BZ"
-          ? "#00ff88"
-          : zone === "RZ"
-          ? "#ff4d6d"
-          : "#facc15",
-    });
-  }
+ 
 
   return out;
 }
