@@ -256,7 +256,9 @@ export function buildReclaimSignals(
   let longArmed = false;
   let shortArmed = false;
 
-  for (const c of candles || []) {
+  for (let i = 1; i < (candles || []).length; i++) {
+  const c = candles[i];
+  const prevC = candles[i - 1];
     const fast = fastMap.get(c.time);
     const slow = slowMap.get(c.time);
 
@@ -809,6 +811,8 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
     const fast = fastMap.get(c.time);
     const slow = slowMap.get(c.time);
     const d = distMap.get(c.time);
+    const prevFast = fastMap.get(prevC?.time);
+const prevDist = distMap.get(prevC?.time);
 
     if (
       !Number.isFinite(fast) ||
@@ -822,18 +826,36 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
     let bearScore = 0;
 
     if (fast > slow) bullScore++;
-    if (fast < slow) bearScore++;
+if (fast < slow) bearScore++;
 
-    if (c.close > fast) bullScore++;
-    if (c.close < fast) bearScore++;
+if (c.close > fast) bullScore++;
+if (c.close < fast) bearScore++;
 
-    if (d > 0) bullScore++;
-    if (d < 0) bearScore++;
+if (d > 0) bullScore++;
+if (d < 0) bearScore++;
+
+if (Number.isFinite(prevFast)) {
+  if (fast > prevFast) bullScore++;
+  if (fast < prevFast) bearScore++;
+}
+
+if (Number.isFinite(prevDist)) {
+  if (d > prevDist) bullScore++;
+  if (d < prevDist) bearScore++;
+}
+
+if (c.high > prevC.high && c.low >= prevC.low) {
+  bullScore++;
+}
+
+if (c.low < prevC.low && c.high <= prevC.high) {
+  bearScore++;
+}
 
     let zone = lastZone;
 
-    if (bullScore >= 2 && bearScore <= 1) zone = "BZ";
-    else if (bearScore >= 2 && bullScore <= 1) zone = "RZ";
+    if (bullScore >= 4 && bullScore > bearScore) zone = "BZ";
+else if (bearScore >= 4 && bearScore > bullScore) zone = "RZ";
     else zone = "NZ";
 
     if (zone !== lastZone) {
