@@ -683,12 +683,11 @@ export function buildTrendQualitySignals(
   const distMap = mapByTime(dist);
 
   const zoneMap = new Map();
+  for (const z of trendZones || []) {
+    zoneMap.set(Number(z.time), z.zone);
+  }
 
-for (const z of trendZones || []) {
-  zoneMap.set(Number(z.time), z.zone);
-}
-  
-  for (const e of entries) {
+  for (const e of entries || []) {
     const idx = candleIndex.get(Number(e.time));
     if (idx == null) continue;
 
@@ -709,9 +708,7 @@ for (const z of trendZones || []) {
       !Number.isFinite(fastEnd) ||
       !Number.isFinite(distEntry) ||
       !Number.isFinite(distEnd)
-    ) {
-      continue;
-    }
+    ) continue;
 
     let score = 0;
     let netProgressOk = false;
@@ -723,16 +720,14 @@ for (const z of trendZones || []) {
 
       const distImproved = distEnd > distEntry;
       const fastImproved = fastEnd > fastEntry;
-
       const pullback =
         entryCandle.close - Math.min(...checkCandles.map((c) => c.low));
-
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
-      netProgressOk =
-  candles[end].close > entryCandle.close;
-      if (netProgressOk) score++;
 
+      netProgressOk = candles[end].close > entryCandle.close;
+
+      if (netProgressOk) score++;
       if (madeNewHigh) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -745,16 +740,14 @@ for (const z of trendZones || []) {
 
       const distImproved = distEnd < distEntry;
       const fastImproved = fastEnd < fastEntry;
-
       const pullback =
         Math.max(...checkCandles.map((c) => c.high)) - entryCandle.close;
-
       const range = Math.max(entryCandle.high - entryCandle.low, 0.0000001);
       const pullbackOk = pullback <= range * 1.5;
-      netProgressOk =
-  candles[end].close < entryCandle.close;
-      if (netProgressOk) score++;
 
+      netProgressOk = candles[end].close < entryCandle.close;
+
+      if (netProgressOk) score++;
       if (madeNewLow) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -762,42 +755,33 @@ for (const z of trendZones || []) {
     }
 
     const currentZone =
-  zoneMap.get(Number(candles[end]?.time)) ?? "NZ";
+      zoneMap.get(Number(candles[end]?.time)) ?? "NZ";
 
     const quality =
-  
-  score >= 5 ? "S" :
-  score <= 1 ? "W" :
-  "M";
+      score >= 5 ? "S" :
+      score <= 1 ? "W" :
+      "M";
 
-    if (
-  quality === "W" &&
-  e.text === "TRU" &&
-  currentZone === "RZ"
-) {
-  reversalSignal = "RTRD";
-}
+    if (quality === "W" && e.text === "TRU" && currentZone === "RZ") {
+      reversalSignal = "RTRD";
+    }
 
-if (
-  quality === "W" &&
-  e.text === "TRD" &&
-  currentZone === "BZ"
-) {
-  reversalSignal = "RTRU";
-}
+    if (quality === "W" && e.text === "TRD" && currentZone === "BZ") {
+      reversalSignal = "RTRU";
+    }
 
     if (reversalSignal) {
-  out.push({
-    time: candles[end].time,
-    value: e.value,
-    text: reversalSignal,
-    reason: reversalSignal,
-    quality: "R",
-    sourceTime: e.time,
-    score,
-    color: "#ffffff",
-  });
-}
+      out.push({
+        time: candles[end].time,
+        value: e.value,
+        text: reversalSignal,
+        reason: reversalSignal,
+        quality: "R",
+        sourceTime: e.time,
+        score,
+        color: "#ffffff",
+      });
+    }
 
     out.push({
       time: candles[end].time,
@@ -814,14 +798,53 @@ if (
           ? "#facc15"
           : "#ff4d6d",
     });
+
+    if (quality === "S") {
+      activeStrongSignals.push({
+        side: e.text,
+        time: candles[end].time,
+        degraded: false,
+      });
+    }
   }
-  if (quality === "S") {
-  activeStrongSignals.push({
-    side: e.text,
-    time: candles[end].time,
-    degraded: false,
-  });
-}
+
+  for (const s of activeStrongSignals) {
+    if (s.degraded) continue;
+
+    for (const c of candles || []) {
+      if (c.time <= s.time) continue;
+
+      const zone = zoneMap.get(Number(c.time)) ?? "NZ";
+
+      if (s.side === "TRU" && zone === "RZ") {
+        out.push({
+          time: c.time,
+          value: c.close,
+          text: "TRU-D",
+          quality: "D",
+          reason: "ZoneDegrade",
+          color: "#ffffff",
+        });
+
+        s.degraded = true;
+        break;
+      }
+
+      if (s.side === "TRD" && zone === "BZ") {
+        out.push({
+          time: c.time,
+          value: c.close,
+          text: "TRD-D",
+          quality: "D",
+          reason: "ZoneDegrade",
+          color: "#ffffff",
+        });
+
+        s.degraded = true;
+        break;
+      }
+    }
+  }
 
   return uniqueMarkers(out);
 }
