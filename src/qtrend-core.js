@@ -804,6 +804,8 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
   const distMap = mapByTime(dist);
 
   let lastZone = "NZ";
+  let pendingZone = "NZ";
+let pendingCount = 0;
 
   for (let i = 1; i < (candles || []).length; i++) {
   const c = candles[i];
@@ -854,28 +856,38 @@ if (c.low < prevC.low && c.high <= prevC.high) {
 
     let zone = lastZone;
 
-    if (bullScore >= 4 && bullScore > bearScore) zone = "BZ";
+if (bullScore >= 4 && bullScore > bearScore) zone = "BZ";
 else if (bearScore >= 4 && bearScore > bullScore) zone = "RZ";
-    else zone = "NZ";
+else zone = "NZ";
 
-    if (zone !== lastZone) {
-      out.push({
-        time: c.time,
-        value: c.close,
-        zone,
-        bullScore,
-        bearScore,
-        text: zone,
-        color:
-          zone === "BZ"
-            ? "#00ff88"
-            : zone === "RZ"
-            ? "#ff4d6d"
-            : "#facc15",
-      });
-    }
+if (zone === pendingZone) {
+  pendingCount++;
+} else {
+  pendingZone = zone;
+  pendingCount = 1;
+}
 
-    lastZone = zone;
+if (
+  pendingCount >= 2 &&
+  pendingZone !== lastZone
+) {
+  out.push({
+    time: c.time,
+    value: c.close,
+    zone: pendingZone,
+    bullScore,
+    bearScore,
+    text: pendingZone,
+    color:
+      pendingZone === "BZ"
+        ? "#00ff88"
+        : pendingZone === "RZ"
+        ? "#ff4d6d"
+        : "#facc15",
+  });
+
+  lastZone = pendingZone;
+}
   }
 
   return out;
