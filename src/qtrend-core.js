@@ -874,19 +874,19 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
   const distMap = mapByTime(dist);
 
   let lastZone = "NZ";
-  let lastBullScore = 0;
-let lastBearScore = 0;
   let pendingZone = "NZ";
-let pendingCount = 0;
+  let pendingCount = 0;
 
   for (let i = 1; i < (candles || []).length; i++) {
-  const c = candles[i];
-  const prevC = candles[i - 1];
+    const c = candles[i];
+    const prevC = candles[i - 1];
+
     const fast = fastMap.get(c.time);
     const slow = slowMap.get(c.time);
     const d = distMap.get(c.time);
+
     const prevFast = fastMap.get(prevC?.time);
-const prevDist = distMap.get(prevC?.time);
+    const prevDist = distMap.get(prevC?.time);
 
     if (
       !Number.isFinite(fast) ||
@@ -900,118 +900,97 @@ const prevDist = distMap.get(prevC?.time);
     let bearScore = 0;
 
     if (fast > slow) bullScore++;
-if (fast < slow) bearScore++;
+    if (fast < slow) bearScore++;
 
-if (c.close > fast) bullScore++;
-if (c.close < fast) bearScore++;
+    if (c.close > fast) bullScore++;
+    if (c.close < fast) bearScore++;
 
-if (d > 0) bullScore++;
-if (d < 0) bearScore++;
+    if (d > 0) bullScore++;
+    if (d < 0) bearScore++;
 
-if (Number.isFinite(prevFast)) {
-  if (fast > prevFast) bullScore++;
-  if (fast < prevFast) bearScore++;
-}
+    if (Number.isFinite(prevFast)) {
+      if (fast > prevFast) bullScore++;
+      if (fast < prevFast) bearScore++;
+    }
 
-if (Number.isFinite(prevDist)) {
-  if (d > prevDist) bullScore++;
-  if (d < prevDist) bearScore++;
-}
+    if (Number.isFinite(prevDist)) {
+      if (d > prevDist) bullScore++;
+      if (d < prevDist) bearScore++;
+    }
 
-if (c.high > prevC.high && c.low >= prevC.low) {
-  bullScore++;
-}
-
-if (c.low < prevC.low && c.high <= prevC.high) {
-  bearScore++;
-}
+    if (c.high > prevC.high && c.low >= prevC.low) bullScore++;
+    if (c.low < prevC.low && c.high <= prevC.high) bearScore++;
 
     let zone = lastZone;
 
-if (bullScore >= 4 && bullScore > bearScore) zone = "BZ";
-else if (bearScore >= 4 && bearScore > bullScore) zone = "RZ";
-else zone = "NZ";
+    if (bullScore >= 4 && bullScore > bearScore) zone = "BZ";
+    else if (bearScore >= 4 && bearScore > bullScore) zone = "RZ";
+    else zone = "NZ";
 
-if (zone === pendingZone) {
-  pendingCount++;
-} else {
-  pendingZone = zone;
-  pendingCount = 1;
-}
+    if (zone === pendingZone) {
+      pendingCount++;
+    } else {
+      pendingZone = zone;
+      pendingCount = 1;
+    }
 
-if (
-  pendingCount >= 2 &&
-  pendingZone !== lastZone
-) {
-  out.push({
-    time: c.time,
-    value: c.close,
-    zone: pendingZone,
-    bullScore,
-    bearScore,
-    text: pendingZone,
-    color:
-      pendingZone === "BZ"
-        ? "#00ff88"
-        : pendingZone === "RZ"
-        ? "#ff4d6d"
-        : "#facc15",
-  });
+    if (pendingCount >= 2 && pendingZone !== lastZone) {
+      const previousZone = lastZone;
 
-  const previousZone = lastZone;
-  lastZone = pendingZone;
+      out.push({
+        time: c.time,
+        value: c.close,
+        zone: pendingZone,
+        bullScore,
+        bearScore,
+        text: pendingZone,
+        color:
+          pendingZone === "BZ"
+            ? "#00ff88"
+            : pendingZone === "RZ"
+            ? "#ff4d6d"
+            : "#facc15",
+      });
 
-  const prevFast = fastMap.get(prevC?.time);
-  const prevDist = distMap.get(prevC?.time);
+      lastZone = pendingZone;
 
-  const fastUp =
-    Number.isFinite(prevFast) &&
-    fast > prevFast;
+      const fastUp = Number.isFinite(prevFast) && fast > prevFast;
+      const fastDown = Number.isFinite(prevFast) && fast < prevFast;
 
-  const fastDown =
-    Number.isFinite(prevFast) &&
-    fast < prevFast;
+      const distUp = Number.isFinite(prevDist) && d > prevDist;
+      const distDown = Number.isFinite(prevDist) && d < prevDist;
 
-  const distUp =
-    Number.isFinite(prevDist) &&
-    d > prevDist;
+      if (
+        pendingZone === "BZ" &&
+        previousZone !== "BZ" &&
+        fastUp &&
+        distUp
+      ) {
+        out.push({
+          time: c.time,
+          value: c.close,
+          text: "TFU",
+          zone: "BZ",
+          color: "#ffffff",
+        });
+      }
 
-  const distDown =
-    Number.isFinite(prevDist) &&
-    d < prevDist;
-
-  if (
-    pendingZone === "BZ" &&
-    previousZone !== "BZ" &&
-    fastUp &&
-    distUp
-  ) {
-    out.push({
-      time: c.time,
-      value: c.close,
-      text: "TFU",
-      zone: "BZ",
-      color: "#ffffff",
-    });
+      if (
+        pendingZone === "RZ" &&
+        previousZone !== "RZ" &&
+        fastDown &&
+        distDown
+      ) {
+        out.push({
+          time: c.time,
+          value: c.close,
+          text: "TFD",
+          zone: "RZ",
+          color: "#ffffff",
+        });
+      }
+    }
   }
-
-  if (
-    pendingZone === "RZ" &&
-    previousZone !== "RZ" &&
-    fastDown &&
-    distDown
-  ) {
-    out.push({
-      time: c.time,
-      value: c.close,
-      text: "TFD",
-      zone: "RZ",
-      color: "#ffffff",
-    });
-  }
-}
-
-
 
   return out;
 }
