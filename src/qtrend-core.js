@@ -667,10 +667,11 @@ export function buildExitSignals(
 
 export function buildTrendQualitySignals(
   candles,
-  trendEntries,
+  entries,
   smaFast,
   dist,
-  confirmBars = 3
+  trendZones,
+  confirmBars = 5
 ) {
   const out = [];
 
@@ -680,6 +681,12 @@ export function buildTrendQualitySignals(
   const fastMap = mapByTime(smaFast);
   const distMap = mapByTime(dist);
 
+  const zoneMap = new Map();
+
+for (const z of trendZones || []) {
+  zoneMap.set(Number(z.time), z.zone);
+}
+  
   for (const e of trendEntries || []) {
     const idx = candleIndex.get(Number(e.time));
     if (idx == null) continue;
@@ -753,14 +760,29 @@ export function buildTrendQualitySignals(
       if (pullbackOk) score++;
     }
 
+    const currentZone =
+  zoneMap.get(Number(candles[end]?.time)) ?? "NZ";
+
     const quality =
   
   score >= 5 ? "S" :
   score <= 1 ? "W" :
   "M";
 
-    if (quality === "W") {
-  reversalSignal = e.text === "TRU" ? "RTRD" : "RTRU";
+    if (
+  quality === "W" &&
+  e.text === "TRU" &&
+  currentZone === "RZ"
+) {
+  reversalSignal = "RTRD";
+}
+
+if (
+  quality === "W" &&
+  e.text === "TRD" &&
+  currentZone === "BZ"
+) {
+  reversalSignal = "RTRU";
 }
 
     if (reversalSignal) {
@@ -1115,6 +1137,7 @@ const trendQualitySignals = buildTrendQualitySignals(
   ],
   smaFast,
   dist,
+  trendZones,
   5
 );
 
