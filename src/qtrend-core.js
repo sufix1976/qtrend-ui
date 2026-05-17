@@ -959,58 +959,59 @@ if (
   });
 
   const previousZone = lastZone;
-lastZone = pendingZone;
-}
+  lastZone = pendingZone;
+
+  const prevFast = fastMap.get(prevC?.time);
+  const prevDist = distMap.get(prevC?.time);
+
+  const fastUp =
+    Number.isFinite(prevFast) &&
+    fast > prevFast;
+
+  const fastDown =
+    Number.isFinite(prevFast) &&
+    fast < prevFast;
+
+  const distUp =
+    Number.isFinite(prevDist) &&
+    d > prevDist;
+
+  const distDown =
+    Number.isFinite(prevDist) &&
+    d < prevDist;
+
+  if (
+    pendingZone === "BZ" &&
+    previousZone !== "BZ" &&
+    fastUp &&
+    distUp
+  ) {
+    out.push({
+      time: c.time,
+      value: c.close,
+      text: "TFU",
+      zone: "BZ",
+      color: "#ffffff",
+    });
   }
 
- const prevFast = fastMap.get(prevC?.time);
-const prevDist = distMap.get(prevC?.time);
-
-const fastUp =
-  Number.isFinite(prevFast) &&
-  fast > prevFast;
-
-const fastDown =
-  Number.isFinite(prevFast) &&
-  fast < prevFast;
-
-const distUp =
-  Number.isFinite(prevDist) &&
-  d > prevDist;
-
-const distDown =
-  Number.isFinite(prevDist) &&
-  d < prevDist;
-
-if (
-  pendingZone === "BZ" &&
-  previousZone !== "BZ" &&
-  fastUp &&
-  distUp
-) {
-  out.push({
-    time: c.time,
-    value: c.close,
-    text: "TFU",
-    zone: "BZ",
-    color: "#ffffff",
-  });
+  if (
+    pendingZone === "RZ" &&
+    previousZone !== "RZ" &&
+    fastDown &&
+    distDown
+  ) {
+    out.push({
+      time: c.time,
+      value: c.close,
+      text: "TFD",
+      zone: "RZ",
+      color: "#ffffff",
+    });
+  }
 }
 
-if (
-  pendingZone === "RZ" &&
-  previousZone !== "RZ" &&
-  fastDown &&
-  distDown
-) {
-  out.push({
-    time: c.time,
-    value: c.close,
-    text: "TFD",
-    zone: "RZ",
-    color: "#ffffff",
-  });
-}
+
 
   return out;
 }
