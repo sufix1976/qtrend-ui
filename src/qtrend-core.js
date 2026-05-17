@@ -256,9 +256,7 @@ export function buildReclaimSignals(
   let longArmed = false;
   let shortArmed = false;
 
-  for (let i = 1; i < (candles || []).length; i++) {
-  const c = candles[i];
-  const prevC = candles[i - 1];
+ for (const c of candles || []) {
     const fast = fastMap.get(c.time);
     const slow = slowMap.get(c.time);
 
@@ -807,7 +805,9 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
 
   let lastZone = "NZ";
 
-  for (const c of candles || []) {
+  for (let i = 1; i < (candles || []).length; i++) {
+  const c = candles[i];
+  const prevC = candles[i - 1];
     const fast = fastMap.get(c.time);
     const slow = slowMap.get(c.time);
     const d = distMap.get(c.time);
