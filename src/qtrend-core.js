@@ -1129,6 +1129,24 @@ const trendStates = computeTrendState(
   dist
 );
 
+  const trendFlipLongEntries = trendZones
+  .filter((p) => p.text === "TFU")
+  .map((p) => ({
+    ...p,
+    side: "long",
+    reason: "TFU",
+    text: "TFU",
+  }));
+
+const trendFlipShortEntries = trendZones
+  .filter((p) => p.text === "TFD")
+  .map((p) => ({
+    ...p,
+    side: "short",
+    reason: "TFD",
+    text: "TFD",
+  }));
+
   const kalmanTrend = buildKalmanTrend(
   safeCandles,
   Number(cfg.kalmanProcessNoise ?? 0.01),
@@ -1263,6 +1281,7 @@ const allLongEntries = [
   ...distKinks.distKinkLongCandidates,
   ...trendSwitchLongEntries,
   ...reactionLongEntries,
+  ...trendFlipLongEntries,
 ];
 
 const allShortEntries = [
@@ -1271,6 +1290,7 @@ const allShortEntries = [
   ...distKinks.distKinkShortCandidates,
   ...trendSwitchShortEntries,
   ...reactionShortEntries,
+  ...trendFlipShortEntries,
 ];
 
 
