@@ -1191,6 +1191,24 @@ const trendQualitySignals = buildTrendQualitySignals(
   5
 );
 
+  const degradeLongExits = trendQualitySignals
+  .filter((p) => p.text === "TRU-D")
+  .map((p) => ({
+    ...p,
+    side: "flat",
+    reason: "TRU-D",
+    text: "TRU-D",
+  }));
+
+const degradeShortExits = trendQualitySignals
+  .filter((p) => p.text === "TRD-D")
+  .map((p) => ({
+    ...p,
+    side: "flat",
+    reason: "TRD-D",
+    text: "TRD-D",
+  }));
+
 const reactionLongEntries = trendQualitySignals
   .filter((p) => p.text === "RTRU")
   .map((p) => ({
@@ -1248,6 +1266,8 @@ const mixedEvents = [
   ...allShortEntries.map((p) => ({ ...p, side: "short", kind: "entry" })),
   ...exits.longExits.map((p) => ({ ...p, side: "flat", kind: "exit_long" })),
   ...exits.shortExits.map((p) => ({ ...p, side: "flat", kind: "exit_short" })),
+  ...degradeLongExits.map((p) => ({ ...p, side: "flat", kind: "exit_long" })),
+  ...degradeShortExits.map((p) => ({ ...p, side: "flat", kind: "exit_short" })),
 ].sort((a, b) => a.time - b.time);
 
 for (const e of mixedEvents) {
@@ -1343,6 +1363,18 @@ if (
       side: "flat",
       eventType: "exit_short",
     })),
+
+...degradeLongExits.map((p) => ({
+  ...p,
+  side: "flat",
+  eventType: "exit_long",
+})),
+...degradeShortExits.map((p) => ({
+  ...p,
+  side: "flat",
+  eventType: "exit_short",
+})),
+    
   ].sort((a, b) => a.time - b.time);
 
   let state = "flat";
