@@ -724,9 +724,7 @@ export function buildTrendQualitySignals(
       netProgressOk =
   candles[end].close > entryCandle.close;
       if (netProgressOk) score++;
-if (!netProgressOk) {
-  reversalSignal = "RTRD";
-}
+
       if (madeNewHigh) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -748,9 +746,7 @@ if (!netProgressOk) {
       netProgressOk =
   candles[end].close < entryCandle.close;
       if (netProgressOk) score++;
-if (!netProgressOk) {
-  reversalSignal = "RTRU";
-}
+
       if (madeNewLow) score++;
       if (distImproved) score++;
       if (fastImproved) score++;
@@ -758,10 +754,14 @@ if (!netProgressOk) {
     }
 
     const quality =
-  !netProgressOk ? "W" :
+  
   score >= 5 ? "S" :
-  score <= 2 ? "W" :
+  score <= 1 ? "W" :
   "M";
+
+    if (quality === "W") {
+  reversalSignal = e.text === "TRU" ? "RTRD" : "RTRU";
+}
 
     if (reversalSignal) {
   out.push({
