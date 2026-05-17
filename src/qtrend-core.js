@@ -857,6 +857,66 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
   return out;
 }
 
+export function buildKalmanTrend(candles, processNoise = 0.01, measurementNoise = 3) {
+  const out = [];
+
+  let estimate = null;
+  let errorEstimate = 1;
+
+  for (const c of candles || []) {
+    const price = Number(c.close);
+    if (!Number.isFinite(price)) continue;
+
+    if (estimate == null) {
+      estimate = price;
+      out.push({
+        time: c.time,
+        value: estimate,
+        slope: 0,
+        trend: "KN",
+        color: "#facc15",
+      });
+      continue;
+    }
+
+    const prevEstimate = estimate;
+
+    errorEstimate += processNoise;
+
+    const kalmanGain =
+      errorEstimate / (errorEstimate + measurementNoise);
+
+    estimate =
+      estimate + kalmanGain * (price - estimate);
+
+    errorEstimate =
+      (1 - kalmanGain) * errorEstimate;
+
+    const slope = estimate - prevEstimate;
+
+    const trend =
+      slope > 0 ? "KU" :
+      slope < 0 ? "KD" :
+      "KN";
+
+    out.push({
+      time: c.time,
+      value: estimate,
+      slope,
+      trend,
+      text: trend,
+      color:
+        trend === "KU"
+          ? "#00ff88"
+          : trend === "KD"
+          ? "#ff4d6d"
+          : "#facc15",
+    });
+  }
+
+  return out;
+}
+
 export function computeQTrendCore(candles, cfg = {}) {
   const safeCandles = Array.isArray(candles)
     ? candles
@@ -929,6 +989,12 @@ const trendStates = computeTrendState(
   smaFast,
   smaSlow,
   dist
+);
+
+  const kalmanTrend = buildKalmanTrend(
+  safeCandles,
+  Number(cfg.kalmanProcessNoise ?? 0.01),
+  Number(cfg.kalmanMeasurementNoise ?? 3)
 );
 
   const reclaim = buildReclaimSignals(
@@ -1207,6 +1273,7 @@ if (
     oldTrendEvents,
     trendStates,
     trendZones,
+    kalmanTrend,
     trendQualitySignals,
 
     rawLongCandidates: reclaim.rawLongCandidates,
