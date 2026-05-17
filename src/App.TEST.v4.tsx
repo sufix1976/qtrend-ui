@@ -1145,6 +1145,13 @@ async function saveAllSizes() {
   lastValueVisible: false,
 });
 
+    const kalmanSeries = priceChart.addSeries(LineSeries, {
+  color: "#c084fc",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const zoneSeries = priceChart.addSeries(LineSeries, {
   priceScaleId: "",
   color: "#facc15",
@@ -1950,6 +1957,13 @@ const trendData = coreCheck.trendStates
 
 trendSeries.setData(trendData as any);
 
+        kalmanSeries.setData(
+  (coreCheck.kalmanTrend ?? []).map((p: any) => ({
+    time: p.time,
+    value: p.value,
+  })) as any
+);
+
         const zoneProjected = projectMarkerPointsToCandles(
   coreCheck.trendZones ?? [],
   candles,
@@ -2109,6 +2123,7 @@ return () => {
         priceChart.removeSeries(smaSlowSeries);
 
         priceChart.removeSeries(trendSeries);
+        priceChart.removeSeries(kalmanSeries);
         priceChart.removeSeries(zoneSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
