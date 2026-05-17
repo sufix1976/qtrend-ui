@@ -687,7 +687,7 @@ for (const z of trendZones || []) {
   zoneMap.set(Number(z.time), z.zone);
 }
   
-  for (const e of trendEntries || []) {
+  for (const e of entries) {
     const idx = candleIndex.get(Number(e.time));
     if (idx == null) continue;
 
