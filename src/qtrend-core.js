@@ -796,6 +796,67 @@ export function buildTrendQualitySignals(
   return uniqueMarkers(out);
 }
 
+export function buildTrendZones(candles, smaFast, smaSlow, dist) {
+  const out = [];
+
+  const fastMap = mapByTime(smaFast);
+  const slowMap = mapByTime(smaSlow);
+  const distMap = mapByTime(dist);
+
+  let lastZone = "NZ";
+
+  for (const c of candles || []) {
+    const fast = fastMap.get(c.time);
+    const slow = slowMap.get(c.time);
+    const d = distMap.get(c.time);
+
+    if (
+      !Number.isFinite(fast) ||
+      !Number.isFinite(slow) ||
+      !Number.isFinite(d)
+    ) {
+      continue;
+    }
+
+    let bullScore = 0;
+    let bearScore = 0;
+
+    if (fast > slow) bullScore++;
+    if (fast < slow) bearScore++;
+
+    if (c.close > fast) bullScore++;
+    if (c.close < fast) bearScore++;
+
+    if (d > 0) bullScore++;
+    if (d < 0) bearScore++;
+
+    let zone = lastZone;
+
+    if (bullScore >= 2 && bearScore <= 1) zone = "BZ";
+    else if (bearScore >= 2 && bullScore <= 1) zone = "RZ";
+    else zone = "NZ";
+
+    lastZone = zone;
+
+    out.push({
+      time: c.time,
+      value: c.close,
+      zone,
+      bullScore,
+      bearScore,
+      text: zone,
+      color:
+        zone === "BZ"
+          ? "#00ff88"
+          : zone === "RZ"
+          ? "#ff4d6d"
+          : "#facc15",
+    });
+  }
+
+  return out;
+}
+
 export function computeQTrendCore(candles, cfg = {}) {
   const safeCandles = Array.isArray(candles)
     ? candles
@@ -861,6 +922,13 @@ const trendStates = computeTrendState(
   smaSlow,
   distMiddle,
   trendLength
+);
+
+  const trendZones = buildTrendZones(
+  safeCandles,
+  smaFast,
+  smaSlow,
+  dist
 );
 
   const reclaim = buildReclaimSignals(
@@ -1138,6 +1206,7 @@ if (
     smaTurns,
     oldTrendEvents,
     trendStates,
+    trendZones,
     trendQualitySignals,
 
     rawLongCandidates: reclaim.rawLongCandidates,
