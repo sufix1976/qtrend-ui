@@ -1073,6 +1073,161 @@ export function buildKalmanTrend(candles, processNoise = 0.01, measurementNoise 
   return out;
 }
 
+export function buildTradeReplay(
+  candles,
+  mixedEvents,
+  spread = 0,
+  slippage = 0
+) {
+  const trades = [];
+
+  let state = "flat";
+  let entry = null;
+
+  const eventStream = [...mixedEvents].sort(
+    (a, b) => a.time - b.time
+  );
+
+  for (const e of eventStream) {
+    const price =
+      Number(e.price ?? e.value ?? 0);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      continue;
+    }
+
+    // ---------- EXIT ----------
+    if (
+      e.side === "flat" &&
+      entry
+    ) {
+      const pnl =
+        entry.side === "long"
+          ? price - entry.price
+          : entry.price - price;
+
+      trades.push({
+        entryTime: entry.time,
+        exitTime: e.time,
+        entrySide: entry.side,
+        entryPrice: entry.price,
+        exitPrice: price,
+        pnl,
+        entryReason: entry.reason,
+        exitReason: e.reason,
+      });
+
+      state = "flat";
+      entry = null;
+
+      continue;
+    }
+
+    // ---------- LONG ----------
+    if (e.side === "long") {
+      if (
+        state === "short" &&
+        entry
+      ) {
+        const pnl =
+          entry.price - price;
+
+        trades.push({
+          entryTime: entry.time,
+          exitTime: e.time,
+          entrySide: "short",
+          entryPrice: entry.price,
+          exitPrice: price,
+          pnl,
+          entryReason: entry.reason,
+          exitReason: "flip_long",
+        });
+
+        entry = null;
+      }
+
+      if (state !== "long") {
+        entry = {
+          side: "long",
+          time: e.time,
+          price,
+          reason: e.reason,
+        };
+
+        state = "long";
+      }
+
+      continue;
+    }
+
+    // ---------- SHORT ----------
+    if (e.side === "short") {
+      if (
+        state === "long" &&
+        entry
+      ) {
+        const pnl =
+          price - entry.price;
+
+        trades.push({
+          entryTime: entry.time,
+          exitTime: e.time,
+          entrySide: "long",
+          entryPrice: entry.price,
+          exitPrice: price,
+          pnl,
+          entryReason: entry.reason,
+          exitReason: "flip_short",
+        });
+
+        entry = null;
+      }
+
+      if (state !== "short") {
+        entry = {
+          side: "short",
+          time: e.time,
+          price,
+          reason: e.reason,
+        };
+
+        state = "short";
+      }
+    }
+  }
+
+  const grossProfit = trades
+    .filter((t) => t.pnl > 0)
+    .reduce((a, b) => a + b.pnl, 0);
+
+  const grossLoss = Math.abs(
+    trades
+      .filter((t) => t.pnl < 0)
+      .reduce((a, b) => a + b.pnl, 0)
+  );
+
+  const netPnL =
+    grossProfit - grossLoss;
+
+  const pf =
+    grossLoss > 0
+      ? grossProfit / grossLoss
+      : grossProfit > 0
+      ? 999
+      : 0;
+
+  return {
+    trades,
+    state,
+    grossProfit,
+    grossLoss,
+    netPnL,
+    pf,
+    winCount: trades.filter((t) => t.pnl > 0).length,
+    lossCount: trades.filter((t) => t.pnl < 0).length,
+  };
+}
+
 export function computeQTrendCore(candles, cfg = {}) {
   const safeCandles = Array.isArray(candles)
     ? candles
