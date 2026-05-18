@@ -1758,12 +1758,24 @@ const mixedEvents = [
   })),
 ];
 
-const sim = buildTradeReplay(
+const replay = buildTradeReplay(
   candles,
   mixedEvents,
   assumedSpread,
   assumedSlippage
 );
+
+const sim = {
+  ...replay,
+  position: replay.state,
+  tradeCount: replay.trades.length,
+  longExitPoints: coreCheck.longExits ?? [],
+  shortExitPoints: coreCheck.shortExits ?? [],
+  lastSignalText:
+    coreCheck.latestStrategyEventType && coreCheck.latestStrategyEventTime
+      ? `${coreCheck.latestStrategyEventType} ${coreCheck.latestStrategyEventTime}`
+      : "-",
+};
 
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
