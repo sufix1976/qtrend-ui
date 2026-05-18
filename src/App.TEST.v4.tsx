@@ -1736,20 +1736,33 @@ const tradeShortEntries = allShortEntries.filter(
 
         
 
-const sim = simulateStrategyTESTv4(
+const mixedEvents = [
+  ...coreCheck.tradeLongEntries.map((p: any) => ({
+    ...p,
+    side: "long",
+  })),
+
+  ...coreCheck.tradeShortEntries.map((p: any) => ({
+    ...p,
+    side: "short",
+  })),
+
+  ...coreCheck.longExitPoints.map((p: any) => ({
+    ...p,
+    side: "flat",
+  })),
+
+  ...coreCheck.shortExitPoints.map((p: any) => ({
+    ...p,
+    side: "flat",
+  })),
+];
+
+const sim = buildTradeReplay(
   candles,
-  dist,
-  distMiddle,
-  coreCheck.tradeLongEntries,
-  coreCheck.tradeShortEntries,
-  dynamicBand,
+  mixedEvents,
   assumedSpread,
-  assumedSlippage,
-  smaFast,
-  smaUpper,
-  smaSlow,
-  smaLower,
-  useSlowExitUI
+  assumedSlippage
 );
 
 const validLongCandidates = rawLongCandidates;
