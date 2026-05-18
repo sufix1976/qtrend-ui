@@ -1567,40 +1567,46 @@ if (
   }
 }
 
-  const eventStream = [
-    ...tradeLongEntries.map((p) => ({
-      ...p,
-      side: "long",
-      eventType: "entry",
-    })),
-    ...tradeShortEntries.map((p) => ({
-      ...p,
-      side: "short",
-      eventType: "entry",
-    })),
-    ...exits.longExits.map((p) => ({
-      ...p,
-      side: "flat",
-      eventType: "exit_long",
-    })),
-    ...exits.shortExits.map((p) => ({
-      ...p,
-      side: "flat",
-      eventType: "exit_short",
-    })),
+const mixedReplayEvents = [
+  ...tradeLongEntries.map((p) => ({
+    ...p,
+    side: "long",
+    eventType: "entry_long",
+    price: p.value,
+  })),
 
-...degradeLongExits.map((p) => ({
-  ...p,
-  side: "flat",
-  eventType: "exit_long",
-})),
-...degradeShortExits.map((p) => ({
-  ...p,
-  side: "flat",
-  eventType: "exit_short",
-})),
-    
-  ].sort((a, b) => a.time - b.time);
+  ...tradeShortEntries.map((p) => ({
+    ...p,
+    side: "short",
+    eventType: "entry_short",
+    price: p.value,
+  })),
+
+  ...longExitPoints.map((p) => ({
+    ...p,
+    side: "flat",
+    eventType: "exit_long",
+    price: p.value,
+  })),
+
+  ...shortExitPoints.map((p) => ({
+    ...p,
+    side: "flat",
+    eventType: "exit_short",
+    price: p.value,
+  })),
+];
+
+const replay = buildTradeReplay(
+  candles,
+  mixedReplayEvents,
+  spread,
+  slippage
+);
+
+const eventStream = mixedReplayEvents
+  .slice()
+  .sort((a, b) => a.time - b.time);
 
   let state = "flat";
   let latestStrategyEvent = null;
