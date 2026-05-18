@@ -1668,7 +1668,7 @@ const eventStream = mixedReplayEvents
 
     longExits: exits.longExits,
     shortExits: exits.shortExits,
-
+    replay,
     eventStream,
     latestStrategyEvent,
     latestStrategyEventTime: latestStrategyEvent?.time ?? null,
