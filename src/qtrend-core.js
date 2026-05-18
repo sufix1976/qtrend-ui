@@ -965,11 +965,23 @@ const distDown =
   Number.isFinite(prevDist) &&
   d < prevDist * 0.6;
 
+      const slowUp =
+  Number.isFinite(prevFast) &&
+  slow >= slowMap.get(prevC?.time);
+
+const slowDown =
+  Number.isFinite(prevFast) &&
+  slow <= slowMap.get(prevC?.time);
+
+const priceAboveSlow = c.close > slow;
+const priceBelowSlow = c.close < slow;
+
       if (
         pendingZone === "BZ" &&
-        previousZone !== "BZ" &&
-        fastUp &&
-        distUp
+previousZone !== "BZ" &&
+fastUp &&
+distUp &&
+(slowUp || priceAboveSlow)
       ) {
         out.push({
           time: c.time,
@@ -982,9 +994,10 @@ const distDown =
 
       if (
         pendingZone === "RZ" &&
-        previousZone !== "RZ" &&
-        fastDown &&
-        distDown
+previousZone !== "RZ" &&
+fastDown &&
+distDown &&
+(slowDown || priceBelowSlow)
       ) {
         out.push({
           time: c.time,
