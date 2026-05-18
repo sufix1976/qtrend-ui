@@ -918,7 +918,25 @@ async function saveAllSizes() {
 
 (window as any).coreCheck = coreCheck;
         
+console.log("TRU DEBUG", {
+  tradeLongEntries: (coreCheck.tradeLongEntries || [])
+    .filter((e: any) => e.text === "TRU" || e.text === "TFU")
+    .slice(-10),
 
+  eventStream: (coreCheck.eventStream || [])
+    .filter(
+      (e: any) =>
+        e.text === "TRU" ||
+        e.text === "TFU" ||
+        e.text === "TRU-D" ||
+        e.eventType === "exit_long"
+    )
+    .slice(-20),
+
+  replay: coreCheck.replay,
+  state: coreCheck.state,
+  latestType: coreCheck.latestStrategyEventType,
+});
 
 
         
