@@ -1668,34 +1668,36 @@ const state = replay.state || replayState || "flat";
     allLongEntries,
     allShortEntries,
 
-    blockedLongEntries,
-    blockedShortEntries,
+    tradeLongEntries,
+    tradeShortEntries,
 
-       latestStrategyEvent,
+    longExits: exits.longExits,
+    shortExits: exits.shortExits,
+
+    replay: {
+      ...replay,
+      eventStream,
+      events: eventStream,
+    },
+
+    eventStream,
+    mixedReplayEvents,
+
+    latestStrategyEvent,
     latestStrategyEventTime: latestStrategyEvent?.time ?? null,
+
     latestStrategyEventType:
       latestStrategyEvent?.reason ??
       latestStrategyEvent?.text ??
       latestStrategyEvent?.eventType ??
       null,
+
     latestStrategyReason:
       latestStrategyEvent?.reason ??
       latestStrategyEvent?.text ??
       latestStrategyEvent?.eventType ??
       null,
-    state,
-    longExits: exits.longExits,
-    shortExits: exits.shortExits,
-        replay: {
-      ...replay,
-      eventStream,
-      events: eventStream,
-    },
-    eventStream,
-    mixedReplayEvents,
-    latestStrategyEvent,
-    latestStrategyEventTime: latestStrategyEvent?.time ?? null,
-    latestStrategyEventType: latestStrategyEvent?.reason ?? null,
+
     state,
 
     debug: {
