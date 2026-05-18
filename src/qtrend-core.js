@@ -1598,10 +1598,10 @@ const mixedReplayEvents = [
 ];
 
 const replay = buildTradeReplay(
-  candles,
+  safeCandles,
   mixedReplayEvents,
-  spread,
-  slippage
+  Number(cfg.spread ?? 0),
+  Number(cfg.slippage ?? 0)
 );
 
 const eventStream = mixedReplayEvents
