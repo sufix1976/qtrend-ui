@@ -1747,12 +1747,12 @@ const mixedEvents = [
     side: "short",
   })),
 
-  ...coreCheck.longExitPoints.map((p: any) => ({
+  ...(coreCheck.longExits ?? []).map((p: any) => ({
     ...p,
     side: "flat",
   })),
 
-  ...coreCheck.shortExitPoints.map((p: any) => ({
+  ...(coreCheck.shortExits ?? []).map((p: any) => ({
     ...p,
     side: "flat",
   })),
