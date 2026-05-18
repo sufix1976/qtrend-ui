@@ -1582,14 +1582,14 @@ const mixedReplayEvents = [
     price: p.value,
   })),
 
-  ...longExitPoints.map((p) => ({
+  ...exits.longExits.map((p) => ({
     ...p,
     side: "flat",
     eventType: "exit_long",
     price: p.value,
   })),
 
-  ...shortExitPoints.map((p) => ({
+  ...exits.shortExits.map((p) => ({
     ...p,
     side: "flat",
     eventType: "exit_short",
