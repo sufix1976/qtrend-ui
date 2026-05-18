@@ -959,11 +959,11 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
 
       const distUp =
   Number.isFinite(prevDist) &&
-  d > prevDist * 1.1;
+  d > prevDist * 1.15;
 
 const distDown =
   Number.isFinite(prevDist) &&
-  d < prevDist * 0.90;
+  d < prevDist * 0.85;
 
       if (
         pendingZone === "BZ" &&
