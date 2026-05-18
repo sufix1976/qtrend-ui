@@ -938,6 +938,18 @@ console.log("TRU DEBUG", {
   latestType: coreCheck.latestStrategyEventType,
 });
 
+        (window as any).coreCheck = coreCheck;
+
+console.log("CORE EXPOSED", {
+  symbol,
+  interval,
+  state: coreCheck.state,
+  longs: coreCheck.tradeLongEntries?.length,
+  shorts: coreCheck.tradeShortEntries?.length,
+  latest: coreCheck.latestStrategyEvent,
+  replay: coreCheck.replay,
+});
+
 
         
 
