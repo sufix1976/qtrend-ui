@@ -1548,6 +1548,18 @@ if (!distMiddle.length) {
   tradeShort: coreCheck.tradeShortEntries?.length,
 });
 
+        (window as any).coreCheck = coreCheck;
+
+console.log("CORE EXPOSED", {
+  symbol,
+  interval,
+  state: coreCheck.state,
+  longs: coreCheck.tradeLongEntries?.length,
+  shorts: coreCheck.tradeShortEntries?.length,
+  latest: coreCheck.latestStrategyEvent,
+  replay: coreCheck.replay,
+});
+
 
 
         
