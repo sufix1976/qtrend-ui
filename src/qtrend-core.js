@@ -1293,23 +1293,6 @@ const reactionShortEntries = trendQualitySignals
     text: "RTRD",
   }));
 
-  const trendFlipLongEntries = trendZones
-  .filter((p) => p.text === "TFU")
-  .map((p) => ({
-    ...p,
-    side: "long",
-    reason: "TFU",
-    text: "TFU",
-  }));
-
-const trendFlipShortEntries = trendZones
-  .filter((p) => p.text === "TFD")
-  .map((p) => ({
-    ...p,
-    side: "short",
-    reason: "TFD",
-    text: "TFD",
-  }));
 
 const allLongEntries = [
   ...reclaim.rawLongCandidates,
