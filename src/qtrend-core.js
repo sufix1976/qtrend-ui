@@ -1608,30 +1608,38 @@ const eventStream = mixedReplayEvents
   .slice()
   .sort((a, b) => a.time - b.time);
 
-  let state = "flat";
-  let latestStrategyEvent = null;
+let replayState = "flat";
+let latestStrategyEvent = null;
 
-  for (const e of eventStream) {
-    if (e.eventType === "entry") {
-      if (state === e.side) continue;
-
-      state = e.side;
+for (const e of eventStream) {
+  if (e.side === "long") {
+    if (replayState !== "long") {
+      replayState = "long";
       latestStrategyEvent = e;
-      continue;
     }
+    continue;
+  }
 
-    if (e.eventType === "exit_long" && state === "long") {
-      state = "flat";
+  if (e.side === "short") {
+    if (replayState !== "short") {
+      replayState = "short";
       latestStrategyEvent = e;
-      continue;
     }
+    continue;
+  }
 
-    if (e.eventType === "exit_short" && state === "short") {
-      state = "flat";
+  if (e.side === "flat") {
+    if (
+      (e.eventType === "exit_long" && replayState === "long") ||
+      (e.eventType === "exit_short" && replayState === "short")
+    ) {
+      replayState = "flat";
       latestStrategyEvent = e;
-      continue;
     }
   }
+}
+
+const state = replay.state || replayState || "flat";
 
 
 
@@ -1663,9 +1671,19 @@ const eventStream = mixedReplayEvents
     blockedLongEntries,
     blockedShortEntries,
 
-    tradeLongEntries,
-    tradeShortEntries,
-
+       latestStrategyEvent,
+    latestStrategyEventTime: latestStrategyEvent?.time ?? null,
+    latestStrategyEventType:
+      latestStrategyEvent?.reason ??
+      latestStrategyEvent?.text ??
+      latestStrategyEvent?.eventType ??
+      null,
+    latestStrategyReason:
+      latestStrategyEvent?.reason ??
+      latestStrategyEvent?.text ??
+      latestStrategyEvent?.eventType ??
+      null,
+    state,
     longExits: exits.longExits,
     shortExits: exits.shortExits,
     replay,
