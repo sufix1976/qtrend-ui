@@ -2860,15 +2860,19 @@ return () => {
           <div style={{ marginTop: 10 }}>
   <div>SMA Offset: {smaOffsetUI}</div>
 
-  <input
-    type="range"
-    min="1"
-    max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
-    step="1"
-    value={smaOffsetUI}
-    onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
-    style={{ width: "100%" }}
-  />
+ <input
+  type="range"
+  min={0}
+  max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
+  step={
+    symbol === "EURUSD"
+      ? 0.0001
+      : 1
+  }
+  value={smaOffsetUI}
+  onChange={(e) => setSmaOffsetUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
 </div>
 </div>
         <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
