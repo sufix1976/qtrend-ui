@@ -2866,7 +2866,7 @@ return () => {
   max={SMA_OFFSET_MAX_BY_SYMBOL[symbol] ?? 1000}
   step={
     symbol === "EURUSD"
-      ? 0.0001
+      ? 0.001
       : 1
   }
   value={smaOffsetUI}
