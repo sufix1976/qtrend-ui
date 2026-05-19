@@ -2151,7 +2151,11 @@ setProfitFactor(
       : null
 );
 
-        setLastSignalText(sim.lastSignalText);
+        setLastSignalText(
+  computed.latestStrategyEvent
+    ? `${computed.latestStrategyEvent.text} ${formatChartTimeLabel(computed.latestStrategyEvent.time, true)}`
+    : "-"
+);
 
         setBlockedLongCount(real.blockedLongPoints.length);
         setBlockedShortCount(real.blockedShortPoints.length);
