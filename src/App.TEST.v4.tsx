@@ -1810,7 +1810,7 @@ const replay = buildTradeReplay(
 const sim = {
   ...replay,
   position: replay.state,
-  latestStrategyEvent: computed.latestStrategyEvent,
+ 
   tradeCount: replay.trades.length,
   longExitPoints: coreCheck.longExits ?? [],
   shortExitPoints: coreCheck.shortExits ?? [],
@@ -2152,10 +2152,10 @@ setProfitFactor(
       : null
 );
 
-      setLastSignalText(
-  sim.latestStrategyEvent
-    ? `${sim.latestStrategyEvent.text} ${formatChartTimeLabel(sim.latestStrategyEvent.time, true)}`
-    : sim.lastSignalText || "-"
+     setLastSignalText(
+  coreCheck.latestStrategyEvent
+    ? `${coreCheck.latestStrategyEvent.text} ${formatChartTimeLabel(coreCheck.latestStrategyEvent.time, true)}`
+    : "-"
 );
 
         setBlockedLongCount(real.blockedLongPoints.length);
