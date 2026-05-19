@@ -2152,8 +2152,8 @@ setProfitFactor(
 );
 
         setLastSignalText(
-  computed.latestStrategyEvent
-    ? `${computed.latestStrategyEvent.text} ${formatChartTimeLabel(computed.latestStrategyEvent.time, true)}`
+  core.latestStrategyEvent
+    ? `${core.latestStrategyEvent.text} ${formatChartTimeLabel(core.latestStrategyEvent.time, true)}`
     : "-"
 );
 
