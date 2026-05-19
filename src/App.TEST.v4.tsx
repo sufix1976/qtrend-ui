@@ -145,6 +145,7 @@ const SYMBOLS = [
   "CORN",
   "SOLUSD",
   "TSLA",
+  "EURUSD",
 ];
 
 function uniqueSymbols(base: string[], cfgMap: SymbolConfigMap): string[] {
@@ -179,6 +180,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
+  EURUSD: 0.0019,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -197,6 +199,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   CORN: 3,
   SOLUSD: 3,
   TSLA: 3,
+  EURUSD: 1,
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
@@ -214,9 +217,9 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.08,
   CORN: 0.08,
   SOLUSD: 0.08,
-  TSLA: 0.08
+  TSLA: 0.08,
+  EURUSD: 0.0003,
 };
-
 
 const SPREAD_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 25,
@@ -234,6 +237,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   CORN: 0.7,
   SOLUSD: 0.08,
   TSLA: 2,
+  EURUSD: 0.00015,
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -251,10 +255,11 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.01,
   CORN: 0.3,
   SOLUSD: 0.02,
-  TSLA: 0.5
+  TSLA: 0.5,
+  EURUSD: 0.00002,
 };
 
- const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
+const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 5000,
   ETHUSD: 300,
   XRPUSD: 1,
@@ -270,6 +275,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
+  EURUSD: 0.02,
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
