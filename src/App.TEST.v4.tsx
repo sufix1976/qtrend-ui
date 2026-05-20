@@ -2073,8 +2073,14 @@ const zoneProjected = projectMarkerPointsToCandles(
   "inside-mid"
 );
 
+const safeZoneProjected = zoneProjected.filter(
+  (p: any) =>
+    Number.isFinite(Number(p.time)) &&
+    Number.isFinite(Number(p.value))
+);
+
 zoneSeries.setData(
-  zoneProjected.map((p: any) => ({
+  safeZoneProjected.map((p: any) => ({
     time: p.time,
     value: p.value,
   })) as any
@@ -2082,7 +2088,7 @@ zoneSeries.setData(
 
 createSeriesMarkers(
   zoneSeries,
-  zoneProjected.map((p: any) => ({
+  safeZoneProjected.map((p: any) => ({
     time: p.time,
     position: "inBar",
     color: p.color ?? "#facc15",
