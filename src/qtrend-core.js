@@ -1595,6 +1595,20 @@ const mixedReplayEvents = [
     eventType: "exit_short",
     price: p.value,
   })),
+
+  ...degradeLongExits.map((p) => ({
+    ...p,
+    side: "flat",
+    eventType: "exit_long",
+    price: p.value,
+  })),
+
+  ...degradeShortExits.map((p) => ({
+    ...p,
+    side: "flat",
+    eventType: "exit_short",
+    price: p.value,
+  })),
 ];
 
 const replay = buildTradeReplay(
