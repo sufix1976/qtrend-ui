@@ -805,6 +805,16 @@ if (badZoneCount >= 2 && goodZoneCount <= 1) {
   quality = "W";
 }
 
+// TRU: kein einziger BZ nach Entry, aber RZ taucht auf => Long-Versuch gescheitert
+if (e.text === "TRU" && bzCount === 0 && rzCount >= 1) {
+  quality = "W";
+}
+
+// TRD gespiegelt: kein einziger RZ nach Entry, aber BZ taucht auf => Short-Versuch gescheitert
+if (e.text === "TRD" && rzCount === 0 && bzCount >= 1) {
+  quality = "W";
+}
+
 // dominante Folgezonen => stark
 if (
   goodZoneCount >= 3 &&
