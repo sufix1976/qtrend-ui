@@ -833,7 +833,7 @@ if (
     (bzCount === 0 && nzCount >= 2)
   )
 ) {
-  reversalSignal = "RTRD";
+  reversalSignal = "TRU-D";
 }
 
 // TRD gescheitert => sofortige Long-Reaktion
@@ -845,7 +845,7 @@ if (
     (rzCount === 0 && nzCount >= 2)
   )
 ) {
-  reversalSignal = "RTRU";
+  reversalSignal = "TRD-D";
 }
 
 if (reversalSignal) {
