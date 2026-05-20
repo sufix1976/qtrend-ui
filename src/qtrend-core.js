@@ -1658,16 +1658,22 @@ for (const [, events] of groupedReplayEvents.entries()) {
   });
 
   // nur relevante Events übernehmen
-  for (const e of sorted) {
-    if (
-      e.eventType === "entry_long" ||
-      e.eventType === "entry_short" ||
-      e.eventType === "exit_long" ||
-      e.eventType === "exit_short"
-    ) {
-      prioritizedReplayEvents.push(e);
-    }
-  }
+ const exitsOnly = sorted.filter(
+  (e) => e.eventType === "exit_long" || e.eventType === "exit_short"
+);
+
+const entriesOnly = sorted.filter(
+  (e) => e.eventType === "entry_long" || e.eventType === "entry_short"
+);
+
+// pro Kerze maximal 1 Exit und 1 Entry
+if (exitsOnly.length) {
+  prioritizedReplayEvents.push(exitsOnly[0]);
+}
+
+if (entriesOnly.length) {
+  prioritizedReplayEvents.push(entriesOnly[0]);
+}
 }
 
   const normalizedReplayEvents = [];
