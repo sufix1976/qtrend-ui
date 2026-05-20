@@ -768,7 +768,7 @@ export function buildTrendQualitySignals(
 const checkZoneMarkers = (trendZones || []).filter(
   (z) =>
     z.time > e.time &&
-    z.time <= candles[end].time &&
+    z.time <= (candles[end + 3]?.time ?? candles[end].time) &&
     (z.zone === "BZ" || z.zone === "RZ" || z.zone === "NZ")
 );
 
