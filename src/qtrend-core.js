@@ -765,39 +765,80 @@ export function buildTrendQualitySignals(
       if (pullbackOk) score++;
     }
 
-    const currentZone =
+const checkZoneMarkers = (trendZones || []).filter(
+  (z) =>
+    z.time > e.time &&
+    z.time <= candles[end].time &&
+    (z.zone === "BZ" || z.zone === "RZ" || z.zone === "NZ")
+);
+
+let bzCount = 0;
+let rzCount = 0;
+let nzCount = 0;
+
+for (const z of checkZoneMarkers) {
+  if (z.zone === "BZ") bzCount++;
+  if (z.zone === "RZ") rzCount++;
+  if (z.zone === "NZ") nzCount++;
+}
+
+const badZoneCount =
+  e.text === "TRU"
+    ? rzCount + nzCount
+    : bzCount + nzCount;
+
+const goodZoneCount =
+  e.text === "TRU"
+    ? bzCount
+    : rzCount;
+
+const currentZone =
   zoneAt(trendZones, candles[end]?.time);
 
-    const quality =
-      score >= 5 ? "S" :
-      score <= 1 ? "W" :
-      "M";
+let quality =
+  score >= 5 ? "S" :
+  score <= 1 ? "W" :
+  "M";
 
-    if (quality === "W" && e.text === "TRU" && currentZone === "RZ") {
-      reversalSignal = "RTRD";
-    }
+// schlechte Zonenstruktur => schwach
+if (badZoneCount >= 2 && goodZoneCount <= 1) {
+  quality = "W";
+}
 
-    if (quality === "W" && e.text === "TRD" && currentZone === "BZ") {
-      reversalSignal = "RTRU";
-    }
+// dominante Folgezonen => stark
+if (
+  goodZoneCount >= 3 &&
+  badZoneCount === 0 &&
+  score >= 4
+) {
+  quality = "S";
+}
 
-    if (reversalSignal) {
-      out.push({
-        time: candles[end].time,
-        value: e.value,
-        text: reversalSignal,
-        reason: reversalSignal,
-        quality: "R",
-        sourceTime: e.time,
-        score,
-        color: "#ffffff",
-      });
-    }
+if (quality === "W" && e.text === "TRU" && currentZone === "RZ") {
+  reversalSignal = "RTRD";
+}
 
-    out.push({
-      time: candles[end].time,
-      value: e.value,
-      text: `${e.text}-${quality}`,
+if (quality === "W" && e.text === "TRD" && currentZone === "BZ") {
+  reversalSignal = "RTRU";
+}
+
+if (reversalSignal) {
+  out.push({
+    time: candles[end].time,
+    value: e.value,
+    text: reversalSignal,
+    reason: reversalSignal,
+    quality: "R",
+    sourceTime: e.time,
+    score,
+    color: "#ffffff",
+  });
+}
+
+out.push({
+  time: candles[end].time,
+  value: e.value,
+  text: `${e.text}-${quality}`,
       reason: `${e.text}-${quality}`,
       quality,
       sourceTime: e.time,
