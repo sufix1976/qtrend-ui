@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 // @ts-ignore
-import { computeQTrendCore, buildTradeReplay } from "./qtrend-core";
+import { computeQTrendCore, buildTradeReplay, QTREND_CORE_VERSION } from "./qtrend-core";
 import {
   createChart,
   createSeriesMarkers,
