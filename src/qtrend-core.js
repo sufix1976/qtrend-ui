@@ -1096,32 +1096,45 @@ export function buildTradeReplay(
       continue;
     }
 
-    // ---------- EXIT ----------
-    if (
-      e.side === "flat" &&
-      entry
-    ) {
-      const pnl =
-        entry.side === "long"
-          ? price - entry.price
-          : entry.price - price;
+   // ---------- EXIT ----------
+if (e.side === "flat") {
+  const isValidLongExit =
+    e.eventType === "exit_long" &&
+    state === "long" &&
+    entry &&
+    entry.side === "long";
 
-      trades.push({
-        entryTime: entry.time,
-        exitTime: e.time,
-        entrySide: entry.side,
-        entryPrice: entry.price,
-        exitPrice: price,
-        pnl,
-        entryReason: entry.reason,
-        exitReason: e.reason,
-      });
+  const isValidShortExit =
+    e.eventType === "exit_short" &&
+    state === "short" &&
+    entry &&
+    entry.side === "short";
 
-      state = "flat";
-      entry = null;
+  if (!isValidLongExit && !isValidShortExit) {
+    continue;
+  }
 
-      continue;
-    }
+  const pnl =
+    entry.side === "long"
+      ? price - entry.price
+      : entry.price - price;
+
+  trades.push({
+    entryTime: entry.time,
+    exitTime: e.time,
+    entrySide: entry.side,
+    entryPrice: entry.price,
+    exitPrice: price,
+    pnl,
+    entryReason: entry.reason,
+    exitReason: e.reason,
+  });
+
+  state = "flat";
+  entry = null;
+
+  continue;
+}
 
     // ---------- LONG ----------
     if (e.side === "long") {
