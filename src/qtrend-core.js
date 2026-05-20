@@ -801,6 +801,55 @@ let quality =
   "M";
 
 // schlechte Zonenstruktur => schwach
+
+// --------------------------------------------------
+// ACTIVE TREND EROSION DETECTION
+// --------------------------------------------------
+
+let degradationSignal = null;
+
+if (e.text === "TRD") {
+  const recentZones = trendZones.filter(
+    (z) =>
+      z.time > e.time &&
+      z.time <= (candles[end + 4]?.time ?? candles[end].time)
+  );
+
+  const bz = recentZones.filter((z) => z.zone === "BZ").length;
+  const nz = recentZones.filter((z) => z.zone === "NZ").length;
+  const rz = recentZones.filter((z) => z.zone === "RZ").length;
+
+  // SHORT verliert Kontrolle
+  if (
+    bz >= 1 &&
+    nz >= 2 &&
+    rz <= 1
+  ) {
+    degradationSignal = "TRD-D";
+  }
+}
+
+if (e.text === "TRU") {
+  const recentZones = trendZones.filter(
+    (z) =>
+      z.time > e.time &&
+      z.time <= (candles[end + 4]?.time ?? candles[end].time)
+  );
+
+  const bz = recentZones.filter((z) => z.zone === "BZ").length;
+  const nz = recentZones.filter((z) => z.zone === "NZ").length;
+  const rz = recentZones.filter((z) => z.zone === "RZ").length;
+
+  // LONG verliert Kontrolle
+  if (
+    rz >= 1 &&
+    nz >= 2 &&
+    bz <= 1
+  ) {
+    degradationSignal = "TRU-D";
+  }
+}    
+    
 if (badZoneCount >= 2 && goodZoneCount <= 1) {
   quality = "W";
 }
@@ -846,6 +895,19 @@ if (
   )
 ) {
   reversalSignal = "TRD-D";
+}
+
+    if (degradationSignal) {
+  out.push({
+    time: candles[end].time,
+    value: e.value,
+    text: degradationSignal,
+    reason: degradationSignal,
+    quality: "D",
+    sourceTime: e.time,
+    score,
+    color: "#ffffff",
+  });
 }
 
 if (reversalSignal) {
