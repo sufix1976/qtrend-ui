@@ -1624,12 +1624,56 @@ const mixedReplayEvents = [
   })),
 ];
 
-  
+  const groupedReplayEvents = new Map();
+
+for (const e of mixedReplayEvents) {
+  const key = String(e.time);
+
+  if (!groupedReplayEvents.has(key)) {
+    groupedReplayEvents.set(key, []);
+  }
+
+  groupedReplayEvents.get(key).push(e);
+}
+
+const prioritizedReplayEvents = [];
+
+for (const [, events] of groupedReplayEvents.entries()) {
+  const sorted = events.slice().sort((a, b) => {
+    const pa =
+      a.eventType === "exit_long" || a.eventType === "exit_short"
+        ? 1
+        : a.eventType === "entry_long" || a.eventType === "entry_short"
+        ? 2
+        : 99;
+
+    const pb =
+      b.eventType === "exit_long" || b.eventType === "exit_short"
+        ? 1
+        : b.eventType === "entry_long" || b.eventType === "entry_short"
+        ? 2
+        : 99;
+
+    return pa - pb;
+  });
+
+  // nur relevante Events übernehmen
+  for (const e of sorted) {
+    if (
+      e.eventType === "entry_long" ||
+      e.eventType === "entry_short" ||
+      e.eventType === "exit_long" ||
+      e.eventType === "exit_short"
+    ) {
+      prioritizedReplayEvents.push(e);
+    }
+  }
+}
 
   const normalizedReplayEvents = [];
 let replayBuildState = "flat";
 
-for (const e of mixedReplayEvents.sort((a, b) => a.time - b.time)) {
+for (const e of prioritizedReplayEvents.slice().sort((a, b) => a.time - b.time)) {
   // ---------- LONG ENTRIES ----------
   if (e.eventType === "entry_long") {
     if (replayBuildState !== "long") {
