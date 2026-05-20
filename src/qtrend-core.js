@@ -879,7 +879,7 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
 
   let lastTfText = null;
 let lastTfIndex = -999;
-const minTfGapBars = 3;
+const minTfGapBars = 8;
 
   for (let i = 1; i < (candles || []).length; i++) {
     const c = candles[i];
@@ -1405,12 +1405,16 @@ for (let i = 1; i < trendStates.length; i++) {
     curr.trend === "TRU" &&
     d.value < distExtreme
   ) {
-    trendSwitchLongEntries.push({
-      time: curr.time,
-      value: 1,
-      text: "TRU",
-      color: "#00ff88",
-    });
+   const c = safeCandles.find((x) => x.time === curr.time);
+
+if (c) {
+  trendSwitchLongEntries.push({
+    time: curr.time,
+    value: c.close,
+    text: "TRU",
+    color: "#00ff88",
+  });
+}
   }
 
   if (
@@ -1418,12 +1422,16 @@ for (let i = 1; i < trendStates.length; i++) {
     curr.trend === "TRD" &&
     d.value > -distExtreme
   ) {
-    trendSwitchShortEntries.push({
-      time: curr.time,
-      value: 1,
-      text: "TRD",
-      color: "#ff4d6d",
-    });
+    const c = safeCandles.find((x) => x.time === curr.time);
+
+if (c) {
+  trendSwitchShortEntries.push({
+    time: curr.time,
+    value: c.close,
+    text: "TRD",
+    color: "#ff4d6d",
+  });
+}
   }
 }
 
