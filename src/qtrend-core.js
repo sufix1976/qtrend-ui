@@ -1624,14 +1624,57 @@ const mixedReplayEvents = [
   })),
 ];
 
+  
+
+  const normalizedReplayEvents = [];
+let replayBuildState = "flat";
+
+for (const e of mixedReplayEvents.sort((a, b) => a.time - b.time)) {
+  // ---------- LONG ENTRIES ----------
+  if (e.eventType === "entry_long") {
+    if (replayBuildState !== "long") {
+      normalizedReplayEvents.push(e);
+      replayBuildState = "long";
+    }
+    continue;
+  }
+
+  // ---------- SHORT ENTRIES ----------
+  if (e.eventType === "entry_short") {
+    if (replayBuildState !== "short") {
+      normalizedReplayEvents.push(e);
+      replayBuildState = "short";
+    }
+    continue;
+  }
+
+  // ---------- LONG EXIT ----------
+  if (e.eventType === "exit_long") {
+    if (replayBuildState === "long") {
+      normalizedReplayEvents.push(e);
+      replayBuildState = "flat";
+    }
+    continue;
+  }
+
+  // ---------- SHORT EXIT ----------
+  if (e.eventType === "exit_short") {
+    if (replayBuildState === "short") {
+      normalizedReplayEvents.push(e);
+      replayBuildState = "flat";
+    }
+    continue;
+  }
+}
+
 const replay = buildTradeReplay(
   safeCandles,
-  mixedReplayEvents,
+  normalizedReplayEvents,
   Number(cfg.spread ?? 0),
   Number(cfg.slippage ?? 0)
 );
 
-const eventStream = mixedReplayEvents
+const eventStream = normalizedReplayEvents
   .slice()
   .sort((a, b) => a.time - b.time);
 
@@ -1708,7 +1751,8 @@ const state = replay.state || replayState || "flat";
     },
 
     eventStream,
-    mixedReplayEvents,
+        mixedReplayEvents,
+    normalizedReplayEvents,
 
     latestStrategyEvent,
     latestStrategyEventTime: latestStrategyEvent?.time ?? null,
