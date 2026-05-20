@@ -2056,8 +2056,19 @@ trendSeries.setData(trendData as any);
   })) as any
 );
 
-        const zoneProjected = projectMarkerPointsToCandles(
-  coreCheck.trendZones ?? [],
+        const rawZoneMarkers = (coreCheck.trendZones ?? []).filter(
+  (p: any) => p.text !== "TFU" && p.text !== "TFD"
+);
+
+const replayTrendFlipEvents = (coreCheck.eventStream ?? []).filter(
+  (e: any) => e.text === "TFU" || e.text === "TFD"
+);
+
+const zoneProjected = projectMarkerPointsToCandles(
+  [
+    ...rawZoneMarkers,
+    ...replayTrendFlipEvents,
+  ],
   candles,
   "inside-mid"
 );
