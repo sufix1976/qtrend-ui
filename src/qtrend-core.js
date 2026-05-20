@@ -1390,6 +1390,9 @@ const kinks = buildKinkSignals(
 
 const trendSwitchLongEntries = [];
 const trendSwitchShortEntries = [];
+  let lastTrendSwitchText = null;
+let lastTrendSwitchIndex = -999;
+const minTrendSwitchGapBars = 8;
 
 for (let i = 1; i < trendStates.length; i++) {
   const prev = trendStates[i - 1];
@@ -1400,11 +1403,14 @@ for (let i = 1; i < trendStates.length; i++) {
   const d = dist.find((x) => x.time === curr.time);
   if (!d) continue;
 
-  if (
-    prev.trend !== "TRU" &&
-    curr.trend === "TRU" &&
-    d.value < distExtreme
-  ) {
+if (
+  prev.trend !== "TRU" &&
+  curr.trend === "TRU" &&
+  d.value < distExtreme &&
+  lastTrendSwitchText !== "TRU" &&
+  i - lastTrendSwitchIndex >= minTrendSwitchGapBars
+) {
+  
    const c = safeCandles.find((x) => x.time === curr.time);
 
 if (c) {
@@ -1417,22 +1423,27 @@ if (c) {
 }
   }
 
-  if (
-    prev.trend !== "TRD" &&
-    curr.trend === "TRD" &&
-    d.value > -distExtreme
-  ) {
-    const c = safeCandles.find((x) => x.time === curr.time);
+ if (
+  prev.trend !== "TRD" &&
+  curr.trend === "TRD" &&
+  d.value > -distExtreme &&
+  lastTrendSwitchText !== "TRD" &&
+  i - lastTrendSwitchIndex >= minTrendSwitchGapBars
+) {
+  const c = safeCandles.find((x) => x.time === curr.time);
 
-if (c) {
-  trendSwitchShortEntries.push({
-    time: curr.time,
-    value: c.close,
-    text: "TRD",
-    color: "#ff4d6d",
-  });
-}
+  if (c) {
+    trendSwitchShortEntries.push({
+      time: curr.time,
+      value: c.close,
+      text: "TRD",
+      color: "#ff4d6d",
+    });
+
+    lastTrendSwitchText = "TRD";
+    lastTrendSwitchIndex = i;
   }
+}
 }
 
 const trendQualitySignals = buildTrendQualitySignals(
