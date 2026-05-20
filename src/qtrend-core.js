@@ -849,9 +849,12 @@ if (
 }
 
 if (reversalSignal) {
+  const reactionTime = candles[end].time;
+  const reactionValue = candles[end].close;
+
   out.push({
-    time: candles[end].time,
-    value: e.value,
+    time: reactionTime,
+    value: reactionValue,
     text: reversalSignal,
     reason: reversalSignal,
     quality: "R",
@@ -859,6 +862,111 @@ if (reversalSignal) {
     score,
     color: "#ffffff",
   });
+
+  // RTRD startet einen neuen SHORT-Versuch -> danach TRD-W/M/S prüfen
+  // RTRU startet einen neuen LONG-Versuch -> danach TRU-W/M/S prüfen
+  const reactionBase =
+    reversalSignal === "RTRD"
+      ? "TRD"
+      : reversalSignal === "RTRU"
+      ? "TRU"
+      : null;
+
+  if (reactionBase) {
+    const reactionStart = end;
+    const reactionEnd = reactionStart + confirmBars;
+
+    if (reactionEnd < candles.length) {
+      const rEntryCandle = candles[reactionStart];
+      const rCheckCandles = candles.slice(reactionStart + 1, reactionEnd + 1);
+
+      const rFastEntry = fastMap.get(rEntryCandle.time);
+      const rFastEnd = fastMap.get(candles[reactionEnd].time);
+
+      const rDistEntry = distMap.get(rEntryCandle.time);
+      const rDistEnd = distMap.get(candles[reactionEnd].time);
+
+      if (
+        Number.isFinite(rFastEntry) &&
+        Number.isFinite(rFastEnd) &&
+        Number.isFinite(rDistEntry) &&
+        Number.isFinite(rDistEnd)
+      ) {
+        let rScore = 0;
+
+        if (reactionBase === "TRD") {
+          const madeNewLow =
+            Math.min(...rCheckCandles.map((c) => c.low)) < rEntryCandle.low;
+
+          const distImproved = rDistEnd < rDistEntry;
+          const fastImproved = rFastEnd < rFastEntry;
+          const netProgressOk = candles[reactionEnd].close < rEntryCandle.close;
+
+          const pullback =
+            Math.max(...rCheckCandles.map((c) => c.high)) - rEntryCandle.close;
+
+          const range = Math.max(
+            rEntryCandle.high - rEntryCandle.low,
+            0.0000001
+          );
+
+          const pullbackOk = pullback <= range * 1.5;
+
+          if (netProgressOk) rScore++;
+          if (madeNewLow) rScore++;
+          if (distImproved) rScore++;
+          if (fastImproved) rScore++;
+          if (pullbackOk) rScore++;
+        }
+
+        if (reactionBase === "TRU") {
+          const madeNewHigh =
+            Math.max(...rCheckCandles.map((c) => c.high)) > rEntryCandle.high;
+
+          const distImproved = rDistEnd > rDistEntry;
+          const fastImproved = rFastEnd > rFastEntry;
+          const netProgressOk = candles[reactionEnd].close > rEntryCandle.close;
+
+          const pullback =
+            rEntryCandle.close - Math.min(...rCheckCandles.map((c) => c.low));
+
+          const range = Math.max(
+            rEntryCandle.high - rEntryCandle.low,
+            0.0000001
+          );
+
+          const pullbackOk = pullback <= range * 1.5;
+
+          if (netProgressOk) rScore++;
+          if (madeNewHigh) rScore++;
+          if (distImproved) rScore++;
+          if (fastImproved) rScore++;
+          if (pullbackOk) rScore++;
+        }
+
+        const rQuality =
+          rScore >= 5 ? "S" :
+          rScore <= 1 ? "W" :
+          "M";
+
+        out.push({
+          time: candles[reactionEnd].time,
+          value: reactionValue,
+          text: `${reactionBase}-${rQuality}`,
+          reason: `${reactionBase}-${rQuality}`,
+          quality: rQuality,
+          sourceTime: reactionTime,
+          score: rScore,
+          color:
+            rQuality === "S"
+              ? "#00ff88"
+              : rQuality === "M"
+              ? "#facc15"
+              : "#ff4d6d",
+        });
+      }
+    }
+  }
 }
 
 out.push({
