@@ -1543,27 +1543,17 @@ if (!distMiddle.length) {
           adaptiveBandMultUI
         );
 
-const cfg = symbolConfigMap[symbol] || null;
-
-const smaFastVal = Number(cfg?.sma_fast ?? smaFastUI);
-const smaSlowVal = Number(cfg?.sma_slow ?? smaSlowUI);
-const smaMiddleVal = Number(cfg?.sma_middle ?? smaMiddleUI);
-const smaOffsetVal = Number(cfg?.sma_offset ?? smaOffsetUI);
-
 const coreCfg = {
-  smaFast: smaFastVal,
-  smaSlow: smaSlowVal,
-  smaMiddle: smaMiddleVal,
-  smaOffset: smaOffsetVal,
-  outerOffset: Number(cfg?.outer_offset ?? outerOffsetUI),
-  minKink: Number(cfg?.min_kink ?? minKinkUI),
-  distExtreme: Number(cfg?.dist_extreme ?? distExtremeUI),
+  smaFast: smaFastUI,
+  smaSlow: smaSlowUI,
+  smaMiddle: smaMiddleUI,
+  smaOffset: smaOffsetUI,
+  outerOffset: outerOffsetUI,
+  minKink: minKinkUI,
+  distExtreme: distExtremeUI,
   kinkStrengthFactor: kinkStrengthFactorUI,
-  useSlowExit:
-    cfg?.use_slow_exit == null
-      ? useSlowExitUI
-      : Boolean(cfg.use_slow_exit),
-  trendLength: Number(cfg?.trend_length ?? trendLengthUI),
+  useSlowExit: useSlowExitUI,
+  trendLength: trendLengthUI,
   spread: Number(SPREAD_BY_SYMBOL[symbol] ?? 0),
   slippage: Number(SLIPPAGE_BY_SYMBOL[symbol] ?? 0),
 };
