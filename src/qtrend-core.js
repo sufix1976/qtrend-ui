@@ -1,5 +1,6 @@
 // qtrend-core.js
 console.log("QTREND CORE FILE LOADED V2");
+export const QTREND_CORE_VERSION = "core-2026-05-20-rtrd-trd-quality-v1";
 // qtrend-core.js
 // Zentrale Signalengine für UI + Worker
 // Keine Broker- oder DB-Logik.
