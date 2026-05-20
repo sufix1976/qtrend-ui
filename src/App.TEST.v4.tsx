@@ -10,6 +10,9 @@ import {
   type IChartApi,
 } from "lightweight-charts";
 
+console.log("QTREND_CORE_VERSION", QTREND_CORE_VERSION);
+(window as any).QTREND_CORE_VERSION = QTREND_CORE_VERSION;
+
 type Candle = {
   time: number;
   open: number;
