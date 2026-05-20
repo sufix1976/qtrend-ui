@@ -1543,18 +1543,34 @@ if (!distMiddle.length) {
           adaptiveBandMultUI
         );
 
-       const coreCheck = computeQTrendCore(candles, {
-  smaFast: smaFastUI,
-  smaSlow: smaSlowUI,
-  smaMiddle: smaMiddleUI,
-  smaOffset: smaOffsetUI,
-  outerOffset: outerOffsetUI,
-  minKink: minKinkUI,
-  distExtreme: distExtremeUI,
+const cfg = symbolConfigMap[symbol] || null;
+
+const smaFastVal = Number(cfg?.sma_fast ?? smaFastUI);
+const smaSlowVal = Number(cfg?.sma_slow ?? smaSlowUI);
+const smaMiddleVal = Number(cfg?.sma_middle ?? smaMiddleUI);
+const smaOffsetVal = Number(cfg?.sma_offset ?? smaOffsetUI);
+
+const coreCfg = {
+  smaFast: smaFastVal,
+  smaSlow: smaSlowVal,
+  smaMiddle: smaMiddleVal,
+  smaOffset: smaOffsetVal,
+  outerOffset: Number(cfg?.outer_offset ?? outerOffsetUI),
+  minKink: Number(cfg?.min_kink ?? minKinkUI),
+  distExtreme: Number(cfg?.dist_extreme ?? distExtremeUI),
   kinkStrengthFactor: kinkStrengthFactorUI,
-  useSlowExit: useSlowExitUI,
-         trendLength: trendLengthUI,
-});
+  useSlowExit:
+    cfg?.use_slow_exit == null
+      ? useSlowExitUI
+      : Boolean(cfg.use_slow_exit),
+  trendLength: Number(cfg?.trend_length ?? trendLengthUI),
+  spread: Number(SPREAD_BY_SYMBOL[symbol] ?? 0),
+  slippage: Number(SLIPPAGE_BY_SYMBOL[symbol] ?? 0),
+};
+
+const coreCheck = computeQTrendCore(candles, coreCfg);
+
+        
         console.log("TREND LENGTH CHECK", {
   trendLengthUI,
   trendStates: coreCheck.trendStates?.length,
@@ -2106,16 +2122,6 @@ createSeriesMarkers(
   })) as any
 );
 
-createSeriesMarkers(
-  zoneSeries,
-  safeZoneProjected.map((p: any) => ({
-    time: p.time,
-    position: "inBar",
-    color: p.color ?? "#facc15",
-    shape: "circle",
-    text: p.text,
-  })) as any
-);
         
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
