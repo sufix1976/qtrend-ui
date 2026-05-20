@@ -824,11 +824,27 @@ if (
   quality = "S";
 }
 
-if (quality === "W" && e.text === "TRU" && currentZone === "RZ") {
+// TRU gescheitert => sofortige Short-Reaktion
+if (
+  quality === "W" &&
+  e.text === "TRU" &&
+  (
+    rzCount >= 1 ||
+    (bzCount === 0 && nzCount >= 2)
+  )
+) {
   reversalSignal = "RTRD";
 }
 
-if (quality === "W" && e.text === "TRD" && currentZone === "BZ") {
+// TRD gescheitert => sofortige Long-Reaktion
+if (
+  quality === "W" &&
+  e.text === "TRD" &&
+  (
+    bzCount >= 1 ||
+    (rzCount === 0 && nzCount >= 2)
+  )
+) {
   reversalSignal = "RTRU";
 }
 
