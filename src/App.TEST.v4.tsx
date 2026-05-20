@@ -2056,7 +2056,7 @@ trendSeries.setData(trendData as any);
   })) as any
 );
 
-        const rawZoneMarkers = (coreCheck.trendZones ?? []).filter(
+const rawZoneMarkers = (coreCheck.trendZones ?? []).filter(
   (p: any) => p.text !== "TFU" && p.text !== "TFD"
 );
 
@@ -2064,16 +2064,25 @@ const replayTrendFlipEvents = (coreCheck.eventStream ?? []).filter(
   (e: any) => e.text === "TFU" || e.text === "TFD"
 );
 
-const zoneProjected = projectMarkerPointsToCandles(
-  [
-    ...rawZoneMarkers,
-    ...replayTrendFlipEvents,
-  ],
+const rawZoneProjected = projectMarkerPointsToCandles(
+  rawZoneMarkers,
   candles,
   "inside-mid"
 );
 
-const safeZoneProjected = zoneProjected.filter(
+const replayTrendFlipProjected = projectMarkerPointsToCandles(
+  replayTrendFlipEvents,
+  candles,
+  "inside-mid"
+);
+
+const safeZoneProjected = rawZoneProjected.filter(
+  (p: any) =>
+    Number.isFinite(Number(p.time)) &&
+    Number.isFinite(Number(p.value))
+);
+
+const safeTrendFlipProjected = replayTrendFlipProjected.filter(
   (p: any) =>
     Number.isFinite(Number(p.time)) &&
     Number.isFinite(Number(p.value))
@@ -2083,6 +2092,17 @@ zoneSeries.setData(
   safeZoneProjected.map((p: any) => ({
     time: p.time,
     value: p.value,
+  })) as any
+);
+
+createSeriesMarkers(
+  zoneSeries,
+  [...safeZoneProjected, ...safeTrendFlipProjected].map((p: any) => ({
+    time: p.time,
+    position: "inBar",
+    color: p.color ?? "#facc15",
+    shape: "circle",
+    text: p.text,
   })) as any
 );
 
