@@ -887,21 +887,31 @@ async function saveAllSizes() {
           adaptiveBandMultVal
         );
 
-       const coreCheck = computeQTrendCore(candles, {
-  smaFast: smaFastUI,
-  smaSlow: smaSlowUI,
-  smaMiddle: smaMiddleUI,
+       const coreCfg = {
+  smaFast: smaFastVal,
+  smaSlow: smaSlowVal,
+  smaMiddle: smaMiddleVal,
 
-  smaOffset: smaOffsetUI,
-  outerOffset: outerOffsetUI,
+  smaOffset: smaOffsetVal,
+  outerOffset: Number(cfg?.outer_offset ?? Math.max(1, smaOffsetVal * 0.5)),
 
-  minKink: minKinkUI,
+  minKink: Number(cfg?.min_kink ?? minKinkMove),
+  distExtreme: Number(cfg?.dist_extreme ?? entryBandVal),
 
-  distExtreme: distExtremeUI,
+  kinkStrengthFactor: kinkStrengthFactorUI,
 
-  useSlowExit: useSlowExitUI,
-         trendLength: trendLengthUI,
-});
+  useSlowExit:
+    cfg?.use_slow_exit == null
+      ? true
+      : Boolean(cfg.use_slow_exit),
+
+  trendLength: Number(cfg?.trend_length ?? 22),
+
+  spread: Number(SPREAD_BY_SYMBOL[s] ?? 0),
+  slippage: Number(SLIPPAGE_BY_SYMBOL[s] ?? 0),
+};
+
+const coreCheck = computeQTrendCore(candles, coreCfg);
 
         console.log("TREND LENGTH CHECK", {
   trendLengthUI,
