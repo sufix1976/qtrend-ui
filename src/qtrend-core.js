@@ -1797,6 +1797,7 @@ const state = replay.state || replayState || "flat";
     eventStream,
         mixedReplayEvents,
     normalizedReplayEvents,
+    prioritizedReplayEvents,
 
     latestStrategyEvent,
     latestStrategyEventTime: latestStrategyEvent?.time ?? null,
