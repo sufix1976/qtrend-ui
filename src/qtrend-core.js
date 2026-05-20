@@ -877,6 +877,10 @@ export function buildTrendZones(candles, smaFast, smaSlow, dist) {
   let pendingZone = "NZ";
   let pendingCount = 0;
 
+  let lastTfText = null;
+let lastTfIndex = -999;
+const minTfGapBars = 3;
+
   for (let i = 1; i < (candles || []).length; i++) {
     const c = candles[i];
     const prevC = candles[i - 1];
@@ -976,37 +980,47 @@ const slowDown =
 const priceAboveSlow = c.close > slow;
 const priceBelowSlow = c.close < slow;
 
-      if (
-        pendingZone === "BZ" &&
-previousZone !== "BZ" &&
-fastUp &&
-distUp &&
-(slowUp || priceAboveSlow)
-      ) {
-        out.push({
-          time: c.time,
-          value: c.close,
-          text: "TFU",
-          zone: "BZ",
-          color: "#ffffff",
-        });
-      }
+    if (
+  pendingZone === "BZ" &&
+  previousZone !== "BZ" &&
+  fastUp &&
+  distUp &&
+  (slowUp || priceAboveSlow) &&
+  lastTfText !== "TFU" &&
+  i - lastTfIndex >= minTfGapBars
+) {
+  out.push({
+    time: c.time,
+    value: c.close,
+    text: "TFU",
+    zone: "BZ",
+    color: "#ffffff",
+  });
 
-      if (
-        pendingZone === "RZ" &&
-previousZone !== "RZ" &&
-fastDown &&
-distDown &&
-(slowDown || priceBelowSlow)
-      ) {
-        out.push({
-          time: c.time,
-          value: c.close,
-          text: "TFD",
-          zone: "RZ",
-          color: "#ffffff",
-        });
-      }
+  lastTfText = "TFU";
+  lastTfIndex = i;
+}
+
+ if (
+  pendingZone === "RZ" &&
+  previousZone !== "RZ" &&
+  fastDown &&
+  distDown &&
+  (slowDown || priceBelowSlow) &&
+  lastTfText !== "TFD" &&
+  i - lastTfIndex >= minTfGapBars
+) {
+  out.push({
+    time: c.time,
+    value: c.close,
+    text: "TFD",
+    zone: "RZ",
+    color: "#ffffff",
+  });
+
+  lastTfText = "TFD";
+  lastTfIndex = i;
+}
     }
   }
 
