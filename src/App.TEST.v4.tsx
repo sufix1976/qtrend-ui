@@ -1930,14 +1930,22 @@ const coreShortProjected = projectMarkerPointsToCandles(
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
         
+const replayLongExitEvents = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "exit_long"
+);
+
+const replayShortExitEvents = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "exit_short"
+);
+
 const longExitProjected = projectMarkerPointsToCandles(
-  sim.longExitPoints,
+  replayLongExitEvents,
   candles,
   "below-near"
 );
 
 const shortExitProjected = projectMarkerPointsToCandles(
-  sim.shortExitPoints,
+  replayShortExitEvents,
   candles,
   "above-near"
 );
