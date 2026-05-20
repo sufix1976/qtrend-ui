@@ -1809,46 +1809,20 @@ const tradeShortEntries = allShortEntries.filter(
 });
 
         
-
-const mixedEvents = [
-  ...coreCheck.tradeLongEntries.map((p: any) => ({
-    ...p,
-    side: "long",
-  })),
-
-  ...coreCheck.tradeShortEntries.map((p: any) => ({
-    ...p,
-    side: "short",
-  })),
-
-  ...(coreCheck.longExits ?? []).map((p: any) => ({
-    ...p,
-    side: "flat",
-  })),
-
-  ...(coreCheck.shortExits ?? []).map((p: any) => ({
-    ...p,
-    side: "flat",
-  })),
-];
-
-const replay = buildTradeReplay(
-  candles,
-  mixedEvents,
-  assumedSpread,
-  assumedSlippage
-);
-
 const sim = {
-  ...replay,
-  position: replay.state,
- 
-  tradeCount: replay.trades.length,
-  longExitPoints: coreCheck.longExits ?? [],
-  shortExitPoints: coreCheck.shortExits ?? [],
+  ...coreCheck.replay,
+  position: coreCheck.state,
+
+  tradeCount: coreCheck.replay?.trades?.length ?? 0,
+  longExitPoints: (coreCheck.eventStream ?? []).filter(
+    (e: any) => e.eventType === "exit_long"
+  ),
+  shortExitPoints: (coreCheck.eventStream ?? []).filter(
+    (e: any) => e.eventType === "exit_short"
+  ),
   lastSignalText:
-    coreCheck.latestStrategyEventType && coreCheck.latestStrategyEventTime
-      ? `${coreCheck.latestStrategyEventType} ${coreCheck.latestStrategyEventTime}`
+    coreCheck.latestStrategyEvent
+      ? `${coreCheck.latestStrategyEvent.text} ${coreCheck.latestStrategyEvent.time}`
       : "-",
 };
 
