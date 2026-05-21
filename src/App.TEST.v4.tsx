@@ -1066,7 +1066,7 @@ console.log("CORE EXPOSED", {
     secondsVisible: false,
     rightOffset: 0,
     lockVisibleTimeRangeOnResize: true,
-    tickMarkFormatter: (time: number) => formatChartTimeLabel(Number(time), false),
+    tickMarkFormatter: (time: number) => formatChartTimeLabel(Number(time), true),
   },
   crosshair: {
     mode: CrosshairMode.Normal,
