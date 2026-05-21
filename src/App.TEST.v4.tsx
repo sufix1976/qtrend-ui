@@ -148,7 +148,7 @@ const SYMBOLS = [
   "CORN",
   "SOLUSD",
   "TSLA",
-  "TY"
+  "TY",
   "EURUSD",
 ];
 
