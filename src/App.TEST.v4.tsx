@@ -203,6 +203,7 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   CORN: 3,
   SOLUSD: 3,
   TSLA: 3,
+  TY: 1,
   EURUSD: 1,
 };
 
@@ -222,6 +223,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   CORN: 0.08,
   SOLUSD: 0.08,
   TSLA: 0.08,
+  TY: 0.01,
   EURUSD: 0.0003,
 };
 
@@ -241,6 +243,7 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   CORN: 0.7,
   SOLUSD: 0.08,
   TSLA: 2,
+  TY: 0.06,
   EURUSD: 0.00015,
 };
 
@@ -260,6 +263,7 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 0.3,
   SOLUSD: 0.02,
   TSLA: 0.5,
+  TY: 0.01,
   EURUSD: 0.00002,
 };
 
@@ -279,6 +283,7 @@ const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
+  TY: 0.08,
   EURUSD: 0.02,
 };
 
