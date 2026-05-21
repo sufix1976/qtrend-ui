@@ -1667,6 +1667,16 @@ const _dynamicLowerBand = alignLineToCandles(
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
 
+        requestAnimationFrame(() => {
+  priceChart.timeScale().fitContent();
+
+  const range = priceChart.timeScale().getVisibleLogicalRange();
+
+  if (range) {
+    distChart.timeScale().setVisibleLogicalRange(range);
+  }
+});
+
         outerUpperSeries.setData(chartOuterUpper as any);
         outerLowerSeries.setData(chartOuterLower as any);
 
