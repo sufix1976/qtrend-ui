@@ -184,6 +184,7 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
+  TY: 0.08,
   EURUSD: 0.0019,
 };
 
