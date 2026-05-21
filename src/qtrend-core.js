@@ -825,37 +825,25 @@ if (
   quality = "S";
 }
 
-// --------------------------------------------------
-// RTRD = bullischer Versuch verliert Struktur
-// Bedingungen:
-// - letzte 2 Zonen enthalten RZ/NZ
-// - KEIN BZ mehr vorhanden
-// --------------------------------------------------
-
+// TRU gescheitert => sofortige Short-Reaktion
 if (
+  quality === "W" &&
   e.text === "TRU" &&
-  goodZoneCount === 0 &&
   (
-    (rzCount >= 1 && nzCount >= 1) ||
-    rzCount >= 2
+    rzCount >= 1 ||
+    (bzCount === 0 && nzCount >= 2)
   )
 ) {
   reversalSignal = "RTRD";
 }
 
-// --------------------------------------------------
-// RTRU = bärischer Versuch verliert Struktur
-// Bedingungen:
-// - letzte 2 Zonen enthalten BZ/NZ
-// - KEIN RZ mehr vorhanden
-// --------------------------------------------------
-
+// TRD gescheitert => sofortige Long-Reaktion
 if (
+  quality === "W" &&
   e.text === "TRD" &&
-  goodZoneCount === 0 &&
   (
-    (bzCount >= 1 && nzCount >= 1) ||
-    bzCount >= 2
+    bzCount >= 1 ||
+    (rzCount === 0 && nzCount >= 2)
   )
 ) {
   reversalSignal = "RTRU";
@@ -1688,7 +1676,7 @@ const allLongEntries = [
   ...kinks.kinkLongCandidates,
   ...distKinks.distKinkLongCandidates,
   ...trendSwitchLongEntries,
-  
+  ...reactionLongEntries,
   ...trendFlipLongEntries,
   
 ];
@@ -1698,7 +1686,7 @@ const allShortEntries = [
   ...kinks.kinkShortCandidates,
   ...distKinks.distKinkShortCandidates,
   ...trendSwitchShortEntries,
-  
+  ...reactionShortEntries,
   ...trendFlipShortEntries,
 ];
 
