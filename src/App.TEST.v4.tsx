@@ -284,7 +284,7 @@ const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
-  TY: 0.08,
+  TY: 5,
   EURUSD: 0.02,
 };
 
