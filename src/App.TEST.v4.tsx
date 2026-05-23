@@ -3117,8 +3117,13 @@ async function postStrategyState(symbol: string, state: "flat" | "long" | "short
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ symbol, state }),
-  });
+    body: JSON.stringify({
+  symbol,
+  state,
+  source: "manual-ui",
+  signal_id: `manual_${symbol}_${state}_${Date.now()}`
+}),
+  
 
   const txt = await res.text();
 
