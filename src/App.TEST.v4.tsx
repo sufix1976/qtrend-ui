@@ -1584,6 +1584,16 @@ const coreCfg = {
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
 
+        console.log("[UI CORE EVENTSTREAM CHECK]", {
+  symbol,
+  interval,
+  state: coreCheck.state,
+  latest: coreCheck.latestStrategyEvent,
+  lastExitLongs: (coreCheck.eventStream || [])
+    .filter((e: any) => e.eventType === "exit_long")
+    .slice(-20),
+});
+
         
         console.log("TREND LENGTH CHECK", {
   trendLengthUI,
