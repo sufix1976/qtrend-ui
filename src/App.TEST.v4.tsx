@@ -922,6 +922,20 @@ async function saveAllSizes() {
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
+        console.log("[UI CORE EVENTSTREAM CHECK]", {
+  symbol,
+  interval,
+  state: coreCheck.state,
+  latest: coreCheck.latestStrategyEvent,
+  exitLongAt1825: (coreCheck.eventStream || []).filter(
+    (e: any) =>
+      e.eventType === "exit_long" &&
+      String(e.text || e.reason || "").includes("TRU-D")
+  ),
+  lastExitLongs: (coreCheck.eventStream || [])
+    .filter((e: any) => e.eventType === "exit_long")
+    .slice(-10),
+});
 
         console.log("TREND LENGTH CHECK", {
   trendLengthUI,
