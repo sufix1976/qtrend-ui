@@ -1586,6 +1586,8 @@ const coreCfg = {
 const coreCheck = computeQTrendCore(candles, coreCfg);
 
         console.log("[UI CORE EVENTSTREAM CHECK]", {
+          lastCandle: candles.at(-1),
+candlesCount: candles.length,
   symbol,
   interval,
   state: coreCheck.state,
