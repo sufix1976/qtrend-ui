@@ -1960,7 +1960,7 @@ realCloseSeries.setData([]);
     position: "belowBar",
     color: "#ffffff",
     shape: "arrowDown",
-    text: "EXL",
+    text: p.text ?? "EXL",
   })) as any
 );
 
@@ -1971,7 +1971,7 @@ createSeriesMarkers(
     position: "aboveBar",
     color: "#ffffff",
     shape: "arrowUp",
-    text: "EXS",
+    text: p.text ?? "EXS",
   })) as any
 );
 
