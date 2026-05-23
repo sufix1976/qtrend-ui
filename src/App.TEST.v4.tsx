@@ -3722,7 +3722,8 @@ function projectMarkerPointsToCandles(
   for (const p of points) {
     const candle = candleMap.get(p.time);
     if (!candle) continue;
-    if (!Number.isFinite(p.value) || p.value <= 0) continue;
+    const rawValue = Number((p as any).value ?? (p as any).price ?? 0);
+if (!Number.isFinite(rawValue) || rawValue <= 0) continue;
 
     const projected = projectMarkerValue(candle, placement);
     if (!Number.isFinite(projected) || projected <= 0) continue;
@@ -3731,7 +3732,7 @@ function projectMarkerPointsToCandles(
     const maxAllowed = candle.high * 1.015;
     const clamped = Math.min(Math.max(projected, minAllowed), maxAllowed);
 
-    out.push({ ...p, value: clamped });
+    out.push({ ...p, value: clamped, text: (p as any).text ?? (p as any).reason });
   }
 
   return dedupeMarkers(out);
