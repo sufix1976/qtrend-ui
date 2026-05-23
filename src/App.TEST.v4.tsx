@@ -3123,7 +3123,7 @@ async function postStrategyState(symbol: string, state: "flat" | "long" | "short
   source: "manual-ui",
   signal_id: `manual_${symbol}_${state}_${Date.now()}`
 }),
-  }),
+  
 
   const txt = await res.text();
 
