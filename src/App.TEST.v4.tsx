@@ -1592,6 +1592,12 @@ candlesCount: candles.length,
   interval,
   state: coreCheck.state,
   latest: coreCheck.latestStrategyEvent,
+          entryAtLatest: (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "entry_long" && e.time === 1779541200
+),
+eventsAfterLastExit: (coreCheck.eventStream || []).filter(
+  (e: any) => e.time >= 1779455700
+),
   lastExitLongs: (coreCheck.eventStream || [])
     .filter((e: any) => e.eventType === "exit_long")
     .slice(-20),
