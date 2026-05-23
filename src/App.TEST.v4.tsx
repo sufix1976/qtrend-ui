@@ -932,6 +932,9 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
       e.eventType === "exit_long" &&
       String(e.text || e.reason || "").includes("TRU-D")
   ),
+          exitLongAt1825: (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "exit_long" && e.time === 1779553500
+),
   lastExitLongs: (coreCheck.eventStream || [])
     .filter((e: any) => e.eventType === "exit_long")
     .slice(-10),
