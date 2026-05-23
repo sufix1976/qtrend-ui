@@ -1958,6 +1958,15 @@ for (const e of eventStream) {
   }
 
   if (e.side === "flat") {
+        console.log("[CORE REPLAY FLAT CHECK]", {
+      eventTime: e.time,
+      eventText: e.text,
+      eventType: e.eventType,
+      replayState,
+      willAccept:
+        (e.eventType === "exit_long" && replayState === "long") ||
+        (e.eventType === "exit_short" && replayState === "short"),
+    });
     if (
       (e.eventType === "exit_long" && replayState === "long") ||
       (e.eventType === "exit_short" && replayState === "short")
