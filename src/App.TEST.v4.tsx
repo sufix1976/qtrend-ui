@@ -927,11 +927,7 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
   interval,
   state: coreCheck.state,
   latest: coreCheck.latestStrategyEvent,
-  exitLongAt1825: (coreCheck.eventStream || []).filter(
-    (e: any) =>
-      e.eventType === "exit_long" &&
-      String(e.text || e.reason || "").includes("TRU-D")
-  ),
+  
           exitLongAt1825: (coreCheck.eventStream || []).filter(
   (e: any) => e.eventType === "exit_long" && e.time === 1779553500
 ),
