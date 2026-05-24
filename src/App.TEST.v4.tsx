@@ -2010,6 +2010,24 @@ void workerFlatProjected;
 void blockedShortProjected;
 
 const longExitProjected = projectMarkerPointsToCandles(
+
+  console.log("[UI EXIT TARGET CHECK]", {
+  loadSeq: mySeq,
+  lastCandleTime: candles.at(-1)?.time ?? null,
+
+  candleAroundTarget: candles.filter(
+    (c) => c.time >= 1779552600 && c.time <= 1779554400
+  ),
+
+  eventsAroundTarget: decisionEvents.filter(
+    (e: any) => e.time >= 1779552600 && e.time <= 1779554400
+  ),
+
+  projectedAroundTarget: longExitProjected.filter(
+    (e: any) => e.time >= 1779552600 && e.time <= 1779554400
+  ),
+});
+  
   strategyLongExitPoints,
   candles,
   "above-near"
