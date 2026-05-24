@@ -2010,6 +2010,10 @@ void workerFlatProjected;
 void blockedShortProjected;
 
 const longExitProjected = projectMarkerPointsToCandles(
+   strategyLongExitPoints,
+  candles,
+  "above-near"
+);
 
   console.log("[UI EXIT TARGET CHECK]", {
   loadSeq: mySeq,
@@ -2028,10 +2032,7 @@ const longExitProjected = projectMarkerPointsToCandles(
   ),
 });
   
-  strategyLongExitPoints,
-  candles,
-  "above-near"
-);
+ 
 
 const shortExitProjected = projectMarkerPointsToCandles(
   strategyShortExitPoints,
