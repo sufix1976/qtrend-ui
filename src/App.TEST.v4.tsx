@@ -1919,13 +1919,13 @@ for (let j = Math.max(0, dist.length - 30); j < dist.length; j++) {
         
 
 const coreLongProjected = projectMarkerPointsToCandles(
-  coreCheck.tradeLongEntries,
+  strategyLongPoints,
   candles,
   "below-mid"
 );
 
 const coreShortProjected = projectMarkerPointsToCandles(
-  coreCheck.tradeShortEntries,
+  strategyShortPoints,
   candles,
   "above-mid"
 );
