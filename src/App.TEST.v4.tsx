@@ -1592,15 +1592,22 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 candlesCount: candles.length,
   symbol,
   interval,
-  state: coreCheck.state,
-  latest: coreCheck.latestStrategyEvent,
+  state: coreCheck.decisionState ?? coreCheck.state,
+  latest:
+  coreCheck.decisionEvent ??
+  coreCheck.latestStrategyEvent,
           entryAtLatest: (coreCheck.eventStream || []).filter(
   (e: any) => e.eventType === "entry_long" && e.time === 1779541200
 ),
-eventsAfterLastExit: (coreCheck.eventStream || []).filter(
-  (e: any) => e.time >= 1779455700
+eventsAfterLastExit:
+  (coreCheck.decisionEvents ??
+    coreCheck.eventStream ??
+    []).filter((e: any) => e.time >= 1779455700),
 ),
-  lastExitLongs: (coreCheck.eventStream || [])
+  lastExitLongs:
+  (coreCheck.decisionEvents ??
+    coreCheck.eventStream ??
+    [])
     .filter((e: any) => e.eventType === "exit_long")
     .slice(-20),
 });
