@@ -2362,7 +2362,10 @@ return () => {
   symbolSizes,
 ]);
 
-  const displayState = liveState;
+  const displayState =
+  coreCheck.decisionState ??
+  coreCheck.state ??
+  liveState;
   
   return (
     <div
