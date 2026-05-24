@@ -1666,6 +1666,12 @@ const chartOuterLower = chartifyLinePoints(
 
         const real = buildRealTradeMarkers(candles, aggRows);
         const worker = buildWorkerEventMarkers(workerEvents);
+        console.log("[UI WORKER EVENTS]", {
+  symbol,
+  interval,
+  workerEvents,
+  worker,
+});
         const realEvents = await fetchRealEvents(symbol);
         const realServer = buildRealMarkersFromServer(realEvents);
         
