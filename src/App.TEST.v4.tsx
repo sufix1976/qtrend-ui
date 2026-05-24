@@ -1706,6 +1706,9 @@ const chartOuterLower = chartifyLinePoints(
         const realEvents = await fetchRealEvents(symbol);
         const realServer = buildRealMarkersFromServer(realEvents);
         const workerDecisionMarkers = buildWorkerEventMarkers(workerEvents);
+
+        void realServer;
+void workerDecisionMarkers;
         
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
