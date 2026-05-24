@@ -1674,6 +1674,7 @@ const chartOuterLower = chartifyLinePoints(
 });
         const realEvents = await fetchRealEvents(symbol);
         const realServer = buildRealMarkersFromServer(realEvents);
+        const workerDecisionMarkers = buildWorkerEventMarkers(workerEvents);
         
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
@@ -2074,6 +2075,10 @@ createSeriesMarkers(
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+
+        createSeriesMarkers(realBuySeries, buildTextMarkers(workerDecisionMarkers.longPoints, "belowBar"));
+createSeriesMarkers(realSellSeries, buildTextMarkers(workerDecisionMarkers.shortPoints, "aboveBar"));
+createSeriesMarkers(realCloseSeries, buildTextMarkers(workerDecisionMarkers.flatPoints, "aboveBar"));
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
