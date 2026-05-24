@@ -1990,8 +1990,8 @@ realCloseSeries.setData([]);
   strategyLongExitSeries,
   longExitProjected.map((p) => ({
     time: p.time,
-    position: "belowBar",
-    color: "#ffffff",
+    position: "aboveBar",
+    color: "#ff4444",
     shape: "arrowDown",
     text: p.text ?? "EXL",
   })) as any
