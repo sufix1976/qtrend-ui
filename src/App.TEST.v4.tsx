@@ -2008,6 +2008,16 @@ const longExitProjected = projectMarkerPointsToCandles(
   candles,
   "above-near"
 );
+        console.log("[UI EXIT MARKER CHECK]", {
+  target1779553500: strategyLongExitPoints.filter(
+    (e: any) => Number(e.time) === 1779553500
+  ),
+  projectedTarget1779553500: longExitProjected.filter(
+    (e: any) => Number(e.time) === 1779553500
+  ),
+  lastLongExitPoints: strategyLongExitPoints.slice(-10),
+  lastLongExitProjected: longExitProjected.slice(-10),
+});
 
 const shortExitProjected = projectMarkerPointsToCandles(
   strategyShortExitPoints,
