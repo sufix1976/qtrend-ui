@@ -1891,19 +1891,24 @@ const sim = {
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = (coreCheck.eventStream || []).filter(
+const decisionEvents =
+  coreCheck.decisionEvents ??
+  coreCheck.eventStream ??
+  [];
+
+const strategyLongPoints = decisionEvents.filter(
   (e: any) => e.eventType === "entry_long"
 );
 
-const strategyShortPoints = (coreCheck.eventStream || []).filter(
+const strategyShortPoints = decisionEvents.filter(
   (e: any) => e.eventType === "entry_short"
 );
 
-const strategyLongExitPoints = (coreCheck.eventStream || []).filter(
+const strategyLongExitPoints = decisionEvents.filter(
   (e: any) => e.eventType === "exit_long"
 );
 
-const strategyShortExitPoints = (coreCheck.eventStream || []).filter(
+const strategyShortExitPoints = decisionEvents.filter(
   (e: any) => e.eventType === "exit_short"
 );
 
