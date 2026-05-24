@@ -2077,7 +2077,7 @@ createSeriesMarkers(
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
-        */
+  
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerDecisionMarkers.longPoints, "belowBar"));
 createSeriesMarkers(realSellSeries, buildTextMarkers(workerDecisionMarkers.shortPoints, "aboveBar"));
@@ -2086,7 +2086,7 @@ createSeriesMarkers(realCloseSeries, buildTextMarkers(workerDecisionMarkers.flat
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
-
+*/
 
 const trendData = coreCheck.trendStates
   .filter((t: any) => t.trendValue != null)
