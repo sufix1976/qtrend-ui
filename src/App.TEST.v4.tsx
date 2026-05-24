@@ -1672,7 +1672,7 @@ const chartOuterLower = chartifyLinePoints(
   workerEvents,
   worker,
 });
-        const realEvents = await fetchRealEvents(symbol);
+      //  const realEvents = await fetchRealEvents(symbol);
         /*
         const realServer = buildRealMarkersFromServer(realEvents);
         const workerDecisionMarkers = buildWorkerEventMarkers(workerEvents);
@@ -2119,12 +2119,13 @@ const rawZoneProjected = projectMarkerPointsToCandles(
   "inside-mid"
 );
 
+        /*
 const replayTrendFlipProjected = projectMarkerPointsToCandles(
   replayTrendFlipEvents,
   candles,
   "inside-mid"
 );
-
+*/
 const safeZoneProjected = rawZoneProjected.filter(
   (p: any) =>
     Number.isFinite(Number(p.time)) &&
@@ -3705,6 +3706,8 @@ function buildAdaptiveBandLine(
     };
   });
 }
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 function buildRealMarkersFromServer(events: any[]) {
   const buy: any[] = [];
