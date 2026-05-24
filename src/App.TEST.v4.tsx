@@ -1593,9 +1593,13 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 candlesCount: candles.length,
   symbol,
   interval,
-state: coreCheck.decisionState ?? coreCheck.state,
+state:
+  decisionReplay.state ??
+  coreCheck.decisionState ??
+  coreCheck.state,
 
 latest:
+  decisionReplay.latestEvent ??
   coreCheck.decisionEvent ??
   coreCheck.latestStrategyEvent,
 
@@ -1891,7 +1895,11 @@ const sim = {
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
+const decisionReplay =
+  coreCheck.decisionReplay ?? {};
+
 const decisionEvents =
+  decisionReplay.events ??
   coreCheck.decisionEvents ??
   coreCheck.eventStream ??
   [];
