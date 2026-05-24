@@ -330,6 +330,7 @@ export default function AppTESTv4() {
   const [liveState, setLiveState] = useState<PositionSide>("flat");
 
 const [brokerState, setBrokerState] = useState<PositionSide>("flat");
+  const [backendState, setBackendState] = useState<PositionSide>("flat");
   
   async function setStrategyState(state: "flat" | "long" | "short") {
   try {
@@ -2231,6 +2232,7 @@ if (cancelled || mySeq !== loadSeqRef.current) return;
 setLiveState(
   (coreCheck.decisionState ?? coreCheck.state ?? backendStrategyState) as PositionSide
 );
+        setBackendState(backendStrategyState);
         
         setLongSignalCount(strategyLongPoints.length);
         setShortSignalCount(strategyShortPoints.length);
@@ -2621,6 +2623,24 @@ return () => {
             
           </span>
         </div>
+
+    <div>
+  Backend:{" "}
+  <span
+    style={{
+      color:
+        backendState === "long"
+          ? "#22c55e"
+          : backendState === "short"
+          ? "#ef4444"
+          : "#cbd5e1",
+      fontWeight: 700,
+    }}
+  >
+    {backendState.toUpperCase()}
+  </span>
+</div>
+    
         <div>
           Broker:{" "}
           <span
