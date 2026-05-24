@@ -2228,7 +2228,9 @@ if (cancelled || mySeq !== loadSeqRef.current) return;
         setLastTime(last.time);
 
         // nur initial sync, danach UI bleibt stabil
-setLiveState(backendStrategyState);
+setLiveState(
+  (coreCheck.decisionState ?? coreCheck.state ?? backendStrategyState) as PositionSide
+);
         
         setLongSignalCount(strategyLongPoints.length);
         setShortSignalCount(strategyShortPoints.length);
@@ -2362,10 +2364,7 @@ return () => {
   symbolSizes,
 ]);
 
-  const displayState =
-  coreCheck.decisionState ??
-  coreCheck.state ??
-  liveState;
+  const displayState = liveState;
   
   return (
     <div
