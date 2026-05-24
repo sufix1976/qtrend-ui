@@ -1587,6 +1587,15 @@ const coreCfg = {
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
 
+        const decisionReplay =
+  coreCheck.decisionReplay ?? {};
+
+const decisionEvents =
+  decisionReplay.events ??
+  coreCheck.decisionEvents ??
+  coreCheck.eventStream ??
+  [];
+
         console.log("[UI CORE EVENTSTREAM CHECK]", {
           coreCfg,
           lastCandle: candles.at(-1),
@@ -1895,14 +1904,6 @@ const sim = {
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const decisionReplay =
-  coreCheck.decisionReplay ?? {};
-
-const decisionEvents =
-  decisionReplay.events ??
-  coreCheck.decisionEvents ??
-  coreCheck.eventStream ??
-  [];
 
 const strategyLongPoints = decisionEvents.filter(
   (e: any) => e.eventType === "entry_long"
