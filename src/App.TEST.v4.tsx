@@ -2003,6 +2003,20 @@ const coreShortProjected = projectMarkerPointsToCandles(
         void workerLongProjected;
 void workerShortProjected;
 void workerFlatProjected;
+        void blockedLongProjected;
+void blockedShortProjected;
+
+const longExitProjected = projectMarkerPointsToCandles(
+  strategyLongExitPoints,
+  candles,
+  "above-near"
+);
+
+const shortExitProjected = projectMarkerPointsToCandles(
+  strategyShortExitPoints,
+  candles,
+  "below-near"
+);
         
         
 
