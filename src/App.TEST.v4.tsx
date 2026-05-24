@@ -2002,6 +2002,7 @@ realBuySeries.setData([]);
 realSellSeries.setData([]);
 realCloseSeries.setData([]);
 
+        /*
         createSeriesMarkers(
   strategyLongExitSeries,
   longExitProjected.map((p) => ({
@@ -2023,13 +2024,14 @@ createSeriesMarkers(
     text: p.text ?? "EXS",
   })) as any
 );
+*/
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
 
        
-
+/*
        createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
@@ -2071,10 +2073,11 @@ createSeriesMarkers(
     text: p.text,
   })) as any
 );
- 
+
         
         createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
         createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
+        */
 
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerDecisionMarkers.longPoints, "belowBar"));
 createSeriesMarkers(realSellSeries, buildTextMarkers(workerDecisionMarkers.shortPoints, "aboveBar"));
@@ -2140,6 +2143,7 @@ zoneSeries.setData(
   })) as any
 );
 
+        /*
 createSeriesMarkers(
   zoneSeries,
   [...safeZoneProjected, ...safeTrendFlipProjected].map((p: any) => ({
@@ -2151,6 +2155,7 @@ createSeriesMarkers(
   })) as any
 );
 
+*/
         
         candidateLongSeries.setData(coreLongProjected as any);
         candidateShortSeries.setData(coreShortProjected as any);
