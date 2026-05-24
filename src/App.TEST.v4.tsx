@@ -1866,8 +1866,12 @@ const sim = {
 const validLongCandidates = rawLongCandidates;
 const validShortCandidates = rawShortCandidates;
 
-const strategyLongPoints = coreCheck.tradeLongEntries;
-const strategyShortPoints = coreCheck.tradeShortEntries;
+const strategyLongPoints = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "entry_long"
+);
+const strategyShortPoints = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "entry_short"
+);
 
         console.log("UI LAST MARKERS", {
   symbol,
