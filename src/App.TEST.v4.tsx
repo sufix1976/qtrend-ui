@@ -1673,9 +1673,10 @@ const chartOuterLower = chartifyLinePoints(
   worker,
 });
         const realEvents = await fetchRealEvents(symbol);
+        /*
         const realServer = buildRealMarkersFromServer(realEvents);
         const workerDecisionMarkers = buildWorkerEventMarkers(workerEvents);
-        
+        */
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
@@ -1963,8 +1964,8 @@ const coreShortProjected = projectMarkerPointsToCandles(
 );
         
        
-        const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
-        const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
+        //const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
+        //const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
         const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
@@ -2130,11 +2131,14 @@ const safeZoneProjected = rawZoneProjected.filter(
     Number.isFinite(Number(p.value))
 );
 
+        /*
 const safeTrendFlipProjected = replayTrendFlipProjected.filter(
   (p: any) =>
     Number.isFinite(Number(p.time)) &&
     Number.isFinite(Number(p.value))
 );
+
+*/
 
 zoneSeries.setData(
   safeZoneProjected.map((p: any) => ({
