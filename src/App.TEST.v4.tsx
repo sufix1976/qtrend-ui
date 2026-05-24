@@ -2006,39 +2006,11 @@ void workerFlatProjected;
         
         
 
-        candidateLongSeries.setData([]);
-        candidateShortSeries.setData([]);
-        
-        strategyLongSeries.setData([]);
-        strategyShortSeries.setData([]);
-        
-const longExitProjected = projectMarkerPointsToCandles(
-  strategyLongExitPoints,
-  candles,
-  "above-near"
-);
-        console.log("[UI EXIT MARKER CHECK]", {
-  target1779553500: strategyLongExitPoints.filter(
-    (e: any) => Number(e.time) === 1779553500
-  ),
-  projectedTarget1779553500: longExitProjected.filter(
-    (e: any) => Number(e.time) === 1779553500
-  ),
-  lastLongExitPoints: strategyLongExitPoints.slice(-10),
-  lastLongExitProjected: longExitProjected.slice(-10),
-});
-
-const shortExitProjected = projectMarkerPointsToCandles(
-  strategyShortExitPoints,
-  candles,
-  "below-near"
-);
-
-
-
+   candidateLongSeries.setData(coreLongProjected as any);
+candidateShortSeries.setData(coreShortProjected as any);
 strategyLongExitSeries.setData(longExitProjected as any);
 strategyShortExitSeries.setData(shortExitProjected as any);
-        
+
 outlierLongSeries.setData([]);
 outlierShortSeries.setData([]);
 blockedLongSeries.setData([]);
@@ -2046,42 +2018,15 @@ blockedShortSeries.setData([]);
 realBuySeries.setData([]);
 realSellSeries.setData([]);
 realCloseSeries.setData([]);
-
-        createSeriesMarkers(
-  strategyLongExitSeries,
-  longExitProjected.map((p) => ({
-    time: p.time,
-    position: "aboveBar",
-    color: "#ff4444",
-    shape: "arrowDown",
-    text: p.text ?? "EXL",
-  })) as any
-);
+trendQualitySeries.setData([]);
+zoneSeries.setData([]);
 
 createSeriesMarkers(
-  strategyShortExitSeries,
-  shortExitProjected.map((p) => ({
-    time: p.time,
-    position: "aboveBar",
-    color: "#ffffff",
-    shape: "arrowUp",
-    text: p.text ?? "EXS",
-  })) as any
-);
-
-        
-       createSeriesMarkers(realBuySeries, []);
-createSeriesMarkers(realSellSeries, []);
-createSeriesMarkers(realCloseSeries, []);
-
-       
-
-       createSeriesMarkers(
   candidateLongSeries,
   buildTextMarkers(
-    coreLongProjected.map((p: MarkerPoint) => ({
+    coreLongProjected.map((p: any) => ({
       ...p,
-      text: p.text ?? "RL",
+      text: p.text ?? "LONG",
       color: p.color ?? "#00ff88",
     })),
     "belowBar"
@@ -2091,110 +2036,44 @@ createSeriesMarkers(realCloseSeries, []);
 createSeriesMarkers(
   candidateShortSeries,
   buildTextMarkers(
-    coreShortProjected.map((p: MarkerPoint) => ({
+    coreShortProjected.map((p: any) => ({
       ...p,
-      text: p.text ?? "RS",
+      text: p.text ?? "SHORT",
       color: p.color ?? "#ff4d6d",
     })),
     "aboveBar"
   )
 );
-      
-        trendQualitySeries.setData(
-  trendQualityProjected.map((p: any) => ({
-    time: p.time,
-    value: p.value,
-  })) as any
-);
 
 createSeriesMarkers(
-  trendQualitySeries,
-  trendQualityProjected.map((p: any) => ({
+  strategyLongExitSeries,
+  longExitProjected.map((p: any) => ({
     time: p.time,
     position: "aboveBar",
-    color: p.color ?? "#facc15",
-    shape: "circle",
-    text: p.text,
-  })) as any
-);
- 
-        
-        createSeriesMarkers(blockedLongSeries, buildTextMarkers(blockedLongProjected, "belowBar"));
-        createSeriesMarkers(blockedShortSeries, buildTextMarkers(blockedShortProjected, "aboveBar"));
-
-        
-        void workerDecisionMarkers;
-
-
-        void realServer;
-        
-
-
-const trendData = coreCheck.trendStates
-  .filter((t: any) => t.trendValue != null)
-  .map((t: any) => ({
-    time: t.time,
-    value: t.trendValue,
-  }));
-
-trendSeries.setData(trendData as any);
-
-        kalmanSeries.setData(
-  (coreCheck.kalmanTrend ?? []).map((p: any) => ({
-    time: p.time,
-    value: p.value,
-  })) as any
-);
-
-const rawZoneMarkers = (coreCheck.trendZones ?? []).filter(
-  (p: any) => p.text !== "TFU" && p.text !== "TFD"
-);
-
-const replayTrendFlipEvents = (coreCheck.eventStream ?? []).filter(
-  (e: any) => e.text === "TFU" || e.text === "TFD"
-);
-
-const rawZoneProjected = projectMarkerPointsToCandles(
-  rawZoneMarkers,
-  candles,
-  "inside-mid"
-);
-
-const replayTrendFlipProjected = projectMarkerPointsToCandles(
-  replayTrendFlipEvents,
-  candles,
-  "inside-mid"
-);
-
-const safeZoneProjected = rawZoneProjected.filter(
-  (p: any) =>
-    Number.isFinite(Number(p.time)) &&
-    Number.isFinite(Number(p.value))
-);
-
-const safeTrendFlipProjected = replayTrendFlipProjected.filter(
-  (p: any) =>
-    Number.isFinite(Number(p.time)) &&
-    Number.isFinite(Number(p.value))
-);
-
-zoneSeries.setData(
-  safeZoneProjected.map((p: any) => ({
-    time: p.time,
-    value: p.value,
+    color: "#ff4444",
+    shape: "arrowDown",
+    text: p.text ?? "EXIT-L",
   })) as any
 );
 
 createSeriesMarkers(
-  zoneSeries,
-  [...safeZoneProjected, ...safeTrendFlipProjected].map((p: any) => ({
+  strategyShortExitSeries,
+  shortExitProjected.map((p: any) => ({
     time: p.time,
-    position: "inBar",
-    color: p.color ?? "#facc15",
-    shape: "circle",
-    text: p.text,
+    position: "belowBar",
+    color: "#ffffff",
+    shape: "arrowUp",
+    text: p.text ?? "EXIT-S",
   })) as any
 );
+
+createSeriesMarkers(realBuySeries, []);
+createSeriesMarkers(realSellSeries, []);
+createSeriesMarkers(realCloseSeries, []);
+createSeriesMarkers(blockedLongSeries, []);
+createSeriesMarkers(blockedShortSeries, []);
+createSeriesMarkers(trendQualitySeries, []);
+createSeriesMarkers(zoneSeries, []);
 
         
         candidateLongSeries.setData(coreLongProjected as any);
