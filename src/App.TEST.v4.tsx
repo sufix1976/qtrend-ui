@@ -1968,6 +1968,9 @@ const coreShortProjected = projectMarkerPointsToCandles(
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
         const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
+        void workerLongProjected;
+void workerShortProjected;
+void workerFlatProjected;
         
         
 
