@@ -1982,17 +1982,7 @@ const shortExitProjected = projectMarkerPointsToCandles(
   "below-near"
 );
 
-const longExitProjected = projectMarkerPointsToCandles(
-  replayLongExitEvents,
-  candles,
-  "below-near"
-);
 
-const shortExitProjected = projectMarkerPointsToCandles(
-  replayShortExitEvents,
-  candles,
-  "above-near"
-);
 
 strategyLongExitSeries.setData(longExitProjected as any);
 strategyShortExitSeries.setData(shortExitProjected as any);
