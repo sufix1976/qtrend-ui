@@ -1869,8 +1869,17 @@ const validShortCandidates = rawShortCandidates;
 const strategyLongPoints = (coreCheck.eventStream || []).filter(
   (e: any) => e.eventType === "entry_long"
 );
+
 const strategyShortPoints = (coreCheck.eventStream || []).filter(
   (e: any) => e.eventType === "entry_short"
+);
+
+const strategyLongExitPoints = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "exit_long"
+);
+
+const strategyShortExitPoints = (coreCheck.eventStream || []).filter(
+  (e: any) => e.eventType === "exit_short"
 );
 
         console.log("UI LAST MARKERS", {
