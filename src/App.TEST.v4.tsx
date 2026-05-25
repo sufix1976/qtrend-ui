@@ -1914,7 +1914,7 @@ createSeriesMarkers(
       text: "CLOSE",
       color: "#ffffff",
     })),
-    "insideBar"
+    "aboveBar"
   )
 );
         
