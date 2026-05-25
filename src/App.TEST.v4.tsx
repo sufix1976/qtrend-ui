@@ -1721,18 +1721,27 @@ for (let i = 1; i < smaFast.length; i++) {
   }
 }
 
+        const executableTrades =
+  (decisionReplay.trades ?? []).filter((t: any) => {
+    return t.executed !== false;
+  });
         
+const replayStats = buildTradeReplay(executableTrades);
+
 const sim = {
-  ...coreCheck.replay,
+  ...replayStats,
   position: coreCheck.state,
 
-  tradeCount: coreCheck.replay?.trades?.length ?? 0,
+  tradeCount: replayStats?.trades?.length ?? 0,
+
   longExitPoints: (coreCheck.eventStream ?? []).filter(
     (e: any) => e.eventType === "exit_long"
   ),
+
   shortExitPoints: (coreCheck.eventStream ?? []).filter(
     (e: any) => e.eventType === "exit_short"
   ),
+
   lastSignalText:
     coreCheck.latestStrategyEvent
       ? `${coreCheck.latestStrategyEvent.text} ${coreCheck.latestStrategyEvent.time}`
