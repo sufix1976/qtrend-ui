@@ -455,21 +455,7 @@ const blockTrendLong =
 const blockTrendShort =
   trendShort && (!trendPullbackShort || blockOuterShort || distRising);
 
-      if (curr.time === 177859900) {
-  console.log("CORE SHORT BLOCK DEBUG 177859900", {
-    currTime: curr.time,
-    currValue: curr.value,
-    trendNowShort,
-    trendShort,
-    counterTrendShort,
-    currOuterLower,
-    blockOuterShort,
-    distRising,
-    blockTrendShort,
-    dmPrev1,
-    dmCurr,
-  });
-}
+      
 
       kinkShortCandidates.push({
         time: curr.time,
@@ -499,18 +485,7 @@ const blockTrendShort =
     }
   }
 
-  console.log("CORE KINK DEBUG", {
-  smaFastLen: smaFast.length,
-  smaSlowLen: smaSlow.length,
-  distMiddleLen: distMiddle.length,
-  trendStatesLen: trendStates.length,
-  minKink,
-  kinkStrengthFactor,
-  longCount: kinkLongCandidates.length,
-  shortCount: kinkShortCandidates.length,
-  lastLong: kinkLongCandidates.at(-1) ?? null,
-  lastShort: kinkShortCandidates.at(-1) ?? null,
-});
+
 
   return {
     kinkLongCandidates: uniqueMarkers(kinkLongCandidates),
@@ -1958,15 +1933,7 @@ for (const e of eventStream) {
   }
 
   if (e.side === "flat") {
-        console.log("[CORE REPLAY FLAT CHECK]", {
-      eventTime: e.time,
-      eventText: e.text,
-      eventType: e.eventType,
-      replayState,
-      willAccept:
-        (e.eventType === "exit_long" && replayState === "long") ||
-        (e.eventType === "exit_short" && replayState === "short"),
-    });
+        
     if (
       (e.eventType === "exit_long" && replayState === "long") ||
       (e.eventType === "exit_short" && replayState === "short")
