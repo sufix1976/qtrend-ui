@@ -1728,22 +1728,6 @@ for (let i = 1; i < smaFast.length; i++) {
    const distKinkLongCandidates: MarkerPoint[] = [];
 const distKinkShortCandidates: MarkerPoint[] = [];
 
-// ... kompletter KL_D / KS_D Block ...
-
-const allLongEntries = [
-  ...rawLongCandidates,
-  ...distKinkLongCandidates,
-];
-
-const allShortEntries = [
-  ...rawShortCandidates,
-  ...distKinkShortCandidates,
-];
-
-
-
-   
-
         
 const sim = {
   ...coreCheck.replay,
