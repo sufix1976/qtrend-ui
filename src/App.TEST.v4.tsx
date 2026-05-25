@@ -923,75 +923,18 @@ async function saveAllSizes() {
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
-        console.log("[UI CORE EVENTSTREAM CHECK]", {
-          coreCfg,
-          lastCandle: candles.at(-1),
-candlesCount: candles.length,
-  symbol,
-  interval,
-  state: coreCheck.state,
-  latest: coreCheck.latestStrategyEvent,
-  
-          exitLongAt1825: (coreCheck.eventStream || []).filter(
-  (e: any) => e.eventType === "exit_long" && e.time === 1779553500
-),
-  lastExitLongs: (coreCheck.eventStream || [])
-    .filter((e: any) => e.eventType === "exit_long")
-    .slice(-10),
-});
+    
 
-        console.log("TREND LENGTH CHECK", {
-  trendLengthUI,
-  trendStates: coreCheck.trendStates?.length,
-  firstTrend: coreCheck.trendStates?.[0],
-  lastTrend: coreCheck.trendStates?.at(-1),
-  tradeLong: coreCheck.tradeLongEntries?.length,
-  tradeShort: coreCheck.tradeShortEntries?.length,
-});
+        
 
-        console.log("QTREND CORE CHECK 2", {
-  symbol,
-  interval,
-  lastLongKink: coreCheck.kinkLongCandidates.at(-1) ?? null,
-  lastShortKink: coreCheck.kinkShortCandidates.at(-1) ?? null,
-  longKinksCount: coreCheck.kinkLongCandidates.length,
-  shortKinksCount: coreCheck.kinkShortCandidates.length,
-  coreDebug: coreCheck.debug,
-});
+       
 
 (window as any).coreCheck = coreCheck;
         
-console.log("TRU DEBUG", {
-  tradeLongEntries: (coreCheck.tradeLongEntries || [])
-    .filter((e: any) => e.text === "TRU" || e.text === "TFU")
-    .slice(-10),
 
-  eventStream: (coreCheck.eventStream || [])
-    .filter(
-      (e: any) =>
-        e.text === "TRU" ||
-        e.text === "TFU" ||
-        e.text === "TRU-D" ||
-        e.eventType === "exit_long"
-    )
-    .slice(-20),
-
-  replay: coreCheck.replay,
-  state: coreCheck.state,
-  latestType: coreCheck.latestStrategyEventType,
-});
 
         (window as any).coreCheck = coreCheck;
 
-console.log("CORE EXPOSED", {
-  symbol,
-  interval,
-  state: coreCheck.state,
-  longs: coreCheck.tradeLongEntries?.length,
-  shorts: coreCheck.tradeShortEntries?.length,
-  latest: coreCheck.latestStrategyEvent,
-  replay: coreCheck.replay,
-});
 
 
         
@@ -1596,67 +1539,14 @@ const decisionEvents =
   coreCheck.eventStream ??
   [];
 
-        console.log("[UI CORE EVENTSTREAM CHECK]", {
-          coreCfg,
-          lastCandle: candles.at(-1),
-candlesCount: candles.length,
-  symbol,
-  interval,
-state:
-  decisionReplay.state ??
-  coreCheck.decisionState ??
-  coreCheck.state,
-
-latest:
-  decisionReplay.latestEvent ??
-  coreCheck.decisionEvent ??
-  coreCheck.latestStrategyEvent,
-
-entryAtLatest:
-  (coreCheck.decisionEvents ??
-    coreCheck.eventStream ??
-    []).filter(
-    (e: any) =>
-      e.eventType === "entry_long" &&
-      e.time === 1779541200
-  ),
-
-eventsAfterLastExit:
-  (coreCheck.decisionEvents ??
-    coreCheck.eventStream ??
-    []).filter(
-    (e: any) => e.time >= 1779455700
-  ),
-
-lastExitLongs:
-  (coreCheck.decisionEvents ??
-    coreCheck.eventStream ??
-    [])
-    .filter((e: any) => e.eventType === "exit_long")
-    .slice(-20),
-});
+        
 
         
-        console.log("TREND LENGTH CHECK", {
-  trendLengthUI,
-  trendStates: coreCheck.trendStates?.length,
-  firstTrend: coreCheck.trendStates?.[0],
-  lastTrend: coreCheck.trendStates?.at(-1),
-  tradeLong: coreCheck.tradeLongEntries?.length,
-  tradeShort: coreCheck.tradeShortEntries?.length,
-});
+       
 
         (window as any).coreCheck = coreCheck;
 
-console.log("CORE EXPOSED", {
-  symbol,
-  interval,
-  state: coreCheck.state,
-  longs: coreCheck.tradeLongEntries?.length,
-  shorts: coreCheck.tradeShortEntries?.length,
-  latest: coreCheck.latestStrategyEvent,
-  replay: coreCheck.replay,
-});
+
 
 
 
