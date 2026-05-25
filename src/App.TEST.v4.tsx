@@ -1721,13 +1721,6 @@ for (let i = 1; i < smaFast.length; i++) {
   }
 }
 
-
-
-
-
-   const distKinkLongCandidates: MarkerPoint[] = [];
-const distKinkShortCandidates: MarkerPoint[] = [];
-
         
 const sim = {
   ...coreCheck.replay,
@@ -1745,8 +1738,6 @@ const sim = {
       ? `${coreCheck.latestStrategyEvent.text} ${coreCheck.latestStrategyEvent.time}`
       : "-",
 };
-
-
 
 
 const strategyLongPoints = decisionEvents.filter(
