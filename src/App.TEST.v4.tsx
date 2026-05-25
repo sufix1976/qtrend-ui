@@ -1587,12 +1587,7 @@ const chartOuterLower = chartifyLinePoints(
 
         const real = buildRealTradeMarkers(candles, aggRows);
         const worker = buildWorkerEventMarkers(workerEvents);
-        console.log("[UI WORKER EVENTS]", {
-  symbol,
-  interval,
-  workerEvents,
-  worker,
-});
+        
         const realEvents = await fetchRealEvents(symbol);
         const realServer = buildRealMarkersFromServer(realEvents);
         const workerDecisionMarkers = buildWorkerEventMarkers(workerEvents);
@@ -1753,28 +1748,7 @@ const tradeShortEntries = allShortEntries.filter(
   (p) => p.text !== "KS_T_BLOCK"
 );
 
-        console.log("CORE VS UI ENTRY CHECK", {
-  symbol,
-  interval,
-
-  ui: {
-    allLong: allLongEntries.length,
-    allShort: allShortEntries.length,
-    tradeLong: tradeLongEntries.length,
-    tradeShort: tradeShortEntries.length,
-    lastLong: allLongEntries.at(-1) ?? null,
-    lastShort: allShortEntries.at(-1) ?? null,
-  },
-
-  core: {
-    allLong: coreCheck.allLongEntries?.length ?? 0,
-    allShort: coreCheck.allShortEntries?.length ?? 0,
-    tradeLong: coreCheck.tradeLongEntries?.length ?? 0,
-    tradeShort: coreCheck.tradeShortEntries?.length ?? 0,
-    lastLong: coreCheck.allLongEntries?.at(-1) ?? null,
-    lastShort: coreCheck.allShortEntries?.at(-1) ?? null,
-  },
-});
+   
 
         
 const sim = {
@@ -1814,28 +1788,14 @@ const strategyShortExitPoints = decisionEvents.filter(
   (e: any) => e.eventType === "exit_short"
 );
 
-        console.log("UI LAST MARKERS", {
-  symbol,
-  interval,
-  lastLong: strategyLongPoints.at(-1) ?? null,
-  lastShort: strategyShortPoints.at(-1) ?? null,
-  lastLongExit: sim.longExitPoints.at(-1) ?? null,
-  lastShortExit: sim.shortExitPoints.at(-1) ?? null,
-  lastCandle: candles.at(-1) ?? null,
-});
+        
 
         const newestEntryTime = Math.max(
   strategyLongPoints.at(-1)?.time ?? 0,
   strategyShortPoints.at(-1)?.time ?? 0
 );
 
-console.log("UI ENTRY FRESHNESS", {
-  newestEntryTime,
-  lastCandleTime: candles.at(-1)?.time ?? null,
-  ageSec: candles.at(-1)?.time ? candles.at(-1)!.time - newestEntryTime : null,
-  isFreshOnLastCandle:
-    newestEntryTime === (candles.at(-1)?.time ?? -1),
-});
+
 
 
 
@@ -1867,25 +1827,6 @@ const coreShortProjected = projectMarkerPointsToCandles(
   candles,
   "inside-mid"
 );
-
-        console.log("TREND QUALITY CHECK", {
-  raw: coreCheck.trendQualitySignals?.length,
-  projected: trendQualityProjected.length,
-  last: coreCheck.trendQualitySignals?.at(-1),
-});
-
-
-
-        
-
-
-
-        
-        console.log(
-  "VALID OUTLIER CANDIDATES",
-  validLongCandidates.length,
-  validShortCandidates.length
-);
         
        
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
@@ -1905,22 +1846,7 @@ const longExitProjected = projectMarkerPointsToCandles(
   "above-near"
 );
 
-  console.log("[UI EXIT TARGET CHECK]", {
-  loadSeq: mySeq,
-  lastCandleTime: candles.at(-1)?.time ?? null,
-
-  candleAroundTarget: candles.filter(
-    (c) => c.time >= 1779552600 && c.time <= 1779554400
-  ),
-
-  eventsAroundTarget: decisionEvents.filter(
-    (e: any) => e.time >= 1779552600 && e.time <= 1779554400
-  ),
-
-  projectedAroundTarget: longExitProjected.filter(
-    (e: any) => e.time >= 1779552600 && e.time <= 1779554400
-  ),
-});
+  
   
  
 
