@@ -1828,9 +1828,11 @@ outlierLongSeries.setData([]);
 outlierShortSeries.setData([]);
 blockedLongSeries.setData([]);
 blockedShortSeries.setData([]);
-realBuySeries.setData([]);
-realSellSeries.setData([]);
-realCloseSeries.setData([]);
+
+realBuySeries.setData(workerLongProjected as any);
+realSellSeries.setData(workerShortProjected as any);
+realCloseSeries.setData(workerFlatProjected as any);
+        
 trendQualitySeries.setData([]);
 zoneSeries.setData([]);
 
@@ -1880,9 +1882,42 @@ createSeriesMarkers(
   })) as any
 );
 
-createSeriesMarkers(realBuySeries, []);
-createSeriesMarkers(realSellSeries, []);
-createSeriesMarkers(realCloseSeries, []);
+createSeriesMarkers(
+  realBuySeries,
+  buildTextMarkers(
+    workerLongProjected.map((p: any) => ({
+      ...p,
+      text: "BUY",
+      color: "#00ff88",
+    })),
+    "belowBar"
+  )
+);
+
+createSeriesMarkers(
+  realSellSeries,
+  buildTextMarkers(
+    workerShortProjected.map((p: any) => ({
+      ...p,
+      text: "SELL",
+      color: "#ff4d6d",
+    })),
+    "aboveBar"
+  )
+);
+
+createSeriesMarkers(
+  realCloseSeries,
+  buildTextMarkers(
+    workerFlatProjected.map((p: any) => ({
+      ...p,
+      text: "CLOSE",
+      color: "#ffffff",
+    })),
+    "insideBar"
+  )
+);
+        
 createSeriesMarkers(blockedLongSeries, []);
 createSeriesMarkers(blockedShortSeries, []);
 createSeriesMarkers(trendQualitySeries, []);
