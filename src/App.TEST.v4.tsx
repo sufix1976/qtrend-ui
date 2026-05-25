@@ -1721,12 +1721,12 @@ for (let i = 1; i < smaFast.length; i++) {
   }
 }
 
-        const executableTrades =
-  (decisionReplay.trades ?? []).filter((t: any) => {
+  const replayStats = {
+  ...coreCheck.replay,
+  trades: (coreCheck.replay?.trades ?? []).filter((t: any) => {
     return t.executed !== false;
-  });
-        
-const replayStats = buildTradeReplay(executableTrades);
+  }),
+};
 
 const sim = {
   ...replayStats,
