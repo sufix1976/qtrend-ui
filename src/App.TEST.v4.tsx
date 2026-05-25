@@ -1740,13 +1740,7 @@ const allShortEntries = [
   ...distKinkShortCandidates,
 ];
 
-const tradeLongEntries = allLongEntries.filter(
-  (p) => p.text !== "KL_T_BLOCK"
-);
 
-const tradeShortEntries = allShortEntries.filter(
-  (p) => p.text !== "KS_T_BLOCK"
-);
 
    
 
@@ -1768,8 +1762,7 @@ const sim = {
       : "-",
 };
 
-const validLongCandidates = rawLongCandidates;
-const validShortCandidates = rawShortCandidates;
+
 
 
 const strategyLongPoints = decisionEvents.filter(
@@ -1790,10 +1783,7 @@ const strategyShortExitPoints = decisionEvents.filter(
 
         
 
-        const newestEntryTime = Math.max(
-  strategyLongPoints.at(-1)?.time ?? 0,
-  strategyShortPoints.at(-1)?.time ?? 0
-);
+        
 
 
 
@@ -1822,11 +1812,7 @@ const coreShortProjected = projectMarkerPointsToCandles(
   "above-mid"
 );
 
-        const trendQualityProjected = projectMarkerPointsToCandles(
-  coreCheck.trendQualitySignals ?? [],
-  candles,
-  "inside-mid"
-);
+       
         
        
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
