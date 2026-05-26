@@ -1942,7 +1942,9 @@ createSeriesMarkers(blockedLongSeries, []);
 createSeriesMarkers(blockedShortSeries, []);
 createSeriesMarkers(trendQualitySeries, []);
 
-        regimeSeries.setData(
+        console.log("REGIME POINTS CHECK", regimePoints.slice(-20));
+
+regimeSeries.setData(
   regimePoints.map((p: any) => ({
     time: p.time,
     value: p.value,
