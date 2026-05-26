@@ -925,9 +925,7 @@ async function saveAllSizes() {
 const coreCheck = computeQTrendCore(candles, coreCfg);
     
 
-  const regimePoints =
-  coreCheck.regimePoints ?? [];      
-void regimePoints;
+ 
        
 
 (window as any).coreCheck = coreCheck;
@@ -1540,6 +1538,8 @@ const coreCfg = {
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
+        const regimePoints =
+  coreCheck.regimePoints ?? [];
 
         const decisionReplay =
   coreCheck.decisionReplay ?? {};
