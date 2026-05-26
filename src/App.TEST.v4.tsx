@@ -1999,11 +1999,11 @@ createSeriesMarkers(
         ? "#00ff88"
         : p.trendEvent === "TRD"
         ? "#ff3355"
-        : p.regime === "BZ"
-        ? "#00ff88"
-        : p.regime === "RZ"
-        ? "#ff4d6d"
-        : "#9ca3af",
+        p.energy === "E+"
+    ? "#00ff88"
+    : p.energy === "E-"
+    ? "#ff4d6d"
+    : "#ffd84d",
     shape:
       p.trendEvent === "TRU"
         ? "arrowUp"
