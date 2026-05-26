@@ -1942,6 +1942,13 @@ createSeriesMarkers(blockedLongSeries, []);
 createSeriesMarkers(blockedShortSeries, []);
 createSeriesMarkers(trendQualitySeries, []);
 
+        regimeSeries.setData(
+  regimePoints.map((p: any) => ({
+    time: p.time,
+    value: p.value,
+  })) as any
+);
+
         createSeriesMarkers(
   regimeSeries,
   regimePoints.map((p: any) => ({
