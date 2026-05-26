@@ -1347,6 +1347,16 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
   lastValueVisible: false,
 });
 
+    const regimeSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ffffff",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
       lineWidth: 2,
@@ -1931,6 +1941,22 @@ createSeriesMarkers(
 createSeriesMarkers(blockedLongSeries, []);
 createSeriesMarkers(blockedShortSeries, []);
 createSeriesMarkers(trendQualitySeries, []);
+
+        createSeriesMarkers(
+  regimeSeries,
+  regimePoints.map((p: any) => ({
+    time: p.time,
+    position: "inBar",
+    color:
+      p.regime === "BZ"
+        ? "#00ff88"
+        : p.regime === "RZ"
+        ? "#ff4d6d"
+        : "#9ca3af",
+    shape: "circle",
+    text: p.regime,
+  })) as any
+);
 createSeriesMarkers(zoneSeries, []);
 
         
@@ -2091,6 +2117,7 @@ return () => {
         priceChart.removeSeries(realSellSeries);
         priceChart.removeSeries(realCloseSeries);
         priceChart.removeSeries(trendQualitySeries);
+        priceChart.removeSeries(regimeSeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
         
