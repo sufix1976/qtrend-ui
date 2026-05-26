@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 // @ts-ignore
 import {
   computeQTrendCore,
-  buildTradeReplay,
   QTREND_CORE_VERSION,
 } from "https://qtrend-trading-engine.onrender.com/core/qtrend-core.js";
 import {
