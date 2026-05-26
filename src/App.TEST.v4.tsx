@@ -1544,6 +1544,25 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
         const regimePoints =
   coreCheck.regimePoints ?? [];
 
+        const trendQualityEvents =
+  coreCheck.trendQualityEvents ?? [];
+
+        createSeriesMarkers(
+  trendQualitySeries,
+  trendQualityEvents.map((p: any) => ({
+    time: p.time,
+    position: "aboveBar",
+    color: p.color ?? "#ffffff",
+    shape:
+      p.quality === "S"
+        ? "arrowUp"
+        : p.quality === "W"
+        ? "arrowDown"
+        : "circle",
+    text: p.text,
+  })) as any
+);
+
         const decisionReplay =
   coreCheck.decisionReplay ?? {};
 
@@ -1943,7 +1962,7 @@ createSeriesMarkers(
         
 createSeriesMarkers(blockedLongSeries, []);
 createSeriesMarkers(blockedShortSeries, []);
-createSeriesMarkers(trendQualitySeries, []);
+
 
         console.log("REGIME POINTS CHECK", regimePoints.slice(-20));
 
