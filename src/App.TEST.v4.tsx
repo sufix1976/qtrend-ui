@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 // @ts-ignore
-import {
-  computeQTrendCore,
-  QTREND_CORE_VERSION,
-} from "https://qtrend-trading-engine.onrender.com/core/qtrend-core.js";
+const coreModule = await import("https://qtrend-trading-engine.onrender.com/core/qtrend-core.js");
+
+const computeQTrendCore = coreModule.computeQTrendCore;
+const QTREND_CORE_VERSION = coreModule.QTREND_CORE_VERSION;
 import {
   createChart,
   createSeriesMarkers,
