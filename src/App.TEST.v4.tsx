@@ -1954,33 +1954,34 @@ regimeSeries.setData(
   })) as any
 );
 
-        createSeriesMarkers(
+createSeriesMarkers(
   regimeSeries,
   regimePoints.map((p: any) => ({
     time: p.time,
     position: "inBar",
     color:
-  p.trendEvent === "TRU"
-    ? "#00ff88"
-    : p.trendEvent === "TRD"
-    ? "#ff3355"
-      p.regime === "BZ"
+      p.trendEvent === "TRU"
+        ? "#00ff88"
+        : p.trendEvent === "TRD"
+        ? "#ff3355"
+        : p.regime === "BZ"
         ? "#00ff88"
         : p.regime === "RZ"
         ? "#ff4d6d"
         : "#9ca3af",
     shape:
-  p.trendEvent === "TRU"
-    ? "arrowUp"
-    : p.trendEvent === "TRD"
-    ? "arrowDown"
-    : "circle",
+      p.trendEvent === "TRU"
+        ? "arrowUp"
+        : p.trendEvent === "TRD"
+        ? "arrowDown"
+        : "circle",
     text:
-  p.trendEvent ??
-  p.debugLabel ??
-  p.regime,
+      p.trendEvent ??
+      p.debugLabel ??
+      p.regime,
   })) as any
 );
+        
 createSeriesMarkers(zoneSeries, []);
 
         
