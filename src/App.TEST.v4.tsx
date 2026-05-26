@@ -1546,6 +1546,8 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 
         const trendQualityEvents =
   coreCheck.trendQualityEvents ?? [];
+        const trendFollowEvents =
+  coreCheck.trendFollowEvents ?? [];
         console.log("TREND FOLLOW EVENTS CHECK", trendFollowEvents.slice(-20));
 console.log("TREND QUALITY EVENTS CHECK", trendQualityEvents.slice(-20));
 
