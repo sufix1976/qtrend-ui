@@ -1966,7 +1966,7 @@ regimeSeries.setData(
         ? "#ff4d6d"
         : "#9ca3af",
     shape: "circle",
-    text: p.regime,
+    text: p.debugLabel ?? p.regime,
   })) as any
 );
 createSeriesMarkers(zoneSeries, []);
