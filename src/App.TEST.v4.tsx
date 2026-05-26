@@ -1552,7 +1552,7 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 console.log("TREND QUALITY EVENTS CHECK", trendQualityEvents.slice(-20));
 
         trendQualitySeries.setData(
-  trendQualityEvents.map((p: any) => ({
+  trendQualityEvents.slice(-300).map((p: any) => ({
     time: p.time,
     value: p.value,
   })) as any
@@ -1985,7 +1985,7 @@ createSeriesMarkers(
           : "circle",
       text: p.text,
     })),
-    ...trendFollowEvents.map((p: any) => ({
+    ...trendFollowEvents.slice(-300).map((p: any) => ({
       time: p.time,
       position: "aboveBar",
       color: p.color ?? "#ffffff",
@@ -2030,9 +2030,7 @@ createSeriesMarkers(
         ? "arrowDown"
         : "circle",
     text:
-      p.trendEvent ??
-      p.debugLabel ??
-      p.regime,
+  p.trendEvent ?? "",
   })) as any
 );
         
