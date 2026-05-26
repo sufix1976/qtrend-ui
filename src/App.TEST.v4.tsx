@@ -927,7 +927,7 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 
   const regimePoints =
   coreCheck.regimePoints ?? [];      
-
+void regimePoints;
        
 
 (window as any).coreCheck = coreCheck;
