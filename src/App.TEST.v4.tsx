@@ -2030,7 +2030,7 @@ createSeriesMarkers(
         ? "arrowDown"
         : "circle",
     text:
-  p.trendEvent ?? "",
+  p.debugLabel ?? "",
   })) as any
 );
         
