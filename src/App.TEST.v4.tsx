@@ -1546,7 +1546,7 @@ const coreCheck = computeQTrendCore(candles, coreCfg);
 
         const trendQualityEvents =
   coreCheck.trendQualityEvents ?? [];
-
+console.log("TREND QUALITY EVENTS CHECK", trendQualityEvents.slice(-20));
         createSeriesMarkers(
   trendQualitySeries,
   trendQualityEvents.map((p: any) => ({
