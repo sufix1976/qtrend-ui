@@ -1882,7 +1882,7 @@ realBuySeries.setData(workerLongProjected as any);
 realSellSeries.setData(workerShortProjected as any);
 realCloseSeries.setData(workerFlatProjected as any);
         
-trendQualitySeries.setData([]);
+
 zoneSeries.setData([]);
 
 createSeriesMarkers(
