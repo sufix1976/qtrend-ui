@@ -925,7 +925,8 @@ async function saveAllSizes() {
 const coreCheck = computeQTrendCore(candles, coreCfg);
     
 
-        
+  const regimePoints =
+  coreCheck.regimePoints ?? [];      
 
        
 
