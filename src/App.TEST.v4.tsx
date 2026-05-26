@@ -1960,13 +1960,25 @@ regimeSeries.setData(
     time: p.time,
     position: "inBar",
     color:
+  p.trendEvent === "TRU"
+    ? "#00ff88"
+    : p.trendEvent === "TRD"
+    ? "#ff3355"
       p.regime === "BZ"
         ? "#00ff88"
         : p.regime === "RZ"
         ? "#ff4d6d"
         : "#9ca3af",
-    shape: "circle",
-    text: p.debugLabel ?? p.regime,
+    shape:
+  p.trendEvent === "TRU"
+    ? "arrowUp"
+    : p.trendEvent === "TRD"
+    ? "arrowDown"
+    : "circle",
+    text:
+  p.trendEvent ??
+  p.debugLabel ??
+  p.regime,
   })) as any
 );
 createSeriesMarkers(zoneSeries, []);
