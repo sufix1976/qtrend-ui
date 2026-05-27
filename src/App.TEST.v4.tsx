@@ -1998,10 +1998,12 @@ createSeriesMarkers(blockedShortSeries, []);
         console.log("REGIME POINTS CHECK", regimePoints.slice(-20));
 
 regimeSeries.setData(
-  ny) => ({
-    time: p.time,
-    value: p.value,
-  })) as any
+  regimePoints
+    .filter((p: any) => Number.isFinite(Number(p.value)))
+    .map((p: any) => ({
+      time: p.time,
+      value: p.value,
+    })) as any
 );
 
         let lastExitSignalForDisplay: string | null = null;
