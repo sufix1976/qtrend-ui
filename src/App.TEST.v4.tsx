@@ -1930,41 +1930,53 @@ createSeriesMarkers(
   })) as any
 );
 
-createSeriesMarkers(
-  realBuySeries,
-  buildTextMarkers(
-    workerLongProjected.map((p: any) => ({
-      ...p,
-      text: "BUY",
-      color: "#00ff88",
-    })),
-    "belowBar"
-  )
-);
+if (showRealMarkers) {
+  createSeriesMarkers(
+    realBuySeries,
+    buildTextMarkers(
+      workerLongProjected.map((p: any) => ({
+        ...p,
+        text: "BUY",
+        color: "#00ff88",
+      })),
+      "belowBar"
+    )
+  );
+} else {
+  createSeriesMarkers(realBuySeries, []);
+}
 
-createSeriesMarkers(
-  realSellSeries,
-  buildTextMarkers(
-    workerShortProjected.map((p: any) => ({
-      ...p,
-      text: "SELL",
-      color: "#ff4d6d",
-    })),
-    "aboveBar"
-  )
-);
+if (showRealMarkers) {
+  createSeriesMarkers(
+    realSellSeries,
+    buildTextMarkers(
+      workerShortProjected.map((p: any) => ({
+        ...p,
+        text: "SELL",
+        color: "#ff4d6d",
+      })),
+      "aboveBar"
+    )
+  );
+} else {
+  createSeriesMarkers(realSellSeries, []);
+}
 
-createSeriesMarkers(
-  realCloseSeries,
-  buildTextMarkers(
-    workerFlatProjected.map((p: any) => ({
-      ...p,
-      text: "CLOSE",
-      color: "#ffffff",
-    })),
-    "aboveBar"
-  )
-);
+if (showRealMarkers) {
+  createSeriesMarkers(
+    realCloseSeries,
+    buildTextMarkers(
+      workerFlatProjected.map((p: any) => ({
+        ...p,
+        text: "CLOSE",
+        color: "#ffffff",
+      })),
+      "aboveBar"
+    )
+  );
+} else {
+  createSeriesMarkers(realCloseSeries, []);
+}
 
         createSeriesMarkers(
   trendQualitySeries,
@@ -2256,6 +2268,8 @@ return () => {
     showRegimeMarkers,
 showConfMarkers,
 showExitMarkers,
+    showRealMarkers,
+showLegacyMarkers,
 ]);
 
   const displayState = liveState;
