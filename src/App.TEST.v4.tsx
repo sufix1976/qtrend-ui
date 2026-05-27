@@ -1999,9 +1999,9 @@ createSeriesMarkers(
     ? "#00ff88"
     : p.trendEvent === "TRD"
     ? "#ff3355"
-    : p.energy === "E+"
+    : p.energy?.startsWith("E+")
     ? "#00ff88"
-    : p.energy === "E-"
+    : p.energy?.startsWith("E-")
     ? "#ff4d6d"
     : "#ffd84d",
     shape:
