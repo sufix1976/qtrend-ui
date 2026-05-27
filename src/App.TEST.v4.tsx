@@ -1996,11 +1996,20 @@ regimeSeries.setData(
   })) as any
 );
 
+        let lastExitSignalForDisplay: string | null = null;
+
 createSeriesMarkers(
   regimeSeries,
   showRegimeMarkers
     ? regimePoints
         .map((p: any) => {
+          if (p.exitSignal && p.exitSignal === lastExitSignalForDisplay) {
+  return null;
+}
+
+if (p.exitSignal) {
+  lastExitSignalForDisplay = p.exitSignal;
+}
           if (p.exitSignal && !showExitMarkers) return null;
 
           if (
