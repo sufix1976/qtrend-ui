@@ -1994,24 +1994,33 @@ createSeriesMarkers(
   regimePoints.map((p: any) => ({
     time: p.time,
     position: "inBar",
-   color:
-  p.trendEvent === "TRU"
-    ? "#00ff88"
-    : p.trendEvent === "TRD"
-    ? "#ff3355"
-    : p.energy?.startsWith("E+")
-    ? "#00ff88"
-    : p.energy?.startsWith("E-")
-    ? "#ff4d6d"
-    : "#ffd84d",
+
+    color:
+      p.exitSignal
+        ? "#3399ff"
+        : p.trendEvent === "TRU"
+        ? "#00ff88"
+        : p.trendEvent === "TRD"
+        ? "#ff3355"
+        : p.energy?.startsWith("E+")
+        ? "#00ff88"
+        : p.energy?.startsWith("E-")
+        ? "#ff4d6d"
+        : "#ffd84d",
+
     shape:
-      p.trendEvent === "TRU"
+      p.exitSignal
+        ? "circle"
+        : p.trendEvent === "TRU"
         ? "arrowUp"
         : p.trendEvent === "TRD"
         ? "arrowDown"
         : "circle",
+
     text:
-  p.debugLabel ?? "",
+      p.exitSignal ??
+      p.debugLabel ??
+      "",
   })) as any
 );
         
