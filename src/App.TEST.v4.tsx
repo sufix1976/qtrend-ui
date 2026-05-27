@@ -385,6 +385,8 @@ const [showConfMarkers, setShowConfMarkers] = useState(true);
 const [showExitMarkers, setShowExitMarkers] = useState(true);
 const [showRealMarkers, setShowRealMarkers] = useState(true);
 const [showLegacyMarkers, setShowLegacyMarkers] = useState(false);
+  void showRealMarkers;
+void showLegacyMarkers;
 const [scannerRows, setScannerRows] = useState<ScannerRow[]>([]);
 const [scannerLoading, setScannerLoading] = useState(false);
 const [scannerMessage, setScannerMessage] = useState("");
