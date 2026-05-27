@@ -431,6 +431,11 @@ const [scannerMessage, setScannerMessage] = useState("");
   Math.max(1, smaOffsetUI * 0.5)
 );
   const [trendLengthUI, setTrendLengthUI] = useState(20);
+  const [useTryEntryUI, setUseTryEntryUI] = useState(true);
+const [useConfEntryUI, setUseConfEntryUI] = useState(true);
+const [tryMinEnergyUI, setTryMinEnergyUI] = useState(2);
+const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
+const [exitMinEnergyUI, setExitMinEnergyUI] = useState(2);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -930,6 +935,11 @@ async function saveAllSizes() {
 
   spread: Number(SPREAD_BY_SYMBOL[s] ?? 0),
   slippage: Number(SLIPPAGE_BY_SYMBOL[s] ?? 0),
+         useTryEntry: useTryEntryUI,
+useConfEntry: useConfEntryUI,
+tryMinEnergy: tryMinEnergyUI,
+confMinEnergy: confMinEnergyUI,
+exitMinEnergy: exitMinEnergyUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
@@ -2255,6 +2265,11 @@ return () => {
   kinkConfirmBarsUI,  
   smaFastUI,
   smaSlowUI,
+    useTryEntryUI,
+useConfEntryUI,
+tryMinEnergyUI,
+confMinEnergyUI,
+exitMinEnergyUI,
   smaOffsetUI,
   outerOffsetUI,
   smaMiddleUI,
@@ -2415,6 +2430,90 @@ showLegacyMarkers,
   <button onClick={() => setShowLegacyMarkers(v => !v)}>
     LEGACY
   </button>
+</div>
+    <div
+  style={{
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 8,
+    flexWrap: "wrap",
+  }}
+>
+
+  <label style={{ color: "#fff", fontSize: 12 }}>
+    <input
+      type="checkbox"
+      checked={useTryEntryUI}
+      onChange={(e) =>
+        setUseTryEntryUI(e.target.checked)
+      }
+    />
+    TRY
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 12 }}>
+    <input
+      type="checkbox"
+      checked={useConfEntryUI}
+      onChange={(e) =>
+        setUseConfEntryUI(e.target.checked)
+      }
+    />
+    CONF
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 12 }}>
+    TRY E
+    <input
+      type="number"
+      value={tryMinEnergyUI}
+      min={1}
+      max={5}
+      onChange={(e) =>
+        setTryMinEnergyUI(Number(e.target.value))
+      }
+      style={{
+        width: 50,
+        marginLeft: 4,
+      }}
+    />
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 12 }}>
+    CONF E
+    <input
+      type="number"
+      value={confMinEnergyUI}
+      min={1}
+      max={5}
+      onChange={(e) =>
+        setConfMinEnergyUI(Number(e.target.value))
+      }
+      style={{
+        width: 50,
+        marginLeft: 4,
+      }}
+    />
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 12 }}>
+    EXIT E
+    <input
+      type="number"
+      value={exitMinEnergyUI}
+      min={1}
+      max={5}
+      onChange={(e) =>
+        setExitMinEnergyUI(Number(e.target.value))
+      }
+      style={{
+        width: 50,
+        marginLeft: 4,
+      }}
+    />
+  </label>
+
 </div>
 
     {scannerMessage ? (
