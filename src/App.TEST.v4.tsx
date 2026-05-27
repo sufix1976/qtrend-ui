@@ -380,6 +380,11 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
 
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [showRegimeMarkers, setShowRegimeMarkers] = useState(true);
+const [showConfMarkers, setShowConfMarkers] = useState(true);
+const [showExitMarkers, setShowExitMarkers] = useState(true);
+const [showRealMarkers, setShowRealMarkers] = useState(true);
+const [showLegacyMarkers, setShowLegacyMarkers] = useState(false);
 const [scannerRows, setScannerRows] = useState<ScannerRow[]>([]);
 const [scannerLoading, setScannerLoading] = useState(false);
 const [scannerMessage, setScannerMessage] = useState("");
@@ -1989,8 +1994,9 @@ regimeSeries.setData(
   })) as any
 );
 
-createSeriesMarkers(
-  regimeSeries,
+if (showRegimeMarkers) {
+  createSeriesMarkers(
+    regimeSeries,
   regimePoints.map((p: any) => ({
     time: p.time,
     position: "inBar",
@@ -2017,12 +2023,25 @@ createSeriesMarkers(
         ? "arrowDown"
         : "circle",
 
+    if (p.exitSignal && !showExitMarkers) {
+  return null;
+}
+
+if (
+  (p.marketState === "CONF-L" ||
+    p.marketState === "CONF-S") &&
+  !showConfMarkers
+) {
+  return null;
+}
     text:
       p.exitSignal ??
       p.debugLabel ??
       "",
-  })) as any
+  }))
+  .filter(Boolean) as any
 );
+  }
         
 createSeriesMarkers(zoneSeries, []);
 
@@ -2335,6 +2354,36 @@ return () => {
         {scannerLoading ? "läuft..." : "Scan"}
       </button>
     </div>
+
+    <div
+  style={{
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    marginTop: 6,
+    marginBottom: 8,
+  }}
+>
+  <button onClick={() => setShowRegimeMarkers(v => !v)}>
+    REGIME
+  </button>
+
+  <button onClick={() => setShowConfMarkers(v => !v)}>
+    CONF
+  </button>
+
+  <button onClick={() => setShowExitMarkers(v => !v)}>
+    EXIT
+  </button>
+
+  <button onClick={() => setShowRealMarkers(v => !v)}>
+    REAL
+  </button>
+
+  <button onClick={() => setShowLegacyMarkers(v => !v)}>
+    LEGACY
+  </button>
+</div>
 
     {scannerMessage ? (
       <div style={{ color: "#93c5fd", marginBottom: 8 }}>{scannerMessage}</div>
