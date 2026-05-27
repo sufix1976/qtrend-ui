@@ -2234,6 +2234,9 @@ return () => {
     trendLengthUI,
   adaptiveBandMultUI,
   symbolSizes,
+    showRegimeMarkers,
+showConfMarkers,
+showExitMarkers,
 ]);
 
   const displayState = liveState;
