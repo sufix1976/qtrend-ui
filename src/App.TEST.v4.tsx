@@ -1994,54 +1994,48 @@ regimeSeries.setData(
   })) as any
 );
 
-if (showRegimeMarkers) {
-  createSeriesMarkers(
-    regimeSeries,
-  regimePoints.map((p: any) => ({
-    time: p.time,
-    position: "inBar",
+createSeriesMarkers(
+  regimeSeries,
+  showRegimeMarkers
+    ? regimePoints
+        .map((p: any) => {
+          if (p.exitSignal && !showExitMarkers) return null;
 
-    color:
-      p.exitSignal
-        ? "#3399ff"
-        : p.trendEvent === "TRU"
-        ? "#00ff88"
-        : p.trendEvent === "TRD"
-        ? "#ff3355"
-        : p.energy?.startsWith("E+")
-        ? "#00ff88"
-        : p.energy?.startsWith("E-")
-        ? "#ff4d6d"
-        : "#ffd84d",
+          if (
+            (p.marketState === "CONF-L" ||
+              p.marketState === "CONF-S") &&
+            !showConfMarkers
+          ) {
+            return null;
+          }
 
-    shape:
-      p.exitSignal
-        ? "circle"
-        : p.trendEvent === "TRU"
-        ? "arrowUp"
-        : p.trendEvent === "TRD"
-        ? "arrowDown"
-        : "circle",
-
-    if (p.exitSignal && !showExitMarkers) {
-  return null;
-}
-
-if (
-  (p.marketState === "CONF-L" ||
-    p.marketState === "CONF-S") &&
-  !showConfMarkers
-) {
-  return null;
-}
-    text:
-      p.exitSignal ??
-      p.debugLabel ??
-      "",
-  }))
-  .filter(Boolean) as any
+          return {
+            time: p.time,
+            position: "inBar",
+            color: p.exitSignal
+              ? "#3399ff"
+              : p.trendEvent === "TRU"
+              ? "#00ff88"
+              : p.trendEvent === "TRD"
+              ? "#ff3355"
+              : p.energy?.startsWith("E+")
+              ? "#00ff88"
+              : p.energy?.startsWith("E-")
+              ? "#ff4d6d"
+              : "#ffd84d",
+            shape: p.exitSignal
+              ? "circle"
+              : p.trendEvent === "TRU"
+              ? "arrowUp"
+              : p.trendEvent === "TRD"
+              ? "arrowDown"
+              : "circle",
+            text: p.exitSignal ?? p.debugLabel ?? "",
+          };
+        })
+        .filter(Boolean)
+    : []
 );
-  }
         
 createSeriesMarkers(zoneSeries, []);
 
