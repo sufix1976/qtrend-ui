@@ -1555,6 +1555,11 @@ const coreCfg = {
   trendLength: trendLengthUI,
   spread: Number(SPREAD_BY_SYMBOL[symbol] ?? 0),
   slippage: Number(SLIPPAGE_BY_SYMBOL[symbol] ?? 0),
+  useTryEntry: useTryEntryUI,
+useConfEntry: useConfEntryUI,
+tryMinEnergy: tryMinEnergyUI,
+confMinEnergy: confMinEnergyUI,
+exitMinEnergy: exitMinEnergyUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
