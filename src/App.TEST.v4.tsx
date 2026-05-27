@@ -1876,29 +1876,37 @@ realCloseSeries.setData(workerFlatProjected as any);
 
 zoneSeries.setData([]);
 
-createSeriesMarkers(
-  candidateLongSeries,
-  buildTextMarkers(
-    coreLongProjected.map((p: any) => ({
-      ...p,
-      text: p.text ?? "LONG",
-      color: p.color ?? "#00ff88",
-    })),
-    "belowBar"
-  )
-);
+if (showLegacyMarkers) {
+  createSeriesMarkers(
+    candidateLongSeries,
+    buildTextMarkers(
+      coreLongProjected.map((p: any) => ({
+        ...p,
+        text: p.text ?? "LONG",
+        color: p.color ?? "#00ff88",
+      })),
+      "belowBar"
+    )
+  );
+} else {
+  createSeriesMarkers(candidateLongSeries, []);
+}
 
-createSeriesMarkers(
-  candidateShortSeries,
-  buildTextMarkers(
-    coreShortProjected.map((p: any) => ({
-      ...p,
-      text: p.text ?? "SHORT",
-      color: p.color ?? "#ff4d6d",
-    })),
-    "aboveBar"
-  )
-);
+if (showLegacyMarkers) {
+  createSeriesMarkers(
+    candidateShortSeries,
+    buildTextMarkers(
+      coreShortProjected.map((p: any) => ({
+        ...p,
+        text: p.text ?? "SHORT",
+        color: p.color ?? "#ff4d6d",
+      })),
+      "aboveBar"
+    )
+  );
+} else {
+  createSeriesMarkers(candidateShortSeries, []);
+}
 
 createSeriesMarkers(
   strategyLongExitSeries,
@@ -1990,7 +1998,7 @@ createSeriesMarkers(blockedShortSeries, []);
         console.log("REGIME POINTS CHECK", regimePoints.slice(-20));
 
 regimeSeries.setData(
-  regimePoints.map((p: any) => ({
+  ny) => ({
     time: p.time,
     value: p.value,
   })) as any
