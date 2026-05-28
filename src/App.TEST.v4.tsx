@@ -484,6 +484,22 @@ void setLongEntryUseRZUI;
 void setShortEntryUseBZUI;
 void setShortEntryUseNZUI;
 void setShortEntryUseRZUI;
+  const [longEntryMinEPlusUI, setLongEntryMinEPlusUI] = useState(2);
+const [longEntryMinEMinusUI, setLongEntryMinEMinusUI] = useState(0);
+
+const [shortEntryMinEPlusUI, setShortEntryMinEPlusUI] = useState(0);
+const [shortEntryMinEMinusUI, setShortEntryMinEMinusUI] = useState(2);
+
+const [longEntryMinScoreUI, setLongEntryMinScoreUI] = useState(-999);
+const [shortEntryMaxScoreUI, setShortEntryMaxScoreUI] = useState(999);
+  void setLongEntryMinEPlusUI;
+void setLongEntryMinEMinusUI;
+
+void setShortEntryMinEPlusUI;
+void setShortEntryMinEMinusUI;
+
+void setLongEntryMinScoreUI;
+void setShortEntryMaxScoreUI;
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -988,6 +1004,22 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+         longEntryUseBZ: longEntryUseBZUI,
+longEntryUseNZ: longEntryUseNZUI,
+longEntryUseRZ: longEntryUseRZUI,
+
+shortEntryUseBZ: shortEntryUseBZUI,
+shortEntryUseNZ: shortEntryUseNZUI,
+shortEntryUseRZ: shortEntryUseRZUI,
+
+longEntryMinEPlus: longEntryMinEPlusUI,
+longEntryMinEMinus: longEntryMinEMinusUI,
+
+shortEntryMinEPlus: shortEntryMinEPlusUI,
+shortEntryMinEMinus: shortEntryMinEMinusUI,
+
+longEntryMinScore: longEntryMinScoreUI,
+shortEntryMaxScore: shortEntryMaxScoreUI,
          longExitMinEPlus: longExitMinEPlusUI,
 longExitMinEMinus: longExitMinEMinusUI,
 
@@ -1623,6 +1655,22 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+  longEntryUseBZ: longEntryUseBZUI,
+longEntryUseNZ: longEntryUseNZUI,
+longEntryUseRZ: longEntryUseRZUI,
+
+shortEntryUseBZ: shortEntryUseBZUI,
+shortEntryUseNZ: shortEntryUseNZUI,
+shortEntryUseRZ: shortEntryUseRZUI,
+
+longEntryMinEPlus: longEntryMinEPlusUI,
+longEntryMinEMinus: longEntryMinEMinusUI,
+
+shortEntryMinEPlus: shortEntryMinEPlusUI,
+shortEntryMinEMinus: shortEntryMinEMinusUI,
+
+longEntryMinScore: longEntryMinScoreUI,
+shortEntryMaxScore: shortEntryMaxScoreUI,
   longExitMinEPlus: longExitMinEPlusUI,
 longExitMinEMinus: longExitMinEMinusUI,
 
@@ -2393,6 +2441,22 @@ longExitUseRZUI,
 shortExitUseBZUI,
 shortExitUseNZUI,
 shortExitUseRZUI,
+    longEntryUseBZUI,
+longEntryUseNZUI,
+longEntryUseRZUI,
+
+shortEntryUseBZUI,
+shortEntryUseNZUI,
+shortEntryUseRZUI,
+
+longEntryMinEPlusUI,
+longEntryMinEMinusUI,
+
+shortEntryMinEPlusUI,
+shortEntryMinEMinusUI,
+
+longEntryMinScoreUI,
+shortEntryMaxScoreUI,
   smaOffsetUI,
   outerOffsetUI,
   smaMiddleUI,
