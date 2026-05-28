@@ -1370,7 +1370,7 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
   priceScaleId: "",
   color: "#ffffff",
   lineVisible: false,
-  pointMarkersVisible: true,
+  pointMarkersVisible: false,
   pointMarkersRadius: 3,
   priceLineVisible: false,
   lastValueVisible: false,
