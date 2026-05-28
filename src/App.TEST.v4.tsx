@@ -2615,6 +2615,90 @@ showLegacyMarkers,
     />
   </label>
 
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 2,
+  }}
+>
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longEntryUseBZUI}
+      onChange={(e) =>
+        setLongEntryUseBZUI(e.target.checked)
+      }
+    />
+    LBZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longEntryUseNZUI}
+      onChange={(e) =>
+        setLongEntryUseNZUI(e.target.checked)
+      }
+    />
+    LNZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longEntryUseRZUI}
+      onChange={(e) =>
+        setLongEntryUseRZUI(e.target.checked)
+      }
+    />
+    LRZ
+  </label>
+</div>
+
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 2,
+  }}
+>
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortEntryUseBZUI}
+      onChange={(e) =>
+        setShortEntryUseBZUI(e.target.checked)
+      }
+    />
+    SBZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortEntryUseNZUI}
+      onChange={(e) =>
+        setShortEntryUseNZUI(e.target.checked)
+      }
+    />
+    SNZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortEntryUseRZUI}
+      onChange={(e) =>
+        setShortEntryUseRZUI(e.target.checked)
+      }
+    />
+    SRZ
+  </label>
+</div>
+
   <label style={{ color: "#fff", fontSize: 12 }}>
     EXIT E
     <input
