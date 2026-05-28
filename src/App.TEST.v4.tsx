@@ -460,6 +460,13 @@ const [longExitUseRZUI, setLongExitUseRZUI] = useState(true);
 const [shortExitUseBZUI, setShortExitUseBZUI] = useState(true);
 const [shortExitUseNZUI, setShortExitUseNZUI] = useState(true);
 const [shortExitUseRZUI, setShortExitUseRZUI] = useState(false);
+  void setLongExitUseBZUI;
+void setLongExitUseNZUI;
+void setLongExitUseRZUI;
+
+void setShortExitUseBZUI;
+void setShortExitUseNZUI;
+void setShortExitUseRZUI;
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
