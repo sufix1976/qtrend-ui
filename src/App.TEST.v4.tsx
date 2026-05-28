@@ -2598,6 +2598,67 @@ showLegacyMarkers,
     />
   </label>
 
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 4,
+  }}
+>
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    LX E+
+  </span>
+
+  <input
+    type="number"
+    min={0}
+    max={3}
+    step={1}
+    value={longExitMinEPlusUI}
+    onChange={(e) =>
+      setLongExitMinEPlusUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 46 }}
+  />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    LX E-
+  </span>
+
+  <input
+    type="number"
+    min={0}
+    max={3}
+    step={1}
+    value={longExitMinEMinusUI}
+    onChange={(e) =>
+      setLongExitMinEMinusUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 46 }}
+  />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    LX a&lt;
+  </span>
+
+  <input
+    type="number"
+    step={0.1}
+    value={longExitMaxScoreUI}
+    onChange={(e) =>
+      setLongExitMaxScoreUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 58 }}
+  />
+</div>
+
 </div>
 
     {scannerMessage ? (
