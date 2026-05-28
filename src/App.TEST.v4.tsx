@@ -2038,10 +2038,23 @@ regimeSeries.setData(
 
 createSeriesMarkers(
   regimeSeries,
-  showRegimeMarkers && showReplayMarkers
+  showRegimeMarkers
   ? regimePoints
         .map((p: any) => {
           if (p.exitSignal && p.exitSignal === lastExitSignalForDisplay) {
+  return null;
+}
+
+          if (
+  !showReplayMarkers &&
+  (
+    p.marketState === "TRY-L" ||
+    p.marketState === "TRY-S" ||
+    p.marketState === "CONF-L" ||
+    p.marketState === "CONF-S" ||
+    p.exitSignal
+  )
+) {
   return null;
 }
 
