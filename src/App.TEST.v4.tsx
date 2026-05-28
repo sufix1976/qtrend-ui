@@ -441,6 +441,11 @@ const [shortDynEUI, setShortDynEUI] = useState(1);
 
 const [longDynAUI, setLongDynAUI] = useState(3);
 const [shortDynAUI, setShortDynAUI] = useState(3);
+  void setLongDynEUI;
+void setShortDynEUI;
+
+void setLongDynAUI;
+void setShortDynAUI;
 const [tryMinEnergyUI, setTryMinEnergyUI] = useState(2);
 const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
   void setTryMinEnergyUI;
