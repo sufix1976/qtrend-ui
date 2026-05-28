@@ -384,6 +384,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 const [showConfMarkers, setShowConfMarkers] = useState(true);
 const [showExitMarkers, setShowExitMarkers] = useState(true);
 const [showRealMarkers, setShowRealMarkers] = useState(true);
+  const [showReplayMarkers, setShowReplayMarkers] = useState(true);
 const [showLegacyMarkers, setShowLegacyMarkers] = useState(false);
   void showRealMarkers;
 void showLegacyMarkers;
@@ -2037,8 +2038,8 @@ regimeSeries.setData(
 
 createSeriesMarkers(
   regimeSeries,
-  showRegimeMarkers
-    ? regimePoints
+  showRegimeMarkers && showReplayMarkers
+  ? regimePoints
         .map((p: any) => {
           if (p.exitSignal && p.exitSignal === lastExitSignalForDisplay) {
   return null;
@@ -2290,6 +2291,7 @@ showConfMarkers,
 showExitMarkers,
     showRealMarkers,
 showLegacyMarkers,
+    showReplayMarkers,
 ]);
 
   const displayState = liveState;
@@ -2435,6 +2437,17 @@ showLegacyMarkers,
   <button onClick={() => setShowLegacyMarkers(v => !v)}>
     LEGACY
   </button>
+
+      <button
+  onClick={() =>
+    setShowReplayMarkers((v) => !v)
+  }
+  style={{
+    opacity: showReplayMarkers ? 1 : 0.5,
+  }}
+>
+  REPLAY
+</button>
 </div>
     <div
   style={{
