@@ -2659,6 +2659,67 @@ showLegacyMarkers,
   />
 </div>
 
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 4,
+  }}
+>
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    SX E+
+  </span>
+
+  <input
+    type="number"
+    min={0}
+    max={3}
+    step={1}
+    value={shortExitMinEPlusUI}
+    onChange={(e) =>
+      setShortExitMinEPlusUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 46 }}
+  />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    SX E-
+  </span>
+
+  <input
+    type="number"
+    min={0}
+    max={3}
+    step={1}
+    value={shortExitMinEMinusUI}
+    onChange={(e) =>
+      setShortExitMinEMinusUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 46 }}
+  />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>
+    SX a&gt;
+  </span>
+
+  <input
+    type="number"
+    step={0.1}
+    value={shortExitMinScoreUI}
+    onChange={(e) =>
+      setShortExitMinScoreUI(
+        Number(e.target.value)
+      )
+    }
+    style={{ width: 58 }}
+  />
+</div>
+
 </div>
 
     {scannerMessage ? (
