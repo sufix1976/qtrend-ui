@@ -2030,9 +2030,19 @@ realCloseSeries.setData(workerFlatProjected as any);
 
 zoneSeries.setData([]);
 
-if (showLegacyMarkers) {
-  createSeriesMarkers(
-    candidateLongSeries,
+createSeriesMarkers(
+  candidateLongSeries,
+  showReplayMarkers
+    ? buildTextMarkers(
+        coreLongProjected.map((p: any) => ({
+          ...p,
+          text: p.text ?? "LONG",
+          color: p.color ?? "#00ff88",
+        })),
+        "belowBar"
+      )
+    : []
+);
     buildTextMarkers(
       coreLongProjected.map((p: any) => ({
         ...p,
@@ -2046,9 +2056,19 @@ if (showLegacyMarkers) {
   createSeriesMarkers(candidateLongSeries, []);
 }
 
-if (showLegacyMarkers) {
-  createSeriesMarkers(
-    candidateShortSeries,
+createSeriesMarkers(
+  candidateShortSeries,
+  showReplayMarkers
+    ? buildTextMarkers(
+        coreShortProjected.map((p: any) => ({
+          ...p,
+          text: p.text ?? "SHORT",
+          color: p.color ?? "#ff4d6d",
+        })),
+        "aboveBar"
+      )
+    : []
+);
     buildTextMarkers(
       coreShortProjected.map((p: any) => ({
         ...p,
