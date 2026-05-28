@@ -2690,6 +2690,82 @@ showLegacyMarkers,
     <span>{"a>"}</span><input type="number" value={shortExitMinScoreUI} onChange={(e) => setShortExitMinScoreUI(Number(e.target.value))} style={{ width: 62 }} />
   </div>
 
+  <div
+  style={{
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 8,
+    flexWrap: "wrap",
+    color: "#fff",
+    fontSize: 12,
+  }}
+>
+  <span style={{ color: "#00ff88" }}>
+    LE DynE
+  </span>
+
+  <input
+    type="number"
+    value={longDynEUI}
+    step={0.1}
+    min={0}
+    max={10}
+    onChange={(e) =>
+      setLongDynEUI(Number(e.target.value))
+    }
+    style={{ width: 60 }}
+  />
+
+  <span style={{ color: "#00ff88" }}>
+    LE DynA
+  </span>
+
+  <input
+    type="number"
+    value={longDynAUI}
+    step={0.1}
+    min={0}
+    max={20}
+    onChange={(e) =>
+      setLongDynAUI(Number(e.target.value))
+    }
+    style={{ width: 60 }}
+  />
+
+  <span style={{ color: "#ff4d6d" }}>
+    SE DynE
+  </span>
+
+  <input
+    type="number"
+    value={shortDynEUI}
+    step={0.1}
+    min={0}
+    max={10}
+    onChange={(e) =>
+      setShortDynEUI(Number(e.target.value))
+    }
+    style={{ width: 60 }}
+  />
+
+  <span style={{ color: "#ff4d6d" }}>
+    SE DynA
+  </span>
+
+  <input
+    type="number"
+    value={shortDynAUI}
+    step={0.1}
+    min={0}
+    max={20}
+    onChange={(e) =>
+      setShortDynAUI(Number(e.target.value))
+    }
+    style={{ width: 60 }}
+  />
+</div>
+
 </div>
 
     {scannerMessage ? (
