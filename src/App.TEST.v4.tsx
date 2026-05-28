@@ -1874,11 +1874,21 @@ const shortExitProjected = projectMarkerPointsToCandles(
 );
         
         
+candidateLongSeries.setData(
+  showReplayMarkers ? (coreLongProjected as any) : []
+);
 
-   candidateLongSeries.setData(coreLongProjected as any);
-candidateShortSeries.setData(coreShortProjected as any);
-strategyLongExitSeries.setData(longExitProjected as any);
-strategyShortExitSeries.setData(shortExitProjected as any);
+candidateShortSeries.setData(
+  showReplayMarkers ? (coreShortProjected as any) : []
+);
+
+strategyLongExitSeries.setData(
+  showReplayMarkers ? (longExitProjected as any) : []
+);
+
+strategyShortExitSeries.setData(
+  showReplayMarkers ? (shortExitProjected as any) : []
+);
 
 outlierLongSeries.setData([]);
 outlierShortSeries.setData([]);
@@ -2102,8 +2112,13 @@ if (p.exitSignal) {
 createSeriesMarkers(zoneSeries, []);
 
         
-        candidateLongSeries.setData(coreLongProjected as any);
-        candidateShortSeries.setData(coreShortProjected as any);
+candidateLongSeries.setData(
+  showReplayMarkers ? (coreLongProjected as any) : []
+);
+
+candidateShortSeries.setData(
+  showReplayMarkers ? (coreShortProjected as any) : []
+);
 
        
 
