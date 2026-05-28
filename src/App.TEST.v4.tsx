@@ -2596,40 +2596,7 @@ showLegacyMarkers,
     CONF
   </label>
 
-  <label style={{ color: "#fff", fontSize: 12 }}>
-    TRY E
-    <input
-      type="number"
-      value={tryMinEnergyUI}
-      min={1}
-      max={5}
-      onChange={(e) =>
-        setTryMinEnergyUI(Number(e.target.value))
-      }
-      style={{
-        width: 50,
-        marginLeft: 4,
-      }}
-    />
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 12 }}>
-    CONF E
-    <input
-      type="number"
-      value={confMinEnergyUI}
-      min={1}
-      max={5}
-      onChange={(e) =>
-        setConfMinEnergyUI(Number(e.target.value))
-      }
-      style={{
-        width: 50,
-        marginLeft: 4,
-      }}
-    />
-  </label>
-
+ 
       <div
   style={{
     display: "flex",
