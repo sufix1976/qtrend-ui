@@ -434,6 +434,8 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [trendLengthUI, setTrendLengthUI] = useState(20);
   const [useTryEntryUI, setUseTryEntryUI] = useState(true);
 const [useConfEntryUI, setUseConfEntryUI] = useState(true);
+  void setUseTryEntryUI;
+void setUseConfEntryUI;
 const [tryMinEnergyUI, setTryMinEnergyUI] = useState(2);
 const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
   void setTryMinEnergyUI;
