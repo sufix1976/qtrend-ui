@@ -439,6 +439,7 @@ const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
   void setTryMinEnergyUI;
 void setConfMinEnergyUI;
 const [exitMinEnergyUI, setExitMinEnergyUI] = useState(2);
+  void setExitMinEnergyUI;
   const [longExitMinEPlusUI, setLongExitMinEPlusUI] = useState(0);
 const [longExitMinEMinusUI, setLongExitMinEMinusUI] = useState(2);
 
