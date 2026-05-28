@@ -2796,6 +2796,48 @@ showLegacyMarkers,
   />
 </div>
 
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 2,
+  }}
+>
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortExitUseBZUI}
+      onChange={(e) =>
+        setShortExitUseBZUI(e.target.checked)
+      }
+    />
+    BZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortExitUseNZUI}
+      onChange={(e) =>
+        setShortExitUseNZUI(e.target.checked)
+      }
+    />
+    NZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={shortExitUseRZUI}
+      onChange={(e) =>
+        setShortExitUseRZUI(e.target.checked)
+      }
+    />
+    RZ
+  </label>
+</div>
+
 </div>
 
     {scannerMessage ? (
