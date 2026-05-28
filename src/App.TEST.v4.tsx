@@ -445,6 +445,14 @@ const [shortExitMinEMinusUI, setShortExitMinEMinusUI] = useState(0);
 
 const [longExitMaxScoreUI, setLongExitMaxScoreUI] = useState(2);
 const [shortExitMinScoreUI, setShortExitMinScoreUI] = useState(-2);
+  void setLongExitMinEPlusUI;
+void setLongExitMinEMinusUI;
+
+void setShortExitMinEPlusUI;
+void setShortExitMinEMinusUI;
+
+void setLongExitMaxScoreUI;
+void setShortExitMinScoreUI;
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
