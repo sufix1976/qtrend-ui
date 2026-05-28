@@ -453,6 +453,13 @@ void setShortExitMinEMinusUI;
 
 void setLongExitMaxScoreUI;
 void setShortExitMinScoreUI;
+  const [longExitUseBZUI, setLongExitUseBZUI] = useState(false);
+const [longExitUseNZUI, setLongExitUseNZUI] = useState(true);
+const [longExitUseRZUI, setLongExitUseRZUI] = useState(true);
+
+const [shortExitUseBZUI, setShortExitUseBZUI] = useState(true);
+const [shortExitUseNZUI, setShortExitUseNZUI] = useState(true);
+const [shortExitUseRZUI, setShortExitUseRZUI] = useState(false);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -965,6 +972,13 @@ shortExitMinEMinus: shortExitMinEMinusUI,
 
 longExitMaxScore: longExitMaxScoreUI,
 shortExitMinScore: shortExitMinScoreUI,
+         longExitUseBZ: longExitUseBZUI,
+longExitUseNZ: longExitUseNZUI,
+longExitUseRZ: longExitUseRZUI,
+
+shortExitUseBZ: shortExitUseBZUI,
+shortExitUseNZ: shortExitUseNZUI,
+shortExitUseRZ: shortExitUseRZUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
@@ -1593,6 +1607,13 @@ shortExitMinEMinus: shortExitMinEMinusUI,
 
 longExitMaxScore: longExitMaxScoreUI,
 shortExitMinScore: shortExitMinScoreUI,
+  longExitUseBZ: longExitUseBZUI,
+longExitUseNZ: longExitUseNZUI,
+longExitUseRZ: longExitUseRZUI,
+
+shortExitUseBZ: shortExitUseBZUI,
+shortExitUseNZ: shortExitUseNZUI,
+shortExitUseRZ: shortExitUseRZUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
@@ -2342,6 +2363,12 @@ shortExitMinEPlusUI,
 shortExitMinEMinusUI,
 longExitMaxScoreUI,
 shortExitMinScoreUI,
+    longExitUseBZUI,
+longExitUseNZUI,
+longExitUseRZUI,
+shortExitUseBZUI,
+shortExitUseNZUI,
+shortExitUseRZUI,
   smaOffsetUI,
   outerOffsetUI,
   smaMiddleUI,
