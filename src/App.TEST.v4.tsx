@@ -443,6 +443,8 @@ const [longDynAUI, setLongDynAUI] = useState(3);
 const [shortDynAUI, setShortDynAUI] = useState(3);
   void setLongDynEUI;
 void setShortDynEUI;
+  const [minFlipPDistanceUI, setMinFlipPDistanceUI] =
+  useState(0);
 
 void setLongDynAUI;
 void setShortDynAUI;
@@ -1017,6 +1019,7 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+         minFlipPDistance: minFlipPDistanceUI,
          smaContextDynLongE: longDynEUI,
 smaContextDynShortE: shortDynEUI,
 
@@ -1673,6 +1676,7 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+  minFlipPDistance: minFlipPDistanceUI,
   smaContextDynLongE: longDynEUI,
 smaContextDynShortE: shortDynEUI,
 
@@ -2764,6 +2768,23 @@ showLegacyMarkers,
     }
     style={{ width: 60 }}
   />
+    <span style={{ color: "#fff" }}>
+  Flip pΔ
+</span>
+
+<input
+  type="number"
+  value={minFlipPDistanceUI}
+  step={0.1}
+  min={0}
+  max={20}
+  onChange={(e) =>
+    setMinFlipPDistanceUI(
+      Number(e.target.value)
+    )
+  }
+  style={{ width: 60 }}
+/>
 </div>
 
 </div>
