@@ -2747,22 +2747,27 @@ showLegacyMarkers,
   </label>
 </div>
 
-  <label style={{ color: "#fff", fontSize: 12 }}>
-    EXIT E
-    <input
-      type="number"
-      value={exitMinEnergyUI}
-      min={1}
-      max={5}
-      onChange={(e) =>
-        setExitMinEnergyUI(Number(e.target.value))
-      }
-      style={{
-        width: 50,
-        marginLeft: 4,
-      }}
-    />
-  </label>
+<div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+  <span style={{ color: "#fff", fontSize: 11 }}>LE E+</span>
+  <input type="number" min={0} max={3} step={1} value={longEntryMinEPlusUI} onChange={(e) => setLongEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>LE E-</span>
+  <input type="number" min={0} max={3} step={1} value={longEntryMinEMinusUI} onChange={(e) => setLongEntryMinEMinusUI(Number(e.target.value))} style={{ width: 46 }} />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>LE a&gt;</span>
+  <input type="number" step={0.1} value={longEntryMinScoreUI} onChange={(e) => setLongEntryMinScoreUI(Number(e.target.value))} style={{ width: 58 }} />
+</div>
+
+<div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+  <span style={{ color: "#fff", fontSize: 11 }}>SE E+</span>
+  <input type="number" min={0} max={3} step={1} value={shortEntryMinEPlusUI} onChange={(e) => setShortEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>SE E-</span>
+  <input type="number" min={0} max={3} step={1} value={shortEntryMinEMinusUI} onChange={(e) => setShortEntryMinEMinusUI(Number(e.target.value))} style={{ width: 46 }} />
+
+  <span style={{ color: "#fff", fontSize: 11 }}>SE a&lt;</span>
+  <input type="number" step={0.1} value={shortEntryMaxScoreUI} onChange={(e) => setShortEntryMaxScoreUI(Number(e.target.value))} style={{ width: 58 }} />
+</div>
 
       <div
   style={{
