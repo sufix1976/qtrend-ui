@@ -2641,27 +2641,7 @@ showLegacyMarkers,
   }}
 >
 
-  <label style={{ color: "#fff", fontSize: 12 }}>
-    <input
-      type="checkbox"
-      checked={useTryEntryUI}
-      onChange={(e) =>
-        setUseTryEntryUI(e.target.checked)
-      }
-    />
-    TRY
-  </label>
 
-  <label style={{ color: "#fff", fontSize: 12 }}>
-    <input
-      type="checkbox"
-      checked={useConfEntryUI}
-      onChange={(e) =>
-        setUseConfEntryUI(e.target.checked)
-      }
-    />
-    CONF
-  </label>
 
  
       <div
@@ -2748,6 +2728,18 @@ showLegacyMarkers,
   </label>
 </div>
 
+      <div
+  style={{
+    color: "#00ff88",
+    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  LONG ENTRY
+</div>
+
 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
   <span style={{ color: "#fff", fontSize: 11 }}>LE E+</span>
   <input type="number" min={0} max={3} step={1} value={longEntryMinEPlusUI} onChange={(e) => setLongEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
@@ -2759,6 +2751,18 @@ showLegacyMarkers,
   <input type="number" step={0.1} value={longEntryMinScoreUI} onChange={(e) => setLongEntryMinScoreUI(Number(e.target.value))} style={{ width: 58 }} />
 </div>
 
+      <div
+  style={{
+    color: "#ff4d6d",
+    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  SHORT ENTRY
+</div>
+
 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
   <span style={{ color: "#fff", fontSize: 11 }}>SE E+</span>
   <input type="number" min={0} max={3} step={1} value={shortEntryMinEPlusUI} onChange={(e) => setShortEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
@@ -2768,6 +2772,18 @@ showLegacyMarkers,
 
   <span style={{ color: "#fff", fontSize: 11 }}>SE a&lt;</span>
   <input type="number" step={0.1} value={shortEntryMaxScoreUI} onChange={(e) => setShortEntryMaxScoreUI(Number(e.target.value))} style={{ width: 58 }} />
+</div>
+
+      <div
+  style={{
+    color: "#66ccff",
+    fontSize: 11,
+    marginTop: 6,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  LONG EXIT
 </div>
 
       <div
@@ -2871,6 +2887,18 @@ showLegacyMarkers,
     />
     RZ
   </label>
+</div>
+
+      <div
+  style={{
+    color: "#ffaa33",
+    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  SHORT EXIT
 </div>
 
       <div
