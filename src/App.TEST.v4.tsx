@@ -2654,6 +2654,18 @@ showLegacyMarkers,
     marginTop: 2,
   }}
 >
+
+        <div
+  style={{
+    color: "#00ff88",
+    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  LONG ENTRY
+</div>
   <label style={{ color: "#fff", fontSize: 11 }}>
     <input
       type="checkbox"
@@ -2696,6 +2708,17 @@ showLegacyMarkers,
     marginTop: 2,
   }}
 >
+         <div
+  style={{
+    color: "#ff4d6d",
+    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 2,
+    fontWeight: 700,
+  }}
+>
+  SHORT ENTRY
+</div>
   <label style={{ color: "#fff", fontSize: 11 }}>
     <input
       type="checkbox"
@@ -2730,17 +2753,7 @@ showLegacyMarkers,
   </label>
 </div>
 
-      <div
-  style={{
-    color: "#00ff88",
-    fontSize: 11,
-    marginTop: 4,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  LONG ENTRY
-</div>
+      
 
 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
   <span style={{ color: "#fff", fontSize: 11 }}>LE E+</span>
@@ -2753,17 +2766,7 @@ showLegacyMarkers,
   <input type="number" step={0.1} value={longEntryMinScoreUI} onChange={(e) => setLongEntryMinScoreUI(Number(e.target.value))} style={{ width: 58 }} />
 </div>
 
-      <div
-  style={{
-    color: "#ff4d6d",
-    fontSize: 11,
-    marginTop: 4,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  SHORT ENTRY
-</div>
+     
 
 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
   <span style={{ color: "#fff", fontSize: 11 }}>SE E+</span>
