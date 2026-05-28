@@ -2698,6 +2698,48 @@ showLegacyMarkers,
     display: "flex",
     gap: 6,
     alignItems: "center",
+    marginTop: 2,
+  }}
+>
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longExitUseBZUI}
+      onChange={(e) =>
+        setLongExitUseBZUI(e.target.checked)
+      }
+    />
+    BZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longExitUseNZUI}
+      onChange={(e) =>
+        setLongExitUseNZUI(e.target.checked)
+      }
+    />
+    NZ
+  </label>
+
+  <label style={{ color: "#fff", fontSize: 11 }}>
+    <input
+      type="checkbox"
+      checked={longExitUseRZUI}
+      onChange={(e) =>
+        setLongExitUseRZUI(e.target.checked)
+      }
+    />
+    RZ
+  </label>
+</div>
+
+      <div
+  style={{
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
     marginTop: 4,
   }}
 >
