@@ -2094,7 +2094,7 @@ if (p.exitSignal) {
               ? "#00ff88"
               : p.energy?.startsWith("E-")
               ? "#ff4d6d"
-              : "#ffd84d",
+              : "rgba(255,255,255,0)",
             shape: p.exitSignal
               ? "circle"
               : p.trendEvent === "TRU"
