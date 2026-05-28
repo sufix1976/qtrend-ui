@@ -2028,8 +2028,6 @@ realSellSeries.setData(workerShortProjected as any);
 realCloseSeries.setData(workerFlatProjected as any);
         
 
-zoneSeries.setData([]);
-
 createSeriesMarkers(
   candidateLongSeries,
   showReplayMarkers
@@ -2043,18 +2041,6 @@ createSeriesMarkers(
       )
     : []
 );
-    buildTextMarkers(
-      coreLongProjected.map((p: any) => ({
-        ...p,
-        text: p.text ?? "LONG",
-        color: p.color ?? "#00ff88",
-      })),
-      "belowBar"
-    )
-  );
-} else {
-  createSeriesMarkers(candidateLongSeries, []);
-}
 
 createSeriesMarkers(
   candidateShortSeries,
@@ -2069,18 +2055,6 @@ createSeriesMarkers(
       )
     : []
 );
-    buildTextMarkers(
-      coreShortProjected.map((p: any) => ({
-        ...p,
-        text: p.text ?? "SHORT",
-        color: p.color ?? "#ff4d6d",
-      })),
-      "aboveBar"
-    )
-  );
-} else {
-  createSeriesMarkers(candidateShortSeries, []);
-}
 
 createSeriesMarkers(
   strategyLongExitSeries,
