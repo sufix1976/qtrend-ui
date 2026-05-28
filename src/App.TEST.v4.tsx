@@ -436,6 +436,11 @@ const [scannerMessage, setScannerMessage] = useState("");
 const [useConfEntryUI, setUseConfEntryUI] = useState(true);
   void setUseTryEntryUI;
 void setUseConfEntryUI;
+  const [longDynEUI, setLongDynEUI] = useState(1);
+const [shortDynEUI, setShortDynEUI] = useState(1);
+
+const [longDynAUI, setLongDynAUI] = useState(3);
+const [shortDynAUI, setShortDynAUI] = useState(3);
 const [tryMinEnergyUI, setTryMinEnergyUI] = useState(2);
 const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
   void setTryMinEnergyUI;
@@ -1007,6 +1012,11 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+         smaContextDynLongE: longDynEUI,
+smaContextDynShortE: shortDynEUI,
+
+smaContextDynLongA: longDynAUI,
+smaContextDynShortA: shortDynAUI,
          longEntryUseBZ: longEntryUseBZUI,
 longEntryUseNZ: longEntryUseNZUI,
 longEntryUseRZ: longEntryUseRZUI,
@@ -1658,6 +1668,11 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+  smaContextDynLongE: longDynEUI,
+smaContextDynShortE: shortDynEUI,
+
+smaContextDynLongA: longDynAUI,
+smaContextDynShortA: shortDynAUI,
   longEntryUseBZ: longEntryUseBZUI,
 longEntryUseNZ: longEntryUseNZUI,
 longEntryUseRZ: longEntryUseRZUI,
