@@ -2643,372 +2643,76 @@ showLegacyMarkers,
   }}
 >
 
-
-
- 
-      <div
+<div
   style={{
-    display: "flex",
-    gap: 6,
+    display: "grid",
+    gridTemplateColumns: "120px 1fr",
+    columnGap: 10,
+    rowGap: 6,
     alignItems: "center",
-    marginTop: 2,
+    marginTop: 8,
+    marginBottom: 8,
   }}
 >
+  <div style={{ color: "#00ff88", fontSize: 11, fontWeight: 700 }}>
+    LONG ENTRY
+  </div>
+  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <label><input type="checkbox" checked={longEntryUseBZUI} onChange={(e) => setLongEntryUseBZUI(e.target.checked)} /> BZ</label>
+    <label><input type="checkbox" checked={longEntryUseNZUI} onChange={(e) => setLongEntryUseNZUI(e.target.checked)} /> NZ</label>
+    <label><input type="checkbox" checked={longEntryUseRZUI} onChange={(e) => setLongEntryUseRZUI(e.target.checked)} /> RZ</label>
+    <span>E+</span>
+    <input type="number" min={0} max={3} step={1} value={longEntryMinEPlusUI} onChange={(e) => setLongEntryMinEPlusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>E-</span>
+    <input type="number" min={0} max={3} step={1} value={longEntryMinEMinusUI} onChange={(e) => setLongEntryMinEMinusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>a&gt;</span>
+    <input type="number" step={0.1} value={longEntryMinScoreUI} onChange={(e) => setLongEntryMinScoreUI(Number(e.target.value))} style={{ width: 62 }} />
+  </div>
 
-        <div
-  style={{
-    color: "#00ff88",
-    fontSize: 11,
-    marginTop: 4,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  LONG ENTRY
-</div>
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longEntryUseBZUI}
-      onChange={(e) =>
-        setLongEntryUseBZUI(e.target.checked)
-      }
-    />
-    LBZ
-  </label>
+  <div style={{ color: "#ff4d6d", fontSize: 11, fontWeight: 700 }}>
+    SHORT ENTRY
+  </div>
+  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <label><input type="checkbox" checked={shortEntryUseBZUI} onChange={(e) => setShortEntryUseBZUI(e.target.checked)} /> BZ</label>
+    <label><input type="checkbox" checked={shortEntryUseNZUI} onChange={(e) => setShortEntryUseNZUI(e.target.checked)} /> NZ</label>
+    <label><input type="checkbox" checked={shortEntryUseRZUI} onChange={(e) => setShortEntryUseRZUI(e.target.checked)} /> RZ</label>
+    <span>E+</span>
+    <input type="number" min={0} max={3} step={1} value={shortEntryMinEPlusUI} onChange={(e) => setShortEntryMinEPlusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>E-</span>
+    <input type="number" min={0} max={3} step={1} value={shortEntryMinEMinusUI} onChange={(e) => setShortEntryMinEMinusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>a&lt;</span>
+    <input type="number" step={0.1} value={shortEntryMaxScoreUI} onChange={(e) => setShortEntryMaxScoreUI(Number(e.target.value))} style={{ width: 62 }} />
+  </div>
 
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longEntryUseNZUI}
-      onChange={(e) =>
-        setLongEntryUseNZUI(e.target.checked)
-      }
-    />
-    LNZ
-  </label>
+  <div style={{ color: "#66ccff", fontSize: 11, fontWeight: 700 }}>
+    LONG EXIT
+  </div>
+  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <label><input type="checkbox" checked={longExitUseBZUI} onChange={(e) => setLongExitUseBZUI(e.target.checked)} /> BZ</label>
+    <label><input type="checkbox" checked={longExitUseNZUI} onChange={(e) => setLongExitUseNZUI(e.target.checked)} /> NZ</label>
+    <label><input type="checkbox" checked={longExitUseRZUI} onChange={(e) => setLongExitUseRZUI(e.target.checked)} /> RZ</label>
+    <span>E+</span>
+    <input type="number" min={0} max={3} step={1} value={longExitMinEPlusUI} onChange={(e) => setLongExitMinEPlusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>E-</span>
+    <input type="number" min={0} max={3} step={1} value={longExitMinEMinusUI} onChange={(e) => setLongExitMinEMinusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>a&lt;</span>
+    <input type="number" step={0.1} value={longExitMaxScoreUI} onChange={(e) => setLongExitMaxScoreUI(Number(e.target.value))} style={{ width: 62 }} />
+  </div>
 
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longEntryUseRZUI}
-      onChange={(e) =>
-        setLongEntryUseRZUI(e.target.checked)
-      }
-    />
-    LRZ
-  </label>
-</div>
-
-      <div
-  style={{
-    display: "flex",
-    gap: 6,
-    alignItems: "center",
-    marginTop: 2,
-  }}
->
-         <div
-  style={{
-    color: "#ff4d6d",
-    fontSize: 11,
-    marginTop: 4,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  SHORT ENTRY
-</div>
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortEntryUseBZUI}
-      onChange={(e) =>
-        setShortEntryUseBZUI(e.target.checked)
-      }
-    />
-    SBZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortEntryUseNZUI}
-      onChange={(e) =>
-        setShortEntryUseNZUI(e.target.checked)
-      }
-    />
-    SNZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortEntryUseRZUI}
-      onChange={(e) =>
-        setShortEntryUseRZUI(e.target.checked)
-      }
-    />
-    SRZ
-  </label>
-</div>
-
-      
-
-<div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-  <span style={{ color: "#fff", fontSize: 11 }}>LE E+</span>
-  <input type="number" min={0} max={3} step={1} value={longEntryMinEPlusUI} onChange={(e) => setLongEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>LE E-</span>
-  <input type="number" min={0} max={3} step={1} value={longEntryMinEMinusUI} onChange={(e) => setLongEntryMinEMinusUI(Number(e.target.value))} style={{ width: 46 }} />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>LE a&gt;</span>
-  <input type="number" step={0.1} value={longEntryMinScoreUI} onChange={(e) => setLongEntryMinScoreUI(Number(e.target.value))} style={{ width: 58 }} />
-</div>
-
-     
-
-<div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-  <span style={{ color: "#fff", fontSize: 11 }}>SE E+</span>
-  <input type="number" min={0} max={3} step={1} value={shortEntryMinEPlusUI} onChange={(e) => setShortEntryMinEPlusUI(Number(e.target.value))} style={{ width: 46 }} />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>SE E-</span>
-  <input type="number" min={0} max={3} step={1} value={shortEntryMinEMinusUI} onChange={(e) => setShortEntryMinEMinusUI(Number(e.target.value))} style={{ width: 46 }} />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>SE a&lt;</span>
-  <input type="number" step={0.1} value={shortEntryMaxScoreUI} onChange={(e) => setShortEntryMaxScoreUI(Number(e.target.value))} style={{ width: 58 }} />
-</div>
-
-      <div
-  style={{
-    color: "#66ccff",
-    fontSize: 11,
-    marginTop: 6,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  LONG EXIT
-</div>
-
-      <div
-  style={{
-    display: "flex",
-    gap: 6,
-    alignItems: "center",
-    marginTop: 4,
-  }}
->
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    LX E+
-  </span>
-
-  <input
-    type="number"
-    min={0}
-    max={3}
-    step={1}
-    value={longExitMinEPlusUI}
-    onChange={(e) =>
-      setLongExitMinEPlusUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 46 }}
-  />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    LX E-
-  </span>
-
-  <input
-    type="number"
-    min={0}
-    max={3}
-    step={1}
-    value={longExitMinEMinusUI}
-    onChange={(e) =>
-      setLongExitMinEMinusUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 46 }}
-  />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    LX a&lt;
-  </span>
-
-  <input
-    type="number"
-    step={0.1}
-    value={longExitMaxScoreUI}
-    onChange={(e) =>
-      setLongExitMaxScoreUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 58 }}
-  />
-</div>
-
-      <div
-  style={{
-    display: "flex",
-    gap: 6,
-    alignItems: "center",
-    marginTop: 2,
-  }}
->
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longExitUseBZUI}
-      onChange={(e) =>
-        setLongExitUseBZUI(e.target.checked)
-      }
-    />
-    BZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longExitUseNZUI}
-      onChange={(e) =>
-        setLongExitUseNZUI(e.target.checked)
-      }
-    />
-    NZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={longExitUseRZUI}
-      onChange={(e) =>
-        setLongExitUseRZUI(e.target.checked)
-      }
-    />
-    RZ
-  </label>
-</div>
-
-      <div
-  style={{
-    color: "#ffaa33",
-    fontSize: 11,
-    marginTop: 4,
-    marginBottom: 2,
-    fontWeight: 700,
-  }}
->
-  SHORT EXIT
-</div>
-
-      <div
-  style={{
-    display: "flex",
-    gap: 6,
-    alignItems: "center",
-    marginTop: 4,
-  }}
->
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    SX E+
-  </span>
-
-  <input
-    type="number"
-    min={0}
-    max={3}
-    step={1}
-    value={shortExitMinEPlusUI}
-    onChange={(e) =>
-      setShortExitMinEPlusUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 46 }}
-  />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    SX E-
-  </span>
-
-  <input
-    type="number"
-    min={0}
-    max={3}
-    step={1}
-    value={shortExitMinEMinusUI}
-    onChange={(e) =>
-      setShortExitMinEMinusUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 46 }}
-  />
-
-  <span style={{ color: "#fff", fontSize: 11 }}>
-    SX a&gt;
-  </span>
-
-  <input
-    type="number"
-    step={0.1}
-    value={shortExitMinScoreUI}
-    onChange={(e) =>
-      setShortExitMinScoreUI(
-        Number(e.target.value)
-      )
-    }
-    style={{ width: 58 }}
-  />
-</div>
-
-      <div
-  style={{
-    display: "flex",
-    gap: 6,
-    alignItems: "center",
-    marginTop: 2,
-  }}
->
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortExitUseBZUI}
-      onChange={(e) =>
-        setShortExitUseBZUI(e.target.checked)
-      }
-    />
-    BZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortExitUseNZUI}
-      onChange={(e) =>
-        setShortExitUseNZUI(e.target.checked)
-      }
-    />
-    NZ
-  </label>
-
-  <label style={{ color: "#fff", fontSize: 11 }}>
-    <input
-      type="checkbox"
-      checked={shortExitUseRZUI}
-      onChange={(e) =>
-        setShortExitUseRZUI(e.target.checked)
-      }
-    />
-    RZ
-  </label>
-</div>
-
+  <div style={{ color: "#ffaa33", fontSize: 11, fontWeight: 700 }}>
+    SHORT EXIT
+  </div>
+  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <label><input type="checkbox" checked={shortExitUseBZUI} onChange={(e) => setShortExitUseBZUI(e.target.checked)} /> BZ</label>
+    <label><input type="checkbox" checked={shortExitUseNZUI} onChange={(e) => setShortExitUseNZUI(e.target.checked)} /> NZ</label>
+    <label><input type="checkbox" checked={shortExitUseRZUI} onChange={(e) => setShortExitUseRZUI(e.target.checked)} /> RZ</label>
+    <span>E+</span>
+    <input type="number" min={0} max={3} step={1} value={shortExitMinEPlusUI} onChange={(e) => setShortExitMinEPlusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>E-</span>
+    <input type="number" min={0} max={3} step={1} value={shortExitMinEMinusUI} onChange={(e) => setShortExitMinEMinusUI(Number(e.target.value))} style={{ width: 48 }} />
+    <span>a&gt;</span>
+    <input type="number" step={0.1} value={shortExitMinScoreUI} onChange={(e) => setShortExitMinScoreUI(Number(e.target.value))} style={{ width: 62 }} />
+  </div>
 </div>
 
     {scannerMessage ? (
