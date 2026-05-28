@@ -437,6 +437,14 @@ const [useConfEntryUI, setUseConfEntryUI] = useState(true);
 const [tryMinEnergyUI, setTryMinEnergyUI] = useState(2);
 const [confMinEnergyUI, setConfMinEnergyUI] = useState(2);
 const [exitMinEnergyUI, setExitMinEnergyUI] = useState(2);
+  const [longExitMinEPlusUI, setLongExitMinEPlusUI] = useState(0);
+const [longExitMinEMinusUI, setLongExitMinEMinusUI] = useState(2);
+
+const [shortExitMinEPlusUI, setShortExitMinEPlusUI] = useState(2);
+const [shortExitMinEMinusUI, setShortExitMinEMinusUI] = useState(0);
+
+const [longExitMaxScoreUI, setLongExitMaxScoreUI] = useState(2);
+const [shortExitMinScoreUI, setShortExitMinScoreUI] = useState(-2);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
@@ -941,6 +949,14 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+         longExitMinEPlus: longExitMinEPlusUI,
+longExitMinEMinus: longExitMinEMinusUI,
+
+shortExitMinEPlus: shortExitMinEPlusUI,
+shortExitMinEMinus: shortExitMinEMinusUI,
+
+longExitMaxScore: longExitMaxScoreUI,
+shortExitMinScore: shortExitMinScoreUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
@@ -1561,6 +1577,14 @@ useConfEntry: useConfEntryUI,
 tryMinEnergy: tryMinEnergyUI,
 confMinEnergy: confMinEnergyUI,
 exitMinEnergy: exitMinEnergyUI,
+  longExitMinEPlus: longExitMinEPlusUI,
+longExitMinEMinus: longExitMinEMinusUI,
+
+shortExitMinEPlus: shortExitMinEPlusUI,
+shortExitMinEMinus: shortExitMinEMinusUI,
+
+longExitMaxScore: longExitMaxScoreUI,
+shortExitMinScore: shortExitMinScoreUI,
 };
 
 const coreCheck = computeQTrendCore(candles, coreCfg);
@@ -2304,6 +2328,12 @@ useConfEntryUI,
 tryMinEnergyUI,
 confMinEnergyUI,
 exitMinEnergyUI,
+    longExitMinEPlusUI,
+longExitMinEMinusUI,
+shortExitMinEPlusUI,
+shortExitMinEMinusUI,
+longExitMaxScoreUI,
+shortExitMinScoreUI,
   smaOffsetUI,
   outerOffsetUI,
   smaMiddleUI,
