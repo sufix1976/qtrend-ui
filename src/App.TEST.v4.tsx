@@ -467,6 +467,21 @@ void setLongExitUseRZUI;
 void setShortExitUseBZUI;
 void setShortExitUseNZUI;
 void setShortExitUseRZUI;
+
+  const [longEntryUseBZUI, setLongEntryUseBZUI] = useState(true);
+const [longEntryUseNZUI, setLongEntryUseNZUI] = useState(true);
+const [longEntryUseRZUI, setLongEntryUseRZUI] = useState(false);
+
+const [shortEntryUseBZUI, setShortEntryUseBZUI] = useState(false);
+const [shortEntryUseNZUI, setShortEntryUseNZUI] = useState(true);
+const [shortEntryUseRZUI, setShortEntryUseRZUI] = useState(true);
+  void setLongEntryUseBZUI;
+void setLongEntryUseNZUI;
+void setLongEntryUseRZUI;
+
+void setShortEntryUseBZUI;
+void setShortEntryUseNZUI;
+void setShortEntryUseRZUI;
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
