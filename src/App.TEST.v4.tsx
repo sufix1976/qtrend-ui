@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import AppTESTv4Lab from "./App.TEST.v4.lab";
 // @ts-ignore
 const coreModule = await import("https://qtrend-trading-engine.onrender.com/core/qtrend-core.js");
 
@@ -520,6 +521,7 @@ void setShortEntryMaxScoreUI;
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
+  const [labMode, setLabMode] = useState(false);
 
   
 
@@ -2496,6 +2498,27 @@ showLegacyMarkers,
     showReplayMarkers,
 ]);
 
+  if (labMode) {
+  return (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <button
+        onClick={() => setLabMode(false)}
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 9999,
+          padding: "6px 10px",
+        }}
+      >
+        Zurück
+      </button>
+
+      <AppTESTv4Lab />
+    </div>
+  );
+}
+
   const displayState = liveState;
   
   return (
@@ -2527,6 +2550,24 @@ showLegacyMarkers,
   }}
 >
   {infoOpen ? "Hide Panel" : "Show Panel"}
+</button>
+
+      <button
+  onClick={() => setLabMode(true)}
+  style={{
+    position: "absolute",
+    top: 90,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  TEST V4 LAB
 </button>
 
       <button
