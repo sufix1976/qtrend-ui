@@ -835,9 +835,8 @@ async function saveAllSizes() {
 
         
 
-        const filteredLongEntries = uniqueByTime(outlierLongPoints);
-
-        const filteredShortEntries = uniqueByTime(outlierShortPoints);
+        const filteredLongEntries = dedupeMarkers(outlierLongPoints);
+        const filteredShortEntries = dedupeMarkers(outlierShortPoints);
 
         const sim = simulateStrategyTESTv4(
           candles,
