@@ -798,10 +798,7 @@ async function saveAllSizes() {
 
         const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
 
-        const trendEvents = [
-          ...smaTurns.up.map((p) => ({ time: p.time, trend: "up" as const })),
-          ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
-        ].sort((a, b) => a.time - b.time);
+        
 
         
 
@@ -847,45 +844,7 @@ async function saveAllSizes() {
           return out.sort((a, b) => a.time - b.time);
         }
 
-        function buildTrendKinks(side: "long" | "short"): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          if (!dist.length) return out;
-
-          let extreme = dist[0].value;
-          let armed = true;
-
-          for (let i = 1; i < dist.length; i++) {
-            const d = dist[i].value;
-
-            if (side === "long") {
-              if (d < extreme) {
-                extreme = d;
-                armed = true;
-              }
-
-              if (armed && d - extreme >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.low });
-                armed = false;
-                extreme = d;
-              }
-            } else {
-              if (d > extreme) {
-                extreme = d;
-                armed = true;
-              }
-
-              if (armed && extreme - d >= minKinkVal) {
-                const c = candleByTime(dist[i].time);
-                if (c) out.push({ time: c.time, value: c.high });
-                armed = false;
-                extreme = d;
-              }
-            }
-          }
-
-          return dedupeMarkers(out);
-        }
+        
 
         
 
