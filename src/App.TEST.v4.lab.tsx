@@ -941,18 +941,9 @@ async function saveAllSizes() {
         const trendLongKinks = buildTrendKinks("long");
         const trendShortKinks = buildTrendKinks("short");
 
-        const outlierLongKinks = buildRecoveredKinksFromOutliers(outlierLongPoints, "long");
-        const outlierShortKinks = buildRecoveredKinksFromOutliers(outlierShortPoints, "short");
+        const filteredLongEntries = uniqueByTime(outlierLongPoints);
 
-        const filteredLongEntries = uniqueByTime([
-          ...trendLongKinks.filter((p) => trendAt(p.time) === "up"),
-          ...outlierLongKinks.filter((p) => trendAt(p.time) !== "up"),
-        ]);
-
-        const filteredShortEntries = uniqueByTime([
-          ...trendShortKinks.filter((p) => trendAt(p.time) === "down"),
-          ...outlierShortKinks.filter((p) => trendAt(p.time) !== "down"),
-        ]);
+        const filteredShortEntries = uniqueByTime(outlierShortPoints);
 
         const sim = simulateStrategyTESTv4(
           candles,
