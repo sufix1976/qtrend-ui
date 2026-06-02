@@ -803,16 +803,7 @@ async function saveAllSizes() {
           ...smaTurns.down.map((p) => ({ time: p.time, trend: "down" as const })),
         ].sort((a, b) => a.time - b.time);
 
-        function trendAt(time: number): "up" | "down" | null {
-          let trend: "up" | "down" | null = null;
-
-          for (const e of trendEvents) {
-            if (e.time > time) break;
-            trend = e.trend;
-          }
-
-          return trend;
-        }
+        
 
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
@@ -896,50 +887,9 @@ async function saveAllSizes() {
           return dedupeMarkers(out);
         }
 
-        function buildRecoveredKinksFromOutliers(
-          outliers: MarkerPoint[],
-          side: "long" | "short"
-        ): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          const maxSearchBars = 80;
+        
 
-          for (const o of outliers) {
-            const startIndex = distIndexByTime.get(o.time);
-            if (startIndex == null || startIndex < 0) continue;
-
-            let extreme = dist[startIndex]?.value;
-            if (!Number.isFinite(extreme)) continue;
-
-            const end = Math.min(dist.length - 1, startIndex + maxSearchBars);
-
-            for (let i = startIndex + 1; i <= end; i++) {
-              const d = dist[i].value;
-
-              if (side === "long") {
-                if (d < extreme) extreme = d;
-
-                if (d - extreme >= minKinkVal) {
-                  const c = candleByTime(dist[i].time);
-                  if (c) out.push({ time: c.time, value: c.low });
-                  break;
-                }
-              } else {
-                if (d > extreme) extreme = d;
-
-                if (extreme - d >= minKinkVal) {
-                  const c = candleByTime(dist[i].time);
-                  if (c) out.push({ time: c.time, value: c.high });
-                  break;
-                }
-              }
-            }
-          }
-
-          return dedupeMarkers(out);
-        }
-
-        const trendLongKinks = buildTrendKinks("long");
-        const trendShortKinks = buildTrendKinks("short");
+        
 
         const filteredLongEntries = uniqueByTime(outlierLongPoints);
 
