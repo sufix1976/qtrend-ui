@@ -734,7 +734,7 @@ async function saveAllSizes() {
             : interval;
 
         const entryBandVal = Number(cfg?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? 100);
-        const minKinkVal = Number(cfg?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? 1);
+        //const minKinkVal = Number(cfg?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? 1);
         const smaFastVal = Number(cfg?.sma_fast ?? 10);
         const smaSlowVal = Number(cfg?.sma_slow ?? 100);
         const smaMiddleVal = Number(cfg?.sma_middle ?? 100);
@@ -796,7 +796,7 @@ async function saveAllSizes() {
           }
         }
 
-        const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
+        //const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
 
         
 
@@ -827,22 +827,7 @@ async function saveAllSizes() {
         const distIndexByTime = new Map<number, number>();
         dist.forEach((p, i) => distIndexByTime.set(p.time, i));
 
-        function candleByTime(time: number): Candle | null {
-          return candles.find((c) => c.time === time) ?? null;
-        }
-
-        function uniqueByTime(points: MarkerPoint[]): MarkerPoint[] {
-          const out: MarkerPoint[] = [];
-          const seen = new Set<number>();
-
-          for (const p of points) {
-            if (!Number.isFinite(p.time) || seen.has(p.time)) continue;
-            seen.add(p.time);
-            out.push(p);
-          }
-
-          return out.sort((a, b) => a.time - b.time);
-        }
+     
 
         
 
