@@ -88,6 +88,7 @@ type SymbolConfigRow = {
   sma_middle: number | null;
   adaptive_band: number | boolean | null;
   adaptive_band_mult: number | null;
+  use_slow_exit?: number | boolean | null;
   size: number | null;
   updated_at?: string;
 };
@@ -369,6 +370,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [smaMiddleUI, setSmaMiddleUI] = useState(100);
   const [adaptiveBandUI, setAdaptiveBandUI] = useState(false);
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
+  const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "line">("candles");
 
@@ -394,6 +396,7 @@ const [scannerMessage, setScannerMessage] = useState("");
     setSmaMiddleUI(Number(cfg.sma_middle ?? 100));
     setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
     setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
+    setUseSlowExitUI(cfg.use_slow_exit == null ? true : Number(cfg.use_slow_exit) === 1);
     
     if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
   setInterval(cfg.interval as IntervalOption);
@@ -416,6 +419,7 @@ const [scannerMessage, setScannerMessage] = useState("");
     setSmaMiddleUI(100);
     setAdaptiveBandUI(false);
     setAdaptiveBandMultUI(1);
+    setUseSlowExitUI(true);
 
     setPresetMessage(`Default geladen für ${symbol}`);
   }
@@ -505,6 +509,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
       sma_middle: smaMiddleUI,
       adaptive_band: adaptiveBandUI ? 1 : 0,
       adaptive_band_mult: adaptiveBandMultUI,
+      use_slow_exit: useSlowExitUI ? 1 : 0,
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
 
@@ -1602,8 +1607,13 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   validShortCandidates.length
 );
         
-        const longExitProjected = projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near");
-        const shortExitProjected = projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near");
+        const longExitProjected = useSlowExitUI
+  ? projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near")
+  : [];
+
+const shortExitProjected = useSlowExitUI
+  ? projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near")
+  : [];
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
@@ -1854,6 +1864,7 @@ return () => {
   assumedSpread,
   assumedSlippage,
   adaptiveBandUI,
+  useSlowExitUI,  
   adaptiveBandMultUI,
   symbolSizes,
 ]);
@@ -2129,6 +2140,15 @@ return () => {
         <div>Assumed slippage: {assumedSlippage}</div>
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
+
+    <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
+  <input
+    type="checkbox"
+    checked={useSlowExitUI}
+    onChange={(e) => setUseSlowExitUI(e.target.checked)}
+  />
+  EXL/EXS Exit aktiv
+</label>
 
     <div style={{ marginTop: 10, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <div style={{ fontWeight: 700, marginBottom: 6 }}>🛡 Max Loss Schutz</div>
