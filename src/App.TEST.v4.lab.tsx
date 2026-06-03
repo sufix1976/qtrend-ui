@@ -1271,49 +1271,50 @@ const smaLower = smaSlow.map((p) => ({
 
         
 
-        const outlierLongPoints: MarkerPoint[] = [];
+const outlierLongPoints: MarkerPoint[] = [];
 const outlierShortPoints: MarkerPoint[] = [];
+
+const upperMap = new Map(smaUpper.map((p) => [p.time, p.value]));
+const lowerMap = new Map(smaLower.map((p) => [p.time, p.value]));
 
 let lastALIndex = -9999;
 let lastASIndex = -9999;
 const outlierCooldownBars = 12;
-
 const markerStartIndex = Math.max(1, candles.length - 3000);
 
 for (let i = markerStartIndex; i < candles.length; i++) {
   const prev = candles[i - 1];
   const curr = candles[i];
 
-  const prevUpper = smaUpper[i - 1];
-  const prevLower = smaLower[i - 1];
-  const currUpper = smaUpper[i];
-  const currLower = smaLower[i];
+  const prevUpper = upperMap.get(prev.time);
+  const prevLower = lowerMap.get(prev.time);
+  const currUpper = upperMap.get(curr.time);
+  const currLower = lowerMap.get(curr.time);
 
-  if (!prevUpper || !prevLower || !currUpper || !currLower) continue;
+  if (
+    prevUpper == null ||
+    prevLower == null ||
+    currUpper == null ||
+    currLower == null
+  ) {
+    continue;
+  }
 
   if (
     i - lastALIndex >= outlierCooldownBars &&
-    prev.low >= prevLower.value &&
-    curr.low < currLower.value
+    prev.low >= prevLower &&
+    curr.low < currLower
   ) {
-    outlierLongPoints.push({
-      time: curr.time,
-      value: curr.low,
-    });
-
+    outlierLongPoints.push({ time: curr.time, value: curr.low });
     lastALIndex = i;
   }
 
   if (
     i - lastASIndex >= outlierCooldownBars &&
-    prev.high <= prevUpper.value &&
-    curr.high > currUpper.value
+    prev.high <= prevUpper &&
+    curr.high > currUpper
   ) {
-    outlierShortPoints.push({
-      time: curr.time,
-      value: curr.high,
-    });
-
+    outlierShortPoints.push({ time: curr.time, value: curr.high });
     lastASIndex = i;
   }
 }
