@@ -1656,7 +1656,7 @@ macdZeroSeries.setData(
   })) as any
 );
 
-        const macdKnicks = buildMacdKnickEvents(macd.histogram);
+        const macdKnicks = buildMacdKnickEvents(macd.macd);
 
         const flipReplay = buildKnickFlipReplay(visibleCandles as any, macdKnicks);
 
@@ -3410,28 +3410,34 @@ function calcMACD(
   };
 }
 
-function buildMacdKnickEvents(histogram: LinePoint[]): MacdKnickEvent[] {
+function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
   const out: MacdKnickEvent[] = [];
 
-  for (let i = 2; i < histogram.length; i++) {
-    const a = histogram[i - 2];
-    const b = histogram[i - 1];
-    const c = histogram[i];
+  for (let i = 1; i < line.length - 1; i++) {
+    const prev = line[i - 1];
+    const cur = line[i];
+    const next = line[i + 1];
 
-    // Bull-Knick: Histogramm fällt, macht Tief, steigt wieder
-    if (b.value < a.value && b.value < c.value && b.value < 0) {
+    // Bull-Knick
+    if (
+      cur.value < prev.value &&
+      cur.value < next.value
+    ) {
       out.push({
-        time: b.time,
-        value: b.value,
+        time: cur.time,
+        value: cur.value,
         side: "bull",
       });
     }
 
-    // Bear-Knick: Histogramm steigt, macht Hoch, fällt wieder
-    if (b.value > a.value && b.value > c.value && b.value > 0) {
+    // Bear-Knick
+    if (
+      cur.value > prev.value &&
+      cur.value > next.value
+    ) {
       out.push({
-        time: b.time,
-        value: b.value,
+        time: cur.time,
+        value: cur.value,
         side: "bear",
       });
     }
