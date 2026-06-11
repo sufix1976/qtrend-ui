@@ -546,7 +546,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
     console.error(e);
   }
 }
-
+/*
   async function fetchRealEvents(symbol: string) {
   try {
     const res = await fetch(`${BACKEND_BASE}/ui/real-events?symbol=${symbol}`);
@@ -557,6 +557,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
     return [];
   }
 }
+*/
 
 async function saveMaxPositionLoss() {
   try {
@@ -2882,7 +2883,7 @@ function buildSmaTurnMarkers(
 
   return { up, down };
 }
-
+/*
 function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
   const longPoints: MarkerPoint[] = [];
   const shortPoints: MarkerPoint[] = [];
@@ -2911,6 +2912,7 @@ function buildWorkerEventMarkers(events: UiStrategyEvent[]) {
     flatPoints,
   };
 }
+*/
 
 function syncCharts(
   chartA: IChartApi,
@@ -3231,7 +3233,7 @@ function buildAdaptiveBandLine(
     };
   });
 }
-
+/*
 function buildRealMarkersFromServer(events: any[]) {
   const buy: any[] = [];
   const sell: any[] = [];
@@ -3271,6 +3273,8 @@ function buildRealMarkersFromServer(events: any[]) {
 
   return { buy, sell, close };
 }
+
+*/
 
 function buildBandOffsetLine(
   base: LinePoint[],
