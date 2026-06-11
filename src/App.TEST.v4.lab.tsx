@@ -2047,7 +2047,7 @@ clearKnickLines(distRef.current);
     cursor: "pointer",
   }}
 >
-  {chartType === "candles" ? "Renko" : chartType === "renko" ? "Linie" : "Kerzen"}
+  {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Linie"}
 </button>
 
       <button
