@@ -1690,8 +1690,8 @@ macdBearKnickSeries.setData(
     })) as any
 );
 
-renderKnickLines(priceRef.current, priceChart, macdKnicks);
-renderKnickLines(distRef.current, distChart, macdKnicks);
+//renderKnickLines(priceRef.current, priceChart, macdKnicks);
+//renderKnickLines(distRef.current, distChart, macdKnicks);
 
         //const candleTimes = new Set(chartCandles.map((c) => c.time));
 /*
@@ -2002,8 +2002,8 @@ distChart.removeSeries(macdZeroSeries);
     distChart.removeSeries(macdBullKnickSeries);
 distChart.removeSeries(macdBearKnickSeries);
 
-clearKnickLines(priceRef.current);
-clearKnickLines(distRef.current);
+//clearKnickLines(priceRef.current);
+//clearKnickLines(distRef.current);
         
 /*
         distChart.removeSeries(distSeries);
