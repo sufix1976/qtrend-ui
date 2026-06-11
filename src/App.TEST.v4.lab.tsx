@@ -4,6 +4,7 @@ import {
   
   CandlestickSeries,
   LineSeries,
+  HistogramSeries,
   CrosshairMode,
   type IChartApi,
 } from "lightweight-charts";
@@ -1201,6 +1202,32 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       priceLineVisible: false,
       lastValueVisible: false,
     });
+
+    const macdHistSeries = distChart.addSeries(HistogramSeries, {
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const macdLineSeries = distChart.addSeries(LineSeries, {
+  color: "#00e5ff",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const macdSignalSeries = distChart.addSeries(LineSeries, {
+  color: "#ff4d6d",
+  lineWidth: 2,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const macdZeroSeries = distChart.addSeries(LineSeries, {
+  color: "#94a3b8",
+  lineWidth: 1,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 /*
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
@@ -1542,6 +1569,26 @@ const filteredShortEntries = uniqueByTime([
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
 
+        const macd = calcMACD(candles, 12, 26, 9);
+
+macdHistSeries.setData(
+  macd.histogram.map((p) => ({
+    time: p.time,
+    value: p.value,
+    color: p.value >= 0 ? "#22c55e" : "#ef4444",
+  })) as any
+);
+
+macdLineSeries.setData(macd.macd as any);
+macdSignalSeries.setData(macd.signal as any);
+
+macdZeroSeries.setData(
+  chartCandles.map((c) => ({
+    time: c.time,
+    value: 0,
+  })) as any
+);
+
         //const candleTimes = new Set(chartCandles.map((c) => c.time));
 /*
 const smaTurnMarkers = [
@@ -1848,6 +1895,10 @@ return () => {
         priceChart.removeSeries(realCloseSeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
+        distChart.removeSeries(macdHistSeries);
+distChart.removeSeries(macdLineSeries);
+distChart.removeSeries(macdSignalSeries);
+distChart.removeSeries(macdZeroSeries);
         
 /*
         distChart.removeSeries(distSeries);
@@ -3152,6 +3203,68 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       value: Number(p.value),
     }))
     .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+}
+
+function calcEMA(values: LinePoint[], length: number): LinePoint[] {
+  if (!values.length || length <= 0) return [];
+
+  const out: LinePoint[] = [];
+  const k = 2 / (length + 1);
+
+  let ema = values[0].value;
+
+  for (const p of values) {
+    ema = p.value * k + ema * (1 - k);
+    out.push({ time: p.time, value: ema });
+  }
+
+  return out;
+}
+
+function calcMACD(
+  candles: Candle[],
+  fastLength = 12,
+  slowLength = 26,
+  signalLength = 9
+): {
+  macd: LinePoint[];
+  signal: LinePoint[];
+  histogram: LinePoint[];
+} {
+  const closeLine: LinePoint[] = candles.map((c) => ({
+    time: c.time,
+    value: c.close,
+  }));
+
+  const fastEma = calcEMA(closeLine, fastLength);
+  const slowEma = calcEMA(closeLine, slowLength);
+
+  const slowMap = new Map(slowEma.map((p) => [p.time, p.value]));
+
+  const macdLine: LinePoint[] = fastEma
+    .map((p) => {
+      const slow = slowMap.get(p.time);
+      if (slow == null) return null;
+      return { time: p.time, value: p.value - slow };
+    })
+    .filter(Boolean) as LinePoint[];
+
+  const signalLine = calcEMA(macdLine, signalLength);
+  const signalMap = new Map(signalLine.map((p) => [p.time, p.value]));
+
+  const histogram: LinePoint[] = macdLine
+    .map((p) => {
+      const signal = signalMap.get(p.time);
+      if (signal == null) return null;
+      return { time: p.time, value: p.value - signal };
+    })
+    .filter(Boolean) as LinePoint[];
+
+  return {
+    macd: macdLine,
+    signal: signalLine,
+    histogram,
+  };
 }
 
 function calcSMA(data: Candle[], len: number): LinePoint[] {
