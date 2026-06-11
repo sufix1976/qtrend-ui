@@ -1642,7 +1642,7 @@ const shortExitProjected = useSlowExitUI
         realBuySeries.setData([]);
         realSellSeries.setData([]);
         realCloseSeries.setData([]);
-
+/*
         createSeriesMarkers(realBuySeries, buildTextMarkers(workerLongProjected, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(workerShortProjected, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(workerFlatProjected, "aboveBar"));
@@ -1678,7 +1678,7 @@ createSeriesMarkers(
         createSeriesMarkers(realBuySeries, buildTextMarkers(realServer.buy, "belowBar"));
         createSeriesMarkers(realSellSeries, buildTextMarkers(realServer.sell, "aboveBar"));
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
-
+*/
         
 
         createSeriesMarkers(
@@ -1697,7 +1697,7 @@ createSeriesMarkers(
   )
 );
        
-
+/*
         createSeriesMarkers(
   smaSlowSeries,
   [
@@ -1717,6 +1717,7 @@ createSeriesMarkers(
     })),
   ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
 );
+*/
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
