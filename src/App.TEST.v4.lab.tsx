@@ -1496,8 +1496,8 @@ const filteredShortEntries = uniqueByTime([
         const chartSmaUpper = chartifyLinePoints(smaUpper);
         const chartSmaLower = chartifyLinePoints(smaLower);
         
-        const chartDist = chartifyLinePoints(dist);
-        const chartDistMiddle = chartifyLinePoints(distMiddle);
+        //const chartDist = chartifyLinePoints(dist);
+        //const chartDistMiddle = chartifyLinePoints(distMiddle);
 
         
 
@@ -3178,7 +3178,7 @@ function calcDistance(a: LinePoint[], b: LinePoint[]): LinePoint[] {
     })
     .filter(Boolean) as LinePoint[];
 }
-
+/*
 function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLinePoint[] {
   const map = new Map<number, number>();
   for (const p of line) map.set(p.time, p.value);
@@ -3189,6 +3189,7 @@ function alignLineToCandles(candles: Candle[], line: LinePoint[]): WhitespaceLin
     return { time: c.time, value };
   });
 }
+*/
 
 function calcStdDevLine(data: LinePoint[], len: number): LinePoint[] {
   const out: LinePoint[] = [];
@@ -3277,7 +3278,7 @@ function buildRealMarkersFromServer(events: any[]) {
   return { buy, sell, close };
 }
 
-*/
+
 
 function buildBandOffsetLine(
   base: LinePoint[],
@@ -3293,7 +3294,7 @@ function buildBandOffsetLine(
   }));
 }
 
-
+*/
 
 
 
