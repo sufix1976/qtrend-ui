@@ -380,7 +380,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
-  const [chartType, setChartType] = useState<"candles" | "line">("candles");
+  const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
 
   
 
@@ -1039,7 +1039,7 @@ async function saveAllSizes() {
     const distChart = distChartRef.current;
 
     const mainSeries =
-  chartType === "candles"
+  chartType !== "line"
     ? priceChart.addSeries(CandlestickSeries, {
         upColor: "#00e5ff",
         downColor: "#ef4444",
@@ -1544,6 +1544,15 @@ const filteredShortEntries = uniqueByTime([
 ]);
 
         const chartCandles = chartifyCandles(candles);
+        const renkoBoxSize =
+  Number(minKinkUI) > 0 ? Number(minKinkUI) : Number(entryBandUI) > 0 ? Number(entryBandUI) : 100;
+
+const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSize));
+
+const visibleCandles =
+  chartType === "renko" && chartRenkoCandles.length
+    ? chartRenkoCandles
+    : chartCandles;
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         
@@ -1578,8 +1587,8 @@ const filteredShortEntries = uniqueByTime([
         );
         */
 
-        if (chartType === "candles") {
-  mainSeries.setData(chartCandles as any);
+        if (chartType !== "line") {
+  mainSeries.setData(visibleCandles as any);
 } else {
   mainSeries.setData(
     chartCandles.map((c) => ({
@@ -2018,7 +2027,9 @@ clearKnickLines(distRef.current);
 
       <button
   onClick={() =>
-    setChartType((prev) => (prev === "candles" ? "line" : "candles"))
+    setChartType((prev) =>
+  prev === "candles" ? "renko" : prev === "renko" ? "line" : "candles"
+)
   }
 
        
@@ -2036,7 +2047,7 @@ clearKnickLines(distRef.current);
     cursor: "pointer",
   }}
 >
-  {chartType === "candles" ? "Linie" : "Kerzen"}
+  {chartType === "candles" ? "Renko" : chartType === "renko" ? "Linie" : "Kerzen"}
 </button>
 
       <button
@@ -3257,6 +3268,41 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       value: Number(p.value),
     }))
     .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+}
+
+    function buildRenkoCandles(candles: Candle[], boxSize: number): Candle[] {
+  if (!candles.length || !Number.isFinite(boxSize) || boxSize <= 0) return [];
+
+  const out: Candle[] = [];
+
+  let lastClose = candles[0].close;
+  let lastTime = candles[0].time;
+
+  for (const c of candles) {
+    const price = c.close;
+    let diff = price - lastClose;
+
+    while (Math.abs(diff) >= boxSize) {
+      const dir = diff > 0 ? 1 : -1;
+
+      const open = lastClose;
+      const close = lastClose + dir * boxSize;
+
+      out.push({
+        time: c.time,
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+      });
+
+      lastClose = close;
+      lastTime = c.time;
+      diff = price - lastClose;
+    }
+  }
+
+  return out;
 }
 
 function calcEMA(values: LinePoint[], length: number): LinePoint[] {
