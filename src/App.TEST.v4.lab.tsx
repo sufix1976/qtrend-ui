@@ -1343,7 +1343,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
         
 
        
-        /*
+        
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
@@ -1369,7 +1369,7 @@ if (!distMiddle.length) {
           adaptiveBandUI,
           adaptiveBandMultUI
         );
-        */
+        
 
         const distIndexByTime = new Map<number, number>();
 dist.forEach((p, i) => distIndexByTime.set(p.time, i));
