@@ -1200,7 +1200,7 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       priceLineVisible: false,
       lastValueVisible: false,
     });
-
+/*
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
       lineWidth: 2,
@@ -1238,7 +1238,7 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
       lastValueVisible: false,
     });
 
-    
+   */ 
 
     async function loadData() {
       const mySeq = ++loadSeqRef.current;
@@ -1343,7 +1343,7 @@ for (let i = markerStartIndex; i < candles.length; i++) {
         
 
        
-        
+        /*
         console.log("SMA TURNS", smaTurns.up.length, smaTurns.down.length);
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
         
@@ -1369,6 +1369,7 @@ if (!distMiddle.length) {
           adaptiveBandUI,
           adaptiveBandMultUI
         );
+        */
 
         const distIndexByTime = new Map<number, number>();
 dist.forEach((p, i) => distIndexByTime.set(p.time, i));
@@ -1720,7 +1721,7 @@ createSeriesMarkers(
     })),
   ].filter((m) => chartCandles.find(c => c.time === m.time)) as any
 );
-*/
+
 
         distSeries.setData(alignedDist as any);
         distMiddleSeries.setData(alignedDistMiddle as any);
@@ -1732,7 +1733,7 @@ createSeriesMarkers(
 zeroSeries.setData(zeroLine as any);
         upperBandSeries.setData(dynamicUpperBand as any);
         lowerBandSeries.setData(dynamicLowerBand as any);
-
+*/
         
 
 priceChart.priceScale("right").applyOptions({
@@ -1846,12 +1847,13 @@ return () => {
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
         
-
+/*
         distChart.removeSeries(distSeries);
         distChart.removeSeries(distMiddleSeries);
         distChart.removeSeries(zeroSeries);
         distChart.removeSeries(upperBandSeries);
         distChart.removeSeries(lowerBandSeries);
+        */
       } catch {}
     };
     }, [
