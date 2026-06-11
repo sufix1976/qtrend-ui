@@ -1511,7 +1511,7 @@ const filteredShortEntries = uniqueByTime([
         //const realEvents = await fetchRealEvents(symbol);
         //const realServer = buildRealMarkersFromServer(realEvents);
         
-
+/*
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
         const alignedDistMiddle = alignLineToCandles(chartCandles, chartDistMiddle);
         const dynamicUpperBand = alignLineToCandles(
@@ -1522,6 +1522,7 @@ const filteredShortEntries = uniqueByTime([
           chartCandles,
           chartifyLinePoints(buildBandOffsetLine(distMiddle, dynamicBand, -1))
         );
+        */
 
         if (chartType === "candles") {
   mainSeries.setData(chartCandles as any);
