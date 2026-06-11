@@ -3291,8 +3291,8 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       out.push({
         time: c.time,
         open,
-        high: Math.max(open, close),
-        low: Math.min(open, close),
+        high: close,
+        low: close,
         close,
       });
 
