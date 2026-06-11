@@ -41,11 +41,12 @@ type MarkerPoint = {
 };
 
 
-
+/*
 type WhitespaceLinePoint = {
   time: number;
   value?: number;
 };
+*/
 
 type PositionSide = "flat" | "long" | "short";
 
