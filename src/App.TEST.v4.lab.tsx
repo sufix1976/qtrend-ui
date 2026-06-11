@@ -3276,7 +3276,7 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
   const out: Candle[] = [];
 
   let lastClose = candles[0].close;
-  let lastTime = candles[0].time;
+  
 
   for (const c of candles) {
     const price = c.close;
@@ -3297,7 +3297,7 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       });
 
       lastClose = close;
-      lastTime = c.time;
+      
       diff = price - lastClose;
     }
   }
