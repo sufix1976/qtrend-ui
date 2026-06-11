@@ -15,7 +15,7 @@ type Candle = {
   low: number;
   close: number;
 };
-
+/*
 type UiStrategyEvent = {
   id: number;
   created_at: string;
@@ -27,7 +27,7 @@ type UiStrategyEvent = {
   source: string;
   reason: string;
 };
-
+*/
 type LinePoint = {
   time: number;
   value: number;
