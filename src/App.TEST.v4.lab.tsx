@@ -1598,11 +1598,17 @@ const visibleCandles =
   );
 }
 
-        smaFastSeries.setData(chartSmaFast as any);
-        smaSlowSeries.setData(chartSmaSlow as any);
-        
-        smaUpperSeries.setData(chartSmaUpper as any);
-        smaLowerSeries.setData(chartSmaLower as any);
+        if (chartType === "renko") {
+  smaFastSeries.setData([]);
+  smaSlowSeries.setData([]);
+  smaUpperSeries.setData([]);
+  smaLowerSeries.setData([]);
+} else {
+  smaFastSeries.setData(chartSmaFast as any);
+  smaSlowSeries.setData(chartSmaSlow as any);
+  smaUpperSeries.setData(chartSmaUpper as any);
+  smaLowerSeries.setData(chartSmaLower as any);
+}
 
         const macd = calcMACD(candles, 12, 26, 9);
 
@@ -3276,6 +3282,7 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
   const out: Candle[] = [];
 
   let lastClose = candles[0].close;
+      let brickTime = 1;
   
 
   for (const c of candles) {
@@ -3289,7 +3296,7 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       const close = lastClose + dir * boxSize;
 
       out.push({
-        time: c.time,
+        time: brickTime++,
         open,
         high: close,
         low: close,
