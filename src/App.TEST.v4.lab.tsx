@@ -477,7 +477,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   };
 }, []);
 
-  
+  /*
 async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]> {
   try {
     const res = await fetch(
@@ -492,7 +492,9 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
   } catch {
     return [];
   }
+
 }
+*/
   
 
   async function savePreset() {
@@ -1503,7 +1505,7 @@ const filteredShortEntries = uniqueByTime([
 
 
         const real = buildRealTradeMarkers(candles, aggRows);
-        const worker = buildWorkerEventMarkers(workerEvents);
+        //const worker = buildWorkerEventMarkers(workerEvents);
         //const realEvents = await fetchRealEvents(symbol);
         //const realServer = buildRealMarkersFromServer(realEvents);
         
