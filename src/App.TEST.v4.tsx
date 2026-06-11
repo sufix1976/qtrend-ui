@@ -308,7 +308,7 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
 
 
 
-function AppTESTv4_OLD_DISABLED() {
+function _AppTESTv4_OLD_DISABLED() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
 
