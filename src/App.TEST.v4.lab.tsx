@@ -1505,7 +1505,7 @@ const filteredShortEntries = uniqueByTime([
         const real = buildRealTradeMarkers(candles, aggRows);
         const worker = buildWorkerEventMarkers(workerEvents);
         const realEvents = await fetchRealEvents(symbol);
-        const realServer = buildRealMarkersFromServer(realEvents);
+        //const realServer = buildRealMarkersFromServer(realEvents);
         
 
         const alignedDist = alignLineToCandles(chartCandles, chartDist);
@@ -1617,9 +1617,9 @@ const shortExitProjected = useSlowExitUI
   : [];
         const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
-        const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
-        const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
-        const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
+        //const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
+        //const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
+        //const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
         
         
 
