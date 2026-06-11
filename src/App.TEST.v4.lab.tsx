@@ -1540,7 +1540,7 @@ const filteredShortEntries = uniqueByTime([
         smaLowerSeries.setData(chartSmaLower as any);
 
         const candleTimes = new Set(chartCandles.map((c) => c.time));
-
+/*
 const smaTurnMarkers = [
   ...smaTurns.up.map((p) => ({
     time: p.time as any,
@@ -1559,7 +1559,7 @@ const smaTurnMarkers = [
 ]
   .filter((m) => candleTimes.has(m.time))
   .sort((a, b) => Number(a.time) - Number(b.time));
-
+*/
 createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         
@@ -1618,8 +1618,8 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 const shortExitProjected = useSlowExitUI
   ? projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near")
   : [];
-        const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
-        const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
+        //const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
+        //const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         //const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
         //const workerShortProjected = projectMarkerPointsToCandles(worker.shortPoints, candles, "above-near");
         //const workerFlatProjected = projectMarkerPointsToCandles(worker.flatPoints, candles, "inside-mid");
@@ -1640,8 +1640,8 @@ const shortExitProjected = useSlowExitUI
 
 
 
-        blockedLongSeries.setData(blockedLongProjected as any);
-        blockedShortSeries.setData(blockedShortProjected as any);
+        blockedLongSeries.setData([]);
+        blockedShortSeries.setData([]);
         realBuySeries.setData([]);
         realSellSeries.setData([]);
         realCloseSeries.setData([]);
