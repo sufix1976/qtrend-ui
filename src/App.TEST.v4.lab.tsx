@@ -1243,12 +1243,12 @@ const outlierShortSeries = priceChart.addSeries(LineSeries, {
         setStatus("loading");
         setError("");
 
-        const [candles, liveBrokerState, aggRows, backendStrategyState, workerEvents] = await Promise.all([
+        const [candles, liveBrokerState, aggRows, backendStrategyState] = await Promise.all([
   fetchCandles(symbol, interval),
   fetchBrokerPositionState(symbol),
   fetchAggTrades(symbol),
   fetchStrategyState(symbol),
-  fetchUiStrategyEvents(symbol),
+  //fetchUiStrategyEvents(symbol),
 ]);
         if (cancelled || mySeq !== loadSeqRef.current) return;
        
@@ -1504,7 +1504,7 @@ const filteredShortEntries = uniqueByTime([
 
         const real = buildRealTradeMarkers(candles, aggRows);
         const worker = buildWorkerEventMarkers(workerEvents);
-        const realEvents = await fetchRealEvents(symbol);
+        //const realEvents = await fetchRealEvents(symbol);
         //const realServer = buildRealMarkersFromServer(realEvents);
         
 
