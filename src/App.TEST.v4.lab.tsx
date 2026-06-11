@@ -1683,7 +1683,7 @@ createSeriesMarkers(
         createSeriesMarkers(realCloseSeries, buildTextMarkers(realServer.close, "aboveBar"));
 */
         
-
+/*
         createSeriesMarkers(
   outlierLongSeries,
   buildTextMarkers(
@@ -1700,7 +1700,7 @@ createSeriesMarkers(
   )
 );
        
-/*
+
         createSeriesMarkers(
   smaSlowSeries,
   [
