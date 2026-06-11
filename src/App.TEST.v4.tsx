@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import AppTESTv4Lab from "./App.TEST.v4.lab";
+export default AppTESTv4Lab;
 // @ts-ignore
 const coreModule = await import("https://qtrend-trading-engine.onrender.com/core/qtrend-core.js");
 
@@ -307,7 +308,7 @@ function formatChartTimeLabel(tsSec: number, withDate = false): string {
 
 
 
-export default function AppTESTv4() {
+function AppTESTv4_OLD_DISABLED() {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const distRef = useRef<HTMLDivElement | null>(null);
 
