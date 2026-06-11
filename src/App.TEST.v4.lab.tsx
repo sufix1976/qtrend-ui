@@ -3372,7 +3372,7 @@ function projectMarkerValue(
       return bodyMid;
   }
 }
-
+/*
 function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBar") {
   return points
     .filter((p) => p.text)
@@ -3384,6 +3384,7 @@ function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBa
       text: p.text ?? "",
     })) as any;
 }
+*/
 
 function simulateStrategyTESTv4(
   candles: Candle[],
