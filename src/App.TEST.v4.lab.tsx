@@ -1539,7 +1539,7 @@ const filteredShortEntries = uniqueByTime([
         smaUpperSeries.setData(chartSmaUpper as any);
         smaLowerSeries.setData(chartSmaLower as any);
 
-        const candleTimes = new Set(chartCandles.map((c) => c.time));
+        //const candleTimes = new Set(chartCandles.map((c) => c.time));
 /*
 const smaTurnMarkers = [
   ...smaTurns.up.map((p) => ({
@@ -1560,7 +1560,7 @@ const smaTurnMarkers = [
   .filter((m) => candleTimes.has(m.time))
   .sort((a, b) => Number(a.time) - Number(b.time));
 */
-createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
+//createSeriesMarkers(smaSlowSeries, smaTurnMarkers as any);
 
         
         const rawLongCandidates = filteredLongEntries;
