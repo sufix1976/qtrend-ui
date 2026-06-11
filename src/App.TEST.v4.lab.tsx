@@ -1586,7 +1586,7 @@ const validShortCandidates = sim.acceptedShortEntryPoints;
 
 const strategyLongPoints = validLongCandidates;
 const strategyShortPoints = validShortCandidates;
-
+/*
 const outlierLongProjected = projectMarkerPointsToCandles(
   strategyLongPoints,
   candles,
@@ -1599,7 +1599,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   "above-far"
 );
 
-
+*/
         
 
 
