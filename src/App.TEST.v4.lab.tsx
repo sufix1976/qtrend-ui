@@ -1632,8 +1632,8 @@ const shortExitProjected = useSlowExitUI
         strategyShortSeries.setData([]);
         strategyLongExitSeries.setData(longExitProjected as any);
         strategyShortExitSeries.setData(shortExitProjected as any);
-        outlierLongSeries.setData(outlierLongProjected as any);
-        outlierShortSeries.setData(outlierShortProjected as any);
+        outlierLongSeries.setData([]);
+        outlierShortSeries.setData([]);
        
        
 
