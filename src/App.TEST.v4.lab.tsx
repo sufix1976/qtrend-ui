@@ -41,6 +41,12 @@ type MarkerPoint = {
   color?: string;
 };
 
+type MacdKnickEvent = {
+  time: number;
+  value: number;
+  side: "bull" | "bear";
+};
+
 
 /*
 type WhitespaceLinePoint = {
@@ -1228,6 +1234,26 @@ const macdZeroSeries = distChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 });
+
+    const macdBullKnickSeries = distChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#22c55e",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 5,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const macdBearKnickSeries = distChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ef4444",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 5,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
 /*
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
@@ -1589,6 +1615,29 @@ macdZeroSeries.setData(
   })) as any
 );
 
+        const macdKnicks = buildMacdKnickEvents(macd.histogram);
+
+macdBullKnickSeries.setData(
+  macdKnicks
+    .filter((k) => k.side === "bull")
+    .map((k) => ({
+      time: k.time,
+      value: k.value,
+    })) as any
+);
+
+macdBearKnickSeries.setData(
+  macdKnicks
+    .filter((k) => k.side === "bear")
+    .map((k) => ({
+      time: k.time,
+      value: k.value,
+    })) as any
+);
+
+renderKnickLines(priceRef.current, priceChart, macdKnicks);
+renderKnickLines(distRef.current, distChart, macdKnicks);
+
         //const candleTimes = new Set(chartCandles.map((c) => c.time));
 /*
 const smaTurnMarkers = [
@@ -1899,6 +1948,11 @@ return () => {
 distChart.removeSeries(macdLineSeries);
 distChart.removeSeries(macdSignalSeries);
 distChart.removeSeries(macdZeroSeries);
+    distChart.removeSeries(macdBullKnickSeries);
+distChart.removeSeries(macdBearKnickSeries);
+
+clearKnickLines(priceRef.current);
+clearKnickLines(distRef.current);
         
 /*
         distChart.removeSeries(distSeries);
@@ -3265,6 +3319,75 @@ function calcMACD(
     signal: signalLine,
     histogram,
   };
+}
+
+function buildMacdKnickEvents(histogram: LinePoint[]): MacdKnickEvent[] {
+  const out: MacdKnickEvent[] = [];
+
+  for (let i = 2; i < histogram.length; i++) {
+    const a = histogram[i - 2];
+    const b = histogram[i - 1];
+    const c = histogram[i];
+
+    // Bull-Knick: Histogramm fällt, macht Tief, steigt wieder
+    if (b.value < a.value && b.value < c.value && b.value < 0) {
+      out.push({
+        time: b.time,
+        value: b.value,
+        side: "bull",
+      });
+    }
+
+    // Bear-Knick: Histogramm steigt, macht Hoch, fällt wieder
+    if (b.value > a.value && b.value > c.value && b.value > 0) {
+      out.push({
+        time: b.time,
+        value: b.value,
+        side: "bear",
+      });
+    }
+  }
+
+  return out;
+}
+
+function clearKnickLines(container: HTMLDivElement | null) {
+  if (!container) return;
+  container.querySelectorAll(".macd-knick-line").forEach((el) => el.remove());
+}
+
+function renderKnickLines(
+  container: HTMLDivElement | null,
+  chart: IChartApi,
+  events: MacdKnickEvent[]
+) {
+  if (!container) return;
+
+  clearKnickLines(container);
+
+  container.style.position = "relative";
+
+  for (const e of events) {
+    const x = chart.timeScale().timeToCoordinate(e.time as any);
+    if (x == null) continue;
+
+    const line = document.createElement("div");
+    line.className = "macd-knick-line";
+
+    line.style.position = "absolute";
+    line.style.left = `${x}px`;
+    line.style.top = "0";
+    line.style.bottom = "0";
+    line.style.width = "0";
+    line.style.pointerEvents = "none";
+    line.style.zIndex = "10";
+    line.style.borderLeft =
+      e.side === "bull"
+        ? "1px dashed rgba(34, 197, 94, 0.85)"
+        : "1px dashed rgba(239, 68, 68, 0.85)";
+
+    container.appendChild(line);
+  }
 }
 
 function calcSMA(data: Candle[], len: number): LinePoint[] {
