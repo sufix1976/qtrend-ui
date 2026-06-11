@@ -1240,7 +1240,7 @@ const macdZeroSeries = distChart.addSeries(LineSeries, {
   color: "#22c55e",
   lineVisible: false,
   pointMarkersVisible: true,
-  pointMarkersRadius: 5,
+  pointMarkersRadius: 9,
   priceLineVisible: false,
   lastValueVisible: false,
 });
@@ -1250,7 +1250,7 @@ const macdBearKnickSeries = distChart.addSeries(LineSeries, {
   color: "#ef4444",
   lineVisible: false,
   pointMarkersVisible: true,
-  pointMarkersRadius: 5,
+  pointMarkersRadius: 9,
   priceLineVisible: false,
   lastValueVisible: false,
 });
