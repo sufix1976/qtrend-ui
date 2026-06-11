@@ -1610,7 +1610,12 @@ const visibleCandles =
   smaLowerSeries.setData(chartSmaLower as any);
 }
 
-        const macd = calcMACD(candles, 12, 26, 9);
+        const macdSource =
+  chartType === "renko" && chartRenkoCandles.length
+    ? buildRenkoCandles(candles, renkoBoxSize)
+    : candles;
+
+const macd = calcMACD(macdSource, 12, 26, 9);
 
 macdHistSeries.setData(
   macd.histogram.map((p) => ({
@@ -1624,7 +1629,7 @@ macdLineSeries.setData(macd.macd as any);
 macdSignalSeries.setData(macd.signal as any);
 
 macdZeroSeries.setData(
-  chartCandles.map((c) => ({
+  visibleCandles.map((c) => ({
     time: c.time,
     value: 0,
   })) as any
