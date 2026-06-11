@@ -1254,6 +1254,27 @@ const macdBearKnickSeries = distChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 });
+
+    const flipLongSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#22c55e",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 8,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+const flipShortSeries = priceChart.addSeries(LineSeries, {
+  priceScaleId: "",
+  color: "#ef4444",
+  lineVisible: false,
+  pointMarkersVisible: true,
+  pointMarkersRadius: 8,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+    
 /*
     const distSeries = distChart.addSeries(LineSeries, {
       color: "#00f0ff",
@@ -1637,6 +1658,20 @@ macdZeroSeries.setData(
 
         const macdKnicks = buildMacdKnickEvents(macd.histogram);
 
+        const flipReplay = buildKnickFlipReplay(visibleCandles as any, macdKnicks);
+
+flipLongSeries.setData(
+  flipReplay.entries
+    .filter((p) => p.side === "long")
+    .map((p) => ({ time: p.time, value: p.value })) as any
+);
+
+flipShortSeries.setData(
+  flipReplay.entries
+    .filter((p) => p.side === "short")
+    .map((p) => ({ time: p.time, value: p.value })) as any
+);
+
 macdBullKnickSeries.setData(
   macdKnicks
     .filter((k) => k.side === "bull")
@@ -1886,13 +1921,13 @@ setLiveState(backendStrategyState);
         setLongExitCount(sim.longExitPoints.length);
         setShortExitCount(sim.shortExitPoints.length);
 
-        setTradeCount(sim.tradeCount);
-setWinCount(sim.winCount);
-setLossCount(sim.lossCount);
+       setTradeCount(flipReplay.tradeCount);
+setWinCount(flipReplay.winCount);
+setLossCount(flipReplay.lossCount);
 
-setGrossProfit(sim.grossProfit);
-setGrossLoss(sim.grossLoss);
-setNetPnL(sim.netPnL);
+setGrossProfit(flipReplay.grossProfit);
+setGrossLoss(flipReplay.grossLoss);
+setNetPnL(flipReplay.netPnL);
 
 const activeSize = Number(symbolSizes[symbol]) || 0;
 
@@ -1908,13 +1943,7 @@ setGrossProfitEur(grossProfitUsdVal / EURUSD_APPROX);
 setGrossLossEur(grossLossUsdVal / EURUSD_APPROX);
 setNetPnLEur(netPnLUsdVal / EURUSD_APPROX);
 
-setProfitFactor(
-  sim.grossLoss > 0
-    ? sim.grossProfit / sim.grossLoss
-    : sim.grossProfit > 0
-      ? Number.POSITIVE_INFINITY
-      : null
-);
+setProfitFactor(flipReplay.profitFactor);
 
         setLastSignalText(sim.lastSignalText);
 
@@ -1964,6 +1993,8 @@ return () => {
         priceChart.removeSeries(realCloseSeries);
         priceChart.removeSeries(outlierLongSeries);
         priceChart.removeSeries(outlierShortSeries);
+        priceChart.removeSeries(flipLongSeries);
+        priceChart.removeSeries(flipShortSeries);
         distChart.removeSeries(macdHistSeries);
 distChart.removeSeries(macdLineSeries);
 distChart.removeSeries(macdSignalSeries);
@@ -3407,6 +3438,70 @@ function buildMacdKnickEvents(histogram: LinePoint[]): MacdKnickEvent[] {
   }
 
   return out;
+}
+
+function buildKnickFlipReplay(
+  candles: Candle[],
+  events: MacdKnickEvent[]
+) {
+  let side: "flat" | "long" | "short" = "flat";
+  let entryPrice = 0;
+
+  const entries: Array<{ time: number; value: number; side: "long" | "short" }> = [];
+  const profits: number[] = [];
+
+  const candleMap = new Map<number, Candle>();
+  candles.forEach((c) => candleMap.set(Number(c.time), c));
+
+  for (const e of events.sort((a, b) => a.time - b.time)) {
+    const c = candleMap.get(Number(e.time));
+    if (!c) continue;
+
+    const nextSide = e.side === "bull" ? "long" : "short";
+    const price = c.close;
+
+    if (side === "flat") {
+      side = nextSide;
+      entryPrice = price;
+      entries.push({ time: c.time, value: price, side: nextSide });
+      continue;
+    }
+
+    if (side === nextSide) {
+      continue;
+    }
+
+    const pnl =
+      side === "long"
+        ? price - entryPrice
+        : entryPrice - price;
+
+    profits.push(pnl);
+
+    side = nextSide;
+    entryPrice = price;
+    entries.push({ time: c.time, value: price, side: nextSide });
+  }
+
+  const grossProfit = profits.filter((p) => p > 0).reduce((a, b) => a + b, 0);
+  const grossLossAbs = Math.abs(profits.filter((p) => p < 0).reduce((a, b) => a + b, 0));
+  const netPnL = grossProfit - grossLossAbs;
+
+  return {
+    entries,
+    tradeCount: profits.length,
+    winCount: profits.filter((p) => p > 0).length,
+    lossCount: profits.filter((p) => p < 0).length,
+    grossProfit,
+    grossLoss: grossLossAbs,
+    netPnL,
+    profitFactor:
+      grossLossAbs > 0
+        ? grossProfit / grossLossAbs
+        : grossProfit > 0
+          ? Number.POSITIVE_INFINITY
+          : null,
+  };
 }
 
 function clearKnickLines(container: HTMLDivElement | null) {
