@@ -3510,6 +3510,7 @@ function buildKnickFlipReplay(
   };
 }
 
+/*
 function clearKnickLines(container: HTMLDivElement | null) {
   if (!container) return;
   container.querySelectorAll(".macd-knick-line").forEach((el) => el.remove());
@@ -3548,7 +3549,7 @@ function renderKnickLines(
     container.appendChild(line);
   }
 }
-
+*/
 function calcSMA(data: Candle[], len: number): LinePoint[] {
   const out: LinePoint[] = [];
   if (len <= 0) return out;
