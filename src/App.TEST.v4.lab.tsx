@@ -1572,6 +1572,17 @@ const filteredShortEntries = uniqueByTime([
 );
 
 const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSize));
+        console.log(
+  "[UI RENKO]",
+  symbol,
+  "bricks=",
+  chartRenkoCandles.length,
+  "last5=",
+  chartRenkoCandles
+    .slice(-5)
+    .map((r) => r.close)
+    .join(",")
+);
 
 const visibleCandles =
   chartType === "renko" && chartRenkoCandles.length
