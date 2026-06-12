@@ -1565,8 +1565,11 @@ const filteredShortEntries = uniqueByTime([
 ]);
 
         const chartCandles = chartifyCandles(candles);
-        const renkoBoxSize =
-  Number(minKinkUI) > 0 ? Number(minKinkUI) : Number(entryBandUI) > 0 ? Number(entryBandUI) : 100;
+        const renkoBoxSize = Math.max(
+  Number(minKinkUI || 0),
+  Number(entryBandUI || 0),
+  0.1
+);
 
 const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSize));
 
