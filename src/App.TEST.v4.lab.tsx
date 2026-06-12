@@ -146,6 +146,8 @@ const SYMBOLS = [
   "CORN",
   "SOLUSD",
   "TSLA",
+  "TY",
+  "EURUSD",
 ];
 
 const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
@@ -164,6 +166,8 @@ const ENTRY_BAND_BY_SYMBOL: Record<string, number> = {
   CORN: 1.4,
   SOLUSD: 0.8,
   TSLA: 5,
+  TY: 0.08,
+  EURUSD: 0.0019,
 };
 
 const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
@@ -182,6 +186,8 @@ const PEAK_LOOKBACK_BY_SYMBOL: Record<string, number> = {
   CORN: 3,
   SOLUSD: 3,
   TSLA: 3,
+  TY: 1,
+  EURUSD: 1,
 };
 
 const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
@@ -199,7 +205,9 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.08,
   CORN: 0.08,
   SOLUSD: 0.08,
-  TSLA: 0.08
+  TSLA: 0.08,
+  TY: 0.01,
+  EURUSD: 0.0003,
 };
 
 
@@ -219,6 +227,8 @@ const SPREAD_BY_SYMBOL: Record<string, number> = {
   CORN: 0.7,
   SOLUSD: 0.08,
   TSLA: 2,
+  TY: 0.01,
+  EURUSD: 0.0003,
 };
 
 const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
@@ -236,7 +246,9 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   OIL_CRUDE: 0.01,
   CORN: 0.3,
   SOLUSD: 0.02,
-  TSLA: 0.5
+  TSLA: 0.5,
+  TY: 0.01,
+  EURUSD: 0.0003,
 };
 
  const SMA_OFFSET_MAX_BY_SYMBOL: Record<string, number> = {
@@ -255,6 +267,8 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   CORN: 20,
   SOLUSD: 50,
   TSLA: 100,
+  TY: 50,
+  EURUSD: 50,
 };
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
