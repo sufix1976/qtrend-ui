@@ -194,7 +194,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   BTCUSD: 25,
   ETHUSD: 1.5,
   XRPUSD: 0.002,
-  DE40: 6,
+  DE40: 20,
   US100: 4,
   US500: 1,
   US30: 8,
