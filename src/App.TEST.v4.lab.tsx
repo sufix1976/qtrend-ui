@@ -1584,6 +1584,15 @@ const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSiz
     .join(",")
 );
 
+        console.log(
+  "[UI CFG]",
+  symbol,
+  "candles=",
+  candles.length,
+  "box=",
+  renkoBoxSize
+);
+
 const visibleCandles =
   chartType === "renko" && chartRenkoCandles.length
     ? chartRenkoCandles
