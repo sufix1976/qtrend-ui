@@ -200,7 +200,7 @@ const MIN_KINK_MOVE_BY_SYMBOL: Record<string, number> = {
   US30: 8,
   J225: 10,
   UK100: 3,
-  GOLD: 0.8,
+  GOLD: 3,
   SILVER: 0.03,
   OIL_CRUDE: 0.08,
   CORN: 0.08,
