@@ -396,6 +396,10 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
+  const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
+const [renkoAtrLenUI, setRenkoAtrLenUI] = useState(14);
+const [renkoAtrMultUI, setRenkoAtrMultUI] = useState(1);
+const [renkoBoxInfo, setRenkoBoxInfo] = useState("-");
   const [useKnickStrengthFilter, setUseKnickStrengthFilter] = useState(false);
 const [minKnickStrengthFilter, setMinKnickStrengthFilter] = useState(0);
 const [rawReplayText, setRawReplayText] = useState("-");
@@ -1584,12 +1588,23 @@ const filteredShortEntries = uniqueByTime([
 ]);
 
         const chartCandles = chartifyCandles(candles);
-        const renkoBoxSize =
-  Number(minKinkUI) > 0
-    ? Number(minKinkUI)
-    : Number(entryBandUI) > 0
-      ? Number(entryBandUI)
-      : 1;
+
+        const atrBox = calcATRValue(candles, renkoAtrLenUI);
+
+const renkoBoxSize =
+  renkoBoxMode === "atr" && atrBox != null && atrBox > 0
+    ? atrBox * renkoAtrMultUI
+    : Number(minKinkUI) > 0
+      ? Number(minKinkUI)
+      : Number(entryBandUI) > 0
+        ? Number(entryBandUI)
+        : 100;
+
+setRenkoBoxInfo(
+  renkoBoxMode === "atr" && atrBox != null
+    ? `ATR(${renkoAtrLenUI}) Box: ${renkoBoxSize.toFixed(4)}`
+    : `Fixed Box: ${renkoBoxSize}`
+);
 
 const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSize));
         console.log(
@@ -2093,6 +2108,9 @@ distChart.removeSeries(macdBearKnickSeries);
   symbolSizes,
   useKnickStrengthFilter,
   minKnickStrengthFilter,
+  renkoBoxMode,
+  renkoAtrLenUI,
+  renkoAtrMultUI,
 ]);
 
   const displayState = liveState;
@@ -2368,6 +2386,48 @@ distChart.removeSeries(macdBearKnickSeries);
         <div>Assumed slippage: {assumedSlippage}</div>
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
+    <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
+  <div style={{ fontWeight: 700, marginBottom: 6 }}>Renko Box</div>
+
+  <select
+    value={renkoBoxMode}
+    onChange={(e) => setRenkoBoxMode(e.target.value as "fixed" | "atr")}
+    style={{ width: "100%", marginBottom: 6 }}
+  >
+    <option value="fixed">Fixed / alte Box</option>
+    <option value="atr">ATR</option>
+  </select>
+
+  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+    ATR Length: {renkoAtrLenUI}
+  </div>
+  <input
+    type="range"
+    min={2}
+    max={50}
+    step={1}
+    value={renkoAtrLenUI}
+    onChange={(e) => setRenkoAtrLenUI(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
+
+  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+    ATR Mult: {renkoAtrMultUI.toFixed(2)}
+  </div>
+  <input
+    type="range"
+    min={0.1}
+    max={3}
+    step={0.05}
+    value={renkoAtrMultUI}
+    onChange={(e) => setRenkoAtrMultUI(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
+
+  <div style={{ marginTop: 4, fontSize: 12, color: "#93c5fd" }}>
+    {renkoBoxInfo}
+  </div>
+</div>
 
     <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -3439,6 +3499,38 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
   }
 
   return out;
+}
+
+function calcATRValue(candles: Candle[], len = 14): number | null {
+  if (!Array.isArray(candles) || candles.length < len + 1) return null;
+
+  const trs: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+
+    const tr = Math.max(
+      curr.high - curr.low,
+      Math.abs(curr.high - prev.close),
+      Math.abs(curr.low - prev.close)
+    );
+
+    trs.push(tr);
+  }
+
+  if (trs.length < len) return null;
+
+  let atr = 0;
+  for (let i = 0; i < len; i++) atr += trs[i];
+  atr = atr / len;
+
+  // Wilder/RMA-ATR
+  for (let i = len; i < trs.length; i++) {
+    atr = (atr * (len - 1) + trs[i]) / len;
+  }
+
+  return atr;
 }
 
 function calcEMA(values: LinePoint[], length: number): LinePoint[] {
