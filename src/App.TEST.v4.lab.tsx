@@ -1634,9 +1634,7 @@ const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSiz
 
 const visibleCandles =
   chartType === "renko"
-    ? renkoSourceMode === "hl"
-      ? buildRenkoCandlesHL(candles, renkoBoxSize)
-      : buildRenkoCandles(candles, renkoBoxSize)
+    ? buildRenkoCandles(candles, renkoBoxSize, renkoSourceMode, renkoReversalBricksUI)
     : candles;
 
         if (chartType === "renko") {
@@ -1723,7 +1721,7 @@ macdLineSeries.setData(macd.macd as any);
 macdSignalSeries.setData(macd.signal as any);
 
 macdZeroSeries.setData(
-  visibleCandles.map((c) => ({
+  (visibleCandles as Candle[]).map((c: Candle) => ({
     time: c.time,
     value: 0,
   })) as any
