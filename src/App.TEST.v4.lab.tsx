@@ -1679,7 +1679,7 @@ const visibleCandles =
     ? buildRenkoCandles(candles, renkoBoxSize)
     : candles;
 
-const macd = calcMACD(macdSource, 9, 26, 12);
+const macd = calcMACD(macdSource, 1, 18, 5);
 
 macdHistSeries.setData(
   macd.histogram.map((p) => ({
