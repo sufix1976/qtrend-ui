@@ -3521,42 +3521,49 @@ function buildRenkoCandlesHL(candles: Candle[], boxSize: number): Candle[] {
   const out: Candle[] = [];
   let lastClose = Number(candles[0].close);
   let brickTime = 1;
+  let lastDir = 0; // 1=up, -1=down
 
   for (const c of candles) {
     const high = Number(c.high);
     const low = Number(c.low);
 
-    // erst Richtung nach oben prüfen
-    while (high - lastClose >= boxSize) {
-      const open = lastClose;
-      const close = lastClose + boxSize;
+    while (
+  high - lastClose >=
+  (lastDir === -1 ? boxSize * 2 : boxSize)
+) {
+  const open = lastClose;
+  const close = lastClose + boxSize;
 
-      out.push({
-        time: brickTime++,
-        open,
-        high: close,
-        low: open,
-        close,
-      });
+  out.push({
+    time: brickTime++,
+    open,
+    high: close,
+    low: open,
+    close,
+  });
 
-      lastClose = close;
-    }
+  lastClose = close;
+  lastDir = 1;
+}
 
-    // dann Richtung nach unten prüfen
-    while (lastClose - low >= boxSize) {
-      const open = lastClose;
-      const close = lastClose - boxSize;
+while (
+  lastClose - low >=
+  (lastDir === 1 ? boxSize * 2 : boxSize)
+) {
+  const open = lastClose;
+  const close = lastClose - boxSize;
 
-      out.push({
-        time: brickTime++,
-        open,
-        high: open,
-        low: close,
-        close,
-      });
+  out.push({
+    time: brickTime++,
+    open,
+    high: open,
+    low: close,
+    close,
+  });
 
-      lastClose = close;
-    }
+  lastClose = close;
+  lastDir = -1;
+}
   }
 
   return out;
