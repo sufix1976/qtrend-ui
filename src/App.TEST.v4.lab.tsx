@@ -45,6 +45,7 @@ type MacdKnickEvent = {
   time: number;
   value: number;
   side: "bull" | "bear";
+  strength?: number;
 };
 
 
@@ -395,6 +396,10 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
+  const [useKnickStrengthFilter, setUseKnickStrengthFilter] = useState(false);
+const [minKnickStrengthFilter, setMinKnickStrengthFilter] = useState(0);
+const [rawReplayText, setRawReplayText] = useState("-");
+const [filteredReplayText, setFilteredReplayText] = useState("-");
 
   
 
@@ -1694,9 +1699,25 @@ macdZeroSeries.setData(
   })) as any
 );
 
-        const macdKnicks = buildMacdKnickEvents(macd.macd);
+        const rawMacdKnicks = buildMacdKnickEvents(macd.macd);
 
-        const flipReplay = buildKnickFlipReplay(visibleCandles as any, macdKnicks);
+const filteredMacdKnicks = rawMacdKnicks.filter(
+  (k) => !useKnickStrengthFilter || (k.strength ?? 0) >= minKnickStrengthFilter
+);
+
+const rawReplay = buildKnickFlipReplay(visibleCandles as any, rawMacdKnicks);
+const filteredReplay = buildKnickFlipReplay(visibleCandles as any, filteredMacdKnicks);
+
+const macdKnicks = filteredMacdKnicks;
+const flipReplay = filteredReplay;
+
+setRawReplayText(
+  `RAW T:${rawReplay.tradeCount} PF:${formatPF(rawReplay.profitFactor)} Net:${rawReplay.netPnL.toFixed(2)}`
+);
+
+setFilteredReplayText(
+  `FILTER T:${filteredReplay.tradeCount} PF:${formatPF(filteredReplay.profitFactor)} Net:${filteredReplay.netPnL.toFixed(2)}`
+);
 
 flipLongSeries.setData(
   flipReplay.entries
@@ -2070,6 +2091,8 @@ distChart.removeSeries(macdBearKnickSeries);
   useSlowExitUI,  
   adaptiveBandMultUI,
   symbolSizes,
+  useKnickStrengthFilter,
+  minKnickStrengthFilter,
 ]);
 
   const displayState = liveState;
@@ -2345,6 +2368,38 @@ distChart.removeSeries(macdBearKnickSeries);
         <div>Assumed slippage: {assumedSlippage}</div>
         <div>Adaptive band: {adaptiveBandUI ? "ON" : "OFF"}</div>
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
+
+    <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
+  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <input
+      type="checkbox"
+      checked={useKnickStrengthFilter}
+      onChange={(e) => setUseKnickStrengthFilter(e.target.checked)}
+    />
+    Knickstärke Filter aktiv
+  </label>
+
+  <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
+    Min Strength: {minKnickStrengthFilter}
+  </div>
+
+  <input
+    type="range"
+    min={0}
+    max={100}
+    step={0.1}
+    value={minKnickStrengthFilter}
+    onChange={(e) => setMinKnickStrengthFilter(Number(e.target.value))}
+    style={{ width: "100%" }}
+  />
+
+  <div style={{ marginTop: 6, fontSize: 12, color: "#e2e8f0" }}>
+    {rawReplayText}
+  </div>
+  <div style={{ marginTop: 2, fontSize: 12, color: "#93c5fd" }}>
+    {filteredReplayText}
+  </div>
+</div>
 
     <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
   <input
@@ -3456,32 +3511,36 @@ function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
     const cur = line[i];
     const next = line[i + 1];
 
-    // Bull-Knick
-    if (
-      cur.value < prev.value &&
-      cur.value < next.value
-    ) {
+    const slopeIn = cur.value - prev.value;
+    const slopeOut = next.value - cur.value;
+    const strength = Math.abs(slopeOut - slopeIn);
+
+    if (cur.value < prev.value && cur.value < next.value) {
       out.push({
         time: cur.time,
         value: cur.value,
         side: "bull",
+        strength,
       });
     }
 
-    // Bear-Knick
-    if (
-      cur.value > prev.value &&
-      cur.value > next.value
-    ) {
+    if (cur.value > prev.value && cur.value > next.value) {
       out.push({
         time: cur.time,
         value: cur.value,
         side: "bear",
+        strength,
       });
     }
   }
 
   return out;
+}
+
+function formatPF(v: number | null): string {
+  if (v == null) return "-";
+  if (!Number.isFinite(v)) return "∞";
+  return v.toFixed(2);
 }
 
 function buildKnickFlipReplay(
