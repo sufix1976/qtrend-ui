@@ -401,6 +401,8 @@ const [scannerMessage, setScannerMessage] = useState("");
 const [renkoAtrLenUI, setRenkoAtrLenUI] = useState(14);
 const [renkoAtrMultUI, setRenkoAtrMultUI] = useState(1);
 const [renkoBoxInfo, setRenkoBoxInfo] = useState("-");
+  const [renkoTrendInfo, setRenkoTrendInfo] = useState("-");
+const [renkoTrendLookbackUI, setRenkoTrendLookbackUI] = useState(20);
   const [useKnickStrengthFilter, setUseKnickStrengthFilter] = useState(false);
 const [minKnickStrengthFilter, setMinKnickStrengthFilter] = useState(0);
 const [rawReplayText, setRawReplayText] = useState("-");
@@ -1635,6 +1637,15 @@ const visibleCandles =
       ? buildRenkoCandlesHL(candles, renkoBoxSize)
       : buildRenkoCandles(candles, renkoBoxSize)
     : candles;
+
+        if (chartType === "renko") {
+  const ts = calcRenkoTrendScore(visibleCandles as Candle[], renkoTrendLookbackUI);
+  setRenkoTrendInfo(
+    `TrendScore: ${ts.score}/${ts.used} | Changes: ${ts.changes}`
+  );
+} else {
+  setRenkoTrendInfo("-");
+}
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         
@@ -2115,6 +2126,7 @@ distChart.removeSeries(macdBearKnickSeries);
   renkoAtrLenUI,
   renkoAtrMultUI,
     renkoSourceMode,
+    renkoTrendLookbackUI,
 ]);
 
   const displayState = liveState;
@@ -2440,6 +2452,24 @@ distChart.removeSeries(macdBearKnickSeries);
   <div style={{ marginTop: 4, fontSize: 12, color: "#93c5fd" }}>
     {renkoBoxInfo}
   </div>
+
+      <div style={{ marginTop: 4, fontSize: 12, color: "#facc15" }}>
+  {renkoTrendInfo}
+</div>
+
+<div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
+  Trend Lookback: {renkoTrendLookbackUI}
+</div>
+
+<input
+  type="range"
+  min={5}
+  max={80}
+  step={1}
+  value={renkoTrendLookbackUI}
+  onChange={(e) => setRenkoTrendLookbackUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
 </div>
 
     <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
@@ -3660,6 +3690,30 @@ function calcMACD(
     macd: macdLine,
     signal: signalLine,
     histogram,
+  };
+}
+
+function calcRenkoTrendScore(renko: Candle[], lookback = 20) {
+  if (!Array.isArray(renko) || renko.length < 2) {
+    return { score: 0, changes: 0, used: 0 };
+  }
+
+  const used = Math.min(lookback, renko.length - 1);
+  const start = Math.max(1, renko.length - used);
+
+  let changes = 0;
+
+  for (let i = start; i < renko.length; i++) {
+    const prevDir = renko[i - 1].close >= renko[i - 1].open ? 1 : -1;
+    const curDir = renko[i].close >= renko[i].open ? 1 : -1;
+
+    if (prevDir !== curDir) changes++;
+  }
+
+  return {
+    score: used - changes,
+    changes,
+    used,
   };
 }
 
