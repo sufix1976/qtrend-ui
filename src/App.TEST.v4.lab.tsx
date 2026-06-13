@@ -398,6 +398,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
   const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
+  const [renkoReversalBricksUI, setRenkoReversalBricksUI] = useState(2);
 const [renkoAtrLenUI, setRenkoAtrLenUI] = useState(14);
 const [renkoAtrMultUI, setRenkoAtrMultUI] = useState(1);
 const [renkoBoxInfo, setRenkoBoxInfo] = useState("-");
@@ -1705,7 +1706,7 @@ const visibleCandles =
 
         const macdSource =
   chartType === "renko" && chartRenkoCandles.length
-    ? buildRenkoCandles(candles, renkoBoxSize)
+    ? buildRenkoCandles(candles, renkoBoxSize, renkoSourceMode, renkoReversalBricksUI)
     : candles;
 
 const macd = calcMACD(macdSource, 1, 18, 5);
@@ -2127,6 +2128,7 @@ distChart.removeSeries(macdBearKnickSeries);
   renkoAtrMultUI,
     renkoSourceMode,
     renkoTrendLookbackUI,
+    renkoReversalBricksUI,
 ]);
 
   const displayState = liveState;
@@ -2422,6 +2424,20 @@ distChart.removeSeries(macdBearKnickSeries);
   <option value="close">Renko Source: Close</option>
   <option value="hl">Renko Source: High/Low</option>
 </select>
+
+      <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
+  Reversal Bricks: {renkoReversalBricksUI}
+</div>
+
+<input
+  type="range"
+  min={1}
+  max={4}
+  step={1}
+  value={renkoReversalBricksUI}
+  onChange={(e) => setRenkoReversalBricksUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
 
   <div style={{ fontSize: 12, color: "#94a3b8" }}>
     ATR Length: {renkoAtrLenUI}
@@ -3508,96 +3524,61 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
     .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
 }
 
-    function buildRenkoCandles(candles: Candle[], boxSize: number): Candle[] {
-  if (!candles.length || !Number.isFinite(boxSize) || boxSize <= 0) return [];
-
-  const out: Candle[] = [];
-
-  let lastClose = candles[0].close;
-      let brickTime = 1;
-  
-
-  for (const c of candles) {
-    const price = c.close;
-    let diff = price - lastClose;
-
-    while (Math.abs(diff) >= boxSize) {
-      const dir = diff > 0 ? 1 : -1;
-
-      const open = lastClose;
-      const close = lastClose + dir * boxSize;
-
-      out.push({
-        time: brickTime++,
-        open,
-        high: close,
-        low: close,
-        close,
-      });
-
-      lastClose = close;
-      
-      diff = price - lastClose;
-    }
-  }
-
-  return out;
-}
-
-function buildRenkoCandlesHL(candles: Candle[], boxSize: number): Candle[] {
+function buildRenkoCandles(
+  candles: Candle[],
+  boxSize: number,
+  sourceMode: "close" | "hl" = "close",
+  reversalBricks = 2
+): Candle[] {
   if (!Array.isArray(candles) || !candles.length) return [];
   if (!Number.isFinite(boxSize) || boxSize <= 0) return [];
 
   const out: Candle[] = [];
   let lastClose = Number(candles[0].close);
   let brickTime = 1;
-  let lastDir = 0; // 1=up, -1=down
+  let lastDir = 0;
 
   for (const c of candles) {
-    const high = Number(c.high);
-    const low = Number(c.low);
+    const upPrice = sourceMode === "hl" ? Number(c.high) : Number(c.close);
+    const downPrice = sourceMode === "hl" ? Number(c.low) : Number(c.close);
 
-    while (
-  high - lastClose >=
-  (lastDir === -1 ? boxSize * 2 : boxSize)
-) {
-  const open = lastClose;
-  const close = lastClose + boxSize;
+    while (upPrice - lastClose >= (lastDir === -1 ? boxSize * reversalBricks : boxSize)) {
+      const open = lastClose;
+      const close = lastClose + boxSize;
 
-  out.push({
-    time: brickTime++,
-    open,
-    high: close,
-    low: open,
-    close,
-  });
+      out.push({
+        time: brickTime++,
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+      });
 
-  lastClose = close;
-  lastDir = 1;
-}
+      lastClose = close;
+      lastDir = 1;
+    }
 
-while (
-  lastClose - low >=
-  (lastDir === 1 ? boxSize * 2 : boxSize)
-) {
-  const open = lastClose;
-  const close = lastClose - boxSize;
+    while (lastClose - downPrice >= (lastDir === 1 ? boxSize * reversalBricks : boxSize)) {
+      const open = lastClose;
+      const close = lastClose - boxSize;
 
-  out.push({
-    time: brickTime++,
-    open,
-    high: open,
-    low: close,
-    close,
-  });
+      out.push({
+        time: brickTime++,
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+      });
 
-  lastClose = close;
-  lastDir = -1;
-}
+      lastClose = close;
+      lastDir = -1;
+    }
   }
 
   return out;
 }
+
+
 
 function calcATRValue(candles: Candle[], len = 14): number | null {
   if (!Array.isArray(candles) || candles.length < len + 1) return null;
