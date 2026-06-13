@@ -397,6 +397,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
+  const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
 const [renkoAtrLenUI, setRenkoAtrLenUI] = useState(14);
 const [renkoAtrMultUI, setRenkoAtrMultUI] = useState(1);
 const [renkoBoxInfo, setRenkoBoxInfo] = useState("-");
@@ -1629,9 +1630,11 @@ const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSiz
 );
 
 const visibleCandles =
-  chartType === "renko" && chartRenkoCandles.length
-    ? chartRenkoCandles
-    : chartCandles;
+  chartType === "renko"
+    ? renkoSourceMode === "hl"
+      ? buildRenkoCandlesHL(candles, renkoBoxSize)
+      : buildRenkoCandles(candles, renkoBoxSize)
+    : candles;
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         
@@ -2111,6 +2114,7 @@ distChart.removeSeries(macdBearKnickSeries);
   renkoBoxMode,
   renkoAtrLenUI,
   renkoAtrMultUI,
+    renkoSourceMode,
 ]);
 
   const displayState = liveState;
@@ -2397,6 +2401,15 @@ distChart.removeSeries(macdBearKnickSeries);
     <option value="fixed">Fixed / alte Box</option>
     <option value="atr">ATR</option>
   </select>
+
+      <select
+  value={renkoSourceMode}
+  onChange={(e) => setRenkoSourceMode(e.target.value as "close" | "hl")}
+  style={{ width: "100%", marginBottom: 6 }}
+>
+  <option value="close">Renko Source: Close</option>
+  <option value="hl">Renko Source: High/Low</option>
+</select>
 
   <div style={{ fontSize: 12, color: "#94a3b8" }}>
     ATR Length: {renkoAtrLenUI}
@@ -3495,6 +3508,54 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       lastClose = close;
       
       diff = price - lastClose;
+    }
+  }
+
+  return out;
+}
+
+function buildRenkoCandlesHL(candles: Candle[], boxSize: number): Candle[] {
+  if (!Array.isArray(candles) || !candles.length) return [];
+  if (!Number.isFinite(boxSize) || boxSize <= 0) return [];
+
+  const out: Candle[] = [];
+  let lastClose = Number(candles[0].close);
+  let brickTime = 1;
+
+  for (const c of candles) {
+    const high = Number(c.high);
+    const low = Number(c.low);
+
+    // erst Richtung nach oben prüfen
+    while (high - lastClose >= boxSize) {
+      const open = lastClose;
+      const close = lastClose + boxSize;
+
+      out.push({
+        time: brickTime++,
+        open,
+        high: close,
+        low: open,
+        close,
+      });
+
+      lastClose = close;
+    }
+
+    // dann Richtung nach unten prüfen
+    while (lastClose - low >= boxSize) {
+      const open = lastClose;
+      const close = lastClose - boxSize;
+
+      out.push({
+        time: brickTime++,
+        open,
+        high: open,
+        low: close,
+        close,
+      });
+
+      lastClose = close;
     }
   }
 
