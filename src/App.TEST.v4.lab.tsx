@@ -544,6 +544,7 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
       sma_fast: smaFastUI,
       sma_slow: smaSlowUI,
       sma_middle: smaMiddleUI,
+      renkoReversalBricks: renkoReversalBricksUI,
       adaptive_band: adaptiveBandUI ? 1 : 0,
       adaptive_band_mult: adaptiveBandMultUI,
       use_slow_exit: useSlowExitUI ? 1 : 0,
