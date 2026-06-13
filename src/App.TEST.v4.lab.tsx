@@ -100,6 +100,7 @@ type SymbolConfigRow = {
   use_slow_exit?: number | boolean | null;
   size: number | null;
   updated_at?: string;
+  renkoReversalBricks?: number | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
