@@ -2445,8 +2445,27 @@ distChart.removeSeries(macdBearKnickSeries);
   min={1}
   max={4}
   step={1}
-  value={renkoReversalBricksUI}
-  onChange={(e) => setRenkoReversalBricksUI(Number(e.target.value))}
+  value={Number(
+  symbolConfigMap[symbol]?.renkoReversalBricks ??
+  (symbolConfigMap[symbol] as any)?.renko_reversal_bricks ??
+  renkoReversalBricksUI ??
+  2
+)}
+onChange={(e) => {
+  const v = Number(e.target.value);
+
+  setRenkoReversalBricksUI(v);
+
+  setSymbolConfigMap((prev) => ({
+    ...prev,
+    [symbol]: {
+      ...(prev[symbol] ?? {}),
+      symbol,
+      renkoReversalBricks: v,
+      renko_reversal_bricks: v,
+    } as any,
+  }));
+}}
   style={{ width: "100%" }}
 />
 
