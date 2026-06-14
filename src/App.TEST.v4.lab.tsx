@@ -101,6 +101,7 @@ type SymbolConfigRow = {
   size: number | null;
   updated_at?: string;
   renkoReversalBricks?: number | null;
+  renko_reversal_bricks?: number | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
