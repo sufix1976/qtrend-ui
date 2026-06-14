@@ -433,6 +433,13 @@ const [filteredReplayText, setFilteredReplayText] = useState("-");
     setAdaptiveBandUI(Boolean(cfg.adaptive_band ?? false));
     setAdaptiveBandMultUI(Number(cfg.adaptive_band_mult ?? 1));
     setUseSlowExitUI(cfg.use_slow_exit == null ? true : Number(cfg.use_slow_exit) === 1);
+    setRenkoReversalBricksUI(
+  cfg.renkoReversalBricks != null
+    ? Number(cfg.renkoReversalBricks)
+    : cfg.renko_reversal_bricks != null
+      ? Number(cfg.renko_reversal_bricks)
+      : 2
+);
     
     if (cfg.interval && INTERVALS.includes(cfg.interval as IntervalOption)) {
   setInterval(cfg.interval as IntervalOption);
@@ -666,6 +673,7 @@ useEffect(() => {
     setSmaMiddleUI(100);
     setAdaptiveBandUI(false);
     setAdaptiveBandMultUI(1);
+    setRenkoReversalBricksUI(2);
 
     setPresetMessage(`Backend-Konfig zurückgesetzt für ${symbol}`);
   } catch (e) {
@@ -2406,6 +2414,9 @@ distChart.removeSeries(macdBearKnickSeries);
         <div>Adaptive mult: {adaptiveBandMultUI.toFixed(2)}</div>
     <div style={{ marginTop: 8, borderTop: "1px solid #334155", paddingTop: 8 }}>
   <div style={{ fontWeight: 700, marginBottom: 6 }}>Renko Box</div>
+      <div style={{ fontSize: 12, color: "#facc15", marginBottom: 6 }}>
+  Aktives Reversal: {renkoReversalBricksUI}
+</div>
 
   <select
     value={renkoBoxMode}
