@@ -1840,22 +1840,22 @@ const renkoReplayForHa = buildKnickFlipReplay(renkoForHaSignals as any, renkoKni
 const haIndexByTime = new Map<number, number>();
 haCandles.forEach((c, i) => haIndexByTime.set(c.time, i));
 
-const idx = haCandles.findIndex((c) => c.time >= entry.time);
-if (idx < 0 || idx + 1 >= haCandles.length) return null;
+function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
+  const idx = haCandles.findIndex((c) => c.time >= entry.time);
+  if (idx < 0 || idx + 1 >= haCandles.length) return null;
 
-const h1 = haCandles[idx + 1];
+  const h1 = haCandles[idx + 1];
 
-const ok =
-  side === "long"
-    ? h1.close > h1.open
-    : h1.close < h1.open;
+  const ok =
+    side === "long"
+      ? h1.close > h1.open
+      : h1.close < h1.open;
 
-if (!ok) return null;
+  if (!ok) return null;
 
-return {
-  time: h1.time,
-
-    value: side === "long" ? h2.low : h2.high,
+  return {
+    time: h1.time,
+    value: side === "long" ? h1.low : h1.high,
   };
 }
 
