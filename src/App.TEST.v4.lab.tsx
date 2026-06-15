@@ -3725,7 +3725,7 @@ function buildRenkoCandles(
       const close = lastClose + boxSize;
 
       out.push({
-        time: brickTime++,
+        time: Number(c.time),
         open,
         high: Math.max(open, close),
         low: Math.min(open, close),
@@ -3741,7 +3741,7 @@ function buildRenkoCandles(
       const close = lastClose - boxSize;
 
       out.push({
-        time: brickTime++,
+        time: Number(c.time),
         open,
         high: Math.max(open, close),
         low: Math.min(open, close),
