@@ -3910,8 +3910,8 @@ function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
 
     if (cur.value < prev.value && cur.value < next.value) {
       out.push({
-        time: cur.time,
-        value: cur.value,
+        time: prev.time,
+        value: prev.value,
         side: "bull",
         strength,
       });
@@ -3919,8 +3919,8 @@ function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
 
     if (cur.value > prev.value && cur.value > next.value) {
       out.push({
-        time: cur.time,
-        value: cur.value,
+        time: prev.time,
+        value: prev.value,
         side: "bear",
         strength,
       });
