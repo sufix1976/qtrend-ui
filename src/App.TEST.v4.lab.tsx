@@ -316,44 +316,7 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
   return out;
 }
 
-function buildHaTwoCandleMarkers(haCandles: Candle[]) {
-  const longPoints: MarkerPoint[] = [];
-  const shortPoints: MarkerPoint[] = [];
 
-  for (let i = 1; i < haCandles.length; i++) {
-    const prev = haCandles[i - 1];
-    const curr = haCandles[i];
-
-    const prevBull = prev.close > prev.open;
-    const currBull = curr.close > curr.open;
-
-    const prevBear = prev.close < prev.open;
-    const currBear = curr.close < curr.open;
-
-    if (prevBull && currBull) {
-      longPoints.push({
-        time: curr.time,
-        value: curr.low,
-        text: "HA_L",
-        color: "#22c55e",
-      });
-    }
-
-    if (prevBear && currBear) {
-      shortPoints.push({
-        time: curr.time,
-        value: curr.high,
-        text: "HA_S",
-        color: "#ef4444",
-      });
-    }
-  }
-
-  return {
-    longPoints: dedupeMarkers(longPoints),
-    shortPoints: dedupeMarkers(shortPoints),
-  };
-}
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
