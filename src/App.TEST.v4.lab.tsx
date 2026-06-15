@@ -2708,15 +2708,16 @@ onChange={(e) => {
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "1.2fr 1fr auto",
+      gridTemplateColumns: "1.2fr 1fr auto auto",
       gap: 6,
       alignItems: "center",
       fontSize: 12,
     }}
   >
     <div style={{ color: "#94a3b8" }}>Symbol</div>
-    <div style={{ color: "#94a3b8" }}>Size</div>
-    <div></div>
+<div style={{ color: "#94a3b8" }}>Size</div>
+<div></div>
+<div style={{ color: "#94a3b8" }}>Auto</div>
 
     {SYMBOLS.map((s) => (
       <Fragment key={s}>
