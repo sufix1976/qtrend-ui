@@ -275,6 +275,47 @@ const SLIPPAGE_BY_SYMBOL: Record<string, number> = {
   EURUSD: 50,
 };
 
+function buildHeikinAshi(candles: Candle[]): Candle[] {
+  if (!candles.length) return [];
+
+  const out: Candle[] = [];
+
+  let haOpen = (candles[0].open + candles[0].close) / 2;
+  let haClose =
+    (candles[0].open +
+      candles[0].high +
+      candles[0].low +
+      candles[0].close) / 4;
+
+  out.push({
+    time: candles[0].time,
+    open: haOpen,
+    high: Math.max(candles[0].high, haOpen, haClose),
+    low: Math.min(candles[0].low, haOpen, haClose),
+    close: haClose,
+  });
+
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+
+    haClose =
+      (c.open + c.high + c.low + c.close) / 4;
+
+    haOpen =
+      (out[i - 1].open + out[i - 1].close) / 2;
+
+    out.push({
+      time: c.time,
+      open: haOpen,
+      high: Math.max(c.high, haOpen, haClose),
+      low: Math.min(c.low, haOpen, haClose),
+      close: haClose,
+    });
+  }
+
+  return out;
+}
+
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
 
@@ -398,7 +439,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [adaptiveBandMultUI, setAdaptiveBandMultUI] = useState(1);
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
-  const [chartType, setChartType] = useState<"candles" | "renko" | "line">("candles");
+  const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("candles");
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
   const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
   const [renkoReversalBricksUI, setRenkoReversalBricksUI] = useState(2);
@@ -1108,21 +1149,13 @@ async function saveAllSizes() {
     const priceChart = priceChartRef.current;
     const distChart = distChartRef.current;
 
-    const mainSeries =
-  chartType !== "line"
-    ? priceChart.addSeries(CandlestickSeries, {
-        upColor: "#00e5ff",
-        downColor: "#ef4444",
-        borderVisible: false,
-        wickUpColor: "#00e5ff",
-        wickDownColor: "#ef4444",
-      })
-    : priceChart.addSeries(LineSeries, {
-        color: "#00e5ff",
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
+    const mainSeries = priceChart.addSeries(CandlestickSeries, {
+  upColor: "#00e5ff",
+  downColor: "#ef4444",
+  borderVisible: false,
+  wickUpColor: "#00e5ff",
+  wickDownColor: "#ef4444",
+});
 
     const smaFastSeries = priceChart.addSeries(LineSeries, {
       color: "#ffff00",
@@ -1677,8 +1710,15 @@ const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSiz
 
 const visibleCandles =
   chartType === "renko"
-    ? buildRenkoCandles(candles, renkoBoxSize, renkoSourceMode, renkoReversalBricksUI)
-    : candles;
+    ? buildRenkoCandles(
+        candles,
+        renkoBoxSize,
+        renkoSourceMode,
+        renkoReversalBricksUI
+      )
+    : chartType === "heikin"
+      ? buildHeikinAshi(candles)
+      : candles;
 
         if (chartType === "renko") {
   const ts = calcRenkoTrendScore(visibleCandles as Candle[], renkoTrendLookbackUI);
@@ -1722,9 +1762,8 @@ const visibleCandles =
         );
         */
 
-        if (chartType !== "line") {
-  mainSeries.setData(visibleCandles as any);
-} else {
+        mainSeries.setData(visibleCandles as any);
+        
   mainSeries.setData(
     chartCandles.map((c) => ({
       time: c.time,
@@ -2210,7 +2249,7 @@ distChart.removeSeries(macdBearKnickSeries);
       <button
   onClick={() =>
     setChartType((prev) =>
-  prev === "candles" ? "renko" : prev === "renko" ? "line" : "candles"
+  prev === "candles" ? "renko" : prev === "renko" ? "heikin" : "candles"
 )
   }
 
@@ -2229,7 +2268,7 @@ distChart.removeSeries(macdBearKnickSeries);
     cursor: "pointer",
   }}
 >
-  {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Linie"}
+  {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
 </button>
 
       <button
