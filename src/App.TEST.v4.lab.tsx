@@ -1861,22 +1861,42 @@ function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
 }
 
 if (chartType === "heikin") {
-  const haLongConfirmed = renkoReplayForHa.entries
-    .filter((p: any) => p.side === "long")
-    .map((p: any) => confirmWithNextTwoHa(p, "long"))
-    .filter(Boolean);
+  const haConfirmedRaw = renkoReplayForHa.entries
+    .map((p: any) => {
+      if (p.side !== "long" && p.side !== "short") return null;
 
-  const haShortConfirmed = renkoReplayForHa.entries
-    .filter((p: any) => p.side === "short")
-    .map((p: any) => confirmWithNextTwoHa(p, "short"))
-    .filter(Boolean);
+      const confirmed = confirmWithNextTwoHa(p, p.side);
+      if (!confirmed) return null;
 
-  console.log("[RENKO->HA]", {
-  renkoEntries: renkoReplayForHa.entries.length,
-  haLongConfirmed: haLongConfirmed.length,
-  haShortConfirmed: haShortConfirmed.length,
-  firstRenko: renkoReplayForHa.entries.slice(-5),
-});
+      return {
+        ...confirmed,
+        side: p.side,
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => a.time - b.time);
+
+  const haFlipConfirmed: any[] = [];
+  let lastSide: "long" | "short" | null = null;
+
+  for (const p of haConfirmedRaw as any[]) {
+    if (p.side === lastSide) continue;
+
+    haFlipConfirmed.push(p);
+    lastSide = p.side;
+  }
+
+  const haLongConfirmed = haFlipConfirmed.filter((p) => p.side === "long");
+  const haShortConfirmed = haFlipConfirmed.filter((p) => p.side === "short");
+
+  console.log("[RENKO->HA FLIP]", {
+    renkoEntries: renkoReplayForHa.entries.length,
+    rawConfirmed: haConfirmedRaw.length,
+    flipConfirmed: haFlipConfirmed.length,
+    haLongConfirmed: haLongConfirmed.length,
+    haShortConfirmed: haShortConfirmed.length,
+    firstFlip: haFlipConfirmed.slice(-5),
+  });
 
   flipLongSeries.setData(haLongConfirmed as any);
   flipShortSeries.setData(haShortConfirmed as any);
