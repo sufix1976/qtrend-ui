@@ -316,6 +316,45 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
   return out;
 }
 
+function buildHaTwoCandleMarkers(haCandles: Candle[]) {
+  const longPoints: MarkerPoint[] = [];
+  const shortPoints: MarkerPoint[] = [];
+
+  for (let i = 1; i < haCandles.length; i++) {
+    const prev = haCandles[i - 1];
+    const curr = haCandles[i];
+
+    const prevBull = prev.close > prev.open;
+    const currBull = curr.close > curr.open;
+
+    const prevBear = prev.close < prev.open;
+    const currBear = curr.close < curr.open;
+
+    if (prevBull && currBull) {
+      longPoints.push({
+        time: curr.time,
+        value: curr.low,
+        text: "HA_L",
+        color: "#22c55e",
+      });
+    }
+
+    if (prevBear && currBear) {
+      shortPoints.push({
+        time: curr.time,
+        value: curr.high,
+        text: "HA_S",
+        color: "#ef4444",
+      });
+    }
+  }
+
+  return {
+    longPoints: dedupeMarkers(longPoints),
+    shortPoints: dedupeMarkers(shortPoints),
+  };
+}
+
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
 
@@ -1728,6 +1767,9 @@ const visibleCandles =
 } else {
   setRenkoTrendInfo("-");
 }
+
+        const haCandles = buildHeikinAshi(candles);
+        const haMarkers = buildHaTwoCandleMarkers(haCandles);
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         
@@ -1821,17 +1863,33 @@ setFilteredReplayText(
   `FILTER T:${filteredReplay.tradeCount} PF:${formatPF(filteredReplay.profitFactor)} Net:${filteredReplay.netPnL.toFixed(2)}`
 );
 
-flipLongSeries.setData(
-  flipReplay.entries
-    .filter((p) => p.side === "long")
-    .map((p) => ({ time: p.time, value: p.value })) as any
-);
+if (chartType === "heikin") {
+  flipLongSeries.setData(
+    haMarkers.longPoints.map((p) => ({
+      time: p.time,
+      value: p.value,
+    })) as any
+  );
 
-flipShortSeries.setData(
-  flipReplay.entries
-    .filter((p) => p.side === "short")
-    .map((p) => ({ time: p.time, value: p.value })) as any
-);
+  flipShortSeries.setData(
+    haMarkers.shortPoints.map((p) => ({
+      time: p.time,
+      value: p.value,
+    })) as any
+  );
+} else {
+  flipLongSeries.setData(
+    flipReplay.entries
+      .filter((p) => p.side === "long")
+      .map((p) => ({ time: p.time, value: p.value })) as any
+  );
+
+  flipShortSeries.setData(
+    flipReplay.entries
+      .filter((p) => p.side === "short")
+      .map((p) => ({ time: p.time, value: p.value })) as any
+  );
+}
 
 macdBullKnickSeries.setData(
   macdKnicks
