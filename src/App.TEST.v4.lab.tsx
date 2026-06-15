@@ -1861,16 +1861,17 @@ function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
 }
 
 if (chartType === "heikin") {
-  const haConfirmedRaw = renkoReplayForHa.entries
+  const haConfirmedRaw = renkoKnicksForHa
     .map((p: any) => {
-      if (p.side !== "long" && p.side !== "short") return null;
+      const side = p.side === "bull" ? "long" : p.side === "bear" ? "short" : null;
+if (!side) return null;
 
-      const confirmed = confirmWithNextTwoHa(p, p.side);
+      const confirmed = confirmWithNextTwoHa(p, side);
       if (!confirmed) return null;
 
       return {
         ...confirmed,
-        side: p.side,
+        side,
       };
     })
     .filter(Boolean)
