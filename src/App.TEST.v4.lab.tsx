@@ -102,6 +102,7 @@ type SymbolConfigRow = {
   updated_at?: string;
   renkoReversalBricks?: number | null;
   renko_reversal_bricks?: number | null;
+  auto_enabled?: number | boolean | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
@@ -540,7 +541,38 @@ async function fetchUiStrategyEvents(symbol: string): Promise<UiStrategyEvent[]>
 }
 */
   
+async function toggleAutoEnabled(symbolToToggle: string) {
+  try {
+    const old = symbolConfigMap[symbolToToggle] || null;
+    if (!old) return;
 
+    const current =
+      old.auto_enabled == null ? 1 : Number(old.auto_enabled) === 0 ? 0 : 1;
+
+    const next = current === 1 ? 0 : 1;
+
+    const row: SymbolConfigRow = {
+      ...old,
+      symbol: symbolToToggle,
+      auto_enabled: next,
+    };
+
+    await saveSymbolConfig(row);
+
+    setSymbolConfigMap((prev) => ({
+      ...prev,
+      [symbolToToggle]: row,
+    }));
+
+    setPresetMessage(
+      `${symbolToToggle} Auto ${next === 1 ? "aktiviert" : "deaktiviert"}`
+    );
+  } catch (e) {
+    console.error(e);
+    setPresetMessage(`Auto-Schalter fehlgeschlagen für ${symbolToToggle}`);
+  }
+}
+  
   async function savePreset() {
   try {
     const row: SymbolConfigRow = {
@@ -2171,6 +2203,26 @@ distChart.removeSeries(macdBearKnickSeries);
   }}
 >
   {infoOpen ? "Hide Panel" : "Show Panel"}
+</button>
+
+      <button
+  onClick={() => toggleAutoEnabled(s)}
+  style={{
+    marginLeft: 6,
+    padding: "3px 8px",
+    borderRadius: 6,
+    border: "1px solid #334155",
+    background:
+      Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
+        ? "#14532d"
+        : "#7f1d1d",
+    color: "#fff",
+    cursor: "pointer",
+  }}
+>
+  {Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
+    ? "AUTO ON"
+    : "AUTO OFF"}
 </button>
 
       <button
