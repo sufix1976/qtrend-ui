@@ -1764,14 +1764,6 @@ const visibleCandles =
 
         mainSeries.setData(visibleCandles as any);
         
-  mainSeries.setData(
-    chartCandles.map((c) => ({
-      time: c.time,
-      value: c.close,
-    })) as any
-  );
-}
-
         if (chartType === "renko") {
   smaFastSeries.setData([]);
   smaSlowSeries.setData([]);
