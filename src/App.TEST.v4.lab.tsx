@@ -1769,7 +1769,7 @@ const visibleCandles =
 }
 
         const haCandles = buildHeikinAshi(candles);
-        const haMarkers = buildHaTwoCandleMarkers(haCandles);
+        
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
         
