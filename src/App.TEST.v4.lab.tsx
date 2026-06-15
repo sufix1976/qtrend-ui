@@ -1863,20 +1863,53 @@ setFilteredReplayText(
   `FILTER T:${filteredReplay.tradeCount} PF:${formatPF(filteredReplay.profitFactor)} Net:${filteredReplay.netPnL.toFixed(2)}`
 );
 
-if (chartType === "heikin") {
-  flipLongSeries.setData(
-    haMarkers.longPoints.map((p) => ({
-      time: p.time,
-      value: p.value,
-    })) as any
-  );
+const renkoForHaSignals = buildRenkoCandles(
+  candles,
+  renkoBoxSize,
+  renkoSourceMode,
+  renkoReversalBricksUI
+);
 
-  flipShortSeries.setData(
-    haMarkers.shortPoints.map((p) => ({
-      time: p.time,
-      value: p.value,
-    })) as any
-  );
+const renkoMacdForHa = calcMACD(renkoForHaSignals, 1, 18, 5);
+const renkoKnicksForHa = buildMacdKnickEvents(renkoMacdForHa.macd);
+const renkoReplayForHa = buildKnickFlipReplay(renkoForHaSignals as any, renkoKnicksForHa);
+
+const haIndexByTime = new Map<number, number>();
+haCandles.forEach((c, i) => haIndexByTime.set(c.time, i));
+
+function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
+  const idx = haCandles.findIndex((c) => c.time >= entry.time);
+  if (idx < 0 || idx + 2 >= haCandles.length) return null;
+
+  const h1 = haCandles[idx + 1];
+  const h2 = haCandles[idx + 2];
+
+  const ok =
+    side === "long"
+      ? h1.close > h1.open && h2.close > h2.open
+      : h1.close < h1.open && h2.close < h2.open;
+
+  if (!ok) return null;
+
+  return {
+    time: h2.time,
+    value: side === "long" ? h2.low : h2.high,
+  };
+}
+
+if (chartType === "heikin") {
+  const haLongConfirmed = renkoReplayForHa.entries
+    .filter((p: any) => p.side === "long")
+    .map((p: any) => confirmWithNextTwoHa(p, "long"))
+    .filter(Boolean);
+
+  const haShortConfirmed = renkoReplayForHa.entries
+    .filter((p: any) => p.side === "short")
+    .map((p: any) => confirmWithNextTwoHa(p, "short"))
+    .filter(Boolean);
+
+  flipLongSeries.setData(haLongConfirmed as any);
+  flipShortSeries.setData(haShortConfirmed as any);
 } else {
   flipLongSeries.setData(
     flipReplay.entries
