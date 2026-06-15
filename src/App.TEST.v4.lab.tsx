@@ -3713,7 +3713,7 @@ function buildRenkoCandles(
 
   const out: Candle[] = [];
   let lastClose = Number(candles[0].close);
-  let brickTime = 1;
+
   let lastDir = 0;
 
   for (const c of candles) {
