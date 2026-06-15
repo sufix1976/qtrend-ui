@@ -1667,7 +1667,7 @@ const filteredShortEntries = uniqueByTime([
   ...outlierShortKinks.filter((p) => trendAt(p.time) !== "down"),
 ]);
 
-        const chartCandles = chartifyCandles(candles);
+      
 
         const atrBox = calcATRValue(candles, renkoAtrLenUI);
 
