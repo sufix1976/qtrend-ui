@@ -2205,25 +2205,7 @@ distChart.removeSeries(macdBearKnickSeries);
   {infoOpen ? "Hide Panel" : "Show Panel"}
 </button>
 
-      <button
-  onClick={() => toggleAutoEnabled(s)}
-  style={{
-    marginLeft: 6,
-    padding: "3px 8px",
-    borderRadius: 6,
-    border: "1px solid #334155",
-    background:
-      Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
-        ? "#14532d"
-        : "#7f1d1d",
-    color: "#fff",
-    cursor: "pointer",
-  }}
->
-  {Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
-    ? "AUTO ON"
-    : "AUTO OFF"}
-</button>
+
 
       <button
   onClick={() =>
@@ -2769,6 +2751,25 @@ onChange={(e) => {
         >
           Save
         </button>
+
+        <button
+  onClick={() => toggleAutoEnabled(s)}
+  style={{
+    background:
+      Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
+        ? "#14532d"
+        : "#7f1d1d",
+    color: "#fff",
+    border: "1px solid #475569",
+    borderRadius: 6,
+    padding: "4px 8px",
+    cursor: "pointer",
+  }}
+>
+  {Number(symbolConfigMap[s]?.auto_enabled ?? 1) === 1
+    ? "AUTO ON"
+    : "AUTO OFF"}
+</button>
       </Fragment>
     ))}
   </div>
