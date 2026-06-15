@@ -1886,6 +1886,12 @@ if (chartType === "heikin") {
       .map((p) => ({ time: p.time, value: p.value })) as any
   );
 }
+        console.log("[RENKO->HA]", {
+  renkoEntries: renkoReplayForHa.entries.length,
+  haLongConfirmed: haLongConfirmed.length,
+  haShortConfirmed: haShortConfirmed.length,
+  firstRenko: renkoReplayForHa.entries.slice(-5),
+});
 
 macdBullKnickSeries.setData(
   macdKnicks
