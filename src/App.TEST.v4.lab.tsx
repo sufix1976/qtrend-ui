@@ -1607,7 +1607,7 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
         const holdThreshold =
-  spreadUI * 4;
+  Number(assumedSpreadUI ?? 1) * 4;
 
 const holdLine =
   buildExtremeHoldLine(
