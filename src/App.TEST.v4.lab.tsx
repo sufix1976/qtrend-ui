@@ -1935,8 +1935,19 @@ if (!side) return null;
     firstFlip: haFlipConfirmed.slice(-5),
   });
 
-  flipLongSeries.setData(haLongConfirmed as any);
-  flipShortSeries.setData(haShortConfirmed as any);
+  flipLongSeries.setData(
+  haLongConfirmed.map((p) => ({
+    time: (p as any).sourceTime ?? p.time,
+    value: p.value,
+  })) as any
+);
+
+flipShortSeries.setData(
+  haShortConfirmed.map((p) => ({
+    time: (p as any).sourceTime ?? p.time,
+    value: p.value,
+  })) as any
+);
 } else {
   flipLongSeries.setData(
     flipReplay.entries
@@ -1956,7 +1967,7 @@ macdBullKnickSeries.setData(
   macdKnicks
     .filter((k) => k.side === "bull")
     .map((k) => ({
-      time: k.time,
+      time: (k as any).sourceTime ?? k.time,
       value: k.value,
     })) as any
 );
@@ -1965,7 +1976,7 @@ macdBearKnickSeries.setData(
   macdKnicks
     .filter((k) => k.side === "bear")
     .map((k) => ({
-      time: k.time,
+      time: (k as any).sourceTime ?? k.time,
       value: k.value,
     })) as any
 );
@@ -3831,12 +3842,13 @@ function buildDynamicAtrRenkoCandles(
       const close = lastClose + boxSize;
 
       out.push({
-        time: Number(c.time),
-        open,
-        high: Math.max(open, close),
-        low: Math.min(open, close),
-        close,
-      });
+  time: Number(c.time),
+  sourceTime: Number(c.time),
+  open,
+  high: Math.max(open, close),
+  low: Math.min(open, close),
+  close,
+} as any);
 
       lastClose = close;
       lastDir = 1;
@@ -3850,12 +3862,13 @@ function buildDynamicAtrRenkoCandles(
       const close = lastClose - boxSize;
 
       out.push({
-        time: Number(c.time),
-        open,
-        high: Math.max(open, close),
-        low: Math.min(open, close),
-        close,
-      });
+  time: Number(c.time),
+  sourceTime: Number(c.time),
+  open,
+  high: Math.max(open, close),
+  low: Math.min(open, close),
+  close,
+} as any);
 
       lastClose = close;
       lastDir = -1;
@@ -4064,7 +4077,7 @@ function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
 
     if (cur.value < prev.value && cur.value < next.value) {
       out.push({
-        time: prev.time,
+        time: (prev as any).sourceTime ?? prev.time,
         value: prev.value,
         side: "bull",
         strength,
@@ -4073,7 +4086,7 @@ function buildMacdKnickEvents(line: LinePoint[]): MacdKnickEvent[] {
 
     if (cur.value > prev.value && cur.value > next.value) {
       out.push({
-        time: prev.time,
+        time: (prev as any).sourceTime ?? prev.time,
         value: prev.value,
         side: "bear",
         strength,
