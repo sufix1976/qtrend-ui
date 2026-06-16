@@ -3732,6 +3732,16 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
 }
 
 function buildRenkoCandles(
+  if (out.length === 0) {
+  console.log(
+    "[RENKO SETTINGS]",
+    {
+      boxSize,
+      sourceMode,
+      reversalBricks
+    }
+  );
+}
   candles: Candle[],
   boxSize: number,
   sourceMode: "close" | "hl" = "close",
@@ -3782,6 +3792,15 @@ function buildRenkoCandles(
       lastDir = -1;
     }
   }
+
+  console.log(
+  "[RENKO RESULT]",
+  {
+    bricks: out.length,
+    first: out[0],
+    last: out[out.length - 1]
+  }
+);
 
   return out;
 }
