@@ -1519,6 +1519,19 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
        
         const dirLine = buildDirectionLine(candles, 0.15, 0);
+        const directionZones: MarkerPoint[] = [];
+
+for (let i = 1; i < dirLine.line.length; i++) {
+  const prev = dirLine.line[i - 1];
+  const curr = dirLine.line[i];
+
+  if (curr.value === prev.value) {
+    directionZones.push({
+      time: curr.time,
+      value: curr.value,
+    });
+  }
+}
         const smaUpper = smaSlow.map((p) => ({
   time: p.time,
   value: p.value + smaOffsetUI,
@@ -2018,25 +2031,12 @@ if (!side) return null;
     firstFlip: haFlipConfirmed.slice(-5),
   });
 
-  flipLongSeries.setData(
-  haLongConfirmed.map((p) => ({
-    time: findNextCandleTime(
-  haCandles as any,
-  (p as any).sourceTime ?? p.time
-),
-    value: p.value,
-  })) as any
+ flipLongSeries.setData(
+  directionZones as any
 );
 
-flipShortSeries.setData(
-  haShortConfirmed.map((p) => ({
-    time: findNextCandleTime(
-  haCandles as any,
-  (p as any).sourceTime ?? p.time
-),
-    value: p.value,
-  })) as any
-);
+flipShortSeries.setData([]);
+  
 } else {
   flipLongSeries.setData(
     flipReplay.entries
