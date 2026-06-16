@@ -3741,7 +3741,8 @@ function buildRenkoCandles(
   if (!Number.isFinite(boxSize) || boxSize <= 0) return [];
 
   const out: Candle[] = [];
-  let lastClose = Number(candles[0].close);
+  let lastClose =
+  Math.round(Number(candles[0].close) / boxSize) * boxSize;
 
   let lastDir = 0;
 
