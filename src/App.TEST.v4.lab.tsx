@@ -1673,6 +1673,18 @@ const filteredShortEntries = uniqueByTime([
 
         const atrBox = calcATRValue(candles, renkoAtrLenUI);
 
+        console.log(
+  "[ATR CHECK]",
+  {
+    last20HighLow: candles.slice(-20).map(c => ({
+      h: c.high,
+      l: c.low,
+      c: c.close
+    })),
+    atrBox
+  }
+);
+
         console.log("[RENKO ATR]", {
   symbol,
   interval,
