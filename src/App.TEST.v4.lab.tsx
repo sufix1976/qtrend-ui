@@ -394,70 +394,7 @@ function buildExtremeHoldLine(
   return { trend, zone, turns };
 }
 
-function buildDirectionLine(
-  candles: Candle[],
-  thresholdPct = 0.15,
-  minMove = 0
-) {
-  if (!candles.length) return { line: [], turns: [] };
 
-  const line: any[] = [];
-  const turns: any[] = [];
-
-  let direction: "up" | "down" = "up";
-  let extreme = candles[0].close;
-  let lineValue = candles[0].close;
-
-  for (const c of candles) {
-    const price = c.close;
-    const threshold = Math.max(
-      price * (thresholdPct / 100),
-      minMove
-    );
-
-    if (direction === "up") {
-      if (price > extreme) extreme = price;
-
-      const pullback = extreme - price;
-
-      if (pullback >= threshold) {
-        direction = "down";
-        extreme = price;
-        turns.push({
-          time: c.time,
-          value: price,
-          side: "short",
-        });
-      }
-
-      lineValue = Math.max(lineValue, extreme);
-    } else {
-      if (price < extreme) extreme = price;
-
-      const rebound = price - extreme;
-
-      if (rebound >= threshold) {
-        direction = "up";
-        extreme = price;
-        turns.push({
-          time: c.time,
-          value: price,
-          side: "long",
-        });
-      }
-
-      lineValue = Math.min(lineValue, extreme);
-    }
-
-    line.push({
-      time: c.time,
-      value: lineValue,
-      direction,
-    });
-  }
-
-  return { line, turns };
-}
 
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
