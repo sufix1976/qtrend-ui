@@ -327,7 +327,7 @@ function buildExtremeHoldLine(
   const turns: { time: number; value: number; side: "long" | "short" }[] = [];
 
   let state: "up" | "down" = "up";
-  let lastLineState: "move" | "zone" = "move";
+  
 
   let extremeHigh = candles[0].high;
   let extremeLow = candles[0].low;
@@ -388,8 +388,8 @@ function buildExtremeHoldLine(
       zone.push({ time: c.time, value: NaN as any });
     }
 
-    lastLineState = isZone ? "zone" : "move";
   }
+  
 
   return { trend, zone, turns };
 }
@@ -1607,7 +1607,7 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
         const holdThreshold =
-  Number(symbolCfg?.spread ?? 1) * 4;
+  spreadUI * 4;
 
 const holdLine =
   buildExtremeHoldLine(
