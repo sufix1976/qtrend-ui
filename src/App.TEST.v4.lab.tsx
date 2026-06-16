@@ -316,6 +316,49 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
   return out;
 }
 
+function buildExtremeHoldLine(
+  candles: Candle[],
+  threshold: number
+) {
+  if (!candles.length) return [];
+
+  const out: { time: number; value: number }[] = [];
+  let state: "up" | "down" = "up";
+  let extremeHigh = candles[0].high;
+  let extremeLow = candles[0].low;
+  let lineValue = candles[0].close;
+
+  for (const c of candles) {
+    if (state === "up") {
+      if (c.high > extremeHigh) {
+        extremeHigh = c.high;
+        lineValue = extremeHigh;
+      }
+
+      if (extremeHigh - c.low >= threshold) {
+        state = "down";
+        extremeLow = c.low;
+        lineValue = extremeLow;
+      }
+    } else {
+      if (c.low < extremeLow) {
+        extremeLow = c.low;
+        lineValue = extremeLow;
+      }
+
+      if (c.high - extremeLow >= threshold) {
+        state = "up";
+        extremeHigh = c.high;
+        lineValue = extremeHigh;
+      }
+    }
+
+    out.push({ time: c.time, value: lineValue });
+  }
+
+  return out;
+}
+
 function buildDirectionLine(
   candles: Candle[],
   thresholdPct = 0.15,
@@ -1237,6 +1280,13 @@ async function saveAllSizes() {
       lastValueVisible: false,
     });
 
+    const holdLineSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff00ff",
+  lineWidth: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
     const smaUpperSeries = priceChart.addSeries(LineSeries, {
   color: "#ff4d6d",
   lineWidth: 2,
@@ -1512,6 +1562,15 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+
+        const holdThreshold =
+  Number(symbolCfg?.spread ?? 1) * 4;
+
+const holdLine =
+  buildExtremeHoldLine(
+    candles,
+    holdThreshold
+  );
 
         const smaUpper = smaSlow.map((p) => ({
   time: p.time,
@@ -1881,6 +1940,9 @@ const visibleCandles =
         if (chartType === "renko") {
   smaFastSeries.setData([]);
   smaSlowSeries.setData([]);
+          holdLineSeries.setData(
+  holdLine as any
+);
   smaUpperSeries.setData([]);
   smaLowerSeries.setData([]);
 } else {
