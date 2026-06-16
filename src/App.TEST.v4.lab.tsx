@@ -1938,7 +1938,7 @@ if (!side) return null;
   flipLongSeries.setData(
   haLongConfirmed.map((p) => ({
     time: findNextCandleTime(
-  chartCandles as any,
+  haCandles as any,
   (p as any).sourceTime ?? p.time
 ),
     value: p.value,
@@ -1948,7 +1948,7 @@ if (!side) return null;
 flipShortSeries.setData(
   haShortConfirmed.map((p) => ({
     time: findNextCandleTime(
-  chartCandles as any,
+  haCandles as any,
   (p as any).sourceTime ?? p.time
 ),
     value: p.value,
@@ -1974,7 +1974,7 @@ macdBullKnickSeries.setData(
     .filter((k) => k.side === "bull")
     .map((k) => ({
       time: findNextCandleTime(
-  chartCandles as any,
+  haCandles as any,
   (k as any).sourceTime ?? k.time
 ),
       value: k.value,
@@ -1986,7 +1986,7 @@ macdBearKnickSeries.setData(
     .filter((k) => k.side === "bear")
     .map((k) => ({
       time: findNextCandleTime(
-  chartCandles as any,
+  haCandles as any,
   (k as any).sourceTime ?? k.time
 ),
       value: k.value,
