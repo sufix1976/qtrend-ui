@@ -1709,7 +1709,23 @@ setRenkoBoxInfo(
     : `Fixed Box: ${renkoBoxSize}`
 );
 
-const chartRenkoCandles = chartifyCandles(buildRenkoCandles(candles, renkoBoxSize));
+const rawRenkoCandles =
+  renkoBoxMode === "atr"
+    ? buildDynamicAtrRenkoCandles(
+        candles,
+        renkoAtrLenUI,
+        renkoAtrMultUI,
+        renkoSourceMode,
+        renkoReversalBricksUI
+      )
+    : buildRenkoCandles(
+        candles,
+        renkoBoxSize,
+        renkoSourceMode,
+        renkoReversalBricksUI
+      );
+
+const chartRenkoCandles = chartifyCandles(rawRenkoCandles);
         console.log(
   "[UI RENKO]",
   symbol,
@@ -3741,6 +3757,118 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
       value: Number(p.value),
     }))
     .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+}
+
+function calcATRSeries(candles: Candle[], len = 14): (number | null)[] {
+  const out: (number | null)[] = Array(candles.length).fill(null);
+  if (!Array.isArray(candles) || candles.length < len + 1) return out;
+
+  const trs: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+
+    trs.push(
+      Math.max(
+        curr.high - curr.low,
+        Math.abs(curr.high - prev.close),
+        Math.abs(curr.low - prev.close)
+      )
+    );
+  }
+
+  let atr = 0;
+  for (let i = 0; i < len; i++) atr += trs[i];
+  atr /= len;
+
+  out[len] = atr;
+
+  for (let i = len + 1; i < candles.length; i++) {
+    atr = (atr * (len - 1) + trs[i - 1]) / len;
+    out[i] = atr;
+  }
+
+  return out;
+}
+
+function buildDynamicAtrRenkoCandles(
+  candles: Candle[],
+  atrLen = 14,
+  atrMult = 1,
+  sourceMode: "close" | "hl" = "close",
+  reversalBricks = 2
+): Candle[] {
+  if (!Array.isArray(candles) || candles.length < atrLen + 1) return [];
+
+  const atrSeries = calcATRSeries(candles, atrLen);
+  const out: Candle[] = [];
+
+  let lastClose: number | null = null;
+  let lastDir = 0;
+
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const atr = atrSeries[i];
+
+    if (atr == null || !Number.isFinite(atr) || atr <= 0) continue;
+
+    const boxSize = atr * atrMult;
+    if (!Number.isFinite(boxSize) || boxSize <= 0) continue;
+
+    if (lastClose == null) {
+      lastClose = Math.round(Number(c.close) / boxSize) * boxSize;
+    }
+
+    const upPrice = sourceMode === "hl" ? Number(c.high) : Number(c.close);
+    const downPrice = sourceMode === "hl" ? Number(c.low) : Number(c.close);
+
+    while (
+      upPrice - lastClose >=
+      (lastDir === -1 ? boxSize * reversalBricks : boxSize)
+    ) {
+      const open = lastClose;
+      const close = lastClose + boxSize;
+
+      out.push({
+        time: Number(c.time),
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+      });
+
+      lastClose = close;
+      lastDir = 1;
+    }
+
+    while (
+      lastClose - downPrice >=
+      (lastDir === 1 ? boxSize * reversalBricks : boxSize)
+    ) {
+      const open = lastClose;
+      const close = lastClose - boxSize;
+
+      out.push({
+        time: Number(c.time),
+        open,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        close,
+      });
+
+      lastClose = close;
+      lastDir = -1;
+    }
+  }
+
+  console.log("[DYNAMIC ATR RENKO]", {
+    bricks: out.length,
+    first: out[0],
+    last: out[out.length - 1],
+  });
+
+  return out;
 }
 
 function buildRenkoCandles(
