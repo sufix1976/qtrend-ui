@@ -1941,7 +1941,7 @@ const visibleCandles =
 }
 
         const haCandles = buildHeikinAshi(candles);
-        const dirLine = buildDirectionLine(candles, 0.15, 0);
+      
         
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
@@ -1991,7 +1991,8 @@ directionZoneSeries.setData(holdLine.zone as any);
   smaSlowSeries.setData(chartSmaSlow as any);
   smaUpperSeries.setData(chartSmaUpper as any);
   smaLowerSeries.setData(chartSmaLower as any);
-          directionLineSeries.setData(dirLine.line as any);
+          directionLineSeries.setData(holdLine.trend as any);
+directionZoneSeries.setData(holdLine.zone as any);
 }
 
         const macdSource =
