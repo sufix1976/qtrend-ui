@@ -1519,6 +1519,7 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
        
         const dirLine = buildDirectionLine(candles, 0.15, 0);
+                const haCandles = buildHeikinAshi(candles);
         const directionLongSignals: MarkerPoint[] = [];
 const directionShortSignals: MarkerPoint[] = [];
 
@@ -1897,7 +1898,7 @@ const visibleCandles =
   setRenkoTrendInfo("-");
 }
 
-        const haCandles = buildHeikinAshi(candles);
+
       
         
         const chartSmaFast = chartifyLinePoints(smaFast);
