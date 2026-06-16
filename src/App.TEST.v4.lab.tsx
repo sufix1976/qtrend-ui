@@ -3804,7 +3804,7 @@ function buildDynamicAtrRenkoCandles(
   const atrSeries = calcATRSeries(candles, atrLen);
   const out: Candle[] = [];
 
-  let lastClose: number | null = null;
+ let lastClose = Number.NaN;
   let lastDir = 0;
 
   for (let i = 0; i < candles.length; i++) {
@@ -3816,9 +3816,9 @@ function buildDynamicAtrRenkoCandles(
     const boxSize = atr * atrMult;
     if (!Number.isFinite(boxSize) || boxSize <= 0) continue;
 
-    if (lastClose == null) {
-      lastClose = Math.round(Number(c.close) / boxSize) * boxSize;
-    }
+   if (!Number.isFinite(lastClose)) {
+  lastClose = Math.round(Number(c.close) / boxSize) * boxSize;
+}
 
     const upPrice = sourceMode === "hl" ? Number(c.high) : Number(c.close);
     const downPrice = sourceMode === "hl" ? Number(c.low) : Number(c.close);
