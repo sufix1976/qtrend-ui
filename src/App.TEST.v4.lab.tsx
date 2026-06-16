@@ -1877,6 +1877,7 @@ const renkoReplayForHa = buildKnickFlipReplay(renkoForHaSignals as any, renkoKni
 const haIndexByTime = new Map<number, number>();
 haCandles.forEach((c, i) => haIndexByTime.set(c.time, i));
 
+        /*
 function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
   const idx = haCandles.findIndex((c) => c.time >= entry.time);
   if (idx < 0 || idx + 1 >= haCandles.length) return null;
@@ -1895,7 +1896,7 @@ function confirmWithNextTwoHa(entry: any, side: "long" | "short") {
     value: side === "long" ? h1.low : h1.high,
   };
 }
-
+*/
 if (chartType === "heikin") {
   const haConfirmedRaw = renkoKnicksForHa
     .map((p: any) => {
