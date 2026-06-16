@@ -1902,8 +1902,7 @@ if (chartType === "heikin") {
       const side = p.side === "bull" ? "long" : p.side === "bear" ? "short" : null;
 if (!side) return null;
 
-      const confirmed = confirmWithNextTwoHa(p, side);
-      if (!confirmed) return null;
+      const confirmed = p;
 
       return {
         ...confirmed,
