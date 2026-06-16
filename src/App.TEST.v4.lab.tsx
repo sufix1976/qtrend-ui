@@ -3878,14 +3878,7 @@ function buildRenkoCandles(
   sourceMode: "close" | "hl" = "close",
   reversalBricks = 2
 ): Candle[] {
-  console.log(
-  "[RENKO SETTINGS]",
-  {
-    boxSize,
-    sourceMode,
-    reversalBricks
-  }
-);
+
   if (!Array.isArray(candles) || !candles.length) return [];
   if (!Number.isFinite(boxSize) || boxSize <= 0) return [];
 
@@ -3932,14 +3925,7 @@ function buildRenkoCandles(
     }
   }
 
-  console.log(
-  "[RENKO RESULT]",
-  {
-    bricks: out.length,
-    first: out[0],
-    last: out[out.length - 1]
-  }
-);
+ 
 
   return out;
 }
