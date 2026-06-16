@@ -316,6 +316,70 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
   return out;
 }
 
+function buildDirectionLine(
+  candles: Candle[],
+  thresholdPct = 0.15,
+  minMove = 0
+) {
+  if (!candles.length) return { line: [], turns: [] };
+
+  const line: any[] = [];
+  const turns: any[] = [];
+
+  let direction: "up" | "down" = "up";
+  let extreme = candles[0].close;
+  let lineValue = candles[0].close;
+
+  for (const c of candles) {
+    const price = c.close;
+    const threshold = Math.max(
+      price * (thresholdPct / 100),
+      minMove
+    );
+
+    if (direction === "up") {
+      if (price > extreme) extreme = price;
+
+      const pullback = extreme - price;
+
+      if (pullback >= threshold) {
+        direction = "down";
+        extreme = price;
+        turns.push({
+          time: c.time,
+          value: price,
+          side: "short",
+        });
+      }
+
+      lineValue = Math.max(lineValue, extreme);
+    } else {
+      if (price < extreme) extreme = price;
+
+      const rebound = price - extreme;
+
+      if (rebound >= threshold) {
+        direction = "up";
+        extreme = price;
+        turns.push({
+          time: c.time,
+          value: price,
+          side: "long",
+        });
+      }
+
+      lineValue = Math.min(lineValue, extreme);
+    }
+
+    line.push({
+      time: c.time,
+      value: lineValue,
+      direction,
+    });
+  }
+
+  return { line, turns };
+}
 
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
@@ -1186,6 +1250,13 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 }); 
+
+    const directionLineSeries = priceChart.addSeries(LineSeries, {
+  color: "#facc15",
+  lineWidth: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
    
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
@@ -1769,6 +1840,7 @@ const visibleCandles =
 }
 
         const haCandles = buildHeikinAshi(candles);
+        const dirLine = buildDirectionLine(candles, 0.15, 0);
         
         const chartSmaFast = chartifyLinePoints(smaFast);
         const chartSmaSlow = chartifyLinePoints(smaSlow);
@@ -1816,6 +1888,7 @@ const visibleCandles =
   smaSlowSeries.setData(chartSmaSlow as any);
   smaUpperSeries.setData(chartSmaUpper as any);
   smaLowerSeries.setData(chartSmaLower as any);
+          directionLineSeries.setData(dirLine.line as any);
 }
 
         const macdSource =
