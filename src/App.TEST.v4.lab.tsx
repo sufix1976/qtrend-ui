@@ -1593,13 +1593,7 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
-        const holdThreshold = 4;
-
-const holdLine =
-  buildExtremeHoldLine(
-    candles,
-    holdThreshold
-  );
+       
         const dirLine = buildDirectionLine(candles, 0.15, 0);
         const smaUpper = smaSlow.map((p) => ({
   time: p.time,
