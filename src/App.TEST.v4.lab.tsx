@@ -1673,6 +1673,15 @@ const filteredShortEntries = uniqueByTime([
 
         const atrBox = calcATRValue(candles, renkoAtrLenUI);
 
+        console.log("[RENKO ATR]", {
+  symbol,
+  interval,
+  atrLen: renkoAtrLenUI,
+  atrBox,
+  atrMult: renkoAtrMultUI,
+  renkoBoxMode,
+});
+
 const renkoBoxSize =
   renkoBoxMode === "atr" && atrBox != null && atrBox > 0
     ? atrBox * renkoAtrMultUI
