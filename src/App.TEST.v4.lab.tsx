@@ -320,43 +320,78 @@ function buildExtremeHoldLine(
   candles: Candle[],
   threshold: number
 ) {
-  if (!candles.length) return [];
+  if (!candles.length) return { trend: [], zone: [], turns: [] };
 
-  const out: { time: number; value: number }[] = [];
+  const trend: { time: number; value: number }[] = [];
+  const zone: { time: number; value: number }[] = [];
+  const turns: { time: number; value: number; side: "long" | "short" }[] = [];
+
   let state: "up" | "down" = "up";
+  let lastLineState: "move" | "zone" = "move";
+
   let extremeHigh = candles[0].high;
   let extremeLow = candles[0].low;
   let lineValue = candles[0].close;
 
   for (const c of candles) {
+    let isZone = false;
+
     if (state === "up") {
       if (c.high > extremeHigh) {
         extremeHigh = c.high;
         lineValue = extremeHigh;
+        isZone = false;
+      } else {
+        isZone = true;
       }
 
       if (extremeHigh - c.low >= threshold) {
         state = "down";
         extremeLow = c.low;
         lineValue = extremeLow;
+        isZone = false;
+
+        turns.push({
+          time: c.time,
+          value: lineValue,
+          side: "short",
+        });
       }
     } else {
       if (c.low < extremeLow) {
         extremeLow = c.low;
         lineValue = extremeLow;
+        isZone = false;
+      } else {
+        isZone = true;
       }
 
       if (c.high - extremeLow >= threshold) {
         state = "up";
         extremeHigh = c.high;
         lineValue = extremeHigh;
+        isZone = false;
+
+        turns.push({
+          time: c.time,
+          value: lineValue,
+          side: "long",
+        });
       }
     }
 
-    out.push({ time: c.time, value: lineValue });
+    if (isZone) {
+      zone.push({ time: c.time, value: lineValue });
+      trend.push({ time: c.time, value: NaN as any });
+    } else {
+      trend.push({ time: c.time, value: lineValue });
+      zone.push({ time: c.time, value: NaN as any });
+    }
+
+    lastLineState = isZone ? "zone" : "move";
   }
 
-  return out;
+  return { trend, zone, turns };
 }
 
 function buildDirectionLine(
@@ -1279,13 +1314,14 @@ async function saveAllSizes() {
       priceLineVisible: false,
       lastValueVisible: false,
     });
-
+/*
     const holdLineSeries = priceChart.addSeries(LineSeries, {
   color: "#ff00ff",
   lineWidth: 3,
   priceLineVisible: false,
   lastValueVisible: false,
 });
+*/
 
     const smaUpperSeries = priceChart.addSeries(LineSeries, {
   color: "#ff4d6d",
@@ -1304,6 +1340,13 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
     const directionLineSeries = priceChart.addSeries(LineSeries, {
   color: "#facc15",
   lineWidth: 3,
+  priceLineVisible: false,
+  lastValueVisible: false,
+});
+
+    const directionZoneSeries = priceChart.addSeries(LineSeries, {
+  color: "#ff00ff",
+  lineWidth: 4,
   priceLineVisible: false,
   lastValueVisible: false,
 });
@@ -1940,9 +1983,8 @@ const visibleCandles =
         if (chartType === "renko") {
   smaFastSeries.setData([]);
   smaSlowSeries.setData([]);
-          holdLineSeries.setData(
-  holdLine as any
-);
+        directionLineSeries.setData(holdLine.trend as any);
+directionZoneSeries.setData(holdLine.zone as any);
   smaUpperSeries.setData([]);
   smaLowerSeries.setData([]);
 } else {
