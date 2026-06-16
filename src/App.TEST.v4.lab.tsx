@@ -1519,17 +1519,56 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
        
         const dirLine = buildDirectionLine(candles, 0.15, 0);
-        const directionZones: MarkerPoint[] = [];
+        const directionLongSignals: MarkerPoint[] = [];
+const directionShortSignals: MarkerPoint[] = [];
 
-for (let i = 1; i < dirLine.line.length; i++) {
-  const prev = dirLine.line[i - 1];
-  const curr = dirLine.line[i];
+let zoneFrom: "up" | "down" | null = null;
+let oppositeCount = 0;
 
-  if (curr.value === prev.value) {
-    directionZones.push({
-      time: curr.time,
-      value: curr.value,
-    });
+const dirByTime = new Map<number, any>();
+dirLine.line.forEach((p: any) => dirByTime.set(p.time, p));
+
+for (let i = 1; i < haCandles.length; i++) {
+  const prevDir = dirByTime.get(haCandles[i - 1].time);
+  const currDir = dirByTime.get(haCandles[i].time);
+  if (!prevDir || !currDir) continue;
+
+  const horizontal = currDir.value === prevDir.value;
+
+  if (!horizontal) {
+    zoneFrom = currDir.direction;
+    oppositeCount = 0;
+    continue;
+  }
+
+  const h = haCandles[i];
+
+  if (zoneFrom === "up") {
+    if (h.close < h.open) {
+      oppositeCount += 1;
+      if (oppositeCount === 2) {
+        directionShortSignals.push({
+          time: h.time,
+          value: h.high,
+        });
+      }
+    } else {
+      oppositeCount = 0;
+    }
+  }
+
+  if (zoneFrom === "down") {
+    if (h.close > h.open) {
+      oppositeCount += 1;
+      if (oppositeCount === 2) {
+        directionLongSignals.push({
+          time: h.time,
+          value: h.low,
+        });
+      }
+    } else {
+      oppositeCount = 0;
+    }
   }
 }
         const smaUpper = smaSlow.map((p) => ({
@@ -2031,11 +2070,9 @@ if (!side) return null;
     firstFlip: haFlipConfirmed.slice(-5),
   });
 
- flipLongSeries.setData(
-  directionZones as any
-);
+flipLongSeries.setData(directionLongSignals as any);
 
-flipShortSeries.setData([]);
+flipShortSeries.setData(directionShortSignals as any);
   
 } else {
   flipLongSeries.setData(
