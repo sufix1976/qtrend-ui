@@ -1518,7 +1518,7 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
        
-        const dirLine = buildDirectionLine(candles, 0.15, 0);
+        const dirLine = buildDirectionLine(candles, 0.25, 0);
                 const haCandles = buildHeikinAshi(candles);
         const directionLongSignals: MarkerPoint[] = [];
 const directionShortSignals: MarkerPoint[] = [];
