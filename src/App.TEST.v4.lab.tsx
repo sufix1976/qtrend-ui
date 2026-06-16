@@ -3732,21 +3732,20 @@ function sanitizeLinePoints(points: any[]): LinePoint[] {
 }
 
 function buildRenkoCandles(
-  if (out.length === 0) {
-  console.log(
-    "[RENKO SETTINGS]",
-    {
-      boxSize,
-      sourceMode,
-      reversalBricks
-    }
-  );
-}
+ 
   candles: Candle[],
   boxSize: number,
   sourceMode: "close" | "hl" = "close",
   reversalBricks = 2
 ): Candle[] {
+  console.log(
+  "[RENKO SETTINGS]",
+  {
+    boxSize,
+    sourceMode,
+    reversalBricks
+  }
+);
   if (!Array.isArray(candles) || !candles.length) return [];
   if (!Number.isFinite(boxSize) || boxSize <= 0) return [];
 
