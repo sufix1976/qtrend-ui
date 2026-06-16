@@ -1937,14 +1937,20 @@ if (!side) return null;
 
   flipLongSeries.setData(
   haLongConfirmed.map((p) => ({
-    time: (p as any).sourceTime ?? p.time,
+    time: findNextCandleTime(
+  chartCandles as any,
+  (p as any).sourceTime ?? p.time
+),
     value: p.value,
   })) as any
 );
 
 flipShortSeries.setData(
   haShortConfirmed.map((p) => ({
-    time: (p as any).sourceTime ?? p.time,
+    time: findNextCandleTime(
+  chartCandles as any,
+  (p as any).sourceTime ?? p.time
+),
     value: p.value,
   })) as any
 );
@@ -1967,7 +1973,10 @@ macdBullKnickSeries.setData(
   macdKnicks
     .filter((k) => k.side === "bull")
     .map((k) => ({
-      time: (k as any).sourceTime ?? k.time,
+      time: findNextCandleTime(
+  chartCandles as any,
+  (k as any).sourceTime ?? k.time
+),
       value: k.value,
     })) as any
 );
@@ -1976,7 +1985,10 @@ macdBearKnickSeries.setData(
   macdKnicks
     .filter((k) => k.side === "bear")
     .map((k) => ({
-      time: (k as any).sourceTime ?? k.time,
+      time: findNextCandleTime(
+  chartCandles as any,
+  (k as any).sourceTime ?? k.time
+),
       value: k.value,
     })) as any
 );
@@ -4844,6 +4856,18 @@ function findNearestCandle(candles: Candle[], ts: number): Candle | null {
   }
 
   return best;
+}
+
+function findNextCandleTime(candles: Candle[], ts: number): number {
+  if (!candles.length || !ts) return ts;
+
+  for (const c of candles) {
+    if (Number(c.time) >= Number(ts)) {
+      return Number(c.time);
+    }
+  }
+
+  return Number(ts);
 }
 
 function pickNumber(...values: any[]): number | null {
