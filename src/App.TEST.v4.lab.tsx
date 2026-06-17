@@ -2519,6 +2519,7 @@ return () => {
         priceChart.removeSeries(mainSeries);
         priceChart.removeSeries(smaFastSeries);
         priceChart.removeSeries(smaSlowSeries);
+        priceChart.removeSeries(directionLineSeries);
         priceChart.removeSeries(candidateLongSeries);
         priceChart.removeSeries(candidateShortSeries);
         priceChart.removeSeries(strategyLongSeries);
