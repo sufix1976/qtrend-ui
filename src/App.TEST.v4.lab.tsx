@@ -439,48 +439,75 @@ if (activeSide === "long" && lineFalling && isRed) {
 
       // Sofort-Flip, wenn Linie gegen aktive Position kippt
       if (activeSide === "short" && lineState === "up") {
-        longs.push({
-          time: h.time,
-          value: h.low,
-        });
-        activeSide = "long";
-      }
+  longs.push({
+    time: h.time,
+    value: h.low,
+  });
 
-      if (activeSide === "long" && lineState === "down") {
-        shorts.push({
-          time: h.time,
-          value: h.high,
-        });
-        activeSide = "short";
-      }
+  activeSide = "long";
+
+  // Wichtig:
+  // Line-Flip darf die nächste Wechselzone NICHT blockieren.
+  zoneTriggered = false;
+}
+
+if (activeSide === "long" && lineState === "down") {
+  shorts.push({
+    time: h.time,
+    value: h.high,
+  });
+
+  activeSide = "short";
+
+  // Wichtig:
+  // Line-Flip darf die nächste Wechselzone NICHT blockieren.
+  zoneTriggered = false;
+}
 
       lastTrend = lineState;
       continue;
     }
 
-    // Wechselzone
-   if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
-      // vorher DOWN -> erste grüne Heikin = LONG
-      if (lastTrend === "down" && isGreen) {
-        longs.push({
-          time: h.time,
-          value: h.low,
-        });
-        activeSide = "long";
-        zoneTriggered = true;
-      }
+    if (lineState === "zone") {
+  console.log("[ZONE CHECK]", {
+    time: h.time,
+    lastTrend,
+    activeSide,
+    zoneTriggered,
+    earlySignalSide,
+    isGreen,
+    isRed,
+  });
+}
 
-      // vorher UP -> erste rote Heikin = SHORT
-      if (lastTrend === "up" && isRed) {
-        shorts.push({
-          time: h.time,
-          value: h.high,
-        });
-        activeSide = "short";
-        zoneTriggered = true;
-      }
-    }
+ // Wechselzone
+if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
+  // vorher DOWN -> erste grüne Heikin = LONG
+  if (lastTrend === "down" && isGreen) {
+    longs.push({
+      time: h.time,
+      value: h.low,
+    });
+
+    activeSide = "long";
+
+    // Zone-Lock NUR bei echtem Zone-Heikin-Entry
+    zoneTriggered = true;
   }
+
+  // vorher UP -> erste rote Heikin = SHORT
+  if (lastTrend === "up" && isRed) {
+    shorts.push({
+      time: h.time,
+      value: h.high,
+    });
+
+    activeSide = "short";
+
+    // Zone-Lock NUR bei echtem Zone-Heikin-Entry
+    zoneTriggered = true;
+  }
+}
 
   return { longs, shorts };
 }
