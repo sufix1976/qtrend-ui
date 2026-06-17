@@ -2573,6 +2573,7 @@ distChart.removeSeries(macdBearKnickSeries);
     renkoSourceMode,
     renkoTrendLookbackUI,
     renkoReversalBricksUI,
+    directionThresholdPctUI,
 ]);
 
   const displayState = liveState;
