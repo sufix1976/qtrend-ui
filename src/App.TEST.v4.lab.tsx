@@ -483,7 +483,7 @@ if (activeSide === "long" && lineState === "down") {
  // Wechselzone
 if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
   // vorher DOWN -> erste grüne Heikin = LONG
-  if (lastTrend === "down" && isGreen) {
+  if (activeSide === "short" && isGreen) {
     longs.push({
       time: h.time,
       value: h.low,
@@ -496,7 +496,7 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
   }
 
   // vorher UP -> erste rote Heikin = SHORT
-  if (lastTrend === "up" && isRed) {
+ if (activeSide === "long" && isRed) {
     shorts.push({
       time: h.time,
       value: h.high,
