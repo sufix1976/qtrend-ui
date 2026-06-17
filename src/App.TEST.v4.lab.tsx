@@ -367,7 +367,99 @@ function buildDirectionLine(
 }
 
 
+function buildLineHeikinSignals(
+  haCandles: Candle[],
+  dirLine: any,
+  zonePct = 0.03
+) {
+  const longs: MarkerPoint[] = [];
+  const shorts: MarkerPoint[] = [];
 
+  if (!haCandles.length || !dirLine?.line?.length) {
+    return { longs, shorts };
+  }
+
+  const dirByTime = new Map<number, any>();
+  dirLine.line.forEach((p: any) => dirByTime.set(Number(p.time), p));
+
+  let lastTrend: "up" | "down" | null = null;
+  let activeSide: "long" | "short" | null = null;
+  let zoneTriggered = false;
+
+  for (let i = 1; i < haCandles.length; i++) {
+    const h = haCandles[i];
+    const prevLine = dirByTime.get(Number(haCandles[i - 1].time));
+    const currLine = dirByTime.get(Number(h.time));
+
+    if (!prevLine || !currLine) continue;
+
+    const diff = Number(currLine.value) - Number(prevLine.value);
+    const zoneLimit = Math.abs(Number(currLine.value)) * (zonePct / 100);
+
+    let lineState: "up" | "down" | "zone";
+
+    if (diff > zoneLimit) {
+      lineState = "up";
+    } else if (diff < -zoneLimit) {
+      lineState = "down";
+    } else {
+      lineState = "zone";
+    }
+
+    const isGreen = h.close > h.open;
+    const isRed = h.close < h.open;
+
+    // Linie läuft wieder eindeutig
+    if (lineState === "up" || lineState === "down") {
+      zoneTriggered = false;
+
+      // Sofort-Flip, wenn Linie gegen aktive Position kippt
+      if (activeSide === "short" && lineState === "up") {
+        longs.push({
+          time: h.time,
+          value: h.low,
+        });
+        activeSide = "long";
+      }
+
+      if (activeSide === "long" && lineState === "down") {
+        shorts.push({
+          time: h.time,
+          value: h.high,
+        });
+        activeSide = "short";
+      }
+
+      lastTrend = lineState;
+      continue;
+    }
+
+    // Wechselzone
+    if (lineState === "zone" && !zoneTriggered) {
+      // vorher DOWN -> erste grüne Heikin = LONG
+      if (lastTrend === "down" && isGreen) {
+        longs.push({
+          time: h.time,
+          value: h.low,
+        });
+        activeSide = "long";
+        zoneTriggered = true;
+      }
+
+      // vorher UP -> erste rote Heikin = SHORT
+      if (lastTrend === "up" && isRed) {
+        shorts.push({
+          time: h.time,
+          value: h.high,
+        });
+        activeSide = "short";
+        zoneTriggered = true;
+      }
+    }
+  }
+
+  return { longs, shorts };
+}
 
 
 
@@ -1254,14 +1346,14 @@ const smaLowerSeries = priceChart.addSeries(LineSeries, {
   priceLineVisible: false,
   lastValueVisible: false,
 });
-
+/*
     const directionZoneSeries = priceChart.addSeries(LineSeries, {
   color: "#ff00ff",
   lineWidth: 4,
   priceLineVisible: false,
   lastValueVisible: false,
 });
-   
+   */
 
     const candidateLongSeries = priceChart.addSeries(LineSeries, {
       priceScaleId: "",
@@ -1519,6 +1611,11 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
        
         const dirLine = buildDirectionLine(candles, 0.20, 0);
+        const lineSignals = buildLineHeikinSignals(
+  haCandles,
+  dirLine,
+  0.03
+);
                 const haCandles = buildHeikinAshi(candles);
         const directionLongSignals: MarkerPoint[] = [];
 const directionShortSignals: MarkerPoint[] = [];
@@ -2071,9 +2168,8 @@ if (!side) return null;
     firstFlip: haFlipConfirmed.slice(-5),
   });
 
-flipLongSeries.setData(directionLongSignals as any);
-
-flipShortSeries.setData(directionShortSignals as any);
+flipLongSeries.setData(lineSignals.longs as any);
+flipShortSeries.setData(lineSignals.shorts as any);
   
 } else {
   flipLongSeries.setData(
