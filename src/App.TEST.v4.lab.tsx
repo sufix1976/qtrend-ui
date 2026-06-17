@@ -397,6 +397,8 @@ function buildLineHeikinSignals(
 
     const diff = Number(currLine.value) - Number(prevLine.value);
     const zoneLimit = Math.abs(Number(currLine.value)) * (zonePct / 100);
+    const lineRising = diff > 0;
+const lineFalling = diff < 0;
 
     let lineState: "up" | "down" | "zone";
 
@@ -411,8 +413,28 @@ function buildLineHeikinSignals(
     const isGreen = h.close > h.open;
     const isRed = h.close < h.open;
 
+    let earlySignalSide: "long" | "short" | null = null;
+
+if (activeSide === "short" && lineRising && isGreen) {
+  longs.push({
+    time: h.time,
+    value: h.low,
+  });
+  activeSide = "long";
+  earlySignalSide = "long";
+}
+
+if (activeSide === "long" && lineFalling && isRed) {
+  shorts.push({
+    time: h.time,
+    value: h.high,
+  });
+  activeSide = "short";
+  earlySignalSide = "short";
+}
+
     // Linie läuft wieder eindeutig
-    if (lineState === "up" || lineState === "down") {
+   if (!earlySignalSide && (lineState === "up" || lineState === "down")) {
       zoneTriggered = false;
 
       // Sofort-Flip, wenn Linie gegen aktive Position kippt
@@ -437,7 +459,7 @@ function buildLineHeikinSignals(
     }
 
     // Wechselzone
-    if (lineState === "zone" && !zoneTriggered) {
+   if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
       // vorher DOWN -> erste grüne Heikin = LONG
       if (lastTrend === "down" && isGreen) {
         longs.push({
