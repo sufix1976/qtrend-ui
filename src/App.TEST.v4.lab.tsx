@@ -2066,9 +2066,11 @@ const visibleCandles =
   smaSlowSeries.setData(chartSmaSlow as any);
   smaUpperSeries.setData(chartSmaUpper as any);
   smaLowerSeries.setData(chartSmaLower as any);
+        
          
 
 }
+        directionLineSeries.setData(dirLine.line as any);
 
         const macdSource =
   chartType === "renko" && chartRenkoCandles.length
