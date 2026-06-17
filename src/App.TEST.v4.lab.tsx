@@ -884,7 +884,7 @@ useEffect(() => {
       sma_middle: 100,
       adaptive_band: 0,
       adaptive_band_mult: 1,
-      directionThresholdPctUI,
+      direction_threshold_pct: directionThresholdPctUI,
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
 
