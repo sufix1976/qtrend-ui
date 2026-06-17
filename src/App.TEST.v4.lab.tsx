@@ -387,6 +387,7 @@ function buildLineHeikinSignals(
   let lastTrend: "up" | "down" | null = null;
   let activeSide: "long" | "short" | null = null;
   let zoneTriggered = false;
+  let lastEntryWasFlip = false;
 
   for (let i = 1; i < haCandles.length; i++) {
     const h = haCandles[i];
@@ -445,6 +446,7 @@ if (activeSide === "long" && lineFalling && isRed) {
   });
 
   activeSide = "long";
+        lastEntryWasFlip = true;
 
   // Wichtig:
   // Line-Flip darf die nächste Wechselzone NICHT blockieren.
@@ -458,6 +460,7 @@ if (activeSide === "long" && lineState === "down") {
   });
 
   activeSide = "short";
+  lastEntryWasFlip = true;
 
   // Wichtig:
   // Line-Flip darf die nächste Wechselzone NICHT blockieren.
@@ -482,9 +485,15 @@ if (activeSide === "long" && lineState === "down") {
 
 // Wechselzone
 if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
-  const effectiveSide =
-    activeSide ??
-    (lastTrend === "up" ? "long" : lastTrend === "down" ? "short" : null);
+ const effectiveSide =
+  lastEntryWasFlip && activeSide
+    ? activeSide
+    : activeSide ??
+      (lastTrend === "up"
+        ? "long"
+        : lastTrend === "down"
+        ? "short"
+        : null);
 
   // SHORT aktiv / vorher DOWN -> erste grüne Heikin = LONG
   if (effectiveSide === "short" && isGreen) {
@@ -495,6 +504,7 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
 
     activeSide = "long";
     zoneTriggered = true;
+    lastEntryWasFlip = false;
   }
 
   // LONG aktiv / vorher UP -> erste rote Heikin = SHORT
@@ -506,6 +516,7 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
 
     activeSide = "short";
     zoneTriggered = true;
+    lastEntryWasFlip = false;
   }
 }
 
