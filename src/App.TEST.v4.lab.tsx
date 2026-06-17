@@ -506,10 +506,13 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
 
     // Zone-Lock NUR bei echtem Zone-Heikin-Entry
     zoneTriggered = true;
-  }
+   }
 }
 
-  return { longs, shorts };
+// Ende der for-Schleife
+}
+
+return { longs, shorts };
 }
 
 
