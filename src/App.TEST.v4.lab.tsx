@@ -480,33 +480,33 @@ if (activeSide === "long" && lineState === "down") {
   });
 }
 
- // Wechselzone
+// Wechselzone
 if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
-  // vorher DOWN -> erste grüne Heikin = LONG
-  if (activeSide === "short" && isGreen) {
+  const effectiveSide =
+    activeSide ??
+    (lastTrend === "up" ? "long" : lastTrend === "down" ? "short" : null);
+
+  // SHORT aktiv / vorher DOWN -> erste grüne Heikin = LONG
+  if (effectiveSide === "short" && isGreen) {
     longs.push({
       time: h.time,
       value: h.low,
     });
 
     activeSide = "long";
-
-    // Zone-Lock NUR bei echtem Zone-Heikin-Entry
     zoneTriggered = true;
   }
 
-  // vorher UP -> erste rote Heikin = SHORT
- if (activeSide === "long" && isRed) {
+  // LONG aktiv / vorher UP -> erste rote Heikin = SHORT
+  if (effectiveSide === "long" && isRed) {
     shorts.push({
       time: h.time,
       value: h.high,
     });
 
     activeSide = "short";
-
-    // Zone-Lock NUR bei echtem Zone-Heikin-Entry
     zoneTriggered = true;
-   }
+  }
 }
 
 // Ende der for-Schleife
