@@ -1609,14 +1609,14 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
-       
+         const haCandles = buildHeikinAshi(candles);
         const dirLine = buildDirectionLine(candles, 0.20, 0);
         const lineSignals = buildLineHeikinSignals(
   haCandles,
   dirLine,
   0.03
 );
-                const haCandles = buildHeikinAshi(candles);
+              
         const directionLongSignals: MarkerPoint[] = [];
 const directionShortSignals: MarkerPoint[] = [];
 
@@ -2038,7 +2038,7 @@ const visibleCandles =
   smaFastSeries.setData([]);
   smaSlowSeries.setData([]);
        directionLineSeries.setData(dirLine.line as any);
-directionZoneSeries.setData([]);
+
 
   smaUpperSeries.setData([]);
   smaLowerSeries.setData([]);
