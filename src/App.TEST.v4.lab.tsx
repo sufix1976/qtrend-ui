@@ -2045,6 +2045,12 @@ const visibleCandles =
         );
         */
 
+        console.log(
+  "[SET DATA]",
+  symbol,
+  visibleCandles.length
+);
+
         mainSeries.setData(visibleCandles as any);
         
         if (chartType === "renko") {
@@ -2487,7 +2493,7 @@ setProfitFactor(flipReplay.profitFactor);
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
         setBrokerState(liveBrokerState ?? real.brokerState);
-
+console.log("[LOAD DONE]", symbol);
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
