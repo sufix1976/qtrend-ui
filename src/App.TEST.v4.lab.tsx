@@ -574,6 +574,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
+  const [directionThresholdPctUI, setDirectionThresholdPctUI] = useState(0.20);
   const [kinkConfirmBarsUI, setKinkConfirmBarsUI] = useState(3);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
@@ -615,6 +616,9 @@ const [filteredReplayText, setFilteredReplayText] = useState("-");
   if (cfg) {
     setEntryBandUI(Number(cfg.entry_band ?? entryBand));
     setMinKinkUI(Number(cfg.min_kink ?? minKinkMove));
+    setDirectionThresholdPctUI(
+  Number(cfg.direction_threshold_pct ?? cfg.directionThresholdPct ?? 0.20)
+);
     setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
     setSmaFastUI(Number(cfg.sma_fast ?? 10));
     setSmaSlowUI(Number(cfg.sma_slow ?? 100));
@@ -646,6 +650,7 @@ const [filteredReplayText, setFilteredReplayText] = useState("-");
   } else {
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
+    setDirectionThresholdPctUI(0.20);
     setPeakUI(peakLookback);
     setSmaFastUI(10);
     setSmaSlowUI(100);
@@ -769,6 +774,7 @@ async function toggleAutoEnabled(symbolToToggle: string) {
       entry_band: entryBandUI,
       sma_offset: smaOffsetUI,
       min_kink: minKinkUI,
+      direction_threshold_pct: directionThresholdPctUI,
       peak_lookback: peakUI,
       sma_fast: smaFastUI,
       sma_slow: smaSlowUI,
@@ -1610,7 +1616,11 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
 
          const haCandles = buildHeikinAshi(candles);
-        const dirLine = buildDirectionLine(candles, 0.20, 0);
+       const dirLine = buildDirectionLine(
+  candles,
+  directionThresholdPctUI,
+  0
+);
         const lineSignals = buildLineHeikinSignals(
   haCandles,
   dirLine,
@@ -2966,6 +2976,20 @@ onChange={(e) => {
     onChange={(e) => setMinKnickStrengthFilter(Number(e.target.value))}
     style={{ width: "100%" }}
   />
+
+      <div style={{ marginTop: 8, fontSize: 12, color: "#facc15" }}>
+  Direction Threshold: {directionThresholdPctUI.toFixed(2)}
+</div>
+
+<input
+  type="range"
+  min={0.05}
+  max={0.50}
+  step={0.01}
+  value={directionThresholdPctUI}
+  onChange={(e) => setDirectionThresholdPctUI(Number(e.target.value))}
+  style={{ width: "100%" }}
+/>
 
   <div style={{ marginTop: 6, fontSize: 12, color: "#e2e8f0" }}>
     {rawReplayText}
