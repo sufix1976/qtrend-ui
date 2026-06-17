@@ -103,6 +103,8 @@ type SymbolConfigRow = {
   renkoReversalBricks?: number | null;
   renko_reversal_bricks?: number | null;
   auto_enabled?: number | boolean | null;
+  direction_threshold_pct?: number | null;
+  directionThresholdPct?: number | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
