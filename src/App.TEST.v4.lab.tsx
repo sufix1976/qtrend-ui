@@ -549,6 +549,13 @@ function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
     );
   }
 
+  console.log("[HA MACD 1M DOTS BUILD]", {
+  candles1m: candles1m.length,
+  histLength: hist.length,
+  closed,
+  dots,
+});
+  
   return dots;
 }
 
@@ -1119,9 +1126,14 @@ async function saveAllSizes() {
         try {
   const candles1m = await fetchCandles(s, "1m");
 
-  setMacd1mDots(
-    buildHaMacd1mDots(candles1m)
-  );
+  const dots = buildHaMacd1mDots(candles1m);
+
+console.log("[HA MACD 1M DOTS RESULT]", {
+  candles1m: candles1m.length,
+  dots,
+});
+
+setMacd1mDots(dots);
 } catch (e) {
   console.warn("[HA MACD 1M DOTS]", e);
   setMacd1mDots([]);
