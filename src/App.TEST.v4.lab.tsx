@@ -472,6 +472,7 @@ if (activeSide === "long" && lineState === "down") {
     }
 
     if (lineState === "zone") {
+      /*
   console.log("[ZONE CHECK]", {
     time: h.time,
     lastTrend,
@@ -481,6 +482,7 @@ if (activeSide === "long" && lineState === "down") {
     isGreen,
     isRed,
   });
+      */
 }
 
 // Wechselzone
