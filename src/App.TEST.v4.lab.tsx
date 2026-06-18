@@ -2613,10 +2613,10 @@ setProfitFactor(flipReplay.profitFactor);
         setLastRealTradeText(real.lastRealTradeText);
         setBrokerState(liveBrokerState ?? real.brokerState);
 
-        try {
-  console.log("[HA MACD 1M] start", s);
+try {
+  console.log("[HA MACD 1M] start", symbol);
 
-  const candles1m = await fetchCandles(s, "1m");
+  const candles1m = await fetchCandles(symbol, "1m");
 
   console.log("[HA MACD 1M] candles", candles1m.length);
 
@@ -2629,7 +2629,9 @@ setProfitFactor(flipReplay.profitFactor);
   console.warn("[HA MACD 1M] failed", e);
   setMacd1mDots([]);
 }
+
 console.log("[LOAD DONE]", symbol);
+        
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
