@@ -3619,7 +3619,9 @@ onChange={(e) => {
     pointerEvents: "none",
   }}
 >
-  <span>1m</span>
+  <span>
+  1m {JSON.stringify(macd1mDots)}
+</span>
 
   {macd1mDots.map((d, i) => (
     <span key={i}>
