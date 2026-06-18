@@ -2612,6 +2612,23 @@ setProfitFactor(flipReplay.profitFactor);
         setRealCloseCount(real.realClosePoints.length);
         setLastRealTradeText(real.lastRealTradeText);
         setBrokerState(liveBrokerState ?? real.brokerState);
+
+        try {
+  console.log("[HA MACD 1M] start", s);
+
+  const candles1m = await fetchCandles(s, "1m");
+
+  console.log("[HA MACD 1M] candles", candles1m.length);
+
+  const dots = buildHaMacd1mDots(candles1m);
+
+  console.log("[HA MACD 1M] dots", dots);
+
+  setMacd1mDots(dots);
+} catch (e) {
+  console.warn("[HA MACD 1M] failed", e);
+  setMacd1mDots([]);
+}
 console.log("[LOAD DONE]", symbol);
         setStatus("ready");
       } catch (err) {
@@ -3619,21 +3636,15 @@ onChange={(e) => {
     pointerEvents: "none",
   }}
 >
- <span>
-  1m {JSON.stringify(macd1mDots.length ? macd1mDots : ["test","test","test"])}
-</span>
+ <span>1m</span>
 
-        {(macd1mDots.length ? macd1mDots : ["green", "red", "green"]).map((d, i) => (
+{macd1mDots.map((d, i) => (
   <span key={i}>
     {d === "green" ? "🟢" : "🔴"}
   </span>
 ))}
 
-  {macd1mDots.map((d, i) => (
-    <span key={i}>
-      {d === "green" ? "🟢" : "🔴"}
-    </span>
-  ))}
+ 
 </div>
       
       <div
