@@ -536,32 +536,23 @@ function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
   const macd = calcMACD(ha, 1, 18, 5);
   console.log("MACD", macd);
 
-  const hist = macd.histogram || [];
+const line = macd.macd || [];
 
-  console.log("HIST LENGTH", hist?.length);
+if (!line || line.length < 6) return [];
 
-if (!hist || hist.length < 6) return [];
+const closed = line.slice(-6);
 
-  const closed = hist.slice(-6);
+const dots: ("green" | "red")[] = [];
 
-  const dots: ("green" | "red")[] = [];
+for (let i = 1; i < closed.length; i++) {
+  dots.push(
+    Number(closed[i].value) > Number(closed[i - 1].value)
+      ? "green"
+      : "red"
+  );
+}
 
-  for (let i = 1; i < closed.length; i++) {
-    dots.push(
-      Number(closed[i].value) > Number(closed[i - 1].value)
-        ? "green"
-        : "red"
-    );
-  }
-
-  console.log("[HA MACD 1M DOTS BUILD]", {
-  candles1m: candles1m.length,
-  histLength: hist.length,
-  closed,
-  dots,
-});
-  
-  return dots;
+return dots;
 }
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
