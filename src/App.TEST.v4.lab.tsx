@@ -540,16 +540,19 @@ const line = macd.macd || [];
 
 if (!line || line.length < 6) return [];
 
-const closed = line.slice(-6);
+// Letzte 6 Punkte ergeben 5 echte Bewegungsstrecken
+const lastPoints = line.slice(-6);
 
 const dots: ("green" | "red")[] = [];
 
-for (let i = 1; i < closed.length; i++) {
-  dots.push(
-    Number(closed[i].value) > Number(closed[i - 1].value)
-      ? "green"
-      : "red"
-  );
+for (let i = 1; i < lastPoints.length; i++) {
+  const prev = Number(lastPoints[i - 1].value);
+  const curr = Number(lastPoints[i].value);
+
+  // Jede Strecke einzeln bewerten:
+  // curr > prev = Linie steigt
+  // curr < prev = Linie fällt
+  dots.push(curr >= prev ? "green" : "red");
 }
 
 return dots;
