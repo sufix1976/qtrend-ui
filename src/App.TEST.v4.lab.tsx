@@ -534,10 +534,13 @@ function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
   const ha = buildHeikinAshi(candles1m);
 
   const macd = calcMACD(ha, 1, 18, 5);
+  console.log("MACD", macd);
 
   const hist = macd.histogram || [];
 
-  if (!hist || hist.length < 6) return [];
+  console.log("HIST LENGTH", hist?.length);
+
+if (!hist || hist.length < 6) return [];
 
   const closed = hist.slice(-6);
 
