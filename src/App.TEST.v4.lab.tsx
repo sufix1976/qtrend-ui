@@ -529,16 +529,11 @@ return { longs, shorts };
 function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
   if (!Array.isArray(candles1m) || candles1m.length < 30) return [];
 
-  const ha = buildHeikinAshiCandles(candles1m);
+  const ha = buildHeikinAshi(candles1m);
 
-  const macd = computeMACD(
-    ha.map((c: any) => Number(c.close)),
-    1,
-    18,
-    5
-  );
+  const macd = calcMACD(ha, 1, 18, 5);
 
-  const hist = macd.histogram || macd.hist || [];
+  const hist = macd.histogram || [];
 
   if (!hist || hist.length < 6) return [];
 
@@ -547,7 +542,11 @@ function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
   const dots: ("green" | "red")[] = [];
 
   for (let i = 1; i < closed.length; i++) {
-    dots.push(Number(closed[i]) > Number(closed[i - 1]) ? "green" : "red");
+    dots.push(
+      Number(closed[i].value) > Number(closed[i - 1].value)
+        ? "green"
+        : "red"
+    );
   }
 
   return dots;
