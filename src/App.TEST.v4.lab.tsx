@@ -526,7 +526,32 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
 return { longs, shorts };
 }
 
+function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
+  if (!Array.isArray(candles1m) || candles1m.length < 30) return [];
 
+  const ha = buildHeikinAshiCandles(candles1m);
+
+  const macd = computeMACD(
+    ha.map((c: any) => Number(c.close)),
+    1,
+    18,
+    5
+  );
+
+  const hist = macd.histogram || macd.hist || [];
+
+  if (!hist || hist.length < 6) return [];
+
+  const closed = hist.slice(-6);
+
+  const dots: ("green" | "red")[] = [];
+
+  for (let i = 1; i < closed.length; i++) {
+    dots.push(Number(closed[i]) > Number(closed[i - 1]) ? "green" : "red");
+  }
+
+  return dots;
+}
 
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
@@ -653,6 +678,7 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("heikin");
+  const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
   const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
   const [renkoReversalBricksUI, setRenkoReversalBricksUI] = useState(2);
@@ -1090,6 +1116,17 @@ async function saveAllSizes() {
 
         const candles = await fetchCandles(s, tf);
         if (!candles.length) throw new Error("no candles");
+
+        try {
+  const candles1m = await fetchCandles(s, "1m");
+
+  setMacd1mDots(
+    buildHaMacd1mDots(candles1m)
+  );
+} catch (e) {
+  console.warn("[HA MACD 1M DOTS]", e);
+  setMacd1mDots([]);
+}
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastVal));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowVal));
@@ -3547,6 +3584,33 @@ onChange={(e) => {
     overflow: "hidden",
   }}
 />
+
+      <div
+  style={{
+    position: "absolute",
+    right: 20,
+    bottom: "29%",
+    zIndex: 50,
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    background: "rgba(0,0,0,0.55)",
+    padding: "4px 8px",
+    borderRadius: 6,
+    color: "#fff",
+    fontSize: 12,
+    pointerEvents: "none",
+  }}
+>
+  <span>1m</span>
+
+  {macd1mDots.map((d, i) => (
+    <span key={i}>
+      {d === "green" ? "🟢" : "🔴"}
+    </span>
+  ))}
+</div>
+      
       <div
     ref={distRef}
     style={{
