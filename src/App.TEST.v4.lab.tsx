@@ -1125,6 +1125,12 @@ async function saveAllSizes() {
 
         try {
   const candles1m = await fetchCandles(s, "1m");
+          console.log("[HA MACD 1M LOAD OK]", {
+  symbol: s,
+  candles1m: candles1m.length,
+  first: candles1m[0],
+  last: candles1m[candles1m.length - 1],
+});
 
   const dots = buildHaMacd1mDots(candles1m);
 
