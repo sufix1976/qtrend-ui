@@ -3619,9 +3619,15 @@ onChange={(e) => {
     pointerEvents: "none",
   }}
 >
-  <span>
-  1m {JSON.stringify(macd1mDots)}
+ <span>
+  1m {JSON.stringify(macd1mDots.length ? macd1mDots : ["test","test","test"])}
 </span>
+
+        {(macd1mDots.length ? macd1mDots : ["green", "red", "green"]).map((d, i) => (
+  <span key={i}>
+    {d === "green" ? "🟢" : "🔴"}
+  </span>
+))}
 
   {macd1mDots.map((d, i) => (
     <span key={i}>
