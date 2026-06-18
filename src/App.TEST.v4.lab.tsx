@@ -1128,25 +1128,20 @@ async function saveAllSizes() {
         const candles = await fetchCandles(s, tf);
         if (!candles.length) throw new Error("no candles");
 
-        try {
+ try {
+  console.log("[HA MACD 1M] start", s);
+
   const candles1m = await fetchCandles(s, "1m");
-          console.log("[HA MACD 1M LOAD OK]", {
-  symbol: s,
-  candles1m: candles1m.length,
-  first: candles1m[0],
-  last: candles1m[candles1m.length - 1],
-});
+
+  console.log("[HA MACD 1M] candles", candles1m.length);
 
   const dots = buildHaMacd1mDots(candles1m);
 
-console.log("[HA MACD 1M DOTS RESULT]", {
-  candles1m: candles1m.length,
-  dots,
-});
+  console.log("[HA MACD 1M] dots", dots);
 
-setMacd1mDots(dots);
+  setMacd1mDots(dots);
 } catch (e) {
-  console.warn("[HA MACD 1M DOTS]", e);
+  console.warn("[HA MACD 1M] failed", e);
   setMacd1mDots([]);
 }
 
