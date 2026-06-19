@@ -108,23 +108,6 @@ type SymbolConfigRow = {
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
-
-type ScannerRow = {
-  symbol: string;
-  interval: string;
-  trades: number;
-  wins: number;
-  losses: number;
-  pf: number | null;
-  netPnL: number;
-  grossProfit: number;
-  grossLoss: number;
-  error?: string;
-};
-
-
-
-
 type SymbolSizeMap = Record<string, number>;
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
@@ -656,11 +639,6 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
 
   const [profitFactor, setProfitFactor] = useState<number | null>(null);
 
-  const [scannerOpen, setScannerOpen] = useState(false);
-const [scannerRows, setScannerRows] = useState<ScannerRow[]>([]);
-const [scannerLoading, setScannerLoading] = useState(false);
-const [scannerMessage, setScannerMessage] = useState("");
-
   const [maxPositionLossEur, setMaxPositionLossEur] = useState<string>("");
   const [maxLossMessage, setMaxLossMessage] = useState("");
 
@@ -1114,93 +1092,7 @@ async function saveAllSizes() {
   }
 }
 
-      async function runBacktestScanner() {
-  try {
-    setScannerLoading(true);
-    setScannerMessage("Scanner läuft...");
-
-    const rows: ScannerRow[] = [];
-
-    for (const s of SYMBOLS) {
-      try {
-        const cfg = symbolConfigMap[s] || null;
-
-        const tf =
-          cfg?.interval && INTERVALS.includes(cfg.interval as IntervalOption)
-            ? (cfg.interval as IntervalOption)
-            : interval;
-
-        const entryBandVal = Number(cfg?.entry_band ?? ENTRY_BAND_BY_SYMBOL[s] ?? 100);
-        //const minKinkVal = Number(cfg?.min_kink ?? MIN_KINK_MOVE_BY_SYMBOL[s] ?? 1);
-        const smaFastVal = Number(cfg?.sma_fast ?? 10);
-        const smaSlowVal = Number(cfg?.sma_slow ?? 100);
-        const smaMiddleVal = Number(cfg?.sma_middle ?? 100);
-        const smaOffsetVal = Number(cfg?.sma_offset ?? 150);
-        const adaptiveBandVal = Boolean(cfg?.adaptive_band ?? false);
-        const adaptiveBandMultVal = Number(cfg?.adaptive_band_mult ?? 1);
-
-        const candles = await fetchCandles(s, tf);
-        if (!candles.length) throw new Error("no candles");
-
-
-
-        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastVal));
-        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowVal));
-
-        const smaUpper = smaSlow.map((p) => ({
-          time: p.time,
-          value: p.value + smaOffsetVal,
-        }));
-
-        const smaLower = smaSlow.map((p) => ({
-          time: p.time,
-          value: p.value - smaOffsetVal,
-        }));
-
-        const outlierLongPoints: MarkerPoint[] = [];
-        const outlierShortPoints: MarkerPoint[] = [];
-
-        let lastALIndex = -9999;
-        let lastASIndex = -9999;
-        const outlierCooldownBars = 12;
-        const markerStartIndex = Math.max(1, candles.length - 3000);
-
-        for (let i = markerStartIndex; i < candles.length; i++) {
-          const prev = candles[i - 1];
-          const curr = candles[i];
-
-          const prevUpper = smaUpper[i - 1];
-          const prevLower = smaLower[i - 1];
-          const currUpper = smaUpper[i];
-          const currLower = smaLower[i];
-
-          if (!prevUpper || !prevLower || !currUpper || !currLower) continue;
-
-          if (
-            i - lastALIndex >= outlierCooldownBars &&
-            prev.low >= prevLower.value &&
-            curr.low < currLower.value
-          ) {
-            outlierLongPoints.push({ time: curr.time, value: curr.low });
-            lastALIndex = i;
-          }
-
-          if (
-            i - lastASIndex >= outlierCooldownBars &&
-            prev.high <= prevUpper.value &&
-            curr.high > currUpper.value
-          ) {
-            outlierShortPoints.push({ time: curr.time, value: curr.high });
-            lastASIndex = i;
-          }
-        }
-
-        //const smaTurns = buildSmaTurnMarkers(smaSlow, 5);
-
         
-
-        
-
         const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
         const distAsCandles = dist.map((p) => ({
