@@ -2809,93 +2809,7 @@ distChart.removeSeries(macdBearKnickSeries);
 
 
   
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
-        Strategy Scanner / Backtest Ranking
-      </div>
 
-      <button
-        onClick={runBacktestScanner}
-        disabled={scannerLoading}
-        style={{
-          background: "#1d4ed8",
-          color: "#fff",
-          border: "1px solid #3b82f6",
-          borderRadius: 6,
-          padding: "5px 8px",
-          cursor: scannerLoading ? "default" : "pointer",
-          opacity: scannerLoading ? 0.7 : 1,
-        }}
-      >
-        {scannerLoading ? "läuft..." : "Scan"}
-      </button>
-    </div>
-
-    {scannerMessage ? (
-      <div style={{ color: "#93c5fd", marginBottom: 8 }}>{scannerMessage}</div>
-    ) : null}
-
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr style={{ color: "#94a3b8", borderBottom: "1px solid #334155" }}>
-          <th style={{ textAlign: "left", padding: "4px" }}>Symbol</th>
-          <th style={{ textAlign: "left", padding: "4px" }}>TF</th>
-          <th style={{ textAlign: "right", padding: "4px" }}>Trades</th>
-          <th style={{ textAlign: "right", padding: "4px" }}>PF</th>
-          <th style={{ textAlign: "right", padding: "4px" }}>Net</th>
-          <th style={{ textAlign: "right", padding: "4px" }}>W/L</th>
-          <th style={{ textAlign: "left", padding: "4px" }}>Status</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {scannerRows.map((r) => (
-          <tr key={r.symbol} style={{ borderBottom: "1px solid rgba(51,65,85,0.55)" }}>
-            <td style={{ padding: "4px", fontWeight: 700 }}>{r.symbol}</td>
-            <td style={{ padding: "4px" }}>{r.interval}</td>
-            <td style={{ padding: "4px", textAlign: "right" }}>{r.trades}</td>
-            <td
-              style={{
-                padding: "4px",
-                textAlign: "right",
-                color:
-                  r.pf === null
-                    ? "#94a3b8"
-                    : r.pf >= 2
-                      ? "#22c55e"
-                      : r.pf >= 1
-                        ? "#facc15"
-                        : "#ef4444",
-                fontWeight: 700,
-              }}
-            >
-              {r.pf === null
-                ? "-"
-                : Number.isFinite(r.pf)
-                  ? r.pf.toFixed(2)
-                  : "∞"}
-            </td>
-            <td
-              style={{
-                padding: "4px",
-                textAlign: "right",
-                color: r.netPnL >= 0 ? "#22c55e" : "#ef4444",
-              }}
-            >
-              {r.netPnL.toFixed(2)}
-            </td>
-            <td style={{ padding: "4px", textAlign: "right" }}>
-              {r.wins}/{r.losses}
-            </td>
-            <td style={{ padding: "4px", color: r.error ? "#fca5a5" : "#94a3b8" }}>
-              {r.error ?? "ok"}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-)}
       
       {infoOpen && (
   <div
@@ -3600,7 +3514,7 @@ onChange={(e) => {
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
   </div>
-
+)}
 
       <div
   ref={priceRef}
