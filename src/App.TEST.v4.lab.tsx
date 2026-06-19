@@ -1158,29 +1158,21 @@ async function saveAllSizes() {
   console.warn("[HA MACD 1M] failed", e);
   setMacd1mDots([]);
 }
+
+
         try {
   const tfs = ["1m", "5m", "15m", "30m", "1h"];
 
-const c = await fetchCandles(symbol, tf);
-const blocks = buildHaTfBlocks(c);
+  const entries = await Promise.all(
+    tfs.map(async (tf) => {
+      const c = await fetchCandles(symbol, tf);
+      const blocks = buildHaTfBlocks(c);
 
-console.log(
-  "[HA TF]",
-  tf,
-  "candles",
-  c?.length,
-  "blocks",
-  blocks
-);
+      console.log("[HA TF]", tf, "candles", c?.length, "blocks", blocks);
 
-return [tf, blocks] as const;
+      return [tf, blocks] as const;
     })
   );
-
-          console.log(
-  "[HA TF MATRIX]",
-  Object.fromEntries(entries)
-);
 
   setHaTfMatrix(Object.fromEntries(entries));
 } catch (e) {
