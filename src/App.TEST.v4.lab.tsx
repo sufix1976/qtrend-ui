@@ -3671,13 +3671,15 @@ onChange={(e) => {
     flexDirection: "column",
     alignItems: "flex-start",
     gap: 6,
-    background: "rgba(0,0,0,0.55)",
+    background: "rgba(0,0,0,0.88)",
     padding: "6px 8px",
     borderRadius: 6,
     color: "#fff",
     fontSize: 12,
     pointerEvents: "none",
     minWidth: 165,
+    boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
+    backdropFilter: "blur(2px)",
   }}
 >
   <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -3699,8 +3701,8 @@ onChange={(e) => {
           <span
             key={i}
             style={{
-              width: 8,
-              height: 8,
+              width: 10,
+              height: 10,
               borderRadius: 2,
               display: "inline-block",
               flexShrink: 0,
