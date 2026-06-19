@@ -529,7 +529,7 @@ return { longs, shorts };
 }
 
 function buildHaTfBlocks(candles: any[]): ("blue" | "red")[] {
-  if (!Array.isArray(candles) || candles.length < 10) return [];
+  if (!Array.isArray(candles) || candles.length < 2) return [];
 
   const ha = buildHeikinAshi(candles);
   const last10 = ha.slice(-10);
@@ -3697,7 +3697,7 @@ onChange={(e) => {
           HA {tf}
         </span>
 
-        {(haTfMatrix[tf] || []).map((b, i) => (
+        {(haTfMatrix[tf]?.length ? haTfMatrix[tf] : Array(10).fill("empty")).map((b, i) => (
           <span
             key={i}
             style={{
@@ -3706,7 +3706,12 @@ onChange={(e) => {
               borderRadius: 2,
               display: "inline-block",
               flexShrink: 0,
-              background: b === "blue" ? "#3b82f6" : "#ef4444",
+              background:
+  b === "blue"
+    ? "#3b82f6"
+    : b === "red"
+    ? "#ef4444"
+    : "rgba(255,255,255,0.18)",
             }}
           />
         ))}
