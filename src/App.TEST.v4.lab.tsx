@@ -1142,49 +1142,7 @@ async function saveAllSizes() {
         const candles = await fetchCandles(s, tf);
         if (!candles.length) throw new Error("no candles");
 
- try {
-  console.log("[HA MACD 1M] start", s);
 
-  const candles1m = await fetchCandles(s, "1m");
-
-  console.log("[HA MACD 1M] candles", candles1m.length);
-
-  const dots = buildHaMacd1mDots(candles1m);
-
-  console.log("[HA MACD 1M] dots", dots);
-
-  setMacd1mDots(dots);
-} catch (e) {
-  console.warn("[HA MACD 1M] failed", e);
-  setMacd1mDots([]);
-}
-
-
-        try {
-  const tfs = ["1m", "5m", "15m", "30m", "1h"];
-
-  const entries = await Promise.all(
-    tfs.map(async (tf) => {
-      const c = await fetchCandles(symbol, tf);
-      const blocks = buildHaTfBlocks(c);
-
-      console.log("[HA TF]", tf, "candles", c?.length, "blocks", blocks);
-
-      return [tf, blocks] as const;
-    })
-  );
-
-  setHaTfMatrix(Object.fromEntries(entries));
-} catch (e) {
-  console.warn("[HA TF MATRIX] failed", e);
-  setHaTfMatrix({
-    "1m": [],
-    "5m": [],
-    "15m": [],
-    "30m": [],
-    "1h": [],
-  });
-}
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastVal));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowVal));
@@ -1772,6 +1730,33 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
+
+        try {
+  const candles1m = await fetchCandles(symbol, "1m");
+  const dots = buildHaMacd1mDots(candles1m);
+  setMacd1mDots(dots);
+
+  const tfs = ["1m", "5m", "15m", "30m", "1h"];
+
+  const entries = await Promise.all(
+    tfs.map(async (tf) => {
+      const c = await fetchCandles(symbol, tf);
+      return [tf, buildHaTfBlocks(c)] as const;
+    })
+  );
+
+  setHaTfMatrix(Object.fromEntries(entries));
+} catch (e) {
+  console.warn("[HA UI BLOCKS] failed", e);
+  setMacd1mDots([]);
+  setHaTfMatrix({
+    "1m": [],
+    "5m": [],
+    "15m": [],
+    "30m": [],
+    "1h": [],
+  });
+}
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
         const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
