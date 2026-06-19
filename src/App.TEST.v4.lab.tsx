@@ -3680,26 +3680,31 @@ onChange={(e) => {
 >
  <span>1m</span>
 
-        <div
+       <div
   style={{
     display: "flex",
     flexDirection: "column",
     gap: 3,
     marginBottom: 6,
+    minWidth: 125,
+    whiteSpace: "nowrap",
   }}
 >
   {["1m", "5m", "15m", "30m", "1h"].map((tf) => (
     <div
       key={tf}
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 3,
-      }}
+  display: "flex",
+  alignItems: "center",
+  gap: 3,
+  flexWrap: "nowrap",
+  whiteSpace: "nowrap",
+}}
     >
       <span
         style={{
-          width: 26,
+          width: 38,
+flexShrink: 0,
           fontSize: 11,
           opacity: 0.9,
         }}
