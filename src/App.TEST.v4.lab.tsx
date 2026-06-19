@@ -1163,7 +1163,12 @@ async function saveAllSizes() {
 
   const entries = await Promise.all(
     tfs.map(async (tf) => {
-      const c = await fetchCandles(symbol, tf, 200);
+      const c = await fetchCandles(symbol, tf);
+      console.log(
+  "[HA TF]",
+  tf,
+  c?.length
+);
       return [tf, buildHaTfBlocks(c)] as const;
     })
   );
