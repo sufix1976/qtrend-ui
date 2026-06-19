@@ -672,6 +672,11 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [useSlowExitUI, setUseSlowExitUI] = useState(true);
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("heikin");
+  const [replayMode, setReplayMode] = useState(false);
+
+const [replayStartTime, setReplayStartTime] = useState<number | null>(null);
+
+const [replayIndex, setReplayIndex] = useState<number | null>(null);
   const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
   const [haTfMatrix, setHaTfMatrix] = useState<
   Record<string, ("blue" | "red")[]>
@@ -1936,17 +1941,23 @@ const chartRenkoCandles = chartifyCandles(rawRenkoCandles);
   renkoBoxSize
 );
 
+const sourceCandles =
+  replayMode &&
+  replayIndex != null
+    ? candles.slice(0, replayIndex + 1)
+    : candles;
+
 const visibleCandles =
   chartType === "renko"
     ? buildRenkoCandles(
-        candles,
+        sourceCandles,
         renkoBoxSize,
         renkoSourceMode,
         renkoReversalBricksUI
       )
     : chartType === "heikin"
-      ? buildHeikinAshi(candles)
-      : candles;
+      ? buildHeikinAshi(sourceCandles)
+      : sourceCandles;
 
         if (chartType === "renko") {
   const ts = calcRenkoTrendScore(visibleCandles as Candle[], renkoTrendLookbackUI);
@@ -2001,6 +2012,21 @@ const visibleCandles =
 );
 
         mainSeries.setData(visibleCandles as any);
+
+        priceChart.subscribeClick((param) => {
+  if (!replayMode) return;
+
+  const t = Number(param.time);
+
+  if (!Number.isFinite(t)) return;
+
+  const idx = candles.findIndex((c) => c.time === t);
+
+  if (idx < 0) return;
+
+  setReplayStartTime(t);
+  setReplayIndex(idx);
+});
         
         if (chartType === "renko") {
   smaFastSeries.setData([]);
@@ -2611,6 +2637,73 @@ distChart.removeSeries(macdBearKnickSeries);
   }}
 >
   {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
+
+        <button
+  onClick={() => {
+    setReplayMode((v) => !v);
+
+    setReplayStartTime(null);
+    setReplayIndex(null);
+  }}
+  style={{
+    position: "absolute",
+    top: 50,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background: replayMode ? "#14532d" : "#111",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+    cursor: "pointer",
+  }}
+>
+  {replayMode ? "REPLAY ON" : "REPLAY OFF"}
+</button>
+        {replayMode && replayIndex != null && (
+  <div
+    style={{
+      position: "absolute",
+      top: 90,
+      right: 10,
+      zIndex: 50,
+      display: "flex",
+      gap: 4,
+    }}
+  >
+    <button
+      onClick={() =>
+        setReplayIndex((v) => Math.max(50, (v ?? 0) - 20))
+      }
+    >
+      {"<<"}
+    </button>
+
+    <button
+      onClick={() =>
+        setReplayIndex((v) => Math.max(50, (v ?? 0) - 1))
+      }
+    >
+      {"<"}
+    </button>
+
+    <button
+      onClick={() =>
+        setReplayIndex((v) => (v ?? 0) + 1)
+      }
+    >
+      {">"}
+    </button>
+
+    <button
+      onClick={() =>
+        setReplayIndex((v) => (v ?? 0) + 20)
+      }
+    >
+      {">>"}
+    </button>
+  </div>
+)}
 </button>
 
 
