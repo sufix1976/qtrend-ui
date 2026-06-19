@@ -2808,7 +2808,7 @@ distChart.removeSeries(macdBearKnickSeries);
 </button>
 
 
-  >
+  
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
       <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
         Strategy Scanner / Backtest Ranking
