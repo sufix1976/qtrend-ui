@@ -3615,8 +3615,8 @@ onChange={(e) => {
 <div
   style={{
     position: "absolute",
-    right: 20,
-    bottom: "29%",
+    right: 10,
+    top: 52,
     zIndex: 50,
     display: "flex",
     flexDirection: "column",
