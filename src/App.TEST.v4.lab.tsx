@@ -1168,6 +1168,11 @@ async function saveAllSizes() {
     })
   );
 
+          console.log(
+  "[HA TF MATRIX]",
+  Object.fromEntries(entries)
+);
+
   setHaTfMatrix(Object.fromEntries(entries));
 } catch (e) {
   console.warn("[HA TF MATRIX] failed", e);
