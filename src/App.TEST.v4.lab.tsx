@@ -3678,15 +3678,13 @@ onChange={(e) => {
     pointerEvents: "none",
   }}
 >
- <span>1m</span>
-
-       <div
+<div
   style={{
     display: "flex",
     flexDirection: "column",
     gap: 3,
     marginBottom: 6,
-    minWidth: 125,
+    minWidth: 150,
     whiteSpace: "nowrap",
   }}
 >
@@ -3694,17 +3692,17 @@ onChange={(e) => {
     <div
       key={tf}
       style={{
-  display: "flex",
-  alignItems: "center",
-  gap: 3,
-  flexWrap: "nowrap",
-  whiteSpace: "nowrap",
-}}
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+        flexWrap: "nowrap",
+        whiteSpace: "nowrap",
+      }}
     >
       <span
         style={{
           width: 38,
-flexShrink: 0,
+          flexShrink: 0,
           fontSize: 11,
           opacity: 0.9,
         }}
@@ -3720,10 +3718,8 @@ flexShrink: 0,
             height: 8,
             borderRadius: 2,
             display: "inline-block",
-            background:
-              b === "blue"
-                ? "#3b82f6"
-                : "#ef4444",
+            flexShrink: 0,
+            background: b === "blue" ? "#3b82f6" : "#ef4444",
           }}
         />
       ))}
@@ -3731,7 +3727,17 @@ flexShrink: 0,
   ))}
 </div>
 
-{macd1mDots.map((d, i) => (
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    whiteSpace: "nowrap",
+  }}
+>
+  <span>1m</span>
+
+  {macd1mDots.map((d, i) => (
   <span key={i}>
     {d === "green" ? "🟢" : "🔴"}
   </span>
