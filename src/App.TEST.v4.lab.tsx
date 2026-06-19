@@ -3661,89 +3661,71 @@ onChange={(e) => {
   }}
 />
 
-      <div
+<div
   style={{
     position: "absolute",
     right: 20,
     bottom: "29%",
     zIndex: 50,
     display: "flex",
-    alignItems: "center",
-    gap: 4,
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 6,
     background: "rgba(0,0,0,0.55)",
-    padding: "4px 8px",
+    padding: "6px 8px",
     borderRadius: 6,
     color: "#fff",
     fontSize: 12,
     pointerEvents: "none",
+    minWidth: 165,
   }}
 >
-<div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-    marginBottom: 6,
-    minWidth: 150,
-    whiteSpace: "nowrap",
-  }}
->
-  {["1m", "5m", "15m", "30m", "1h"].map((tf) => (
-    <div
-      key={tf}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 3,
-        flexWrap: "nowrap",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
+  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+    {["1m", "5m", "15m", "30m", "1h"].map((tf) => (
+      <div
+        key={tf}
         style={{
-          width: 38,
-          flexShrink: 0,
-          fontSize: 11,
-          opacity: 0.9,
+          display: "flex",
+          alignItems: "center",
+          gap: 3,
+          whiteSpace: "nowrap",
         }}
       >
-        HA {tf}
-      </span>
+        <span style={{ width: 42, fontSize: 11, opacity: 0.9 }}>
+          HA {tf}
+        </span>
 
-      {(haTfMatrix[tf] || []).map((b, i) => (
-        <span
-          key={i}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 2,
-            display: "inline-block",
-            flexShrink: 0,
-            background: b === "blue" ? "#3b82f6" : "#ef4444",
-          }}
-        />
-      ))}
-    </div>
-  ))}
-</div>
+        {(haTfMatrix[tf] || []).map((b, i) => (
+          <span
+            key={i}
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              display: "inline-block",
+              flexShrink: 0,
+              background: b === "blue" ? "#3b82f6" : "#ef4444",
+            }}
+          />
+        ))}
+      </div>
+    ))}
+  </div>
 
-<div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-    whiteSpace: "nowrap",
-  }}
->
-  <span>1m</span>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 5,
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span>1m</span>
 
-  {macd1mDots.map((d, i) => (
-  <span key={i}>
-    {d === "green" ? "🟢" : "🔴"}
-  </span>
-))}
-
- 
+    {macd1mDots.map((d, i) => (
+      <span key={i}>{d === "green" ? "🟢" : "🔴"}</span>
+    ))}
+  </div>
 </div>
       
       <div
