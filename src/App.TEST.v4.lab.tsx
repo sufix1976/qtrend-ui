@@ -3600,7 +3600,7 @@ onChange={(e) => {
 
         {error ? <div style={{ color: "#fca5a5", marginTop: 6 }}>{error}</div> : null}
   </div>
-)}
+
 
       <div
   ref={priceRef}
