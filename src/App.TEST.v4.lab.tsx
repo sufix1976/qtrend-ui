@@ -2807,42 +2807,7 @@ distChart.removeSeries(macdBearKnickSeries);
   {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
 </button>
 
-      <button
-  onClick={() => setScannerOpen((v) => !v)}
-  style={{
-    position: "absolute",
-    top: 50,
-    right: 10,
-    zIndex: 50,
-    padding: "6px 10px",
-    background: scannerOpen ? "#14532d" : "#111",
-    color: "#fff",
-    border: "1px solid #555",
-    borderRadius: 6,
-    cursor: "pointer",
-  }}
->
-  {scannerOpen ? "Scanner ▲" : "Scanner ▼"}
-</button>
 
-{scannerOpen && (
-  <div
-    style={{
-      position: "absolute",
-      top: 90,
-      right: 10,
-      zIndex: 45,
-      width: 620,
-      maxHeight: "82vh",
-      overflowY: "auto",
-      background: "rgba(2, 6, 23, 0.94)",
-      border: "1px solid #334155",
-      borderRadius: 10,
-      padding: 10,
-      fontFamily: "Arial, sans-serif",
-      fontSize: 12,
-      color: "#e2e8f0",
-    }}
   >
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
       <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
