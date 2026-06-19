@@ -528,6 +528,17 @@ if (!earlySignalSide && lineState === "zone" && !zoneTriggered) {
 return { longs, shorts };
 }
 
+function buildHaTfBlocks(candles: any[]): ("blue" | "red")[] {
+  if (!Array.isArray(candles) || candles.length < 10) return [];
+
+  const ha = buildHeikinAshi(candles);
+  const last10 = ha.slice(-10);
+
+  return last10.map((c: any) =>
+    Number(c.close) >= Number(c.open) ? "blue" : "red"
+  );
+}
+
 function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
   if (!Array.isArray(candles1m) || candles1m.length < 30) return [];
 
@@ -684,6 +695,15 @@ const [scannerMessage, setScannerMessage] = useState("");
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("heikin");
   const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
+  const [haTfMatrix, setHaTfMatrix] = useState<
+  Record<string, ("blue" | "red")[]>
+>({
+  "1m": [],
+  "5m": [],
+  "15m": [],
+  "30m": [],
+  "1h": [],
+});
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
   const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
   const [renkoReversalBricksUI, setRenkoReversalBricksUI] = useState(2);
@@ -1137,6 +1157,27 @@ async function saveAllSizes() {
 } catch (e) {
   console.warn("[HA MACD 1M] failed", e);
   setMacd1mDots([]);
+}
+        try {
+  const tfs = ["1m", "5m", "15m", "30m", "1h"];
+
+  const entries = await Promise.all(
+    tfs.map(async (tf) => {
+      const c = await fetchCandles(symbol, tf);
+      return [tf, buildHaTfBlocks(c)] as const;
+    })
+  );
+
+  setHaTfMatrix(Object.fromEntries(entries));
+} catch (e) {
+  console.warn("[HA TF MATRIX] failed", e);
+  setHaTfMatrix({
+    "1m": [],
+    "5m": [],
+    "15m": [],
+    "30m": [],
+    "1h": [],
+  });
 }
 
         const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastVal));
@@ -3633,6 +3674,52 @@ onChange={(e) => {
   }}
 >
  <span>1m</span>
+
+        <div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    marginBottom: 6,
+  }}
+>
+  {["1m", "5m", "15m", "30m", "1h"].map((tf) => (
+    <div
+      key={tf}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+      }}
+    >
+      <span
+        style={{
+          width: 26,
+          fontSize: 11,
+          opacity: 0.9,
+        }}
+      >
+        HA {tf}
+      </span>
+
+      {(haTfMatrix[tf] || []).map((b, i) => (
+        <span
+          key={i}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 2,
+            display: "inline-block",
+            background:
+              b === "blue"
+                ? "#3b82f6"
+                : "#ef4444",
+          }}
+        />
+      ))}
+    </div>
+  ))}
+</div>
 
 {macd1mDots.map((d, i) => (
   <span key={i}>
