@@ -1093,27 +1093,7 @@ async function saveAllSizes() {
 }
 
         
-        const dist = sanitizeLinePoints(calcDistance(smaFast, smaSlow));
 
-        const distAsCandles = dist.map((p) => ({
-          time: p.time,
-          open: p.value,
-          high: p.value,
-          low: p.value,
-          close: p.value,
-        }));
-
-        let distMiddle = sanitizeLinePoints(calcSMA(distAsCandles, smaMiddleVal));
-        if (!distMiddle.length) distMiddle = dist;
-
-        const distVolatility = sanitizeLinePoints(calcStdDevLine(dist, 50));
-        const dynamicBand = buildAdaptiveBandLine(
-          distMiddle,
-          distVolatility,
-          entryBandVal,
-          adaptiveBandVal,
-          adaptiveBandMultVal
-        );
 
         const distIndexByTime = new Map<number, number>();
         dist.forEach((p, i) => distIndexByTime.set(p.time, i));
