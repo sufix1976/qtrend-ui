@@ -1126,73 +1126,7 @@ async function saveAllSizes() {
 
         
 
-        const filteredLongEntries = dedupeMarkers(outlierLongPoints);
-        const filteredShortEntries = dedupeMarkers(outlierShortPoints);
 
-        const sim = simulateStrategyTESTv4(
-          candles,
-          dist,
-          distMiddle,
-          filteredLongEntries,
-          filteredShortEntries,
-          dynamicBand,
-          SPREAD_BY_SYMBOL[s] ?? 0,
-          SLIPPAGE_BY_SYMBOL[s] ?? 0,
-          smaFast,
-          smaUpper,
-          smaSlow,
-          smaLower
-        );
-
-        const pf =
-          sim.grossLoss > 0
-            ? sim.grossProfit / sim.grossLoss
-            : sim.grossProfit > 0
-              ? Number.POSITIVE_INFINITY
-              : null;
-
-        rows.push({
-          symbol: s,
-          interval: tf,
-          trades: sim.tradeCount,
-          wins: sim.winCount,
-          losses: sim.lossCount,
-          pf,
-          netPnL: sim.netPnL,
-          grossProfit: sim.grossProfit,
-          grossLoss: sim.grossLoss,
-        });
-      } catch (e) {
-        rows.push({
-          symbol: s,
-          interval: "-",
-          trades: 0,
-          wins: 0,
-          losses: 0,
-          pf: null,
-          netPnL: 0,
-          grossProfit: 0,
-          grossLoss: 0,
-          error: e instanceof Error ? e.message : "error",
-        });
-      }
-    }
-
-    rows.sort((a, b) => {
-      const apf = a.pf === null ? -1 : a.pf === Number.POSITIVE_INFINITY ? 999999 : a.pf;
-      const bpf = b.pf === null ? -1 : b.pf === Number.POSITIVE_INFINITY ? 999999 : b.pf;
-      return bpf - apf;
-    });
-
-    setScannerRows(rows);
-    setScannerMessage(`Scanner fertig: ${rows.length} Instrumente`);
-  } catch (e) {
-    console.error(e);
-    setScannerMessage("Scanner fehlgeschlagen");
-  } finally {
-    setScannerLoading(false);
-  }
-}
   
   useEffect(() => {
     if (!priceRef.current || !distRef.current) return;
