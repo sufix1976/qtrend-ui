@@ -673,8 +673,7 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("heikin");
   const [replayMode, setReplayMode] = useState(false);
-
-const [replayStartTime, setReplayStartTime] = useState<number | null>(null);
+const [, setReplayStartTime] = useState<number | null>(null);
 
 const [replayIndex, setReplayIndex] = useState<number | null>(null);
   const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
