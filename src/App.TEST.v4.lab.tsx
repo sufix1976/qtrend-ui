@@ -1094,11 +1094,11 @@ async function saveAllSizes() {
 
         
 
-
+/*
         const distIndexByTime = new Map<number, number>();
         dist.forEach((p, i) => distIndexByTime.set(p.time, i));
 
-     
+  */   
 
         
 
