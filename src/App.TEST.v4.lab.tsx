@@ -2645,7 +2645,7 @@ style={{
   setReplayMode(next);
 
   if (next) {
-    setReplayIndex(Math.max(100, candles.length - 200));
+    setReplayIndex(500);
   } else {
     setReplayIndex(null);
   }
