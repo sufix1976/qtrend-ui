@@ -2639,11 +2639,19 @@ style={{
 </button>
 
 <button
-  onClick={() => {
-    setReplayMode((v) => !v);
-    setReplayStartTime(null);
+ onClick={() => {
+  const next = !replayMode;
+
+  setReplayMode(next);
+
+  if (next) {
+    setReplayIndex(Math.max(100, candles.length - 200));
+  } else {
     setReplayIndex(null);
-  }}
+  }
+
+  setReplayStartTime(null);
+}}
   style={{
     position: "absolute",
     top: 250,
