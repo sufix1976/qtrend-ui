@@ -2635,7 +2635,15 @@ distChart.removeSeries(macdBearKnickSeries);
     cursor: "pointer",
   }}
 >
-  {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
+ {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
+</button>
+
+<button
+  onClick={() => {
+    setReplayMode((v) => !v);
+    setReplayStartTime(null);
+    setReplayIndex(null);
+  }}
 
         <button
   onClick={() => {
