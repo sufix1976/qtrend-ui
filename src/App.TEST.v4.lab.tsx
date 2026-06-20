@@ -2622,33 +2622,25 @@ distChart.removeSeries(macdBearKnickSeries);
 
        
         
-  style={{
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 50,
-    padding: "6px 10px",
-    background: "#111",
-    color: "#fff",
-    border: "1px solid #555",
-    borderRadius: 6,
-    cursor: "pointer",
-  }}
+style={{
+  position: "absolute",
+  top: 10,
+  right: 10,
+  zIndex: 50,
+  padding: "6px 10px",
+  background: "#111",
+  color: "#fff",
+  border: "1px solid #555",
+  borderRadius: 6,
+  cursor: "pointer",
+}}
 >
- {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
+  {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
 </button>
 
 <button
   onClick={() => {
     setReplayMode((v) => !v);
-    setReplayStartTime(null);
-    setReplayIndex(null);
-  }}
-
-        <button
-  onClick={() => {
-    setReplayMode((v) => !v);
-
     setReplayStartTime(null);
     setReplayIndex(null);
   }}
@@ -2667,7 +2659,8 @@ distChart.removeSeries(macdBearKnickSeries);
 >
   {replayMode ? "REPLAY ON" : "REPLAY OFF"}
 </button>
-        {replayMode && replayIndex != null && (
+
+{replayMode && replayIndex != null && (
   <div
     style={{
       position: "absolute",
@@ -2678,43 +2671,23 @@ distChart.removeSeries(macdBearKnickSeries);
       gap: 4,
     }}
   >
-    <button
-      onClick={() =>
-        setReplayIndex((v) => Math.max(50, (v ?? 0) - 20))
-      }
-    >
+    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 0) - 20))}>
       {"<<"}
     </button>
 
-    <button
-      onClick={() =>
-        setReplayIndex((v) => Math.max(50, (v ?? 0) - 1))
-      }
-    >
+    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 0) - 1))}>
       {"<"}
     </button>
 
-    <button
-      onClick={() =>
-        setReplayIndex((v) => (v ?? 0) + 1)
-      }
-    >
+    <button onClick={() => setReplayIndex((v) => (v ?? 0) + 1)}>
       {">"}
     </button>
 
-    <button
-      onClick={() =>
-        setReplayIndex((v) => (v ?? 0) + 20)
-      }
-    >
+    <button onClick={() => setReplayIndex((v) => (v ?? 0) + 20)}>
       {">>"}
     </button>
   </div>
 )}
-</button>
-
-
-  
 
       
       {infoOpen && (
