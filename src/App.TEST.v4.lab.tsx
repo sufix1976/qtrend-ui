@@ -2501,7 +2501,9 @@ console.log("[LOAD DONE]", symbol);
     loadData();
 
 const poll = window.setInterval(() => {
-  loadData();
+  if (!replayMode) {
+    loadData();
+  }
 }, 5000);
 
 return () => {
