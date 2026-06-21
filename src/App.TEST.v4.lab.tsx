@@ -2572,6 +2572,8 @@ distChart.removeSeries(macdBearKnickSeries);
   renkoBoxMode,
   renkoAtrLenUI,
   renkoAtrMultUI,
+    replayMode,
+replayIndex,
     renkoSourceMode,
     renkoTrendLookbackUI,
     renkoReversalBricksUI,
