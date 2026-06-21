@@ -2668,32 +2668,24 @@ style={{
   {replayMode ? "REPLAY ON" : "REPLAY OFF"}
 </button>
 
-{replayMode && replayIndex != null && (
+{replayMode && (
   <div
     style={{
       position: "absolute",
-      top: 90,
+      top: 300,
       right: 10,
-      zIndex: 50,
+      zIndex: 80,
       display: "flex",
       gap: 4,
+      background: "rgba(0,0,0,0.75)",
+      padding: 4,
+      borderRadius: 6,
     }}
   >
-    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 0) - 20))}>
-      {"<<"}
-    </button>
-
-    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 0) - 1))}>
-      {"<"}
-    </button>
-
-    <button onClick={() => setReplayIndex((v) => (v ?? 0) + 1)}>
-      {">"}
-    </button>
-
-    <button onClick={() => setReplayIndex((v) => (v ?? 0) + 20)}>
-      {">>"}
-    </button>
+    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 500) - 20))}>{"<<"}</button>
+    <button onClick={() => setReplayIndex((v) => Math.max(50, (v ?? 500) - 1))}>{"<"}</button>
+    <button onClick={() => setReplayIndex((v) => (v ?? 500) + 1)}>{">"}</button>
+    <button onClick={() => setReplayIndex((v) => (v ?? 500) + 20)}>{">>"}</button>
   </div>
 )}
 
