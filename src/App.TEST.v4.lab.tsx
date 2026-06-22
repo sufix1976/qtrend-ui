@@ -355,7 +355,7 @@ function buildDirectionLine(
 function buildLineHeikinSignals(
   haCandles: Candle[],
   dirLine: any,
-  zonePct = 0.03
+  zonePct = 0.02
 ) {
   const longs: MarkerPoint[] = [];
   const shorts: MarkerPoint[] = [];
