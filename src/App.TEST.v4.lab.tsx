@@ -514,7 +514,7 @@ return { longs, shorts };
 function buildHaTfBlocks(candles: any[]): ("blue" | "red")[] {
   if (!Array.isArray(candles) || candles.length < 2) return [];
 
-  const ha = buildHeikinAshi(sourceCandles);
+  const ha = buildHeikinAshi(candles);
   const last10 = ha.slice(-10);
 
   return last10.map((c: any) =>
