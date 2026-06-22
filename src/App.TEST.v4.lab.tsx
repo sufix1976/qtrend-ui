@@ -116,7 +116,7 @@ const AGG_LIMIT = 2000;
 const PRICE_SCALE_WIDTH = 90;
 const EURUSD_APPROX = 1.18;
 
-const INTERVALS = ["5m", "15m", "30m", "1h"] as const;
+const INTERVALS = ["1m", "5m", "15m", "30m", "1h"] as const;
 type IntervalOption = typeof INTERVALS[number];
 
 const SYMBOLS = [
