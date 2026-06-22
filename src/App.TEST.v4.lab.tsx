@@ -589,8 +589,8 @@ function buildMacdExtremeState(
   pos,
 });
 
-  if (pos <= 0.2) return "long";
-  if (pos >= 0.80) return "short";
+  if (pos <= 0.45) return "long";
+  if (pos >= 0.55) return "short";
   
 
   return "neutral";
