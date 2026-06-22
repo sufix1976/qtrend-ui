@@ -302,7 +302,7 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
 }
 
 function buildDirectionLine(
-  candles: Candle[],
+  sourceCandles: Candle[],
   thresholdPct = 0.15,
   minMove = 0
 ) {
@@ -514,7 +514,7 @@ return { longs, shorts };
 function buildHaTfBlocks(candles: any[]): ("blue" | "red")[] {
   if (!Array.isArray(candles) || candles.length < 2) return [];
 
-  const ha = buildHeikinAshi(candles);
+  const ha = buildHeikinAshi(sourceCandles);
   const last10 = ha.slice(-10);
 
   return last10.map((c: any) =>
@@ -1568,12 +1568,12 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
   });
 }
 
-        const smaFast = sanitizeLinePoints(calcSMA(candles, smaFastUI));
-        const smaSlow = sanitizeLinePoints(calcSMA(candles, smaSlowUI));
+        const smaFast = sanitizeLinePoints(calcSMA(sourceCandles, smaFastUI));
+const smaSlow = sanitizeLinePoints(calcSMA(sourceCandles, smaSlowUI));
 
-         const haCandles = buildHeikinAshi(candles);
+         const haCandles = buildHeikinAshi(sourceCandles);
        const dirLine = buildDirectionLine(
-  candles,
+  sourceCandles,
   directionThresholdPctUI,
   0
 );
