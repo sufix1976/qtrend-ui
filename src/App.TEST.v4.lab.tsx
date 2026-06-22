@@ -302,7 +302,7 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
 }
 
 function buildDirectionLine(
-  sourceCandles: Candle[],
+  Candles: Candle[],
   thresholdPct = 0.15,
   minMove = 0
 ) {
@@ -1540,6 +1540,10 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
 
         if (cancelled) return;
         if (!candles.length) throw new Error("No valid candles returned");
+        const sourceCandles =
+  replayMode && replayIndex != null
+    ? candles.slice(0, replayIndex + 1)
+    : candles;
 
         try {
   const candles1m = await fetchCandles(symbol, "1m");
