@@ -582,8 +582,16 @@ function buildMacdExtremeState(
 
   const pos = (current - min) / range;
 
+  console.log("[MACD EXTREME]", {
+  min,
+  max,
+  current,
+  pos,
+});
+
   if (pos <= 0.15) return "long";
   if (pos >= 0.85) return "short";
+  
 
   return "neutral";
 }
@@ -2715,7 +2723,7 @@ style={{
 }}
   style={{
     position: "absolute",
-    top: 450,
+    top: 400,
     right: 10,
     zIndex: 50,
     padding: "6px 10px",
