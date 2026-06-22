@@ -552,6 +552,42 @@ for (let i = 1; i < lastPoints.length; i++) {
 return dots;
 }
 
+function buildMacdExtremeState(
+  candles: Candle[]
+): "long" | "short" | "neutral" {
+  if (!candles || candles.length < 100) {
+    return "neutral";
+  }
+
+  const macd = calcMACD(candles, 1, 18, 5);
+
+  const line = macd.macd ?? [];
+
+  if (line.length < 50) {
+    return "neutral";
+  }
+
+  const values = line.map((p: any) => Number(p.value));
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  const current = values[values.length - 1];
+
+  const range = max - min;
+
+  if (range <= 0) {
+    return "neutral";
+  }
+
+  const pos = (current - min) / range;
+
+  if (pos <= 0.15) return "long";
+  if (pos >= 0.85) return "short";
+
+  return "neutral";
+}
+
 function formatChartTimeLabel(tsSec: number, withDate = false): string {
   const d = new Date(tsSec * 1000);
 
@@ -678,6 +714,7 @@ const [, setReplayStartTime] = useState<number | null>(null);
 const [replayIndex, setReplayIndex] = useState<number | null>(null);
   const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
   const [haTfMatrix, setHaTfMatrix] = useState<
+const [haTfMatrix, setHaTfMatrix] = useState<
   Record<string, ("blue" | "red")[]>
 >({
   "1m": [],
@@ -686,6 +723,15 @@ const [replayIndex, setReplayIndex] = useState<number | null>(null);
   "30m": [],
   "1h": [],
 });
+
+const [macdTfExtremes, setMacdTfExtremes] =
+  useState<Record<string, string>>({
+    "1m": "neutral",
+    "5m": "neutral",
+    "15m": "neutral",
+    "30m": "neutral",
+    "1h": "neutral",
+  });
   const [renkoBoxMode, setRenkoBoxMode] = useState<"fixed" | "atr">("fixed");
   const [renkoSourceMode, setRenkoSourceMode] = useState<"close" | "hl">("close");
   const [renkoReversalBricksUI, setRenkoReversalBricksUI] = useState(2);
@@ -1559,7 +1605,17 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
     })
   );
 
-  setHaTfMatrix(Object.fromEntries(entries));
+ setHaTfMatrix(
+  Object.fromEntries(
+    entries.map((e) => [e.tf, e.blocks])
+  )
+);
+
+setMacdTfExtremes(
+  Object.fromEntries(
+    entries.map((e) => [e.tf, e.extreme])
+  )
+);
 } catch (e) {
   console.warn("[HA UI BLOCKS] failed", e);
   setMacd1mDots([]);
