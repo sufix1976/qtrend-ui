@@ -725,7 +725,7 @@ const [haTfMatrix, setHaTfMatrix] = useState<
 });
 
 const [macdTfExtremes, setMacdTfExtremes] =
-  useState<Record<string, string>>({
+  useState<Record<string, "long" | "short" | "neutral">>({
     "1m": "neutral",
     "5m": "neutral",
     "15m": "neutral",
