@@ -302,7 +302,7 @@ function buildHeikinAshi(candles: Candle[]): Candle[] {
 }
 
 function buildDirectionLine(
-  Candles: Candle[],
+  candles: Candle[],
   thresholdPct = 0.15,
   minMove = 0
 ) {
@@ -1944,11 +1944,7 @@ const chartRenkoCandles = chartifyCandles(rawRenkoCandles);
   renkoBoxSize
 );
 
-const sourceCandles =
-  replayMode &&
-  replayIndex != null
-    ? candles.slice(0, replayIndex + 1)
-    : candles;
+
 
 const visibleCandles =
   chartType === "renko"
