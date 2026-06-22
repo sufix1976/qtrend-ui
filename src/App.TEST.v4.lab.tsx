@@ -2414,7 +2414,7 @@ distChart.priceScale("right").applyOptions({
 
 const currentViewKey = `${symbol}|${interval}`;
 
-if (lastViewKeyRef.current !== currentViewKey) {
+if (!replayMode && lastViewKeyRef.current !== currentViewKey) {
   priceChart.timeScale().fitContent();
 
   const range = priceChart.timeScale().getVisibleLogicalRange();
