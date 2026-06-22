@@ -713,7 +713,7 @@ const [, setReplayStartTime] = useState<number | null>(null);
 
 const [replayIndex, setReplayIndex] = useState<number | null>(null);
   const [macd1mDots, setMacd1mDots] = useState<("green" | "red")[]>([]);
-  const [haTfMatrix, setHaTfMatrix] = useState<
+  
 const [haTfMatrix, setHaTfMatrix] = useState<
   Record<string, ("blue" | "red")[]>
 >({
