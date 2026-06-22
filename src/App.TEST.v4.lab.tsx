@@ -1599,22 +1599,23 @@ const flipShortSeries = priceChart.addSeries(LineSeries, {
   const tfs = ["1m", "5m", "15m", "30m", "1h"];
 
   const entries = await Promise.all(
-    tfs.map(async (tf) => {
-      const c = await fetchCandles(symbol, tf);
-      return [tf, buildHaTfBlocks(c)] as const;
-    })
-  );
+  tfs.map(async (tf) => {
+    const c = await fetchCandles(symbol, tf);
 
- setHaTfMatrix(
-  Object.fromEntries(
-    entries.map((e) => [e.tf, e.blocks])
-  )
+    return {
+      tf,
+      blocks: buildHaTfBlocks(c),
+      extreme: buildMacdExtremeState(c),
+    };
+  })
+);
+
+setHaTfMatrix(
+  Object.fromEntries(entries.map((e) => [e.tf, e.blocks]))
 );
 
 setMacdTfExtremes(
-  Object.fromEntries(
-    entries.map((e) => [e.tf, e.extreme])
-  )
+  Object.fromEntries(entries.map((e) => [e.tf, e.extreme]))
 );
 } catch (e) {
   console.warn("[HA UI BLOCKS] failed", e);
@@ -3521,6 +3522,46 @@ onChange={(e) => {
         ))}
       </div>
     ))}
+
+    <div style={{ height: 6 }} />
+
+{["1m", "5m", "15m", "30m", "1h"].map((tf) => (
+  <div
+    key={`macd-${tf}`}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 5,
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span
+      style={{
+        width: 50,
+        flexShrink: 0,
+        fontSize: 11,
+        opacity: 0.9,
+      }}
+    >
+      M {tf}
+    </span>
+
+    <span
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: 2,
+        display: "inline-block",
+        background:
+          macdTfExtremes[tf] === "long"
+            ? "#22c55e"
+            : macdTfExtremes[tf] === "short"
+              ? "#ef4444"
+              : "#6b7280",
+      }}
+    />
+  </div>
+))}
   </div>
 
   <div
