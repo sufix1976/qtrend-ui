@@ -527,7 +527,7 @@ function buildHaMacd1mDots(candles1m: any[]): ("green" | "red")[] {
 
   const ha = buildHeikinAshi(candles1m);
 
-  const macd = calcMACD(ha, 1, 18, 5);
+  const macd = calcMACD(ha, 10, 24, 3);
   console.log("MACD", macd);
 
 const line = macd.macd || [];
