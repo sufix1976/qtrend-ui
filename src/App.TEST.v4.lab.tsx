@@ -559,7 +559,7 @@ function buildMacdExtremeState(
     return "neutral";
   }
 
-  const macd = calcMACD(candles, 1, 18, 5);
+  const macd = calcMACD(candles, 10, 24, 3);
 
   const line = macd.macd ?? [];
 
@@ -2116,7 +2116,7 @@ const visibleCandles =
     ? buildRenkoCandles(candles, renkoBoxSize, renkoSourceMode, renkoReversalBricksUI)
     : candles;
 
-const macd = calcMACD(macdSource, 1, 18, 5);
+const macd = calcMACD(macdSource, 10, 24, 3);
 
 macdHistSeries.setData(
   macd.histogram.map((p) => ({
@@ -2163,7 +2163,7 @@ const renkoForHaSignals = buildRenkoCandles(
   renkoReversalBricksUI
 );
 
-const renkoMacdForHa = calcMACD(renkoForHaSignals, 1, 18, 5);
+const renkoMacdForHa = calcMACD(renkoForHaSignals, 10, 24, 3);
 const renkoKnicksForHa = buildMacdKnickEvents(renkoMacdForHa.macd);
 const renkoReplayForHa = buildKnickFlipReplay(renkoForHaSignals as any, renkoKnicksForHa);
 
