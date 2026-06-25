@@ -2389,9 +2389,7 @@ const shortExitProjected = useSlowExitUI
         candidateShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
-        strategyLongExitSeries.setData(
-  chartType === "heikin" ? lineSignals.exits as any : longExitProjected as any
-);
+       ;
         strategyShortExitSeries.setData(shortExitProjected as any);
         outlierLongSeries.setData([]);
         outlierShortSeries.setData([]);
