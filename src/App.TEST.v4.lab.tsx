@@ -359,10 +359,11 @@ function buildLineHeikinSignals(
   flipMode: "reverse" | "exit" = "reverse"
 ) {
   const longs: MarkerPoint[] = [];
-  const shorts: MarkerPoint[] = [];
+const shorts: MarkerPoint[] = [];
+const exits: MarkerPoint[] = [];
 
   if (!haCandles.length || !dirLine?.line?.length) {
-    return { longs, shorts };
+    return { longs, shorts, exits };
   }
 
   const dirByTime = new Map<number, any>();
@@ -433,8 +434,13 @@ if (!earlySignalSide && (lineState === "up" || lineState === "down")) {
       activeSide = "long";
       lastEntryWasFlip = true;
     } else {
-      activeSide = null;
-      lastEntryWasFlip = false;
+      exits.push({
+  time: h.time,
+  value: h.close,
+});
+
+activeSide = null;
+lastEntryWasFlip = false;
     }
 
     zoneTriggered = false;
@@ -451,8 +457,13 @@ if (!earlySignalSide && (lineState === "up" || lineState === "down")) {
       activeSide = "short";
       lastEntryWasFlip = true;
     } else {
-      activeSide = null;
-      lastEntryWasFlip = false;
+      exits.push({
+  time: h.time,
+  value: h.close,
+});
+
+activeSide = null;
+lastEntryWasFlip = false;
     }
 
     zoneTriggered = false;
@@ -1659,7 +1670,8 @@ const smaSlow = sanitizeLinePoints(calcSMA(sourceCandles, smaSlowUI));
         const lineSignals = buildLineHeikinSignals(
   haCandles,
   dirLine,
-  0.03
+  0.03,
+  flipMode
 );
               
         const directionLongSignals: MarkerPoint[] = [];
