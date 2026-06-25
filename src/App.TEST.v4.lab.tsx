@@ -355,7 +355,8 @@ function buildDirectionLine(
 function buildLineHeikinSignals(
   haCandles: Candle[],
   dirLine: any,
-  zonePct = 0.02
+  zonePct = 0.02,
+  flipMode: "reverse" | "exit" = "reverse"
 ) {
   const longs: MarkerPoint[] = [];
   const shorts: MarkerPoint[] = [];
@@ -417,42 +418,49 @@ if (activeSide === "long" && lineFalling && isRed) {
   earlySignalSide = "short";
 }
 
-    // Linie läuft wieder eindeutig
-   if (!earlySignalSide && (lineState === "up" || lineState === "down")) {
-      zoneTriggered = false;
-
-      // Sofort-Flip, wenn Linie gegen aktive Position kippt
-      if (activeSide === "short" && lineState === "up") {
-  longs.push({
-    time: h.time,
-    value: h.low,
-  });
-
-  activeSide = "long";
-        lastEntryWasFlip = true;
-
-  // Wichtig:
-  // Line-Flip darf die nächste Wechselzone NICHT blockieren.
+// Linie läuft wieder eindeutig
+if (!earlySignalSide && (lineState === "up" || lineState === "down")) {
   zoneTriggered = false;
-}
 
-if (activeSide === "long" && lineState === "down") {
-  shorts.push({
-    time: h.time,
-    value: h.high,
-  });
+  // SHORT aktiv + Linie kippt hoch
+  if (activeSide === "short" && lineState === "up") {
+    if (flipMode === "reverse") {
+      longs.push({
+        time: h.time,
+        value: h.low,
+      });
 
-  activeSide = "short";
-  lastEntryWasFlip = true;
-
-  // Wichtig:
-  // Line-Flip darf die nächste Wechselzone NICHT blockieren.
-  zoneTriggered = false;
-}
-
-      lastTrend = lineState;
-      continue;
+      activeSide = "long";
+      lastEntryWasFlip = true;
+    } else {
+      activeSide = null;
+      lastEntryWasFlip = false;
     }
+
+    zoneTriggered = false;
+  }
+
+  // LONG aktiv + Linie kippt runter
+  if (activeSide === "long" && lineState === "down") {
+    if (flipMode === "reverse") {
+      shorts.push({
+        time: h.time,
+        value: h.high,
+      });
+
+      activeSide = "short";
+      lastEntryWasFlip = true;
+    } else {
+      activeSide = null;
+      lastEntryWasFlip = false;
+    }
+
+    zoneTriggered = false;
+  }
+
+  lastTrend = lineState;
+  continue;
+}
 
     if (lineState === "zone") {
       /*
@@ -717,6 +725,8 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [infoOpen, setInfoOpen] = useState(true);
   const [chartType, setChartType] = useState<"candles" | "renko" | "heikin">("heikin");
   const [replayMode, setReplayMode] = useState(false);
+  const [flipMode, setFlipMode] =
+  useState<"reverse" | "exit">("reverse");
 const [, setReplayStartTime] = useState<number | null>(null);
 
 const [replayIndex, setReplayIndex] = useState<number | null>(null);
@@ -2707,6 +2717,8 @@ style={{
   {chartType === "candles" ? "Kerzen" : chartType === "renko" ? "Renko" : "Heikin"}
 </button>
 
+      
+
 <button
  onClick={() => {
   const next = !replayMode;
@@ -2735,6 +2747,32 @@ style={{
   }}
 >
   {replayMode ? "REPLAY ON" : "REPLAY OFF"}
+</button>
+
+      <button
+  onClick={() =>
+    setFlipMode((v) =>
+      v === "reverse" ? "exit" : "reverse"
+    )
+  }
+  style={{
+    position: "absolute",
+    top: 130,
+    right: 10,
+    zIndex: 50,
+    padding: "6px 10px",
+    background:
+      flipMode === "reverse"
+        ? "#7c2d12"
+        : "#14532d",
+    color: "#fff",
+    border: "1px solid #555",
+    borderRadius: 6,
+  }}
+>
+  {flipMode === "reverse"
+    ? "FLIP REVERSE"
+    : "FLIP EXIT"}
 </button>
 
 {replayMode && (
