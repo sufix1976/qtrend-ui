@@ -2642,6 +2642,7 @@ distChart.removeSeries(macdBearKnickSeries);
   symbol,
   interval,
   chartType,
+  flipMode,  
   entryBandUI,
   peakUI,
   minKinkUI,
