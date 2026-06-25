@@ -372,6 +372,10 @@ const exits: MarkerPoint[] = [];
   let lastTrend: "up" | "down" | null = null;
   let activeSide: "long" | "short" | null = null;
   let zoneTriggered = false;
+  exits.push({
+  time: h.time,
+  value: h.close,
+});
   let lastEntryWasFlip = false;
 
   for (let i = 1; i < haCandles.length; i++) {
@@ -463,6 +467,10 @@ lastEntryWasFlip = false;
 });
 
 activeSide = null;
+      exits.push({
+  time: h.time,
+  value: h.close,
+});
 lastEntryWasFlip = false;
     }
 
@@ -2252,6 +2260,7 @@ if (!side) return null;
 
 flipLongSeries.setData(lineSignals.longs as any);
 flipShortSeries.setData(lineSignals.shorts as any);
+  realCloseSeries.setData(lineSignals.exits as any);
   
 } else {
   flipLongSeries.setData(
