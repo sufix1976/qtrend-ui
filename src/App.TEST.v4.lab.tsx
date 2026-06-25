@@ -2254,7 +2254,7 @@ if (!side) return null;
 
 flipLongSeries.setData(lineSignals.longs as any);
 flipShortSeries.setData(lineSignals.shorts as any);
-  realCloseSeries.setData(lineSignals.exits as any);
+ strategyLongExitSeries.setData(lineSignals.exits as any);
   
 } else {
   flipLongSeries.setData(
@@ -2389,7 +2389,9 @@ const shortExitProjected = useSlowExitUI
         candidateShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
-        strategyLongExitSeries.setData(longExitProjected as any);
+        strategyLongExitSeries.setData(
+  chartType === "heikin" ? lineSignals.exits as any : longExitProjected as any
+);
         strategyShortExitSeries.setData(shortExitProjected as any);
         outlierLongSeries.setData([]);
         outlierShortSeries.setData([]);
