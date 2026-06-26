@@ -105,6 +105,7 @@ type SymbolConfigRow = {
   auto_enabled?: number | boolean | null;
   direction_threshold_pct?: number | null;
   directionThresholdPct?: number | null;
+  strategy_mode?: "heikin" | "macd_knick" | null;
 };
 
 type SymbolConfigMap = Record<string, SymbolConfigRow>;
@@ -724,6 +725,8 @@ const [brokerState, setBrokerState] = useState<PositionSide>("flat");
   const [entryBandUI, setEntryBandUI] = useState(entryBand);
   const [minKinkUI, setMinKinkUI] = useState(minKinkMove);
   const [directionThresholdPctUI, setDirectionThresholdPctUI] = useState(0.20);
+  const [strategyModeUI, setStrategyModeUI] =
+  useState<"heikin" | "macd_knick">("heikin");
   const [kinkConfirmBarsUI, setKinkConfirmBarsUI] = useState(3);
   const [peakUI, setPeakUI] = useState(peakLookback);
 
@@ -794,6 +797,10 @@ const [filteredReplayText, setFilteredReplayText] = useState("-");
     setDirectionThresholdPctUI(
   Number(cfg.direction_threshold_pct ?? cfg.directionThresholdPct ?? 0.20)
 );
+
+    setStrategyModeUI(
+  cfg.strategy_mode === "macd_knick" ? "macd_knick" : "heikin"
+);
     setPeakUI(Number(cfg.peak_lookback ?? peakLookback));
     setSmaFastUI(Number(cfg.sma_fast ?? 10));
     setSmaSlowUI(Number(cfg.sma_slow ?? 100));
@@ -826,6 +833,8 @@ const [filteredReplayText, setFilteredReplayText] = useState("-");
     setEntryBandUI(entryBand);
     setMinKinkUI(minKinkMove);
     setDirectionThresholdPctUI(0.20);
+    
+    setStrategyModeUI("heikin");
     setPeakUI(peakLookback);
     setSmaFastUI(10);
     setSmaSlowUI(100);
@@ -950,6 +959,8 @@ async function toggleAutoEnabled(symbolToToggle: string) {
       sma_offset: smaOffsetUI,
       min_kink: minKinkUI,
       direction_threshold_pct: directionThresholdPctUI,
+      
+      strategy_mode: strategyModeUI,
       peak_lookback: peakUI,
       sma_fast: smaFastUI,
       sma_slow: smaSlowUI,
@@ -1058,6 +1069,7 @@ useEffect(() => {
       adaptive_band: 0,
       adaptive_band_mult: 1,
       direction_threshold_pct: directionThresholdPctUI,
+      strategy_mode: "heikin",
       size: Number(symbolSizes[symbol]) > 0 ? Number(symbolSizes[symbol]) : null,
     };
 
@@ -3046,6 +3058,33 @@ onChange={(e) => {
   onChange={(e) => setDirectionThresholdPctUI(Number(e.target.value))}
   style={{ width: "100%" }}
 />
+      <div style={{ marginTop: 10 }}>
+  <div style={{ fontSize: 12, color: "#facc15", marginBottom: 4 }}>
+    Strategie
+  </div>
+
+  <button
+    onClick={() =>
+      setStrategyModeUI((v) =>
+        v === "heikin" ? "macd_knick" : "heikin"
+      )
+    }
+    style={{
+      width: "100%",
+      padding: "6px 10px",
+      background:
+        strategyModeUI === "heikin" ? "#14532d" : "#1d4ed8",
+      color: "#fff",
+      border: "1px solid #555",
+      borderRadius: 6,
+      cursor: "pointer",
+    }}
+  >
+    {strategyModeUI === "heikin"
+      ? "Strategie: HEIKIN"
+      : "Strategie: MACD-KNICK"}
+  </button>
+</div>
 
   <div style={{ marginTop: 6, fontSize: 12, color: "#e2e8f0" }}>
     {rawReplayText}
