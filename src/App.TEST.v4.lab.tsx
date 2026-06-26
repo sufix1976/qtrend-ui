@@ -2382,13 +2382,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   validShortCandidates.length
 );
         
-        const _longExitProjected = useSlowExitUI
-  ? projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near")
-  : [];
 
-const shortExitProjected = useSlowExitUI
-  ? projectMarkerPointsToCandles(sim.shortExitPoints, candles, "above-near")
-  : [];
         //const blockedLongProjected = projectMarkerPointsToCandles(real.blockedLongPoints, candles, "below-mid");
         //const blockedShortProjected = projectMarkerPointsToCandles(real.blockedShortPoints, candles, "above-mid");
         //const workerLongProjected = projectMarkerPointsToCandles(worker.longPoints, candles, "below-near");
