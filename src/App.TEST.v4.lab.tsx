@@ -2395,8 +2395,8 @@ const outlierShortProjected = projectMarkerPointsToCandles(
         candidateShortSeries.setData([]);
         strategyLongSeries.setData([]);
         strategyShortSeries.setData([]);
-       ;
-        strategyShortExitSeries.setData(shortExitProjected as any);
+       
+        strategyShortExitSeries.setData([]);
         outlierLongSeries.setData([]);
         outlierShortSeries.setData([]);
        
@@ -2430,13 +2430,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
 
 createSeriesMarkers(
   strategyShortExitSeries,
-  shortExitProjected.map((p) => ({
-    time: p.time,
-    position: "aboveBar",
-    color: "#ffffff",
-    shape: "arrowUp",
-    text: "EXS",
-  })) as any
+  []
 );
 
         
@@ -4830,7 +4824,7 @@ function dedupeMarkers(points: MarkerPoint[]): MarkerPoint[] {
 
 
 
-
+/*
 function projectMarkerPointsToCandles(
   points: MarkerPoint[],
   candles: Candle[],
@@ -4858,6 +4852,7 @@ function projectMarkerPointsToCandles(
 
   return dedupeMarkers(out);
 }
+*/
 
 function projectMarkerValue(
   candle: Candle,
