@@ -4852,7 +4852,7 @@ function projectMarkerPointsToCandles(
 
   return dedupeMarkers(out);
 }
-*/
+
 
 function projectMarkerValue(
   candle: Candle,
@@ -4882,7 +4882,7 @@ function projectMarkerValue(
       return bodyMid;
   }
 }
-/*
+
 function buildTextMarkers(points: MarkerPoint[], position: "aboveBar" | "belowBar") {
   return points
     .filter((p) => p.text)
