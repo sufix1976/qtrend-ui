@@ -2382,7 +2382,7 @@ const outlierShortProjected = projectMarkerPointsToCandles(
   validShortCandidates.length
 );
         
-        const longExitProjected = useSlowExitUI
+        const _longExitProjected = useSlowExitUI
   ? projectMarkerPointsToCandles(sim.longExitPoints, candles, "below-near")
   : [];
 
