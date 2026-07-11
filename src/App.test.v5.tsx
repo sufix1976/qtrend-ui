@@ -157,7 +157,30 @@ export default function AppTESTv5() {
   return <div style={styles.page}>
     <header style={styles.header}><div><strong>QTrend V5</strong><span style={styles.muted}> Büro / Engine Cockpit</span></div><div style={styles.headerControls}>
       <select value={symbol} onChange={(e)=>setSymbol(e.target.value)} style={styles.input}>{SYMBOLS.map((s)=><option key={s}>{s}</option>)}</select>
-      <select value={interval} onChange={(e)=>{setInterval(e.target.value);patchConfig('interval',e.target.value);}} style={styles.input}>{INTERVALS.map((tf)=><option key={tf}>{tf}</option>)}</select>
+     <select
+  value={interval}
+  onChange={(e) => {
+    const next = e.target.value;
+
+    const nextConfig = {
+      ...config,
+      interval: next,
+    };
+
+    setInterval(next);
+    setConfig(nextConfig);
+
+    setConfigs((previous) => ({
+      ...previous,
+      [symbol]: nextConfig,
+    }));
+  }}
+  style={styles.input}
+>
+  {INTERVALS.map((tf) => (
+    <option key={tf}>{tf}</option>
+  ))}
+</select>
       <button style={chartMode==='heikin'?styles.activeButton:styles.button} onClick={()=>setChartMode('heikin')}>Heikin</button>
       <button style={chartMode==='candles'?styles.activeButton:styles.button} onClick={()=>setChartMode('candles')}>Kerzen</button>
       <span style={styles.status}>{busy?'Bitte warten...':status}</span>
