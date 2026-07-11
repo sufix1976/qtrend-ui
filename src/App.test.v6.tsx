@@ -82,6 +82,20 @@ type V5Snapshot = {
   entry_short_signal?: boolean;
   signal_side?: Side | null;
   signal_id?: string | null;
+
+  long_permission?: boolean;
+  short_permission?: boolean;
+  ready_long?: boolean;
+  ready_short?: boolean;
+
+  live_entry_state?: string;
+  live_pending_side?: Side | null;
+  live_position_side?: Side;
+  live_last_signal_id?: string | null;
+  live_last_signal_time?: number | null;
+  live_last_worker_action?: "BUY" | "SELL" | "NONE";
+  live_last_processed_candle_time?: number | null;
+  live_signal_is_new?: boolean;
 };
 
 type ConfigMap = Record<string, V5Config>;
@@ -611,6 +625,347 @@ function DecisionCard({
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+
+type EntryCheck = {
+  label: string;
+  passed: boolean;
+  value: string;
+  points: number;
+};
+
+function getEntryDirection(snapshot: V5Snapshot | null) {
+  const combined = [
+    snapshot?.decision,
+    snapshot?.action,
+    snapshot?.signal_side,
+    snapshot?.direction,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+  if (combined.includes("SHORT") || combined.includes("DOWN")) {
+    return "short" as const;
+  }
+
+  if (combined.includes("LONG") || combined.includes("UP")) {
+    return "long" as const;
+  }
+
+  return null;
+}
+
+function buildEntryChecks(snapshot: V5Snapshot | null): EntryCheck[] {
+  const side = getEntryDirection(snapshot);
+  const direction = String(snapshot?.direction || "").toUpperCase();
+  const regime = String(snapshot?.regime || "").toUpperCase();
+  const phase = String(snapshot?.phase || "").toUpperCase();
+
+  const directionOk =
+    side === "long"
+      ? direction === "UP"
+      : side === "short"
+        ? direction === "DOWN"
+        : direction === "UP" || direction === "DOWN";
+
+  return [
+    {
+      label: "Trend",
+      passed: Number(snapshot?.trend) >= 55,
+      value: roundScore(snapshot?.trend, 1),
+      points: 15,
+    },
+    {
+      label: "Regime",
+      passed: regime === "TREND",
+      value: regime || "-",
+      points: 15,
+    },
+    {
+      label: "Phase",
+      passed: phase === "EXPANSION",
+      value: phase || "-",
+      points: 15,
+    },
+    {
+      label: "Direction",
+      passed: directionOk,
+      value: direction || "-",
+      points: 10,
+    },
+    {
+      label: "Momentum",
+      passed: Number(snapshot?.momentum) >= 55,
+      value: roundScore(snapshot?.momentum, 1),
+      points: 15,
+    },
+    {
+      label: "Energy",
+      passed: Number(snapshot?.energy) >= 45,
+      value: roundScore(snapshot?.energy, 1),
+      points: 10,
+    },
+    {
+      label: "Structure",
+      passed: Number(snapshot?.structure) >= 60,
+      value: roundScore(snapshot?.structure, 1),
+      points: 10,
+    },
+    {
+      label: "Compression",
+      passed: Number(snapshot?.compression) <= 62,
+      value: roundScore(snapshot?.compression, 1),
+      points: 10,
+    },
+  ];
+}
+
+function EntryMonitorCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const checks = buildEntryChecks(snapshot);
+  const workerAction =
+    snapshot?.live_last_worker_action ??
+    snapshot?.worker_action ??
+    "NONE";
+
+  const executionChecks = [
+    {
+      label: "Long Permission",
+      passed: Boolean(snapshot?.long_permission),
+    },
+    {
+      label: "Short Permission",
+      passed: Boolean(snapshot?.short_permission),
+    },
+    {
+      label: "Entry Signal",
+      passed: Boolean(snapshot?.entry_signal),
+    },
+    {
+      label: "Neues Live-Signal",
+      passed: Boolean(snapshot?.live_signal_is_new),
+    },
+    {
+      label: "Worker Ready",
+      passed: Boolean(snapshot?.worker_ready),
+    },
+  ];
+
+  return (
+    <section style={styles.card}>
+      <h3 style={styles.cardTitle}>Entry Monitor</h3>
+
+      <div style={styles.checkList}>
+        {checks.map((check) => (
+          <div key={check.label} style={styles.checkRow}>
+            <span
+              style={{
+                ...styles.checkIcon,
+                color: check.passed ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {check.passed ? "✓" : "✗"}
+            </span>
+            <span style={styles.checkName}>{check.label}</span>
+            <strong>{check.value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <div style={styles.checkList}>
+        {executionChecks.map((check) => (
+          <div key={check.label} style={styles.checkRow}>
+            <span
+              style={{
+                ...styles.checkIcon,
+                color: check.passed ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {check.passed ? "✓" : "✗"}
+            </span>
+            <span style={styles.checkName}>{check.label}</span>
+            <strong>{check.passed ? "YES" : "NO"}</strong>
+          </div>
+        ))}
+
+        <div style={styles.checkRow}>
+          <span
+            style={{
+              ...styles.checkIcon,
+              color: semanticColor(workerAction),
+            }}
+          >
+            •
+          </span>
+          <span style={styles.checkName}>Worker Action</span>
+          <strong style={{ color: semanticColor(workerAction) }}>
+            {workerAction}
+          </strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LivePipelineCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const permission =
+    snapshot?.long_permission
+      ? "LONG"
+      : snapshot?.short_permission
+        ? "SHORT"
+        : "NO";
+
+  const steps = [
+    ["Decision", snapshot?.decision ?? "-"],
+    ["Live State", snapshot?.live_entry_state ?? "-"],
+    ["Permission", permission],
+    ["Entry", snapshot?.entry_signal ? "YES" : "NO"],
+    [
+      "Worker",
+      snapshot?.live_last_worker_action ??
+        snapshot?.worker_action ??
+        "NONE",
+    ],
+    [
+      "Engine",
+      snapshot?.strategy_side?.toUpperCase() ?? "FLAT",
+    ],
+    [
+      "Broker",
+      snapshot?.broker_side?.toUpperCase() ?? "FLAT",
+    ],
+  ];
+
+  return (
+    <section style={styles.card}>
+      <h3 style={styles.cardTitle}>Live Pipeline</h3>
+
+      <div style={styles.pipeline}>
+        {steps.map(([label, value], index) => (
+          <div key={label}>
+            <div style={styles.pipelineStep}>
+              <span style={styles.pipelineLabel}>{label}</span>
+              <strong style={{ color: semanticColor(value) }}>
+                {value}
+              </strong>
+            </div>
+
+            {index < steps.length - 1 && (
+              <div style={styles.pipelineArrow}>↓</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EntryScoreCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const checks = buildEntryChecks(snapshot);
+  const total = checks.reduce(
+    (sum, check) => sum + (check.passed ? check.points : 0),
+    0
+  );
+
+  const missing = checks
+    .filter((check) => !check.passed)
+    .map((check) => check.label);
+
+  if (!snapshot?.long_permission && !snapshot?.short_permission) {
+    missing.push("Long/Short Permission");
+  }
+
+  if (!snapshot?.entry_signal) {
+    missing.push("Entry Signal");
+  }
+
+  if (!snapshot?.worker_ready) {
+    missing.push("Worker Ready");
+  }
+
+  const uniqueMissing = [...new Set(missing)];
+
+  return (
+    <section style={styles.card}>
+      <h3 style={styles.cardTitle}>Entry Score</h3>
+
+      <div style={styles.entryScoreHero}>
+        <strong>{total}</strong>
+        <span>/ 100</span>
+      </div>
+
+      <div style={styles.confidenceTrack}>
+        <div
+          style={{
+            ...styles.confidenceFill,
+            width: `${total}%`,
+          }}
+        />
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <div style={styles.scoreBreakdown}>
+        {checks.map((check) => (
+          <div key={check.label} style={styles.scoreBreakdownRow}>
+            <span>{check.label}</span>
+            <strong
+              style={{
+                color: check.passed ? "#22c55e" : "#64748b",
+              }}
+            >
+              {check.passed ? `+${check.points}` : "+0"}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <div
+        style={{
+          ...styles.missingBox,
+          borderColor:
+            uniqueMissing.length === 0 ? "#166534" : "#854d0e",
+          background:
+            uniqueMissing.length === 0 ? "#07150f" : "#1a1205",
+        }}
+      >
+        <strong>
+          {uniqueMissing.length === 0
+            ? "ENTRY READY"
+            : "NO ENTRY – fehlend:"}
+        </strong>
+
+        {uniqueMissing.length > 0 && (
+          <ul style={styles.missingList}>
+            {uniqueMissing.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div style={styles.uiScoreNote}>
+        UI-Transparenzscore – ändert keine Engine-Entscheidung.
+      </div>
     </section>
   );
 }
@@ -1284,7 +1639,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.2</strong>
+          <strong>QTrend V5.3</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -1360,6 +1715,12 @@ export default function AppTESTv5() {
           />
 
           <DecisionCard snapshot={snapshot} />
+
+          <EntryMonitorCard snapshot={snapshot} />
+
+          <LivePipelineCard snapshot={snapshot} />
+
+          <EntryScoreCard snapshot={snapshot} />
 
           <ReasonsCard snapshot={snapshot} />
 
@@ -1776,6 +2137,87 @@ const styles: Record<string, CSSProperties> = {
     color: "#94a3b8",
     fontSize: 12,
     wordBreak: "break-all",
+  },
+
+
+  checkList: {
+    display: "grid",
+    gap: 5,
+  },
+  checkRow: {
+    display: "grid",
+    gridTemplateColumns: "22px minmax(0, 1fr) auto",
+    gap: 7,
+    alignItems: "center",
+    padding: "5px 0",
+    borderBottom: "1px solid #172033",
+    fontSize: 13,
+  },
+  checkIcon: {
+    fontWeight: 900,
+    textAlign: "center",
+  },
+  checkName: {
+    minWidth: 0,
+  },
+  pipeline: {
+    display: "grid",
+  },
+  pipelineStep: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "8px 10px",
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 8,
+  },
+  pipelineLabel: {
+    color: "#94a3b8",
+  },
+  pipelineArrow: {
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 1.2,
+    padding: "2px 0",
+  },
+  entryScoreHero: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "baseline",
+    gap: 5,
+    padding: "5px 0",
+    fontSize: 18,
+  },
+  scoreBreakdown: {
+    display: "grid",
+    gap: 4,
+  },
+  scoreBreakdownRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "4px 0",
+    borderBottom: "1px solid #172033",
+    fontSize: 13,
+  },
+  missingBox: {
+    border: "1px solid",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+  },
+  missingList: {
+    margin: "7px 0 0",
+    paddingLeft: 18,
+    display: "grid",
+    gap: 3,
+  },
+  uiScoreNote: {
+    color: "#64748b",
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: "center",
   },
 
   activeSymbolDot: {
