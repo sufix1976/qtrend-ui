@@ -139,7 +139,7 @@ export default function AppTESTv5() {
 
   useEffect(()=>{
     if(!priceHostRef.current||!macdHostRef.current) return;
-    const priceChart=createChart(priceHostRef.current,{layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155"},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true});
+    const priceChart=createChart(priceHostRef.current,{layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:78},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true});
     const candleSeries=priceChart.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});
     const slowSeries=priceChart.addSeries(LineSeries,{lineWidth:2,color:"#3b82f6"});
     candleSeries.setData(visibleCandles as any);
@@ -147,7 +147,7 @@ export default function AppTESTv5() {
     for(let i=0;i<candles.length;i+=1){sum+=candles[i].close;if(i>=len)sum-=candles[i-len].close;if(i>=len-1)smaPoints.push({time:candles[i].time,value:sum/len});}
     slowSeries.setData(smaPoints as any); priceChart.timeScale().fitContent();
 
-    const macdChart=createChart(macdHostRef.current,{layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155"},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true});
+    const macdChart=createChart(macdHostRef.current,{layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:78},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true});
     const histSeries=macdChart.addSeries(HistogramSeries,{priceFormat:{type:"price",precision:4,minMove:0.0001}});
     const macdSeries=macdChart.addSeries(LineSeries,{lineWidth:2,color:"#60a5fa"});
     const signalSeries=macdChart.addSeries(LineSeries,{lineWidth:2,color:"#f59e0b"});
@@ -156,8 +156,74 @@ export default function AppTESTv5() {
     histSeries.setData(macd.histogram.map((p)=>({...p,color:p.value>=0?"#22c55e":"#ef4444"})) as any);
     macdSeries.setData(macd.macd as any); signalSeries.setData(macd.signal as any); zeroSeries.setData(candles.map((c)=>({time:c.time,value:0})) as any); macdChart.timeScale().fitContent();
     let syncing=false;
-    priceChart.timeScale().subscribeVisibleLogicalRangeChange((range)=>{if(!range||syncing)return;syncing=true;macdChart.timeScale().setVisibleLogicalRange(range);syncing=false;});
-    macdChart.timeScale().subscribeVisibleLogicalRangeChange((range)=>{if(!range||syncing)return;syncing=true;priceChart.timeScale().setVisibleLogicalRange(range);syncing=false;});
+
+priceChart.timeScale().subscribeVisibleLogicalRangeChange((range)=>{
+  if(!range||syncing)return;
+  syncing=true;
+  macdChart.timeScale().setVisibleLogicalRange(range);
+  syncing=false;
+});
+
+macdChart.timeScale().subscribeVisibleLogicalRangeChange((range)=>{
+  if(!range||syncing)return;
+  syncing=true;
+  priceChart.timeScale().setVisibleLogicalRange(range);
+  syncing=false;
+});
+
+const priceByTime=new Map(
+  visibleCandles.map((c)=>[Number(c.time),Number(c.close)])
+);
+
+const macdByTime=new Map(
+  macd.macd.map((p)=>[Number(p.time),Number(p.value)])
+);
+
+let crosshairSyncing=false;
+
+priceChart.subscribeCrosshairMove((param)=>{
+  if(crosshairSyncing)return;
+
+  crosshairSyncing=true;
+
+  if(param.time==null){
+    macdChart.clearCrosshairPosition();
+  }else{
+    const value=macdByTime.get(Number(param.time));
+
+    if(value!=null){
+      macdChart.setCrosshairPosition(
+        value,
+        param.time,
+        macdSeries
+      );
+    }
+  }
+
+  crosshairSyncing=false;
+});
+
+macdChart.subscribeCrosshairMove((param)=>{
+  if(crosshairSyncing)return;
+
+  crosshairSyncing=true;
+
+  if(param.time==null){
+    priceChart.clearCrosshairPosition();
+  }else{
+    const value=priceByTime.get(Number(param.time));
+
+    if(value!=null){
+      priceChart.setCrosshairPosition(
+        value,
+        param.time,
+        candleSeries
+      );
+    }
+  }
+
+  crosshairSyncing=false;
+});
     priceChartRef.current=priceChart; macdChartRef.current=macdChart;
     return()=>{priceChart.remove();macdChart.remove();priceChartRef.current=null;macdChartRef.current=null;};
   },[visibleCandles,candles,config.sma_slow,config.macd_fast,config.macd_slow,config.macd_signal]);
