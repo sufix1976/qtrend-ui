@@ -11,6 +11,7 @@ import {
   HistogramSeries,
   LineSeries,
   createChart,
+  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
   type Time,
@@ -44,6 +45,7 @@ type V5Config = {
 type V5Snapshot = {
   symbol: string;
   interval: string;
+  time?: number;
   broker_side: Side;
   strategy_side: Side;
   dna: string;
@@ -99,6 +101,11 @@ type V5Snapshot = {
 };
 
 type ConfigMap = Record<string, V5Config>;
+
+type WatchValidationMarker = {
+  time: number;
+  side: "long" | "short";
+};
 
 type PositionCardProps = {
   config: V5Config;
@@ -1437,6 +1444,7 @@ export default function AppTESTv5() {
   const macdSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const signalSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const zeroSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const watchMarkersApiRef = useRef<any>(null);
 
   const lastFitKeyRef = useRef("");
 
@@ -1449,6 +1457,9 @@ export default function AppTESTv5() {
   const [snapshot, setSnapshot] = useState<V5Snapshot | null>(null);
   const [status, setStatus] = useState("Start");
   const [busy, setBusy] = useState(false);
+
+  const [showWatchMarkers, setShowWatchMarkers] = useState(true);
+  const [watchMarkers, setWatchMarkers] = useState<WatchValidationMarker[]>([]);
 
   const visibleCandles = useMemo(
     () => (chartMode === "heikin" ? buildHeikinAshi(candles) : candles),
@@ -1478,6 +1489,91 @@ export default function AppTESTv5() {
     setConfig(fallback);
     setInterval(fallback.interval);
   }, [symbol]);
+
+
+  useEffect(() => {
+    const storageKey = `qtrend_v55_watch_${symbol}_${interval}`;
+
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+
+      const valid = Array.isArray(parsed)
+        ? parsed
+            .filter(
+              (item) =>
+                Number.isFinite(Number(item?.time)) &&
+                (item?.side === "long" || item?.side === "short")
+            )
+            .map((item) => ({
+              time: Number(item.time),
+              side: item.side as "long" | "short",
+            }))
+        : [];
+
+      setWatchMarkers(valid.slice(-2000));
+    } catch {
+      setWatchMarkers([]);
+    }
+  }, [symbol, interval]);
+
+  useEffect(() => {
+    const time = Number(snapshot?.time);
+    if (!Number.isFinite(time) || time <= 0) return;
+
+    const decisionText = [
+      snapshot?.decision,
+      snapshot?.action,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toUpperCase();
+
+    const side =
+      decisionText.includes("WATCH LONG")
+        ? "long"
+        : decisionText.includes("WATCH SHORT")
+          ? "short"
+          : null;
+
+    if (!side) return;
+
+    const storageKey = `qtrend_v55_watch_${symbol}_${interval}`;
+
+    setWatchMarkers((previous) => {
+      const exists = previous.some(
+        (marker) =>
+          marker.time === time &&
+          marker.side === side
+      );
+
+      if (exists) return previous;
+
+      const next = [
+        ...previous,
+        { time, side },
+      ]
+        .sort((a, b) => a.time - b.time)
+        .slice(-2000);
+
+      try {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify(next)
+        );
+      } catch {
+        // LocalStorage ist nur Komfort; Markeranzeige läuft trotzdem weiter.
+      }
+
+      return next;
+    });
+  }, [
+    snapshot?.time,
+    snapshot?.decision,
+    snapshot?.action,
+    symbol,
+    interval,
+  ]);
 
   useEffect(() => {
     if (!priceHostRef.current || !macdHostRef.current) return;
@@ -1510,6 +1606,8 @@ export default function AppTESTv5() {
       wickDownColor: "#ef4444",
       borderVisible: false,
     });
+
+    const watchMarkersApi = createSeriesMarkers(candleSeries, []);
 
     const slowSeries = priceChart.addSeries(LineSeries, {
       lineWidth: 2,
@@ -1647,6 +1745,7 @@ export default function AppTESTv5() {
     macdSeriesRef.current = macdSeries;
     signalSeriesRef.current = signalSeries;
     zeroSeriesRef.current = zeroSeries;
+    watchMarkersApiRef.current = watchMarkersApi;
 
     return () => {
       priceChart.remove();
@@ -1660,8 +1759,30 @@ export default function AppTESTv5() {
       macdSeriesRef.current = null;
       signalSeriesRef.current = null;
       zeroSeriesRef.current = null;
+      watchMarkersApiRef.current = null;
     };
   }, []);
+
+
+  useEffect(() => {
+    if (!watchMarkersApiRef.current) return;
+
+    const markers = showWatchMarkers
+      ? watchMarkers.map((marker) => ({
+          time: marker.time as Time,
+          position:
+            marker.side === "long"
+              ? "belowBar"
+              : "aboveBar",
+          color: "rgba(148, 163, 184, 0.72)",
+          shape: "circle",
+          text: "",
+          size: 0.7,
+        }))
+      : [];
+
+    watchMarkersApiRef.current.setMarkers(markers);
+  }, [watchMarkers, showWatchMarkers]);
 
   useEffect(() => {
     if (
@@ -1887,7 +2008,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.4</strong>
+          <strong>QTrend V5.5.1</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -1941,6 +2062,20 @@ export default function AppTESTv5() {
             Kerzen
           </button>
 
+          <button
+            style={
+              showWatchMarkers
+                ? styles.watchToggleOn
+                : styles.watchToggleOff
+            }
+            onClick={() =>
+              setShowWatchMarkers((previous) => !previous)
+            }
+            title="WATCH-Marker ein- oder ausblenden"
+          >
+            WATCH ● {showWatchMarkers ? "ON" : "OFF"}
+          </button>
+
           <span style={styles.status}>
             {busy ? "Bitte warten..." : status}
           </span>
@@ -1951,6 +2086,12 @@ export default function AppTESTv5() {
         <section style={styles.chartColumn}>
           <div ref={priceHostRef} style={styles.priceChart} />
           <div ref={macdHostRef} style={styles.macdChart} />
+
+          <div style={styles.validationNote}>
+            WATCH-Marker werden ab jetzt live gesammelt und je Symbol/TF
+            im Browser gespeichert. Grau unter der Kerze = WATCH LONG,
+            grau über der Kerze = WATCH SHORT.
+          </div>
         </section>
 
         <aside style={styles.sidePanel}>
@@ -2508,6 +2649,31 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     letterSpacing: 0.6,
     textTransform: "uppercase",
+  },
+
+
+  watchToggleOn: {
+    background: "#475569",
+    color: "#fff",
+    border: "1px solid #94a3b8",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  watchToggleOff: {
+    background: "#172033",
+    color: "#64748b",
+    border: "1px solid #334155",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  validationNote: {
+    color: "#64748b",
+    fontSize: 11,
+    padding: "0 4px 4px",
   },
 
   activeSymbolDot: {
