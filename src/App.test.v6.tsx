@@ -1830,6 +1830,10 @@ export default function AppTESTv5() {
         };
       });
 
+    console.log("History:", history.length);
+console.log("Markers:", markers.length);
+console.log(markers.slice(0, 10));
+
     watchMarkersApiRef.current.setMarkers(markers);
   }, [
     history,
