@@ -64,6 +64,24 @@ type V5Snapshot = {
   pullback: number;
   exhaustion: number;
   dna_quality?: number;
+
+  market_dna?: string;
+  quality_grade?: string;
+  quality_label?: string;
+
+  decision?: string;
+  decision_confidence?: number;
+  decision_reasons?: string[];
+  decision_warnings?: string[];
+
+  worker_action?: "BUY" | "SELL" | "NONE";
+  worker_ready?: boolean;
+
+  entry_signal?: boolean;
+  entry_long_signal?: boolean;
+  entry_short_signal?: boolean;
+  signal_side?: Side | null;
+  signal_id?: string | null;
 };
 
 type ConfigMap = Record<string, V5Config>;
@@ -290,7 +308,9 @@ function semanticColor(value: string | null | undefined) {
     upper.includes("LONG") ||
     upper === "UP" ||
     upper.includes("EXPANSION") ||
-    upper === "TREND"
+    upper === "TREND" ||
+    upper === "BUY" ||
+    upper.includes("READY")
   ) {
     return "#22c55e";
   }
@@ -298,7 +318,8 @@ function semanticColor(value: string | null | undefined) {
   if (
     upper.includes("SHORT") ||
     upper === "DOWN" ||
-    upper.includes("EXHAUSTION")
+    upper.includes("EXHAUSTION") ||
+    upper === "SELL"
   ) {
     return "#ef4444";
   }
@@ -325,6 +346,7 @@ function splitDna(dna: string | null | undefined) {
     market: parts[0] || "-",
     phase: parts[1] || "-",
     direction: parts[2] || "-",
+    quality: parts[3] || "-",
   };
 }
 
@@ -489,8 +511,163 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
 }
 
 
+
+function DecisionCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const decision = snapshot?.decision ?? "-";
+  const confidence = Math.max(
+    0,
+    Math.min(100, Number(snapshot?.decision_confidence) || 0)
+  );
+  const workerAction = snapshot?.worker_action ?? "NONE";
+  const workerReady = Boolean(snapshot?.worker_ready);
+
+  return (
+    <section
+      style={{
+        ...styles.card,
+        borderLeft: `4px solid ${semanticColor(decision)}`,
+      }}
+    >
+      <h3 style={styles.cardTitle}>Decision</h3>
+
+      <div style={styles.actionBox}>
+        <span style={styles.actionLabel}>ENTSCHEIDUNG</span>
+        <strong
+          style={{
+            ...styles.actionValue,
+            color: semanticColor(decision),
+          }}
+        >
+          {decision}
+        </strong>
+
+        <div style={styles.confidenceTrack}>
+          <div
+            style={{
+              ...styles.confidenceFill,
+              width: `${confidence}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={styles.decisionMetaGrid}>
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>CONFIDENCE</span>
+          <strong>{roundScore(confidence, 1)}%</strong>
+        </div>
+
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>GRADE</span>
+          <strong>{snapshot?.quality_grade ?? "-"}</strong>
+        </div>
+
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>WORKER</span>
+          <strong
+            style={{
+              color: workerReady ? "#22c55e" : "#f59e0b",
+            }}
+          >
+            {workerReady ? "READY" : "WAIT"}
+          </strong>
+        </div>
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <div style={styles.decisionMetaGrid}>
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>ACTION</span>
+          <strong
+            style={{
+              color: semanticColor(workerAction),
+            }}
+          >
+            {workerAction}
+          </strong>
+        </div>
+
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>SIGNAL</span>
+          <strong>{snapshot?.entry_signal ? "YES" : "NO"}</strong>
+        </div>
+
+        <div style={styles.metaCell}>
+          <span style={styles.metaLabel}>SIDE</span>
+          <strong>{snapshot?.signal_side?.toUpperCase() ?? "-"}</strong>
+        </div>
+      </div>
+
+      {snapshot?.signal_id && (
+        <>
+          <div style={styles.sectionDivider} />
+          <div style={styles.signalIdText}>
+            Signal ID: {snapshot.signal_id}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ReasonsCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const reasons = snapshot?.decision_reasons ?? [];
+  const warnings = snapshot?.decision_warnings ?? [];
+
+  return (
+    <section style={styles.card}>
+      <h3 style={styles.cardTitle}>Warum?</h3>
+
+      {reasons.length > 0 ? (
+        <ul style={styles.reasonList}>
+          {reasons.map((reason, index) => (
+            <li
+              key={`${reason}-${index}`}
+              style={styles.reasonItem}
+            >
+              ✓ {reason}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div style={styles.emptyNotice}>
+          Keine Gründe vorhanden.
+        </div>
+      )}
+
+      <div style={styles.sectionDivider} />
+
+      {warnings.length > 0 ? (
+        <ul style={styles.reasonList}>
+          {warnings.map((warning, index) => (
+            <li
+              key={`${warning}-${index}`}
+              style={styles.warningItem}
+            >
+              ⚠ {warning}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div style={styles.emptyNotice}>
+          Keine Warnungen.
+        </div>
+      )}
+    </section>
+  );
+}
+
 function EngineCard({ snapshot }: EngineCardProps) {
-  const dna = splitDna(snapshot?.dna);
+  const dna = splitDna(snapshot?.market_dna || snapshot?.dna);
   const action = snapshot?.action ?? "-";
   const regime = snapshot?.regime ?? "-";
   const phase = snapshot?.phase ?? "-";
@@ -531,18 +708,29 @@ function EngineCard({ snapshot }: EngineCardProps) {
       <div style={styles.dnaGrid}>
         <div style={styles.dnaCell}>
           <span style={styles.dnaLabel}>MARKT</span>
-          <strong style={{ color: semanticColor(regime) }}>{dna.market}</strong>
+          <strong style={{ color: semanticColor(regime) }}>
+            {dna.market}
+          </strong>
         </div>
 
         <div style={styles.dnaCell}>
           <span style={styles.dnaLabel}>PHASE</span>
-          <strong style={{ color: semanticColor(phase) }}>{dna.phase}</strong>
+          <strong style={{ color: semanticColor(phase) }}>
+            {dna.phase}
+          </strong>
         </div>
 
         <div style={styles.dnaCell}>
           <span style={styles.dnaLabel}>RICHTUNG</span>
           <strong style={{ color: semanticColor(direction) }}>
             {dna.direction}
+          </strong>
+        </div>
+
+        <div style={styles.dnaCell}>
+          <span style={styles.dnaLabel}>QUALITY</span>
+          <strong>
+            {snapshot?.quality_label ?? dna.quality ?? "-"}
           </strong>
         </div>
       </div>
@@ -743,6 +931,9 @@ export default function AppTESTv5() {
         borderColor: "#334155",
         timeVisible: true,
       },
+      localization: {
+        priceFormatter: (value: number) => value.toFixed(2),
+      },
       autoSize: true,
     });
 
@@ -757,16 +948,31 @@ export default function AppTESTv5() {
     const macdSeries = macdChart.addSeries(LineSeries, {
       lineWidth: 2,
       color: "#60a5fa",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     const signalSeries = macdChart.addSeries(LineSeries, {
       lineWidth: 2,
       color: "#f59e0b",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     const zeroSeries = macdChart.addSeries(LineSeries, {
       lineWidth: 1,
       color: "#64748b",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     let rangeSyncing = false;
@@ -1078,7 +1284,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5</strong>
+          <strong>QTrend V5.2</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -1153,13 +1359,17 @@ export default function AppTESTv5() {
             onManual={manual}
           />
 
+          <DecisionCard snapshot={snapshot} />
+
+          <ReasonsCard snapshot={snapshot} />
+
+          <EngineCard snapshot={snapshot} />
+
           <ParameterCard
             config={config}
             onPatch={patchConfig}
             onSave={saveConfig}
           />
-
-          <EngineCard snapshot={snapshot} />
         </aside>
       </main>
 
@@ -1206,7 +1416,7 @@ const styles: Record<string, CSSProperties> = {
   },
   layout: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) 360px",
+    gridTemplateColumns: "minmax(0, 1fr) 380px",
     gap: 10,
     padding: 10,
   },
@@ -1222,6 +1432,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid #243047",
     borderRadius: 10,
     overflow: "hidden",
+    boxSizing: "border-box",
   },
   macdChart: {
     width: "100%",
@@ -1229,6 +1440,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid #243047",
     borderRadius: 10,
     overflow: "hidden",
+    boxSizing: "border-box",
   },
   sidePanel: {
     display: "flex",
@@ -1457,7 +1669,7 @@ const styles: Record<string, CSSProperties> = {
   },
   dnaGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: 6,
   },
   dnaCell: {
@@ -1500,6 +1712,70 @@ const styles: Record<string, CSSProperties> = {
     height: "100%",
     background: "linear-gradient(90deg, #2563eb, #22c55e)",
     borderRadius: 999,
+  },
+
+
+  confidenceTrack: {
+    height: 8,
+    background: "#172033",
+    borderRadius: 999,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  confidenceFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, #2563eb, #22c55e)",
+    borderRadius: 999,
+  },
+  decisionMetaGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 6,
+  },
+  metaCell: {
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 8,
+    padding: "8px 6px",
+    textAlign: "center",
+    minWidth: 0,
+  },
+  metaLabel: {
+    display: "block",
+    color: "#94a3b8",
+    fontSize: 10,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  reasonList: {
+    display: "grid",
+    gap: 6,
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+  },
+  reasonItem: {
+    background: "#07150f",
+    border: "1px solid #14532d",
+    borderRadius: 7,
+    padding: "7px 8px",
+    fontSize: 13,
+  },
+  warningItem: {
+    background: "#1a1205",
+    border: "1px solid #854d0e",
+    borderRadius: 7,
+    padding: "7px 8px",
+    fontSize: 13,
+  },
+  emptyNotice: {
+    color: "#94a3b8",
+    fontSize: 13,
+  },
+  signalIdText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    wordBreak: "break-all",
   },
 
   activeSymbolDot: {
