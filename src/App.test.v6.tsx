@@ -1529,7 +1529,7 @@ export default function AppTESTv5() {
       .join(" ")
       .toUpperCase();
 
-    const side =
+    const side: WatchValidationMarker["side"] | null =
       decisionText.includes("WATCH LONG")
         ? "long"
         : decisionText.includes("WATCH SHORT")
