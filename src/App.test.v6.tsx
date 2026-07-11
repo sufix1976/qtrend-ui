@@ -1488,7 +1488,7 @@ export default function AppTESTv5() {
 
     setConfig(fallback);
     setInterval(fallback.interval);
-  }, [symbol]);
+  }, [symbol, configs]);
 
 
   useEffect(() => {
@@ -1888,6 +1888,13 @@ export default function AppTESTv5() {
       }
 
       setConfigs(map);
+
+      const savedActiveConfig = map[symbol];
+      if (savedActiveConfig) {
+        setConfig(savedActiveConfig);
+        setInterval(savedActiveConfig.interval);
+      }
+
       setCandles(Array.isArray(candleJson.candles) ? candleJson.candles : []);
       setSnapshot(stateJson.state || null);
       setStatus("V5 verbunden");
@@ -1902,8 +1909,12 @@ export default function AppTESTv5() {
 
   useEffect(() => {
     void loadAll();
+  }, [symbol]);
 
-    const timer = window.setInterval(async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshMarketData() {
       try {
         const [candleJson, stateJson] = await Promise.all([
           fetchJson(
@@ -1920,6 +1931,8 @@ export default function AppTESTv5() {
           ),
         ]);
 
+        if (cancelled) return;
+
         setCandles(
           Array.isArray(candleJson.candles) ? candleJson.candles : []
         );
@@ -1927,9 +1940,16 @@ export default function AppTESTv5() {
       } catch {
         // Letzten funktionierenden Stand behalten.
       }
-    }, 5000);
+    }
 
-    return () => window.clearInterval(timer);
+    void refreshMarketData();
+
+    const timer = window.setInterval(refreshMarketData, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [symbol, interval]);
 
   async function saveConfig(next: V5Config = config) {
@@ -1945,6 +1965,7 @@ export default function AppTESTv5() {
       const saved = normalizeConfig(json.row);
 
       setConfig(saved);
+      setInterval(saved.interval);
       setConfigs((previous) => ({
         ...previous,
         [saved.symbol]: saved,
@@ -2008,7 +2029,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.5.1</strong>
+          <strong>QTrend V5.5.2</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
