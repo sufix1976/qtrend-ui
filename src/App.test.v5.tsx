@@ -749,8 +749,8 @@ export default function AppTESTv5() {
     const histogramSeries = macdChart.addSeries(HistogramSeries, {
       priceFormat: {
         type: "price",
-        precision: 4,
-        minMove: 0.0001,
+        precision: 2,
+        minMove: 0.01,
       },
     });
 
