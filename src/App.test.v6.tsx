@@ -1487,23 +1487,6 @@ export default function AppTESTv5() {
       (a, b) => Number(a.time) - Number(b.time)
     );
 
-    type RecorderStage =
-      | "SCAN"
-      | "WATCH"
-      | "READY"
-      | "PERMISSION"
-      | "ENTRY"
-      | "POSITION";
-
-    const rank: Record<RecorderStage, number> = {
-      SCAN: 0,
-      WATCH: 1,
-      READY: 2,
-      PERMISSION: 3,
-      ENTRY: 4,
-      POSITION: 5,
-    };
-
     const counts = {
       WATCH: 0,
       READY: 0,
@@ -1511,98 +1494,74 @@ export default function AppTESTv5() {
       ENTRY: 0,
     };
 
-    let recorderSide: "long" | "short" | null = null;
-    let recorderStage: RecorderStage = "SCAN";
-    let previousPositionSide = "flat";
+    for (let index = 0; index < sorted.length; index += 1) {
+      const point = sorted[index];
+      const previous = index > 0 ? sorted[index - 1] : null;
 
-    for (const point of sorted) {
-      const positionSide = String(
-        point.position_side || "flat"
-      ).toLowerCase();
+      const decision = String(point.decision || "").toUpperCase();
+      const previousDecision = String(
+        previous?.decision || ""
+      ).toUpperCase();
+
+      const watchLongNow =
+        decision === "WATCH_LONG" ||
+        decision === "PREP_LONG";
+
+      const watchShortNow =
+        decision === "WATCH_SHORT" ||
+        decision === "PREP_SHORT";
+
+      const watchLongBefore =
+        previousDecision === "WATCH_LONG" ||
+        previousDecision === "PREP_LONG";
+
+      const watchShortBefore =
+        previousDecision === "WATCH_SHORT" ||
+        previousDecision === "PREP_SHORT";
+
+      if (watchLongNow && !watchLongBefore) counts.WATCH += 1;
+      if (watchShortNow && !watchShortBefore) counts.WATCH += 1;
 
       if (
-        previousPositionSide !== "flat" &&
-        positionSide === "flat"
+        point.ready_long === true &&
+        previous?.ready_long !== true
       ) {
-        recorderSide = null;
-        recorderStage = "SCAN";
-      }
-
-      previousPositionSide = positionSide;
-
-      let candidateSide: "long" | "short" | null = null;
-      let candidateStage: RecorderStage = "SCAN";
-
-      if (point.entry_long_signal === true) {
-        candidateSide = "long";
-        candidateStage = "ENTRY";
-      } else if (point.entry_short_signal === true) {
-        candidateSide = "short";
-        candidateStage = "ENTRY";
-      } else if (positionSide === "long") {
-        candidateSide = "long";
-        candidateStage = "POSITION";
-      } else if (positionSide === "short") {
-        candidateSide = "short";
-        candidateStage = "POSITION";
-      } else if (point.long_permission === true) {
-        candidateSide = "long";
-        candidateStage = "PERMISSION";
-      } else if (point.short_permission === true) {
-        candidateSide = "short";
-        candidateStage = "PERMISSION";
-      } else if (point.ready_long === true) {
-        candidateSide = "long";
-        candidateStage = "READY";
-      } else if (point.ready_short === true) {
-        candidateSide = "short";
-        candidateStage = "READY";
-      } else {
-        const decision = String(point.decision || "").toUpperCase();
-
-        if (
-          decision === "WATCH_LONG" ||
-          decision === "PREP_LONG"
-        ) {
-          candidateSide = "long";
-          candidateStage = "WATCH";
-        } else if (
-          decision === "WATCH_SHORT" ||
-          decision === "PREP_SHORT"
-        ) {
-          candidateSide = "short";
-          candidateStage = "WATCH";
-        }
-      }
-
-      if (!candidateSide || candidateStage === "SCAN") {
-        if (positionSide === "flat") {
-          recorderSide = null;
-          recorderStage = "SCAN";
-        }
-        continue;
-      }
-
-      if (recorderSide !== candidateSide) {
-        recorderSide = candidateSide;
-        recorderStage = "SCAN";
-      }
-
-      if (candidateStage === "POSITION") {
-        recorderStage = "POSITION";
-        continue;
+        counts.READY += 1;
       }
 
       if (
-        recorderStage === "ENTRY" ||
-        recorderStage === "POSITION"
+        point.ready_short === true &&
+        previous?.ready_short !== true
       ) {
-        continue;
+        counts.READY += 1;
       }
 
-      if (rank[candidateStage] > rank[recorderStage]) {
-        counts[candidateStage as keyof typeof counts] += 1;
-        recorderStage = candidateStage;
+      if (
+        point.long_permission === true &&
+        previous?.long_permission !== true
+      ) {
+        counts.PERMISSION += 1;
+      }
+
+      if (
+        point.short_permission === true &&
+        previous?.short_permission !== true
+      ) {
+        counts.PERMISSION += 1;
+      }
+
+      if (
+        point.entry_long_signal === true &&
+        previous?.entry_long_signal !== true
+      ) {
+        counts.ENTRY += 1;
+      }
+
+      if (
+        point.entry_short_signal === true &&
+        previous?.entry_short_signal !== true
+      ) {
+        counts.ENTRY += 1;
       }
     }
 
@@ -1835,133 +1794,131 @@ export default function AppTESTv5() {
       (a, b) => Number(a.time) - Number(b.time)
     );
 
-    type RecorderStage =
-      | "SCAN"
-      | "WATCH"
-      | "READY"
-      | "PERMISSION"
-      | "ENTRY"
-      | "POSITION";
-
     type MarkerEvent = {
       time: number;
       kind: "WATCH" | "READY" | "PERMISSION" | "ENTRY";
       side: "long" | "short";
     };
 
-    const rank: Record<RecorderStage, number> = {
-      SCAN: 0,
-      WATCH: 1,
-      READY: 2,
-      PERMISSION: 3,
-      ENTRY: 4,
-      POSITION: 5,
-    };
-
     const events: MarkerEvent[] = [];
-    let recorderSide: "long" | "short" | null = null;
-    let recorderStage: RecorderStage = "SCAN";
-    let previousPositionSide = "flat";
 
-    for (const point of sortedHistory) {
-      const positionSide = String(
-        point.position_side || "flat"
-      ).toLowerCase();
+    for (let index = 0; index < sortedHistory.length; index += 1) {
+      const point = sortedHistory[index];
+      const previous = index > 0 ? sortedHistory[index - 1] : null;
 
-      if (
-        previousPositionSide !== "flat" &&
-        positionSide === "flat"
-      ) {
-        recorderSide = null;
-        recorderStage = "SCAN";
-      }
+      const decision = String(point.decision || "").toUpperCase();
+      const previousDecision = String(
+        previous?.decision || ""
+      ).toUpperCase();
 
-      previousPositionSide = positionSide;
+      const watchLongNow =
+        decision === "WATCH_LONG" ||
+        decision === "PREP_LONG";
 
-      let candidateSide: "long" | "short" | null = null;
-      let candidateStage: RecorderStage = "SCAN";
+      const watchShortNow =
+        decision === "WATCH_SHORT" ||
+        decision === "PREP_SHORT";
 
-      if (point.entry_long_signal === true) {
-        candidateSide = "long";
-        candidateStage = "ENTRY";
-      } else if (point.entry_short_signal === true) {
-        candidateSide = "short";
-        candidateStage = "ENTRY";
-      } else if (positionSide === "long") {
-        candidateSide = "long";
-        candidateStage = "POSITION";
-      } else if (positionSide === "short") {
-        candidateSide = "short";
-        candidateStage = "POSITION";
-      } else if (point.long_permission === true) {
-        candidateSide = "long";
-        candidateStage = "PERMISSION";
-      } else if (point.short_permission === true) {
-        candidateSide = "short";
-        candidateStage = "PERMISSION";
-      } else if (point.ready_long === true) {
-        candidateSide = "long";
-        candidateStage = "READY";
-      } else if (point.ready_short === true) {
-        candidateSide = "short";
-        candidateStage = "READY";
-      } else {
-        const decision = String(point.decision || "").toUpperCase();
+      const watchLongBefore =
+        previousDecision === "WATCH_LONG" ||
+        previousDecision === "PREP_LONG";
 
-        if (
-          decision === "WATCH_LONG" ||
-          decision === "PREP_LONG"
-        ) {
-          candidateSide = "long";
-          candidateStage = "WATCH";
-        } else if (
-          decision === "WATCH_SHORT" ||
-          decision === "PREP_SHORT"
-        ) {
-          candidateSide = "short";
-          candidateStage = "WATCH";
-        }
-      }
+      const watchShortBefore =
+        previousDecision === "WATCH_SHORT" ||
+        previousDecision === "PREP_SHORT";
 
-      if (!candidateSide || candidateStage === "SCAN") {
-        if (positionSide === "flat") {
-          recorderSide = null;
-          recorderStage = "SCAN";
-        }
-        continue;
-      }
-
-      if (recorderSide !== candidateSide) {
-        recorderSide = candidateSide;
-        recorderStage = "SCAN";
-      }
-
-      if (candidateStage === "POSITION") {
-        recorderStage = "POSITION";
-        continue;
-      }
-
-      if (
-        recorderStage === "ENTRY" ||
-        recorderStage === "POSITION"
-      ) {
-        continue;
-      }
-
-      if (rank[candidateStage] > rank[recorderStage]) {
+      // WATCH nur beim Beginn eines neuen WATCH-Zyklus.
+      if (watchLongNow && !watchLongBefore) {
         events.push({
           time: point.time,
-          kind: candidateStage as
-            | "WATCH"
-            | "READY"
-            | "PERMISSION"
-            | "ENTRY",
-          side: candidateSide,
+          kind: "WATCH",
+          side: "long",
         });
+      }
 
-        recorderStage = candidateStage;
+      if (watchShortNow && !watchShortBefore) {
+        events.push({
+          time: point.time,
+          kind: "WATCH",
+          side: "short",
+        });
+      }
+
+      // READY, PERMISSION und ENTRY als echte false -> true Übergänge.
+      // Sie dürfen auf derselben Kerze gleichzeitig sichtbar sein.
+      if (
+        point.ready_long === true &&
+        previous?.ready_long !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "READY",
+          side: "long",
+        });
+      }
+
+      if (
+        point.ready_short === true &&
+        previous?.ready_short !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "READY",
+          side: "short",
+        });
+      }
+
+      if (
+        point.long_permission === true &&
+        previous?.long_permission !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "PERMISSION",
+          side: "long",
+        });
+      }
+
+      if (
+        point.short_permission === true &&
+        previous?.short_permission !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "PERMISSION",
+          side: "short",
+        });
+      }
+
+      if (
+        point.entry_long_signal === true &&
+        previous?.entry_long_signal !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "ENTRY",
+          side: "long",
+        });
+      }
+
+      if (
+        point.entry_short_signal === true &&
+        previous?.entry_short_signal !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "ENTRY",
+          side: "short",
+        });
       }
     }
+
+    const kindOrder: Record<MarkerEvent["kind"], number> = {
+      WATCH: 0,
+      READY: 1,
+      PERMISSION: 2,
+      ENTRY: 3,
+    };
 
     const markers = events
       .filter((event) => {
@@ -1970,6 +1927,11 @@ export default function AppTESTv5() {
         if (event.kind === "PERMISSION") return showPermissionMarkers;
         if (event.kind === "ENTRY") return showEntryMarkers;
         return false;
+      })
+      .sort((a, b) => {
+        const timeDiff = Number(a.time) - Number(b.time);
+        if (timeDiff !== 0) return timeDiff;
+        return kindOrder[a.kind] - kindOrder[b.kind];
       })
       .map((event) => {
         const isLong = event.side === "long";
@@ -1982,7 +1944,7 @@ export default function AppTESTv5() {
             color: isLong ? "#22c55e" : "#ef4444",
             shape: isLong ? "arrowUp" : "arrowDown",
             text: "",
-            size: 1.3,
+            size: 1.35,
           };
         }
 
@@ -1993,7 +1955,7 @@ export default function AppTESTv5() {
             color: "#3b82f6",
             shape: "square",
             text: "",
-            size: 0.95,
+            size: 1.0,
           };
         }
 
@@ -2004,20 +1966,19 @@ export default function AppTESTv5() {
             color: "#f59e0b",
             shape: "circle",
             text: "",
-            size: 0.9,
+            size: 0.95,
           };
         }
 
         return {
           time: event.time as Time,
           position,
-          color: "rgba(148, 163, 184, 0.9)",
+          color: "rgba(148, 163, 184, 0.95)",
           shape: "circle",
           text: "",
-          size: 0.7,
+          size: 0.72,
         };
-      })
-      .sort((a, b) => Number(a.time) - Number(b.time));
+      });
 
     watchMarkersApiRef.current.setMarkers(markers);
   }, [
@@ -2285,7 +2246,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.6.3a</strong>
+          <strong>QTrend V5.6.4</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2389,9 +2350,9 @@ export default function AppTESTv5() {
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            Historische Signalzyklen aus /v5/history:
+            Historische Engine-Übergänge aus /v5/history:
             grau = WATCH, gelb = READY, blau = PERMISSION,
-            grün/rot = ENTRY. Pro Signalzyklus wird jede Stufe höchstens einmal markiert.
+            grün/rot = ENTRY. READY, PERMISSION und ENTRY dürfen auf derselben Kerze gemeinsam erscheinen.
           </div>
         </section>
 
