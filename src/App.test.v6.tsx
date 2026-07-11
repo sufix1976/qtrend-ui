@@ -1481,6 +1481,48 @@ export default function AppTESTv5() {
   const [showEntryMarkers, setShowEntryMarkers] = useState(true);
   const [history, setHistory] = useState<V5HistoryPoint[]>([]);
 
+  const markerCounts = useMemo(() => {
+    const sorted = [...history].sort(
+      (a, b) => Number(a.time) - Number(b.time)
+    );
+
+    const transitions = sorted.filter((point, index, rows) => {
+      if (point.stage === "ENTRY") {
+        return point.entry_signal === true;
+      }
+
+      if (
+        point.stage !== "WATCH" &&
+        point.stage !== "READY" &&
+        point.stage !== "PERMISSION"
+      ) {
+        return false;
+      }
+
+      const previous = index > 0 ? rows[index - 1] : null;
+
+      return (
+        !previous ||
+        previous.stage !== point.stage ||
+        previous.side !== point.side
+      );
+    });
+
+    return transitions.reduce(
+      (counts, point) => {
+        counts[point.stage] =
+          (counts[point.stage] || 0) + 1;
+        return counts;
+      },
+      {
+        WATCH: 0,
+        READY: 0,
+        PERMISSION: 0,
+        ENTRY: 0,
+      } as Record<string, number>
+    );
+  }, [history]);
+
   const visibleCandles = useMemo(
     () => (chartMode === "heikin" ? buildHeikinAshi(candles) : candles),
     [candles, chartMode]
@@ -1703,7 +1745,37 @@ export default function AppTESTv5() {
   useEffect(() => {
     if (!watchMarkersApiRef.current) return;
 
-    const markers = history
+    const sortedHistory = [...history].sort(
+      (a, b) => Number(a.time) - Number(b.time)
+    );
+
+    const transitionPoints = sortedHistory.filter(
+      (point, index, rows) => {
+        if (point.stage === "ENTRY") {
+          // Jedes echte Entry-Signal bleibt sichtbar.
+          return point.entry_signal === true;
+        }
+
+        if (
+          point.stage !== "WATCH" &&
+          point.stage !== "READY" &&
+          point.stage !== "PERMISSION"
+        ) {
+          return false;
+        }
+
+        const previous = index > 0 ? rows[index - 1] : null;
+
+        // Nur den Beginn eines neuen Zustands markieren.
+        return (
+          !previous ||
+          previous.stage !== point.stage ||
+          previous.side !== point.side
+        );
+      }
+    );
+
+    const markers = transitionPoints
       .filter((point) => {
         if (point.stage === "WATCH") return showWatchMarkers;
         if (point.stage === "READY") return showReadyMarkers;
@@ -1713,22 +1785,23 @@ export default function AppTESTv5() {
       })
       .map((point) => {
         const isLong = point.side !== "short";
+        const position = isLong ? "belowBar" : "aboveBar";
 
         if (point.stage === "ENTRY") {
           return {
             time: point.time as Time,
-            position: isLong ? "belowBar" : "aboveBar",
+            position,
             color: isLong ? "#22c55e" : "#ef4444",
             shape: isLong ? "arrowUp" : "arrowDown",
             text: "",
-            size: 1.2,
+            size: 1.25,
           };
         }
 
         if (point.stage === "PERMISSION") {
           return {
             time: point.time as Time,
-            position: isLong ? "belowBar" : "aboveBar",
+            position,
             color: "#3b82f6",
             shape: "square",
             text: "",
@@ -1739,24 +1812,23 @@ export default function AppTESTv5() {
         if (point.stage === "READY") {
           return {
             time: point.time as Time,
-            position: isLong ? "belowBar" : "aboveBar",
+            position,
             color: "#f59e0b",
             shape: "circle",
             text: "",
-            size: 0.9,
+            size: 0.85,
           };
         }
 
         return {
           time: point.time as Time,
-          position: isLong ? "belowBar" : "aboveBar",
-          color: "rgba(148, 163, 184, 0.72)",
+          position,
+          color: "rgba(148, 163, 184, 0.82)",
           shape: "circle",
           text: "",
-          size: 0.6,
+          size: 0.65,
         };
-      })
-      .sort((a, b) => Number(a.time) - Number(b.time));
+      });
 
     watchMarkersApiRef.current.setMarkers(markers);
   }, [
@@ -2024,7 +2096,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.6</strong>
+          <strong>QTrend V5.6.1</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2083,7 +2155,7 @@ export default function AppTESTv5() {
             onClick={() => setShowWatchMarkers((previous) => !previous)}
             title="Historische WATCH-Marker ein- oder ausblenden"
           >
-            WATCH ●
+            WATCH ● {markerCounts.WATCH}
           </button>
 
           <button
@@ -2091,7 +2163,7 @@ export default function AppTESTv5() {
             onClick={() => setShowReadyMarkers((previous) => !previous)}
             title="Historische READY-Marker ein- oder ausblenden"
           >
-            READY ●
+            READY ● {markerCounts.READY}
           </button>
 
           <button
@@ -2105,7 +2177,7 @@ export default function AppTESTv5() {
             }
             title="Historische Permission-Marker ein- oder ausblenden"
           >
-            PERM ■
+            PERM ■ {markerCounts.PERMISSION}
           </button>
 
           <button
@@ -2113,7 +2185,7 @@ export default function AppTESTv5() {
             onClick={() => setShowEntryMarkers((previous) => !previous)}
             title="Historische Entry-Marker ein- oder ausblenden"
           >
-            ENTRY ▲
+            ENTRY ▲ {markerCounts.ENTRY}
           </button>
 
           <span style={styles.status}>
@@ -2128,9 +2200,9 @@ export default function AppTESTv5() {
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            Historische Marker kommen direkt aus /v5/history:
+            Historische Zustandswechsel aus /v5/history:
             grau = WATCH, gelb = READY, blau = PERMISSION,
-            grün/rot = ENTRY. Unter der Kerze = LONG, über der Kerze = SHORT.
+            grün/rot = ENTRY. Laufende Positionskerzen erhalten keine Marker.
           </div>
         </section>
 
