@@ -531,7 +531,8 @@ function DecisionCard({
 }: {
   snapshot: V5Snapshot | null;
 }) {
-  const decision = snapshot?.decision ?? "-";
+  const decision = readableDecision(snapshot);
+  const stage = getUnifiedStage(snapshot);
   const confidence = Math.max(
     0,
     Math.min(100, Number(snapshot?.decision_confidence) || 0)
@@ -549,7 +550,7 @@ function DecisionCard({
       <h3 style={styles.cardTitle}>Decision</h3>
 
       <div style={styles.actionBox}>
-        <span style={styles.actionLabel}>ENTSCHEIDUNG</span>
+        <span style={styles.actionLabel}>ENTSCHEIDUNG · {stage}</span>
         <strong
           style={{
             ...styles.actionValue,
@@ -724,6 +725,151 @@ function buildEntryChecks(snapshot: V5Snapshot | null): EntryCheck[] {
   ];
 }
 
+
+type UnifiedStage =
+  | "SCAN"
+  | "WATCH"
+  | "READY"
+  | "SIGNAL"
+  | "EXECUTING"
+  | "POSITION";
+
+function getUnifiedStage(snapshot: V5Snapshot | null): UnifiedStage {
+  const strategySide = String(snapshot?.strategy_side || "flat").toLowerCase();
+  const brokerSide = String(snapshot?.broker_side || "flat").toLowerCase();
+  const workerAction = String(
+    snapshot?.live_last_worker_action ??
+      snapshot?.worker_action ??
+      "NONE"
+  ).toUpperCase();
+
+  if (
+    strategySide !== "flat" &&
+    brokerSide === strategySide
+  ) {
+    return "POSITION";
+  }
+
+  if (
+    workerAction === "BUY" ||
+    workerAction === "SELL"
+  ) {
+    return "EXECUTING";
+  }
+
+  if (snapshot?.entry_signal) {
+    return "SIGNAL";
+  }
+
+  if (
+    snapshot?.long_permission ||
+    snapshot?.short_permission ||
+    snapshot?.ready_long ||
+    snapshot?.ready_short
+  ) {
+    return "READY";
+  }
+
+  const decision = String(snapshot?.decision || "").toUpperCase();
+  const action = String(snapshot?.action || "").toUpperCase();
+
+  if (
+    decision.includes("WATCH") ||
+    decision.includes("LONG") ||
+    decision.includes("SHORT") ||
+    action.includes("LONG") ||
+    action.includes("SHORT")
+  ) {
+    return "WATCH";
+  }
+
+  return "SCAN";
+}
+
+function readableDecision(snapshot: V5Snapshot | null) {
+  const stage = getUnifiedStage(snapshot);
+  const side = getEntryDirection(snapshot);
+
+  if (stage === "POSITION") {
+    return side === "short" ? "SHORT POSITION" : "LONG POSITION";
+  }
+
+  if (stage === "EXECUTING") {
+    return side === "short" ? "SELL WIRD AUSGEFÜHRT" : "BUY WIRD AUSGEFÜHRT";
+  }
+
+  if (stage === "SIGNAL") {
+    return side === "short" ? "SHORT SIGNAL" : "LONG SIGNAL";
+  }
+
+  if (stage === "READY") {
+    return side === "short" ? "SHORT READY" : "LONG READY";
+  }
+
+  if (stage === "WATCH") {
+    return side === "short" ? "WATCH SHORT" : "WATCH LONG";
+  }
+
+  return "SCAN";
+}
+
+function getNextStep(snapshot: V5Snapshot | null) {
+  const stage = getUnifiedStage(snapshot);
+  const side = getEntryDirection(snapshot);
+
+  if (stage === "POSITION") {
+    return {
+      title: side === "short" ? "SHORT POSITION AKTIV" : "LONG POSITION AKTIV",
+      detail: "Auf neues Gegensignal oder manuellen Eingriff warten.",
+      status: "OK",
+    };
+  }
+
+  if (stage === "EXECUTING") {
+    return {
+      title: "BROKER-BESTÄTIGUNG",
+      detail: "Worker hat eine Orderaktion erkannt und wartet auf Synchronität.",
+      status: "WAIT",
+    };
+  }
+
+  if (stage === "SIGNAL") {
+    return {
+      title: "WORKER-AUSFÜHRUNG",
+      detail: "Entry-Signal liegt vor. Worker muss das neue Signal übernehmen.",
+      status: "WAIT",
+    };
+  }
+
+  if (stage === "READY") {
+    return {
+      title:
+        side === "short"
+          ? "AUF ROTE TRIGGERKERZE WARTEN"
+          : "AUF GRÜNE TRIGGERKERZE WARTEN",
+      detail: "Permission ist vorhanden, aber noch kein Entry-Signal.",
+      status: "WAIT",
+    };
+  }
+
+  if (stage === "WATCH") {
+    return {
+      title:
+        side === "short"
+          ? "SHORT-PERMISSION ABWARTEN"
+          : "LONG-PERMISSION ABWARTEN",
+      detail: "Marktrichtung wird beobachtet, die Freigabe ist noch nicht vollständig.",
+      status: "WAIT",
+    };
+  }
+
+  return {
+    title: "MARKT SCANNEN",
+    detail: "Noch kein LONG- oder SHORT-Kontext aktiv.",
+    status: "SCAN",
+  };
+}
+
 function EntryMonitorCard({
   snapshot,
 }: {
@@ -829,10 +975,10 @@ function LivePipelineCard({
         : "NO";
 
   const steps = [
-    ["Decision", snapshot?.decision ?? "-"],
-    ["Live State", snapshot?.live_entry_state ?? "-"],
+    ["Stage", getUnifiedStage(snapshot)],
+    ["Decision", readableDecision(snapshot)],
     ["Permission", permission],
-    ["Entry", snapshot?.entry_signal ? "YES" : "NO"],
+    ["Entry Signal", snapshot?.entry_signal ? "YES" : "NO"],
     [
       "Worker",
       snapshot?.live_last_worker_action ??
@@ -840,11 +986,11 @@ function LivePipelineCard({
         "NONE",
     ],
     [
-      "Engine",
+      "Engine Position",
       snapshot?.strategy_side?.toUpperCase() ?? "FLAT",
     ],
     [
-      "Broker",
+      "Broker Position",
       snapshot?.broker_side?.toUpperCase() ?? "FLAT",
     ],
   ];
@@ -873,32 +1019,97 @@ function LivePipelineCard({
   );
 }
 
+function NextStepCard({
+  snapshot,
+}: {
+  snapshot: V5Snapshot | null;
+}) {
+  const next = getNextStep(snapshot);
+
+  return (
+    <section
+      style={{
+        ...styles.card,
+        borderLeft: `4px solid ${
+          next.status === "OK" ? "#22c55e" : "#f59e0b"
+        }`,
+      }}
+    >
+      <h3 style={styles.cardTitle}>Next Step</h3>
+
+      <div style={styles.nextStepBox}>
+        <strong
+          style={{
+            color: next.status === "OK" ? "#22c55e" : "#f59e0b",
+          }}
+        >
+          {next.title}
+        </strong>
+
+        <span>{next.detail}</span>
+      </div>
+    </section>
+  );
+}
+
 function EntryScoreCard({
   snapshot,
 }: {
   snapshot: V5Snapshot | null;
 }) {
   const checks = buildEntryChecks(snapshot);
-  const total = checks.reduce(
+
+  const engineScore = checks.reduce(
     (sum, check) => sum + (check.passed ? check.points : 0),
     0
   );
 
-  const missing = checks
-    .filter((check) => !check.passed)
-    .map((check) => check.label);
+  const permissionOk = Boolean(
+    snapshot?.long_permission || snapshot?.short_permission
+  );
+  const entrySignalOk = Boolean(snapshot?.entry_signal);
+  const workerReadyOk = Boolean(snapshot?.worker_ready);
+  const brokerAligned =
+    String(snapshot?.strategy_side || "flat").toLowerCase() ===
+    String(snapshot?.broker_side || "flat").toLowerCase();
 
-  if (!snapshot?.long_permission && !snapshot?.short_permission) {
-    missing.push("Long/Short Permission");
-  }
+  const executionItems = [
+    {
+      label: "Permission",
+      passed: permissionOk,
+      points: 8,
+    },
+    {
+      label: "Entry Signal",
+      passed: entrySignalOk,
+      points: 6,
+    },
+    {
+      label: "Worker Ready",
+      passed: workerReadyOk,
+      points: 4,
+    },
+    {
+      label: "Engine/Broker Sync",
+      passed: brokerAligned,
+      points: 2,
+    },
+  ];
 
-  if (!snapshot?.entry_signal) {
-    missing.push("Entry Signal");
-  }
+  const executionScore = executionItems.reduce(
+    (sum, item) => sum + (item.passed ? item.points : 0),
+    0
+  );
 
-  if (!snapshot?.worker_ready) {
-    missing.push("Worker Ready");
-  }
+  const totalPoints = engineScore + executionScore;
+  const totalPercent = Math.round((totalPoints / 120) * 100);
+
+  const missing = [
+    ...checks.filter((check) => !check.passed).map((check) => check.label),
+    ...executionItems
+      .filter((item) => !item.passed)
+      .map((item) => item.label),
+  ];
 
   const uniqueMissing = [...new Set(missing)];
 
@@ -906,21 +1117,35 @@ function EntryScoreCard({
     <section style={styles.card}>
       <h3 style={styles.cardTitle}>Entry Score</h3>
 
-      <div style={styles.entryScoreHero}>
-        <strong>{total}</strong>
-        <span>/ 100</span>
+      <div style={styles.scoreSummaryGrid}>
+        <div style={styles.scoreSummaryCell}>
+          <span>ENGINE</span>
+          <strong>{engineScore} / 100</strong>
+        </div>
+
+        <div style={styles.scoreSummaryCell}>
+          <span>EXECUTION</span>
+          <strong>{executionScore} / 20</strong>
+        </div>
+
+        <div style={styles.scoreSummaryCell}>
+          <span>TOTAL</span>
+          <strong>{totalPercent}%</strong>
+        </div>
       </div>
 
       <div style={styles.confidenceTrack}>
         <div
           style={{
             ...styles.confidenceFill,
-            width: `${total}%`,
+            width: `${totalPercent}%`,
           }}
         />
       </div>
 
       <div style={styles.sectionDivider} />
+
+      <h4 style={styles.scoreSectionTitle}>Engine Score</h4>
 
       <div style={styles.scoreBreakdown}>
         {checks.map((check) => (
@@ -932,6 +1157,25 @@ function EntryScoreCard({
               }}
             >
               {check.passed ? `+${check.points}` : "+0"}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <h4 style={styles.scoreSectionTitle}>Execution Score</h4>
+
+      <div style={styles.scoreBreakdown}>
+        {executionItems.map((item) => (
+          <div key={item.label} style={styles.scoreBreakdownRow}>
+            <span>{item.label}</span>
+            <strong
+              style={{
+                color: item.passed ? "#22c55e" : "#64748b",
+              }}
+            >
+              {item.passed ? `+${item.points}` : "+0"}
             </strong>
           </div>
         ))}
@@ -980,7 +1224,9 @@ function ReasonsCard({
 
   return (
     <section style={styles.card}>
-      <h3 style={styles.cardTitle}>Warum?</h3>
+      <h3 style={styles.cardTitle}>Warum JA / Warum NICHT</h3>
+
+      <h4 style={styles.reasonSectionTitle}>Warum JA</h4>
 
       {reasons.length > 0 ? (
         <ul style={styles.reasonList}>
@@ -1000,6 +1246,8 @@ function ReasonsCard({
       )}
 
       <div style={styles.sectionDivider} />
+
+      <h4 style={styles.reasonSectionTitle}>Warum NICHT</h4>
 
       {warnings.length > 0 ? (
         <ul style={styles.reasonList}>
@@ -1639,7 +1887,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.3</strong>
+          <strong>QTrend V5.4</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -1715,6 +1963,8 @@ export default function AppTESTv5() {
           />
 
           <DecisionCard snapshot={snapshot} />
+
+          <NextStepCard snapshot={snapshot} />
 
           <EntryMonitorCard snapshot={snapshot} />
 
@@ -2218,6 +2468,46 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     marginTop: 8,
     textAlign: "center",
+  },
+
+
+  nextStepBox: {
+    display: "grid",
+    gap: 6,
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+  },
+  scoreSummaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 6,
+  },
+  scoreSummaryCell: {
+    display: "grid",
+    gap: 4,
+    textAlign: "center",
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 8,
+    padding: "8px 5px",
+    fontSize: 12,
+  },
+  scoreSectionTitle: {
+    margin: "0 0 7px",
+    color: "#94a3b8",
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  reasonSectionTitle: {
+    margin: "0 0 8px",
+    color: "#94a3b8",
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 
   activeSymbolDot: {
