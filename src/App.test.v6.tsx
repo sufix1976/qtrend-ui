@@ -1486,41 +1486,83 @@ export default function AppTESTv5() {
       (a, b) => Number(a.time) - Number(b.time)
     );
 
-    const transitions = sorted.filter((point, index, rows) => {
-      if (point.stage === "ENTRY") {
-        return point.entry_signal === true;
+    const counts = {
+      WATCH: 0,
+      READY: 0,
+      PERMISSION: 0,
+      ENTRY: 0,
+    };
+
+    for (let index = 0; index < sorted.length; index += 1) {
+      const point = sorted[index];
+      const previous = index > 0 ? sorted[index - 1] : null;
+
+      const decision = String(point.decision || "").toUpperCase();
+      const previousDecision = String(previous?.decision || "").toUpperCase();
+
+      const watchLongNow =
+        decision === "WATCH_LONG" ||
+        decision === "PREP_LONG";
+
+      const watchShortNow =
+        decision === "WATCH_SHORT" ||
+        decision === "PREP_SHORT";
+
+      const watchLongBefore =
+        previousDecision === "WATCH_LONG" ||
+        previousDecision === "PREP_LONG";
+
+      const watchShortBefore =
+        previousDecision === "WATCH_SHORT" ||
+        previousDecision === "PREP_SHORT";
+
+      if (watchLongNow && !watchLongBefore) counts.WATCH += 1;
+      if (watchShortNow && !watchShortBefore) counts.WATCH += 1;
+
+      if (
+        point.ready_long === true &&
+        previous?.ready_long !== true
+      ) {
+        counts.READY += 1;
       }
 
       if (
-        point.stage !== "WATCH" &&
-        point.stage !== "READY" &&
-        point.stage !== "PERMISSION"
+        point.ready_short === true &&
+        previous?.ready_short !== true
       ) {
-        return false;
+        counts.READY += 1;
       }
 
-      const previous = index > 0 ? rows[index - 1] : null;
+      if (
+        point.long_permission === true &&
+        previous?.long_permission !== true
+      ) {
+        counts.PERMISSION += 1;
+      }
 
-      return (
-        !previous ||
-        previous.stage !== point.stage ||
-        previous.side !== point.side
-      );
-    });
+      if (
+        point.short_permission === true &&
+        previous?.short_permission !== true
+      ) {
+        counts.PERMISSION += 1;
+      }
 
-    return transitions.reduce(
-      (counts, point) => {
-        counts[point.stage] =
-          (counts[point.stage] || 0) + 1;
-        return counts;
-      },
-      {
-        WATCH: 0,
-        READY: 0,
-        PERMISSION: 0,
-        ENTRY: 0,
-      } as Record<string, number>
-    );
+      if (
+        point.entry_long_signal === true &&
+        previous?.entry_long_signal !== true
+      ) {
+        counts.ENTRY += 1;
+      }
+
+      if (
+        point.entry_short_signal === true &&
+        previous?.entry_short_signal !== true
+      ) {
+        counts.ENTRY += 1;
+      }
+    }
+
+    return counts;
   }, [history]);
 
   const visibleCandles = useMemo(
@@ -1749,90 +1791,175 @@ export default function AppTESTv5() {
       (a, b) => Number(a.time) - Number(b.time)
     );
 
-    const transitionPoints = sortedHistory.filter(
-      (point, index, rows) => {
-        if (point.stage === "ENTRY") {
-          // Jedes echte Entry-Signal bleibt sichtbar.
-          return point.entry_signal === true;
-        }
+    type MarkerEvent = {
+      time: number;
+      kind: "WATCH" | "READY" | "PERMISSION" | "ENTRY";
+      side: "long" | "short";
+    };
 
-        if (
-          point.stage !== "WATCH" &&
-          point.stage !== "READY" &&
-          point.stage !== "PERMISSION"
-        ) {
-          return false;
-        }
+    const events: MarkerEvent[] = [];
 
-        const previous = index > 0 ? rows[index - 1] : null;
+    for (let index = 0; index < sortedHistory.length; index += 1) {
+      const point = sortedHistory[index];
+      const previous = index > 0 ? sortedHistory[index - 1] : null;
 
-        // Nur den Beginn eines neuen Zustands markieren.
-        return (
-          !previous ||
-          previous.stage !== point.stage ||
-          previous.side !== point.side
-        );
+      const decision = String(point.decision || "").toUpperCase();
+      const previousDecision = String(previous?.decision || "").toUpperCase();
+
+      const watchLongNow =
+        decision === "WATCH_LONG" ||
+        decision === "PREP_LONG";
+
+      const watchShortNow =
+        decision === "WATCH_SHORT" ||
+        decision === "PREP_SHORT";
+
+      const watchLongBefore =
+        previousDecision === "WATCH_LONG" ||
+        previousDecision === "PREP_LONG";
+
+      const watchShortBefore =
+        previousDecision === "WATCH_SHORT" ||
+        previousDecision === "PREP_SHORT";
+
+      if (watchLongNow && !watchLongBefore) {
+        events.push({
+          time: point.time,
+          kind: "WATCH",
+          side: "long",
+        });
       }
-    );
 
-    const markers = transitionPoints
-      .filter((point) => {
-        if (point.stage === "WATCH") return showWatchMarkers;
-        if (point.stage === "READY") return showReadyMarkers;
-        if (point.stage === "PERMISSION") return showPermissionMarkers;
-        if (point.stage === "ENTRY") return showEntryMarkers;
+      if (watchShortNow && !watchShortBefore) {
+        events.push({
+          time: point.time,
+          kind: "WATCH",
+          side: "short",
+        });
+      }
+
+      if (
+        point.ready_long === true &&
+        previous?.ready_long !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "READY",
+          side: "long",
+        });
+      }
+
+      if (
+        point.ready_short === true &&
+        previous?.ready_short !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "READY",
+          side: "short",
+        });
+      }
+
+      if (
+        point.long_permission === true &&
+        previous?.long_permission !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "PERMISSION",
+          side: "long",
+        });
+      }
+
+      if (
+        point.short_permission === true &&
+        previous?.short_permission !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "PERMISSION",
+          side: "short",
+        });
+      }
+
+      if (
+        point.entry_long_signal === true &&
+        previous?.entry_long_signal !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "ENTRY",
+          side: "long",
+        });
+      }
+
+      if (
+        point.entry_short_signal === true &&
+        previous?.entry_short_signal !== true
+      ) {
+        events.push({
+          time: point.time,
+          kind: "ENTRY",
+          side: "short",
+        });
+      }
+    }
+
+    const markers = events
+      .filter((event) => {
+        if (event.kind === "WATCH") return showWatchMarkers;
+        if (event.kind === "READY") return showReadyMarkers;
+        if (event.kind === "PERMISSION") return showPermissionMarkers;
+        if (event.kind === "ENTRY") return showEntryMarkers;
         return false;
       })
-      .map((point) => {
-        const isLong = point.side !== "short";
+      .map((event) => {
+        const isLong = event.side === "long";
         const position = isLong ? "belowBar" : "aboveBar";
 
-        if (point.stage === "ENTRY") {
+        if (event.kind === "ENTRY") {
           return {
-            time: point.time as Time,
+            time: event.time as Time,
             position,
             color: isLong ? "#22c55e" : "#ef4444",
             shape: isLong ? "arrowUp" : "arrowDown",
             text: "",
-            size: 1.25,
+            size: 1.3,
           };
         }
 
-        if (point.stage === "PERMISSION") {
+        if (event.kind === "PERMISSION") {
           return {
-            time: point.time as Time,
+            time: event.time as Time,
             position,
             color: "#3b82f6",
             shape: "square",
+            text: "",
+            size: 0.95,
+          };
+        }
+
+        if (event.kind === "READY") {
+          return {
+            time: event.time as Time,
+            position,
+            color: "#f59e0b",
+            shape: "circle",
             text: "",
             size: 0.9,
           };
         }
 
-        if (point.stage === "READY") {
-          return {
-            time: point.time as Time,
-            position,
-            color: "#f59e0b",
-            shape: "circle",
-            text: "",
-            size: 0.85,
-          };
-        }
-
         return {
-          time: point.time as Time,
+          time: event.time as Time,
           position,
-          color: "rgba(148, 163, 184, 0.82)",
+          color: "rgba(148, 163, 184, 0.9)",
           shape: "circle",
           text: "",
-          size: 0.65,
+          size: 0.7,
         };
-      });
-
-    console.log("History:", history.length);
-console.log("Markers:", markers.length);
-console.log(markers.slice(0, 10));
+      })
+      .sort((a, b) => Number(a.time) - Number(b.time));
 
     watchMarkersApiRef.current.setMarkers(markers);
   }, [
@@ -2100,7 +2227,7 @@ console.log(markers.slice(0, 10));
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.6.1</strong>
+          <strong>QTrend V5.6.2</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2204,9 +2331,9 @@ console.log(markers.slice(0, 10));
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            Historische Zustandswechsel aus /v5/history:
+            Historische Ereignis-Edges aus /v5/history:
             grau = WATCH, gelb = READY, blau = PERMISSION,
-            grün/rot = ENTRY. Laufende Positionskerzen erhalten keine Marker.
+            grün/rot = ENTRY. READY und PERMISSION können auf derselben Kerze getrennt erscheinen.
           </div>
         </section>
 
