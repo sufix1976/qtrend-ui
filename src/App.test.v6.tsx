@@ -102,9 +102,26 @@ type V5Snapshot = {
 
 type ConfigMap = Record<string, V5Config>;
 
-type WatchValidationMarker = {
+type V5HistoryPoint = {
   time: number;
-  side: "long" | "short";
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+
+  stage: "SCAN" | "WATCH" | "READY" | "PERMISSION" | "ENTRY" | "POSITION";
+  side: "long" | "short" | null;
+
+  decision?: string | null;
+  action?: string | null;
+  long_permission: boolean;
+  short_permission: boolean;
+  ready_long: boolean;
+  ready_short: boolean;
+  entry_signal: boolean;
+  entry_long_signal: boolean;
+  entry_short_signal: boolean;
+  worker_action: "BUY" | "SELL" | "NONE";
 };
 
 type PositionCardProps = {
@@ -1459,7 +1476,10 @@ export default function AppTESTv5() {
   const [busy, setBusy] = useState(false);
 
   const [showWatchMarkers, setShowWatchMarkers] = useState(true);
-  const [watchMarkers, setWatchMarkers] = useState<WatchValidationMarker[]>([]);
+  const [showReadyMarkers, setShowReadyMarkers] = useState(true);
+  const [showPermissionMarkers, setShowPermissionMarkers] = useState(true);
+  const [showEntryMarkers, setShowEntryMarkers] = useState(true);
+  const [history, setHistory] = useState<V5HistoryPoint[]>([]);
 
   const visibleCandles = useMemo(
     () => (chartMode === "heikin" ? buildHeikinAshi(candles) : candles),
@@ -1490,90 +1510,6 @@ export default function AppTESTv5() {
     setInterval(fallback.interval);
   }, [symbol, configs]);
 
-
-  useEffect(() => {
-    const storageKey = `qtrend_v55_watch_${symbol}_${interval}`;
-
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-
-      const valid = Array.isArray(parsed)
-        ? parsed
-            .filter(
-              (item) =>
-                Number.isFinite(Number(item?.time)) &&
-                (item?.side === "long" || item?.side === "short")
-            )
-            .map((item) => ({
-              time: Number(item.time),
-              side: item.side as "long" | "short",
-            }))
-        : [];
-
-      setWatchMarkers(valid.slice(-2000));
-    } catch {
-      setWatchMarkers([]);
-    }
-  }, [symbol, interval]);
-
-  useEffect(() => {
-    const time = Number(snapshot?.time);
-    if (!Number.isFinite(time) || time <= 0) return;
-
-    const decisionText = [
-      snapshot?.decision,
-      snapshot?.action,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toUpperCase();
-
-    const side: WatchValidationMarker["side"] | null =
-      decisionText.includes("WATCH LONG")
-        ? "long"
-        : decisionText.includes("WATCH SHORT")
-          ? "short"
-          : null;
-
-    if (!side) return;
-
-    const storageKey = `qtrend_v55_watch_${symbol}_${interval}`;
-
-    setWatchMarkers((previous) => {
-      const exists = previous.some(
-        (marker) =>
-          marker.time === time &&
-          marker.side === side
-      );
-
-      if (exists) return previous;
-
-      const next = [
-        ...previous,
-        { time, side },
-      ]
-        .sort((a, b) => a.time - b.time)
-        .slice(-2000);
-
-      try {
-        window.localStorage.setItem(
-          storageKey,
-          JSON.stringify(next)
-        );
-      } catch {
-        // LocalStorage ist nur Komfort; Markeranzeige läuft trotzdem weiter.
-      }
-
-      return next;
-    });
-  }, [
-    snapshot?.time,
-    snapshot?.decision,
-    snapshot?.action,
-    symbol,
-    interval,
-  ]);
 
   useEffect(() => {
     if (!priceHostRef.current || !macdHostRef.current) return;
@@ -1767,22 +1703,69 @@ export default function AppTESTv5() {
   useEffect(() => {
     if (!watchMarkersApiRef.current) return;
 
-    const markers = showWatchMarkers
-      ? watchMarkers.map((marker) => ({
-          time: marker.time as Time,
-          position:
-            marker.side === "long"
-              ? "belowBar"
-              : "aboveBar",
+    const markers = history
+      .filter((point) => {
+        if (point.stage === "WATCH") return showWatchMarkers;
+        if (point.stage === "READY") return showReadyMarkers;
+        if (point.stage === "PERMISSION") return showPermissionMarkers;
+        if (point.stage === "ENTRY") return showEntryMarkers;
+        return false;
+      })
+      .map((point) => {
+        const isLong = point.side !== "short";
+
+        if (point.stage === "ENTRY") {
+          return {
+            time: point.time as Time,
+            position: isLong ? "belowBar" : "aboveBar",
+            color: isLong ? "#22c55e" : "#ef4444",
+            shape: isLong ? "arrowUp" : "arrowDown",
+            text: "",
+            size: 1.2,
+          };
+        }
+
+        if (point.stage === "PERMISSION") {
+          return {
+            time: point.time as Time,
+            position: isLong ? "belowBar" : "aboveBar",
+            color: "#3b82f6",
+            shape: "square",
+            text: "",
+            size: 0.9,
+          };
+        }
+
+        if (point.stage === "READY") {
+          return {
+            time: point.time as Time,
+            position: isLong ? "belowBar" : "aboveBar",
+            color: "#f59e0b",
+            shape: "circle",
+            text: "",
+            size: 0.9,
+          };
+        }
+
+        return {
+          time: point.time as Time,
+          position: isLong ? "belowBar" : "aboveBar",
           color: "rgba(148, 163, 184, 0.72)",
           shape: "circle",
           text: "",
-          size: 0.7,
-        }))
-      : [];
+          size: 0.6,
+        };
+      })
+      .sort((a, b) => Number(a.time) - Number(b.time));
 
     watchMarkersApiRef.current.setMarkers(markers);
-  }, [watchMarkers, showWatchMarkers]);
+  }, [
+    history,
+    showWatchMarkers,
+    showReadyMarkers,
+    showPermissionMarkers,
+    showEntryMarkers,
+  ]);
 
   useEffect(() => {
     if (
@@ -1864,15 +1847,8 @@ export default function AppTESTv5() {
     setStatus("Lade V5...");
 
     try {
-      const [configJson, candleJson, stateJson] = await Promise.all([
+      const [configJson, stateJson] = await Promise.all([
         fetchJson(`${BACKEND_BASE}/v5/config?_ts=${Date.now()}`),
-        fetchJson(
-          `${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(
-            symbol
-          )}&interval=${encodeURIComponent(
-            interval
-          )}&limit=1500&_ts=${Date.now()}`
-        ),
         fetchJson(
           `${BACKEND_BASE}/v5/state?symbol=${encodeURIComponent(
             symbol
@@ -1895,7 +1871,6 @@ export default function AppTESTv5() {
         setInterval(savedActiveConfig.interval);
       }
 
-      setCandles(Array.isArray(candleJson.candles) ? candleJson.candles : []);
       setSnapshot(stateJson.state || null);
       setStatus("V5 verbunden");
     } catch (error) {
@@ -1916,7 +1891,7 @@ export default function AppTESTv5() {
 
     async function refreshMarketData() {
       try {
-        const [candleJson, stateJson] = await Promise.all([
+        const [candleJson, stateJson, historyJson] = await Promise.all([
           fetchJson(
             `${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(
               symbol
@@ -1929,6 +1904,13 @@ export default function AppTESTv5() {
               symbol
             )}&_ts=${Date.now()}`
           ),
+          fetchJson(
+            `${BACKEND_BASE}/v5/history?symbol=${encodeURIComponent(
+              symbol
+            )}&interval=${encodeURIComponent(
+              interval
+            )}&limit=1500&_ts=${Date.now()}`
+          ),
         ]);
 
         if (cancelled) return;
@@ -1937,6 +1919,9 @@ export default function AppTESTv5() {
           Array.isArray(candleJson.candles) ? candleJson.candles : []
         );
         setSnapshot(stateJson.state || null);
+        setHistory(
+          Array.isArray(historyJson.history) ? historyJson.history : []
+        );
       } catch {
         // Letzten funktionierenden Stand behalten.
       }
@@ -1944,13 +1929,23 @@ export default function AppTESTv5() {
 
     void refreshMarketData();
 
-    const timer = window.setInterval(refreshMarketData, 5000);
+    const timer = window.setInterval(refreshMarketData, 30000);
 
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [symbol, interval]);
+  }, [
+    symbol,
+    interval,
+    config.sma_fast,
+    config.sma_slow,
+    config.atr_len,
+    config.rsi_len,
+    config.macd_fast,
+    config.macd_slow,
+    config.macd_signal,
+  ]);
 
   async function saveConfig(next: V5Config = config) {
     setBusy(true);
@@ -2029,7 +2024,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.5.2</strong>
+          <strong>QTrend V5.6</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2084,17 +2079,41 @@ export default function AppTESTv5() {
           </button>
 
           <button
+            style={showWatchMarkers ? styles.watchToggleOn : styles.watchToggleOff}
+            onClick={() => setShowWatchMarkers((previous) => !previous)}
+            title="Historische WATCH-Marker ein- oder ausblenden"
+          >
+            WATCH ●
+          </button>
+
+          <button
+            style={showReadyMarkers ? styles.readyToggleOn : styles.watchToggleOff}
+            onClick={() => setShowReadyMarkers((previous) => !previous)}
+            title="Historische READY-Marker ein- oder ausblenden"
+          >
+            READY ●
+          </button>
+
+          <button
             style={
-              showWatchMarkers
-                ? styles.watchToggleOn
+              showPermissionMarkers
+                ? styles.permissionToggleOn
                 : styles.watchToggleOff
             }
             onClick={() =>
-              setShowWatchMarkers((previous) => !previous)
+              setShowPermissionMarkers((previous) => !previous)
             }
-            title="WATCH-Marker ein- oder ausblenden"
+            title="Historische Permission-Marker ein- oder ausblenden"
           >
-            WATCH ● {showWatchMarkers ? "ON" : "OFF"}
+            PERM ■
+          </button>
+
+          <button
+            style={showEntryMarkers ? styles.entryToggleOn : styles.watchToggleOff}
+            onClick={() => setShowEntryMarkers((previous) => !previous)}
+            title="Historische Entry-Marker ein- oder ausblenden"
+          >
+            ENTRY ▲
           </button>
 
           <span style={styles.status}>
@@ -2109,9 +2128,9 @@ export default function AppTESTv5() {
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            WATCH-Marker werden ab jetzt live gesammelt und je Symbol/TF
-            im Browser gespeichert. Grau unter der Kerze = WATCH LONG,
-            grau über der Kerze = WATCH SHORT.
+            Historische Marker kommen direkt aus /v5/history:
+            grau = WATCH, gelb = READY, blau = PERMISSION,
+            grün/rot = ENTRY. Unter der Kerze = LONG, über der Kerze = SHORT.
           </div>
         </section>
 
@@ -2682,6 +2701,35 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     fontWeight: 800,
   },
+
+  readyToggleOn: {
+    background: "#78350f",
+    color: "#fbbf24",
+    border: "1px solid #f59e0b",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  permissionToggleOn: {
+    background: "#1e3a8a",
+    color: "#93c5fd",
+    border: "1px solid #3b82f6",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  entryToggleOn: {
+    background: "#14532d",
+    color: "#86efac",
+    border: "1px solid #22c55e",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+
   watchToggleOff: {
     background: "#172033",
     color: "#64748b",
