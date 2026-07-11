@@ -122,6 +122,7 @@ type V5HistoryPoint = {
   entry_long_signal: boolean;
   entry_short_signal: boolean;
   worker_action: "BUY" | "SELL" | "NONE";
+  position_side: "flat" | "long" | "short";
 };
 
 type PositionCardProps = {
@@ -2284,7 +2285,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.6.3</strong>
+          <strong>QTrend V5.6.3a</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
