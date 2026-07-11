@@ -277,6 +277,86 @@ function normalizeConfig(row: any): V5Config {
   };
 }
 
+
+function roundScore(value: unknown, digits = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "-";
+}
+
+function semanticColor(value: string | null | undefined) {
+  const upper = String(value || "").toUpperCase();
+
+  if (
+    upper.includes("LONG") ||
+    upper === "UP" ||
+    upper.includes("EXPANSION") ||
+    upper === "TREND"
+  ) {
+    return "#22c55e";
+  }
+
+  if (
+    upper.includes("SHORT") ||
+    upper === "DOWN" ||
+    upper.includes("EXHAUSTION")
+  ) {
+    return "#ef4444";
+  }
+
+  if (
+    upper.includes("WATCH") ||
+    upper.includes("WAIT") ||
+    upper.includes("COMPRESSION")
+  ) {
+    return "#f59e0b";
+  }
+
+  if (upper.includes("PULLBACK")) {
+    return "#60a5fa";
+  }
+
+  return "#cbd5e1";
+}
+
+function splitDna(dna: string | null | undefined) {
+  const parts = String(dna || "").split("_");
+
+  return {
+    market: parts[0] || "-",
+    phase: parts[1] || "-",
+    direction: parts[2] || "-",
+  };
+}
+
+function ScoreBar({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null | undefined;
+}) {
+  const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
+
+  return (
+    <div style={styles.scoreBlock}>
+      <div style={styles.scoreHeader}>
+        <span>{label}</span>
+        <strong>{roundScore(safeValue, 1)}</strong>
+      </div>
+
+      <div style={styles.scoreTrack}>
+        <div
+          style={{
+            ...styles.scoreFill,
+            width: `${safeValue}%`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+
 function PositionCard({
   config,
   snapshot,
@@ -284,17 +364,45 @@ function PositionCard({
   onSave,
   onManual,
 }: PositionCardProps) {
+  const engineSide = snapshot?.strategy_side?.toUpperCase() ?? "FLAT";
+  const brokerSide = snapshot?.broker_side?.toUpperCase() ?? "FLAT";
+
   return (
-    <section style={styles.card}>
+    <section
+      style={{
+        ...styles.card,
+        borderLeft: `4px solid ${semanticColor(snapshot?.strategy_side)}`,
+      }}
+    >
       <h3 style={styles.cardTitle}>Position</h3>
 
+      <div style={styles.positionHeroGrid}>
+        <div style={styles.positionHero}>
+          <span style={styles.positionLabel}>ENGINE</span>
+          <strong
+            style={{
+              ...styles.positionValue,
+              color: semanticColor(snapshot?.strategy_side),
+            }}
+          >
+            {engineSide}
+          </strong>
+        </div>
+
+        <div style={styles.positionHero}>
+          <span style={styles.positionLabel}>BROKER</span>
+          <strong
+            style={{
+              ...styles.positionValue,
+              color: semanticColor(snapshot?.broker_side),
+            }}
+          >
+            {brokerSide}
+          </strong>
+        </div>
+      </div>
+
       <div style={styles.positionGrid}>
-        <span>Engine</span>
-        <strong>{snapshot?.strategy_side?.toUpperCase() ?? "FLAT"}</strong>
-
-        <span>Broker</span>
-        <strong>{snapshot?.broker_side?.toUpperCase() ?? "FLAT"}</strong>
-
         <span>Size</span>
         <div style={styles.inlineControl}>
           <input
@@ -319,6 +427,7 @@ function PositionCard({
               ...config,
               auto_enabled: !config.auto_enabled,
             };
+
             onPatch("auto_enabled", next.auto_enabled);
             void onSave(next);
           }}
@@ -379,40 +488,77 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
   );
 }
 
+
 function EngineCard({ snapshot }: EngineCardProps) {
-  const rows = [
-    ["DNA", snapshot?.dna ?? "-"],
-    ["Action", snapshot?.action ?? "-"],
-    ["Regime", snapshot?.regime ?? "-"],
-    [
-      "Regime Conf",
-      snapshot ? `${Math.round(snapshot.regime_confidence)}%` : "-",
-    ],
-    ["Phase", snapshot?.phase ?? "-"],
-    [
-      "Phase Conf",
-      snapshot ? `${Math.round(snapshot.phase_confidence)}%` : "-",
-    ],
-    ["Direction", snapshot?.direction ?? "-"],
-    ["Trend", snapshot?.trend ?? "-"],
-    ["Momentum", snapshot?.momentum ?? "-"],
-    ["Energy", snapshot?.energy ?? "-"],
-    ["Volatility", snapshot?.volatility ?? "-"],
-    ["Compression", snapshot?.compression ?? "-"],
-    ["Structure", snapshot?.structure ?? "-"],
-    ["Balance", snapshot?.balance ?? "-"],
-    ["Trend Age", snapshot?.trend_age ?? "-"],
-    ["Pullback", snapshot?.pullback ?? "-"],
-    ["Exhaustion", snapshot?.exhaustion ?? "-"],
-    ["DNA Quality", snapshot?.dna_quality ?? "-"],
+  const dna = splitDna(snapshot?.dna);
+  const action = snapshot?.action ?? "-";
+  const regime = snapshot?.regime ?? "-";
+  const phase = snapshot?.phase ?? "-";
+  const direction = snapshot?.direction ?? "-";
+
+  const detailRows = [
+    ["Regime Conf", snapshot ? `${Math.round(snapshot.regime_confidence)}%` : "-"],
+    ["Phase Conf", snapshot ? `${Math.round(snapshot.phase_confidence)}%` : "-"],
+    ["Structure", roundScore(snapshot?.structure, 1)],
+    ["Balance", roundScore(snapshot?.balance, 1)],
+    ["Trend Age", roundScore(snapshot?.trend_age, 1)],
+    ["Pullback", roundScore(snapshot?.pullback, 1)],
+    ["Exhaustion", roundScore(snapshot?.exhaustion, 1)],
+    ["DNA Quality", roundScore(snapshot?.dna_quality, 1)],
   ];
 
   return (
-    <section style={styles.card}>
+    <section
+      style={{
+        ...styles.card,
+        borderLeft: `4px solid ${semanticColor(action)}`,
+      }}
+    >
       <h3 style={styles.cardTitle}>Engine-Zustand</h3>
 
+      <div style={styles.actionBox}>
+        <span style={styles.actionLabel}>ACTION</span>
+        <strong
+          style={{
+            ...styles.actionValue,
+            color: semanticColor(action),
+          }}
+        >
+          {action}
+        </strong>
+      </div>
+
+      <div style={styles.dnaGrid}>
+        <div style={styles.dnaCell}>
+          <span style={styles.dnaLabel}>MARKT</span>
+          <strong style={{ color: semanticColor(regime) }}>{dna.market}</strong>
+        </div>
+
+        <div style={styles.dnaCell}>
+          <span style={styles.dnaLabel}>PHASE</span>
+          <strong style={{ color: semanticColor(phase) }}>{dna.phase}</strong>
+        </div>
+
+        <div style={styles.dnaCell}>
+          <span style={styles.dnaLabel}>RICHTUNG</span>
+          <strong style={{ color: semanticColor(direction) }}>
+            {dna.direction}
+          </strong>
+        </div>
+      </div>
+
+      <div style={styles.sectionDivider} />
+
+      <ScoreBar label="Trend" value={snapshot?.trend} />
+      <ScoreBar label="Momentum" value={snapshot?.momentum} />
+      <ScoreBar label="Energy" value={snapshot?.energy} />
+      <ScoreBar label="Volatility" value={snapshot?.volatility} />
+      <ScoreBar label="Compression" value={snapshot?.compression} />
+
+      <div style={styles.sectionDivider} />
+
       <div style={styles.infoTable}>
-        {rows.map(([name, value]) => (
+        {detailRows.map(([name, value]) => (
           <div key={String(name)} style={styles.infoRow}>
             <span>{name}</span>
             <strong>{String(value)}</strong>
@@ -1264,6 +1410,98 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     fontWeight: 800,
   },
+
+  positionHeroGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 8,
+    marginBottom: 12,
+  },
+  positionHero: {
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 9,
+    padding: "10px 8px",
+    textAlign: "center",
+  },
+  positionLabel: {
+    display: "block",
+    color: "#94a3b8",
+    fontSize: 11,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  positionValue: {
+    display: "block",
+    fontSize: 22,
+    lineHeight: 1.1,
+  },
+  actionBox: {
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 9,
+    padding: "10px",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  actionLabel: {
+    display: "block",
+    color: "#94a3b8",
+    fontSize: 11,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  actionValue: {
+    fontSize: 20,
+    lineHeight: 1.2,
+  },
+  dnaGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 6,
+  },
+  dnaCell: {
+    background: "#070b16",
+    border: "1px solid #243047",
+    borderRadius: 8,
+    padding: "8px 6px",
+    textAlign: "center",
+    minWidth: 0,
+  },
+  dnaLabel: {
+    display: "block",
+    color: "#94a3b8",
+    fontSize: 10,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  sectionDivider: {
+    height: 1,
+    background: "#243047",
+    margin: "12px 0",
+  },
+  scoreBlock: {
+    marginBottom: 9,
+  },
+  scoreHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 4,
+    fontSize: 13,
+  },
+  scoreTrack: {
+    height: 7,
+    background: "#172033",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  scoreFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, #2563eb, #22c55e)",
+    borderRadius: 999,
+  },
+
   activeSymbolDot: {
     color: "#22c55e",
     fontSize: 12,
