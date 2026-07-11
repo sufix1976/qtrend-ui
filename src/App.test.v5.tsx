@@ -118,7 +118,24 @@ export default function AppTESTv5() {
   const visibleCandles = useMemo(()=>chartMode==="heikin"?buildHeikinAshi(candles):candles,[candles,chartMode]);
 
   useEffect(()=>{ document.body.style.margin="0"; document.body.style.background="#050914"; document.body.style.color="#eef2ff"; },[]);
-  useEffect(()=>{ const current=configs[symbol]; if(current){setConfig(current);setInterval(current.interval);} else setConfig({...DEFAULT_CONFIG,symbol,interval}); },[symbol,configs]);
+  useEffect(() => {
+  const current = configs[symbol];
+
+  if (current) {
+    setConfig(current);
+
+    // Gespeicherten TF nur beim Symbolwechsel übernehmen.
+    setInterval(current.interval);
+  } else {
+    const fallback = {
+      ...DEFAULT_CONFIG,
+      symbol,
+    };
+
+    setConfig(fallback);
+    setInterval(fallback.interval);
+  }
+}, [symbol]);
 
   useEffect(()=>{
     if(!priceHostRef.current||!macdHostRef.current) return;
