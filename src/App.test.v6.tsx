@@ -98,17 +98,6 @@ type V5Snapshot = {
   live_last_worker_action?: "BUY" | "SELL" | "NONE";
   live_last_processed_candle_time?: number | null;
   live_signal_is_new?: boolean;
-
-  // V6.1 Flat Filter Lab
-  invest_state?: "INVEST" | "FLAT";
-  flat_filter_score?: number;
-  flat_filter_threshold?: number;
-  flat_filter_reasons?: string[];
-  flat_filter_warnings?: string[];
-  flat_edge?: boolean;
-  invest_edge?: boolean;
-  lab_blocked_long?: boolean;
-  lab_blocked_short?: boolean;
 };
 
 type ConfigMap = Record<string, V5Config>;
@@ -138,17 +127,6 @@ type V5HistoryPoint = {
   entry_short_signal: boolean;
   worker_action: "BUY" | "SELL" | "NONE";
   position_side: "flat" | "long" | "short";
-
-  // V6.1 Flat Filter Lab
-  invest_state?: "INVEST" | "FLAT";
-  flat_filter_score?: number | null;
-  flat_filter_threshold?: number;
-  flat_filter_reasons?: string[];
-  flat_filter_warnings?: string[];
-  flat_edge?: boolean;
-  invest_edge?: boolean;
-  lab_blocked_long?: boolean;
-  lab_blocked_short?: boolean;
 };
 
 type PositionCardProps = {
@@ -172,6 +150,7 @@ type EngineCardProps = {
 type SizeTableProps = {
   configs: ConfigMap;
   activeSymbol: string;
+  activeInterval: string;
   onChange: (symbol: string, next: V5Config) => void;
   onSave: (config?: V5Config) => Promise<void>;
 };
@@ -213,6 +192,11 @@ const DEFAULT_CONFIG: V5Config = {
   macd_slow: 26,
   macd_signal: 9,
 };
+
+function configKey(symbol: string, interval: string) {
+  return `${String(symbol).toUpperCase()}|${String(interval).toLowerCase()}`;
+}
+
 
 function buildHeikinAshi(candles: Candle[]): Candle[] {
   if (!candles.length) return [];
@@ -551,7 +535,12 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
 
   return (
     <section style={styles.card}>
-      <h3 style={styles.cardTitle}>Strategieparameter</h3>
+      <h3 style={styles.cardTitle}>
+        Strategieparameter · {config.symbol} {config.interval}
+      </h3>
+      <div style={styles.tfConfigNotice}>
+        Speichern verändert nur dieses Instrument in diesem Timeframe.
+      </div>
 
       {fields.map(([label, key]) => (
         <label key={key} style={styles.field}>
@@ -1414,6 +1403,7 @@ function EngineCard({ snapshot }: EngineCardProps) {
 function SizeTable({
   configs,
   activeSymbol,
+  activeInterval,
   onChange,
   onSave,
 }: SizeTableProps) {
@@ -1423,10 +1413,12 @@ function SizeTable({
 
       <div style={styles.sizeTable}>
         {SYMBOLS.map((symbol) => {
-          const row = configs[symbol] || {
-            ...DEFAULT_CONFIG,
-            symbol,
-          };
+          const row =
+            configs[configKey(symbol, activeInterval)] || {
+              ...DEFAULT_CONFIG,
+              symbol,
+              interval: activeInterval,
+            };
 
           return (
             <div key={symbol} style={styles.sizeRow}>
@@ -1506,7 +1498,6 @@ export default function AppTESTv5() {
   const [showReadyMarkers, setShowReadyMarkers] = useState(true);
   const [showPermissionMarkers, setShowPermissionMarkers] = useState(true);
   const [showEntryMarkers, setShowEntryMarkers] = useState(true);
-  const [showFlatLabMarkers, setShowFlatLabMarkers] = useState(true);
   const [history, setHistory] = useState<V5HistoryPoint[]>([]);
 
   const markerCounts = useMemo(() => {
@@ -1520,11 +1511,6 @@ export default function AppTESTv5() {
         if (point.pine_fire_short || point.entry_short_signal) {
           counts.ENTRY_SHORT += 1;
         }
-        if (point.flat_edge) counts.FLAT_EDGE += 1;
-        if (point.invest_edge) counts.INVEST_EDGE += 1;
-        if (point.lab_blocked_long || point.lab_blocked_short) {
-          counts.BLOCKED += 1;
-        }
         return counts;
       },
       {
@@ -1532,9 +1518,6 @@ export default function AppTESTv5() {
         SHORT_OK: 0,
         ENTRY_LONG: 0,
         ENTRY_SHORT: 0,
-        FLAT_EDGE: 0,
-        INVEST_EDGE: 0,
-        BLOCKED: 0,
       }
     );
   }, [history]);
@@ -1551,7 +1534,7 @@ export default function AppTESTv5() {
   }, []);
 
   useEffect(() => {
-    const current = configs[symbol];
+    const current = configs[configKey(symbol, interval)];
 
     if (current) {
       setConfig(current);
@@ -1566,7 +1549,7 @@ export default function AppTESTv5() {
 
     setConfig(fallback);
     setInterval(fallback.interval);
-  }, [symbol, configs]);
+  }, [symbol, interval, configs]);
 
 
   useEffect(() => {
@@ -1818,43 +1801,6 @@ export default function AppTESTv5() {
           });
         }
 
-        // V6.1 Flat Filter Lab – nur visuelle Diagnose.
-        if (showFlatLabMarkers && point.flat_edge) {
-          rowMarkers.push({
-            time: point.time as Time,
-            position: "aboveBar",
-            color: "#94a3b8",
-            shape: "square",
-            text: "FLAT",
-            size: 0.8,
-          });
-        }
-
-        if (showFlatLabMarkers && point.invest_edge) {
-          rowMarkers.push({
-            time: point.time as Time,
-            position: "aboveBar",
-            color: "#38bdf8",
-            shape: "square",
-            text: "INV",
-            size: 0.8,
-          });
-        }
-
-        if (
-          showFlatLabMarkers &&
-          (point.lab_blocked_long || point.lab_blocked_short)
-        ) {
-          rowMarkers.push({
-            time: point.time as Time,
-            position: point.lab_blocked_long ? "belowBar" : "aboveBar",
-            color: "#e5e7eb",
-            shape: "circle",
-            text: "X",
-            size: 0.8,
-          });
-        }
-
         return rowMarkers;
       });
 
@@ -1864,7 +1810,6 @@ export default function AppTESTv5() {
     showReadyMarkers,
     showPermissionMarkers,
     showEntryMarkers,
-    showFlatLabMarkers,
   ]);
 
   useEffect(() => {
@@ -1947,11 +1892,21 @@ export default function AppTESTv5() {
     setStatus("Lade V5...");
 
     try {
-      const [configJson, stateJson] = await Promise.all([
+      const [configJson, selectedConfigJson, stateJson] =
+        await Promise.all([
         fetchJson(`${BACKEND_BASE}/v5/config?_ts=${Date.now()}`),
+        fetchJson(
+          `${BACKEND_BASE}/v5/config?symbol=${encodeURIComponent(
+            symbol
+          )}&interval=${encodeURIComponent(
+            interval
+          )}&_ts=${Date.now()}`
+        ),
         fetchJson(
           `${BACKEND_BASE}/v5/state?symbol=${encodeURIComponent(
             symbol
+          )}&interval=${encodeURIComponent(
+            interval
           )}&_ts=${Date.now()}`
         ),
       ]);
@@ -1960,12 +1915,19 @@ export default function AppTESTv5() {
 
       for (const row of configJson.rows || []) {
         const normalized = normalizeConfig(row);
-        map[normalized.symbol] = normalized;
+        map[configKey(normalized.symbol, normalized.interval)] =
+          normalized;
+      }
+
+      if (selectedConfigJson?.row) {
+        const selected = normalizeConfig(selectedConfigJson.row);
+        map[configKey(selected.symbol, selected.interval)] = selected;
       }
 
       setConfigs(map);
 
-      const savedActiveConfig = map[symbol];
+      const savedActiveConfig =
+        map[configKey(symbol, interval)];
       if (savedActiveConfig) {
         setConfig(savedActiveConfig);
         setInterval(savedActiveConfig.interval);
@@ -2063,7 +2025,7 @@ export default function AppTESTv5() {
       setInterval(saved.interval);
       setConfigs((previous) => ({
         ...previous,
-        [saved.symbol]: saved,
+        [configKey(saved.symbol, saved.interval)]: saved,
       }));
       setStatus(`${saved.symbol} gespeichert`);
     } catch (error) {
@@ -2112,7 +2074,7 @@ export default function AppTESTv5() {
   function updateTableConfig(rowSymbol: string, next: V5Config) {
     setConfigs((previous) => ({
       ...previous,
-      [rowSymbol]: next,
+      [configKey(rowSymbol, next.interval)]: next,
     }));
 
     if (rowSymbol === symbol) {
@@ -2124,7 +2086,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V6.1 Flat Filter Lab</strong>
+          <strong>QTrend V7 Phase 1 · TF Config</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2142,18 +2104,22 @@ export default function AppTESTv5() {
           <select
             value={interval}
             onChange={(event) => {
-              const next = event.target.value;
-              const nextConfig = {
-                ...config,
-                interval: next,
-              };
+              const nextInterval = event.target.value;
+              const stored =
+                configs[configKey(symbol, nextInterval)];
 
-              setInterval(next);
-              setConfig(nextConfig);
-              setConfigs((previous) => ({
-                ...previous,
-                [symbol]: nextConfig,
-              }));
+              setInterval(nextInterval);
+
+              if (stored) {
+                setConfig(stored);
+              } else {
+                setConfig({
+                  ...DEFAULT_CONFIG,
+                  symbol,
+                  interval: nextInterval,
+                  size: config.size,
+                });
+              }
             }}
             style={styles.input}
           >
@@ -2208,38 +2174,6 @@ export default function AppTESTv5() {
             ENTRY ▲ {markerCounts.ENTRY_LONG + markerCounts.ENTRY_SHORT}
           </button>
 
-          <button
-            style={
-              showFlatLabMarkers
-                ? styles.flatLabToggleOn
-                : styles.watchToggleOff
-            }
-            onClick={() =>
-              setShowFlatLabMarkers((previous) => !previous)
-            }
-            title="FLAT-/INVEST-Wechsel und theoretisch ausgelassene Pine-Entries"
-          >
-            FLAT LAB ◆ {markerCounts.FLAT_EDGE}/{markerCounts.INVEST_EDGE}
-          </button>
-
-          <span
-            style={{
-              ...styles.status,
-              color:
-                snapshot?.invest_state === "INVEST"
-                  ? "#22c55e"
-                  : "#cbd5e1",
-              fontWeight: 800,
-            }}
-            title={[
-              ...(snapshot?.flat_filter_reasons ?? []),
-              ...(snapshot?.flat_filter_warnings ?? []),
-            ].join(" | ")}
-          >
-            {snapshot?.invest_state ?? "FLAT"} · Score{" "}
-            {snapshot?.flat_filter_score ?? "-"}
-          </span>
-
           <span style={styles.status}>
             {busy ? "Bitte warten..." : status}
           </span>
@@ -2248,39 +2182,13 @@ export default function AppTESTv5() {
 
       <main style={styles.layout}>
         <section style={styles.chartColumn}>
-          <div
-            style={{
-              ...styles.flatLabBanner,
-              borderColor:
-                snapshot?.invest_state === "INVEST"
-                  ? "#166534"
-                  : "#475569",
-              background:
-                snapshot?.invest_state === "INVEST"
-                  ? "rgba(34,197,94,0.10)"
-                  : "rgba(148,163,184,0.10)",
-            }}
-          >
-            <strong>
-              V6.1 LAB: {snapshot?.invest_state ?? "FLAT"}
-            </strong>
-            <span>
-              Score {snapshot?.flat_filter_score ?? "-"} /{" "}
-              {snapshot?.flat_filter_threshold ?? 2}
-            </span>
-            <span style={{ color: "#94a3b8" }}>
-              Nur Anzeige – keine Orderwirkung
-            </span>
-          </div>
-
           <div ref={priceHostRef} style={styles.priceChart} />
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            Direkte Pine-Marker aus /v5/history: Kreise = LONG/SHORT OK;
-            Dreiecke = Pine FLOW EDGE. V6.1: FLAT = graues Quadrat,
-            INV = blaues Quadrat, X = Pine-Entry wäre vom Laborfilter
-            theoretisch ausgelassen worden. Keine Orderwirkung.
+            Direkte Pine-Marker aus /v5/history:
+            grau = WATCH, gelb = READY, blau = PERMISSION,
+            grün/rot = ENTRY. Kreise = LONG/SHORT OK; Dreiecke = tatsächlich ausgelöster Pine FLOW EDGE.
           </div>
         </section>
 
@@ -2318,6 +2226,7 @@ export default function AppTESTv5() {
       <SizeTable
         configs={configs}
         activeSymbol={symbol}
+        activeInterval={interval}
         onChange={updateTableConfig}
         onSave={saveConfig}
       />
@@ -2365,7 +2274,7 @@ const styles: Record<string, CSSProperties> = {
   chartColumn: {
     minWidth: 0,
     display: "grid",
-    gridTemplateRows: "auto minmax(460px, 65vh) 240px",
+    gridTemplateRows: "minmax(460px, 65vh) 240px",
     gap: 8,
   },
   priceChart: {
@@ -2909,24 +2818,14 @@ const styles: Record<string, CSSProperties> = {
     color: "#22c55e",
     fontSize: 12,
   },
-  flatLabToggleOn: {
-    background: "#475569",
-    color: "#fff",
-    border: "1px solid #94a3b8",
+  tfConfigNotice: {
+    color: "#93c5fd",
+    background: "#071525",
+    border: "1px solid #1e3a5f",
     borderRadius: 7,
-    padding: "8px 12px",
-    cursor: "pointer",
-    fontWeight: 800,
-  },
-  flatLabBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    padding: "8px 12px",
-    border: "1px solid #475569",
-    borderRadius: 8,
-    fontSize: 13,
-    boxSizing: "border-box",
+    padding: "7px 8px",
+    marginBottom: 10,
+    fontSize: 12,
   },
 
 };
