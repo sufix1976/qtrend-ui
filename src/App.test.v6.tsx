@@ -118,6 +118,10 @@ type V5HistoryPoint = {
   short_permission: boolean;
   ready_long: boolean;
   ready_short: boolean;
+  raw_long: boolean;
+  raw_short: boolean;
+  pine_fire_long: boolean;
+  pine_fire_short: boolean;
   entry_signal: boolean;
   entry_long_signal: boolean;
   entry_short_signal: boolean;
@@ -1483,89 +1487,25 @@ export default function AppTESTv5() {
   const [history, setHistory] = useState<V5HistoryPoint[]>([]);
 
   const markerCounts = useMemo(() => {
-    const sorted = [...history].sort(
-      (a, b) => Number(a.time) - Number(b.time)
+    return history.reduce(
+      (counts, point) => {
+        if (point.raw_long) counts.LONG_OK += 1;
+        if (point.raw_short) counts.SHORT_OK += 1;
+        if (point.pine_fire_long || point.entry_long_signal) {
+          counts.ENTRY_LONG += 1;
+        }
+        if (point.pine_fire_short || point.entry_short_signal) {
+          counts.ENTRY_SHORT += 1;
+        }
+        return counts;
+      },
+      {
+        LONG_OK: 0,
+        SHORT_OK: 0,
+        ENTRY_LONG: 0,
+        ENTRY_SHORT: 0,
+      }
     );
-
-    const counts = {
-      WATCH: 0,
-      READY: 0,
-      PERMISSION: 0,
-      ENTRY: 0,
-    };
-
-    for (let index = 0; index < sorted.length; index += 1) {
-      const point = sorted[index];
-      const previous = index > 0 ? sorted[index - 1] : null;
-
-      const decision = String(point.decision || "").toUpperCase();
-      const previousDecision = String(
-        previous?.decision || ""
-      ).toUpperCase();
-
-      const watchLongNow =
-        decision === "WATCH_LONG" ||
-        decision === "PREP_LONG";
-
-      const watchShortNow =
-        decision === "WATCH_SHORT" ||
-        decision === "PREP_SHORT";
-
-      const watchLongBefore =
-        previousDecision === "WATCH_LONG" ||
-        previousDecision === "PREP_LONG";
-
-      const watchShortBefore =
-        previousDecision === "WATCH_SHORT" ||
-        previousDecision === "PREP_SHORT";
-
-      if (watchLongNow && !watchLongBefore) counts.WATCH += 1;
-      if (watchShortNow && !watchShortBefore) counts.WATCH += 1;
-
-      if (
-        point.ready_long === true &&
-        previous?.ready_long !== true
-      ) {
-        counts.READY += 1;
-      }
-
-      if (
-        point.ready_short === true &&
-        previous?.ready_short !== true
-      ) {
-        counts.READY += 1;
-      }
-
-      if (
-        point.long_permission === true &&
-        previous?.long_permission !== true
-      ) {
-        counts.PERMISSION += 1;
-      }
-
-      if (
-        point.short_permission === true &&
-        previous?.short_permission !== true
-      ) {
-        counts.PERMISSION += 1;
-      }
-
-      if (
-        point.entry_long_signal === true &&
-        previous?.entry_long_signal !== true
-      ) {
-        counts.ENTRY += 1;
-      }
-
-      if (
-        point.entry_short_signal === true &&
-        previous?.entry_short_signal !== true
-      ) {
-        counts.ENTRY += 1;
-      }
-    }
-
-    return counts;
   }, [history]);
 
   const visibleCandles = useMemo(
@@ -1790,200 +1730,69 @@ export default function AppTESTv5() {
   useEffect(() => {
     if (!watchMarkersApiRef.current) return;
 
-    const sortedHistory = [...history].sort(
-      (a, b) => Number(a.time) - Number(b.time)
-    );
+    const markers = [...history]
+      .sort((a, b) => Number(a.time) - Number(b.time))
+      .flatMap((point) => {
+        const rowMarkers: any[] = [];
 
-    type MarkerEvent = {
-      time: number;
-      kind: "WATCH" | "READY" | "PERMISSION" | "ENTRY";
-      side: "long" | "short";
-    };
-
-    const events: MarkerEvent[] = [];
-
-    for (let index = 0; index < sortedHistory.length; index += 1) {
-      const point = sortedHistory[index];
-      const previous = index > 0 ? sortedHistory[index - 1] : null;
-
-      const decision = String(point.decision || "").toUpperCase();
-      const previousDecision = String(
-        previous?.decision || ""
-      ).toUpperCase();
-
-      const watchLongNow =
-        decision === "WATCH_LONG" ||
-        decision === "PREP_LONG";
-
-      const watchShortNow =
-        decision === "WATCH_SHORT" ||
-        decision === "PREP_SHORT";
-
-      const watchLongBefore =
-        previousDecision === "WATCH_LONG" ||
-        previousDecision === "PREP_LONG";
-
-      const watchShortBefore =
-        previousDecision === "WATCH_SHORT" ||
-        previousDecision === "PREP_SHORT";
-
-      // WATCH nur beim Beginn eines neuen WATCH-Zyklus.
-      if (watchLongNow && !watchLongBefore) {
-        events.push({
-          time: point.time,
-          kind: "WATCH",
-          side: "long",
-        });
-      }
-
-      if (watchShortNow && !watchShortBefore) {
-        events.push({
-          time: point.time,
-          kind: "WATCH",
-          side: "short",
-        });
-      }
-
-      // READY, PERMISSION und ENTRY als echte false -> true Übergänge.
-      // Sie dürfen auf derselben Kerze gleichzeitig sichtbar sein.
-      if (
-        point.ready_long === true &&
-        previous?.ready_long !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "READY",
-          side: "long",
-        });
-      }
-
-      if (
-        point.ready_short === true &&
-        previous?.ready_short !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "READY",
-          side: "short",
-        });
-      }
-
-      if (
-        point.long_permission === true &&
-        previous?.long_permission !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "PERMISSION",
-          side: "long",
-        });
-      }
-
-      if (
-        point.short_permission === true &&
-        previous?.short_permission !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "PERMISSION",
-          side: "short",
-        });
-      }
-
-      if (
-        point.entry_long_signal === true &&
-        previous?.entry_long_signal !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "ENTRY",
-          side: "long",
-        });
-      }
-
-      if (
-        point.entry_short_signal === true &&
-        previous?.entry_short_signal !== true
-      ) {
-        events.push({
-          time: point.time,
-          kind: "ENTRY",
-          side: "short",
-        });
-      }
-    }
-
-    const kindOrder: Record<MarkerEvent["kind"], number> = {
-      WATCH: 0,
-      READY: 1,
-      PERMISSION: 2,
-      ENTRY: 3,
-    };
-
-    const markers = events
-      .filter((event) => {
-        if (event.kind === "WATCH") return showWatchMarkers;
-        if (event.kind === "READY") return showReadyMarkers;
-        if (event.kind === "PERMISSION") return showPermissionMarkers;
-        if (event.kind === "ENTRY") return showEntryMarkers;
-        return false;
-      })
-      .sort((a, b) => {
-        const timeDiff = Number(a.time) - Number(b.time);
-        if (timeDiff !== 0) return timeDiff;
-        return kindOrder[a.kind] - kindOrder[b.kind];
-      })
-      .map((event) => {
-        const isLong = event.side === "long";
-        const position = isLong ? "belowBar" : "aboveBar";
-
-        if (event.kind === "ENTRY") {
-          return {
-            time: event.time as Time,
-            position,
-            color: isLong ? "#22c55e" : "#ef4444",
-            shape: isLong ? "arrowUp" : "arrowDown",
-            text: "",
-            size: 1.35,
-          };
-        }
-
-        if (event.kind === "PERMISSION") {
-          return {
-            time: event.time as Time,
-            position,
-            color: "#3b82f6",
-            shape: "square",
-            text: "",
-            size: 1.0,
-          };
-        }
-
-        if (event.kind === "READY") {
-          return {
-            time: event.time as Time,
-            position,
-            color: "#f59e0b",
+        // Pine: seenLongThisBar / seenShortThisBar
+        if (showReadyMarkers && point.raw_long) {
+          rowMarkers.push({
+            time: point.time as Time,
+            position: "belowBar",
+            color: "rgba(34, 197, 94, 0.55)",
             shape: "circle",
             text: "",
-            size: 0.95,
-          };
+            size: 0.65,
+          });
         }
 
-        return {
-          time: event.time as Time,
-          position,
-          color: "rgba(148, 163, 184, 0.95)",
-          shape: "circle",
-          text: "",
-          size: 0.72,
-        };
+        if (showPermissionMarkers && point.raw_short) {
+          rowMarkers.push({
+            time: point.time as Time,
+            position: "aboveBar",
+            color: "rgba(239, 68, 68, 0.55)",
+            shape: "circle",
+            text: "",
+            size: 0.65,
+          });
+        }
+
+        // Pine: seenFireLongThisBar / seenFireShortThisBar
+        if (
+          showEntryMarkers &&
+          (point.pine_fire_long || point.entry_long_signal)
+        ) {
+          rowMarkers.push({
+            time: point.time as Time,
+            position: "belowBar",
+            color: "#22c55e",
+            shape: "arrowUp",
+            text: "",
+            size: 1.25,
+          });
+        }
+
+        if (
+          showEntryMarkers &&
+          (point.pine_fire_short || point.entry_short_signal)
+        ) {
+          rowMarkers.push({
+            time: point.time as Time,
+            position: "aboveBar",
+            color: "#ef4444",
+            shape: "arrowDown",
+            text: "",
+            size: 1.25,
+          });
+        }
+
+        return rowMarkers;
       });
 
     watchMarkersApiRef.current.setMarkers(markers);
   }, [
     history,
-    showWatchMarkers,
     showReadyMarkers,
     showPermissionMarkers,
     showEntryMarkers,
@@ -2246,7 +2055,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V5.6.4</strong>
+          <strong>QTrend V6.0 Pine Mirror</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2301,41 +2110,33 @@ export default function AppTESTv5() {
           </button>
 
           <button
-            style={showWatchMarkers ? styles.watchToggleOn : styles.watchToggleOff}
-            onClick={() => setShowWatchMarkers((previous) => !previous)}
-            title="Historische WATCH-Marker ein- oder ausblenden"
-          >
-            WATCH ● {markerCounts.WATCH}
-          </button>
-
-          <button
-            style={showReadyMarkers ? styles.readyToggleOn : styles.watchToggleOff}
+            style={showReadyMarkers ? styles.entryToggleOn : styles.watchToggleOff}
             onClick={() => setShowReadyMarkers((previous) => !previous)}
-            title="Historische READY-Marker ein- oder ausblenden"
+            title="Pine LONG OK Kreise ein- oder ausblenden"
           >
-            READY ● {markerCounts.READY}
+            LONG OK ● {markerCounts.LONG_OK}
           </button>
 
           <button
             style={
               showPermissionMarkers
-                ? styles.permissionToggleOn
+                ? styles.shortToggleOn
                 : styles.watchToggleOff
             }
             onClick={() =>
               setShowPermissionMarkers((previous) => !previous)
             }
-            title="Historische Permission-Marker ein- oder ausblenden"
+            title="Pine SHORT OK Kreise ein- oder ausblenden"
           >
-            PERM ■ {markerCounts.PERMISSION}
+            SHORT OK ● {markerCounts.SHORT_OK}
           </button>
 
           <button
-            style={showEntryMarkers ? styles.entryToggleOn : styles.watchToggleOff}
+            style={showEntryMarkers ? styles.permissionToggleOn : styles.watchToggleOff}
             onClick={() => setShowEntryMarkers((previous) => !previous)}
-            title="Historische Entry-Marker ein- oder ausblenden"
+            title="Pine Entry-Dreiecke ein- oder ausblenden"
           >
-            ENTRY ▲ {markerCounts.ENTRY}
+            ENTRY ▲ {markerCounts.ENTRY_LONG + markerCounts.ENTRY_SHORT}
           </button>
 
           <span style={styles.status}>
@@ -2350,9 +2151,9 @@ export default function AppTESTv5() {
           <div ref={macdHostRef} style={styles.macdChart} />
 
           <div style={styles.validationNote}>
-            Historische Engine-Übergänge aus /v5/history:
+            Direkte Pine-Marker aus /v5/history:
             grau = WATCH, gelb = READY, blau = PERMISSION,
-            grün/rot = ENTRY. READY, PERMISSION und ENTRY dürfen auf derselben Kerze gemeinsam erscheinen.
+            grün/rot = ENTRY. Kreise = LONG/SHORT OK; Dreiecke = tatsächlich ausgelöster Pine FLOW EDGE.
           </div>
         </section>
 
@@ -2918,6 +2719,16 @@ const styles: Record<string, CSSProperties> = {
     background: "#475569",
     color: "#fff",
     border: "1px solid #94a3b8",
+    borderRadius: 7,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+
+  shortToggleOn: {
+    background: "#7f1d1d",
+    color: "#fecaca",
+    border: "1px solid #ef4444",
     borderRadius: 7,
     padding: "8px 10px",
     cursor: "pointer",
