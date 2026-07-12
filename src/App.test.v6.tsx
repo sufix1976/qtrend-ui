@@ -1538,17 +1538,21 @@ export default function AppTESTv5() {
 
     if (current) {
       setConfig(current);
-      setInterval(current.interval);
       return;
     }
 
-    const fallback = {
+    // Wichtig: den aktuell ausgewählten TF beibehalten.
+    // Vorher wurde hier DEFAULT_CONFIG.interval (=15m) gesetzt,
+    // wodurch jede andere Auswahl sofort wieder auf 15m sprang.
+    setConfig((previous) => ({
       ...DEFAULT_CONFIG,
       symbol,
-    };
-
-    setConfig(fallback);
-    setInterval(fallback.interval);
+      interval,
+      size:
+        previous.symbol === symbol
+          ? previous.size
+          : DEFAULT_CONFIG.size,
+    }));
   }, [symbol, interval, configs]);
 
 
@@ -1946,7 +1950,7 @@ export default function AppTESTv5() {
 
   useEffect(() => {
     void loadAll();
-  }, [symbol]);
+  }, [symbol, interval]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2022,7 +2026,6 @@ export default function AppTESTv5() {
       const saved = normalizeConfig(json.row);
 
       setConfig(saved);
-      setInterval(saved.interval);
       setConfigs((previous) => ({
         ...previous,
         [configKey(saved.symbol, saved.interval)]: saved,
