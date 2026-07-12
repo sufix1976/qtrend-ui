@@ -1480,7 +1480,7 @@ export default function AppTESTv5() {
   const [status, setStatus] = useState("Start");
   const [busy, setBusy] = useState(false);
 
-  const [showWatchMarkers, setShowWatchMarkers] = useState(true);
+  
   const [showReadyMarkers, setShowReadyMarkers] = useState(true);
   const [showPermissionMarkers, setShowPermissionMarkers] = useState(true);
   const [showEntryMarkers, setShowEntryMarkers] = useState(true);
