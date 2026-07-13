@@ -80,6 +80,14 @@ type V5Snapshot = {
   worker_action?: "BUY" | "SELL" | "NONE";
   worker_ready?: boolean;
 
+  long_power?: number;
+  short_power?: number;
+  power_flip_threshold?: number;
+  power_flip_margin?: number;
+  power_hold_strength?: number;
+  power_flip_long?: boolean;
+  power_flip_short?: boolean;
+
   entry_signal?: boolean;
   entry_long_signal?: boolean;
   entry_short_signal?: boolean;
@@ -128,6 +136,11 @@ type V5HistoryPoint = {
   entry_short_signal: boolean;
   worker_action: "BUY" | "SELL" | "NONE";
   position_side: "flat" | "long" | "short";
+  long_power?: number;
+  short_power?: number;
+  power_flip_threshold?: number;
+  power_flip_margin?: number;
+  power_hold_strength?: number;
 };
 
 type PositionCardProps = {
@@ -536,7 +549,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
     ["MACD Fast", "macd_fast"],
     ["MACD Slow", "macd_slow"],
     ["MACD Signal", "macd_signal"],
-    ["Flip Bestätigung", "flip_confirm_bars"],
+    ["Power Haltestärke", "flip_confirm_bars"],
   ] as const;
 
   return (
@@ -545,7 +558,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        Flip Bestätigung: 1 = V6.0 sofort, 3 = Gegensignal muss 3 Kerzen aktiv bleiben. Änderungen aktualisieren den Chart automatisch.
+        Power Haltestärke: 1 = schnell, 10 = stark geglättet. Ein fehlendes Einzelsignal setzt die aufgebaute Trend-Power nicht zurück.
       </div>
 
       {fields.map(([label, key]) => (
@@ -2201,7 +2214,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7.1 · Flip Delay Lab</strong>
+          <strong>QTrend V7.2 · Trend Power Lab</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2289,6 +2302,14 @@ export default function AppTESTv5() {
             ENTRY ▲ {markerCounts.ENTRY_LONG + markerCounts.ENTRY_SHORT}
           </button>
 
+          <span style={styles.longPowerBadge}>
+            L POWER {Number(snapshot?.long_power ?? 0).toFixed(0)}
+          </span>
+
+          <span style={styles.shortPowerBadge}>
+            S POWER {Number(snapshot?.short_power ?? 0).toFixed(0)}
+          </span>
+
           <span style={styles.status}>
             {busy ? "Bitte warten..." : status}
           </span>
@@ -2374,6 +2395,22 @@ const styles: Record<string, CSSProperties> = {
   muted: {
     color: "#94a3b8",
     marginLeft: 8,
+  },
+  longPowerBadge: {
+    border: "1px solid #1fa968",
+    borderRadius: 8,
+    padding: "8px 10px",
+    color: "#42e68d",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  shortPowerBadge: {
+    border: "1px solid #c43f4d",
+    borderRadius: 8,
+    padding: "8px 10px",
+    color: "#ff6675",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
   },
   status: {
     color: "#93c5fd",
