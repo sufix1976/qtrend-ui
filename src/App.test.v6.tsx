@@ -539,7 +539,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        Speichern verändert nur dieses Instrument in diesem Timeframe.
+        Änderungen werden nach 0,5 Sekunden automatisch gespeichert und im Chart aktualisiert.
       </div>
 
       {fields.map(([label, key]) => (
@@ -1493,6 +1493,9 @@ export default function AppTESTv5() {
   const [snapshot, setSnapshot] = useState<V5Snapshot | null>(null);
   const [status, setStatus] = useState("Start");
   const [busy, setBusy] = useState(false);
+  const [marketRefreshVersion, setMarketRefreshVersion] = useState(0);
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const autoSaveRequestRef = useRef(0);
 
   
   const [showReadyMarkers, setShowReadyMarkers] = useState(true);
@@ -1968,6 +1971,8 @@ export default function AppTESTv5() {
           fetchJson(
             `${BACKEND_BASE}/v5/state?symbol=${encodeURIComponent(
               symbol
+            )}&interval=${encodeURIComponent(
+              interval
             )}&_ts=${Date.now()}`
           ),
           fetchJson(
@@ -2011,6 +2016,101 @@ export default function AppTESTv5() {
     config.macd_fast,
     config.macd_slow,
     config.macd_signal,
+    marketRefreshVersion,
+  ]);
+
+  useEffect(() => {
+    const stored =
+      configs[configKey(config.symbol, config.interval)];
+
+    const comparable = (row?: V5Config) =>
+      row
+        ? JSON.stringify({
+            symbol: row.symbol,
+            interval: row.interval,
+            size: Number(row.size),
+            auto_enabled: Number(row.auto_enabled),
+            sma_fast: Number(row.sma_fast),
+            sma_slow: Number(row.sma_slow),
+            atr_len: Number(row.atr_len),
+            rsi_len: Number(row.rsi_len),
+            macd_fast: Number(row.macd_fast),
+            macd_slow: Number(row.macd_slow),
+            macd_signal: Number(row.macd_signal),
+          })
+        : "";
+
+    // Geladene Werte nicht erneut speichern.
+    if (stored && comparable(stored) === comparable(config)) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    const requestId = autoSaveRequestRef.current + 1;
+    autoSaveRequestRef.current = requestId;
+
+    setStatus(
+      `${config.symbol} ${config.interval}: Vorschau wird aktualisiert…`
+    );
+
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const json = await fetchJson(`${BACKEND_BASE}/v5/config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        });
+
+        if (requestId !== autoSaveRequestRef.current) {
+          return;
+        }
+
+        const saved = normalizeConfig(json.row);
+
+        setConfigs((previous) => ({
+          ...previous,
+          [configKey(saved.symbol, saved.interval)]: saved,
+        }));
+
+        // History und State mit der neuen Server-Config erneut berechnen.
+        setMarketRefreshVersion((previous) => previous + 1);
+        setStatus(
+          `${saved.symbol} ${saved.interval}: Chart aktualisiert`
+        );
+      } catch (error) {
+        if (requestId !== autoSaveRequestRef.current) {
+          return;
+        }
+
+        setStatus(
+          `Live-Aktualisierung fehlgeschlagen: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }, 500);
+
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    config.symbol,
+    config.interval,
+    config.size,
+    config.auto_enabled,
+    config.sma_fast,
+    config.sma_slow,
+    config.atr_len,
+    config.rsi_len,
+    config.macd_fast,
+    config.macd_slow,
+    config.macd_signal,
   ]);
 
   async function saveConfig(next: V5Config = config) {
@@ -2030,7 +2130,10 @@ export default function AppTESTv5() {
         ...previous,
         [configKey(saved.symbol, saved.interval)]: saved,
       }));
-      setStatus(`${saved.symbol} gespeichert`);
+      setMarketRefreshVersion((previous) => previous + 1);
+      setStatus(
+        `${saved.symbol} ${saved.interval} gespeichert und aktualisiert`
+      );
     } catch (error) {
       setStatus(
         `Speichern fehlgeschlagen: ${
@@ -2089,7 +2192,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7 Phase 1 · TF Config</strong>
+          <strong>QTrend V7 Phase 1 · TF Config Live</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
