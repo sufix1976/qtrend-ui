@@ -91,6 +91,22 @@ type V5Snapshot = {
   trend_credit_peak?: number;
   trend_credit_flip_limit?: number;
   held_position_age_bars?: number;
+  opposite_signal_side?: "long" | "short" | null;
+  opposite_signal_age_bars?: number;
+  blocked_flip_count?: number;
+  flip_blocked_by_credit?: boolean;
+  pre_flip_snapshot?: {
+    from_side?: string;
+    to_side?: string;
+    trend_credit?: number;
+    trend_credit_peak?: number;
+    credit_drawdown?: number;
+    credit_drawdown_pct?: number;
+    held_position_age_bars?: number;
+    opposite_signal_age_bars?: number;
+    blocked_flip_count?: number;
+    power_difference?: number;
+  } | null;
 
   entry_signal?: boolean;
   entry_long_signal?: boolean;
@@ -2218,7 +2234,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7.3 · Trend Credit Lab</strong>
+          <strong>QTrend V7.3 · Pre-Flip Research</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2316,6 +2332,12 @@ export default function AppTESTv5() {
 
           <span style={styles.creditBadge}>
             CREDIT {Number(snapshot?.trend_credit ?? 0).toFixed(0)}
+          </span>
+
+          <span style={styles.preFlipBadge}>
+            OPP {Number(snapshot?.opposite_signal_age_bars ?? 0)}
+            {" · "}
+            BLOCK {Number(snapshot?.blocked_flip_count ?? 0)}
           </span>
 
           <span style={styles.status}>
@@ -2425,6 +2447,14 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "8px 10px",
     color: "#ffd84d",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  preFlipBadge: {
+    border: "1px solid #7c6ee6",
+    borderRadius: 8,
+    padding: "8px 10px",
+    color: "#b7adff",
     fontWeight: 800,
     whiteSpace: "nowrap",
   },
