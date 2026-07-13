@@ -87,6 +87,10 @@ type V5Snapshot = {
   power_hold_strength?: number;
   power_flip_long?: boolean;
   power_flip_short?: boolean;
+  trend_credit?: number;
+  trend_credit_peak?: number;
+  trend_credit_flip_limit?: number;
+  held_position_age_bars?: number;
 
   entry_signal?: boolean;
   entry_long_signal?: boolean;
@@ -558,7 +562,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        Power Haltestärke: 1 = schnell, 10 = stark geglättet. Ein fehlendes Einzelsignal setzt die aufgebaute Trend-Power nicht zurück.
+        Power Haltestärke: 1 = schneller Credit-Abbau, 10 = stärkeres Trendgedächtnis. Ein Flip braucht Gegen-Power und ausreichend niedrigen Trend-Credit.
       </div>
 
       {fields.map(([label, key]) => (
@@ -2214,7 +2218,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7.2 · Trend Power Lab</strong>
+          <strong>QTrend V7.3 · Trend Credit Lab</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2308,6 +2312,10 @@ export default function AppTESTv5() {
 
           <span style={styles.shortPowerBadge}>
             S POWER {Number(snapshot?.short_power ?? 0).toFixed(0)}
+          </span>
+
+          <span style={styles.creditBadge}>
+            CREDIT {Number(snapshot?.trend_credit ?? 0).toFixed(0)}
           </span>
 
           <span style={styles.status}>
@@ -2409,6 +2417,14 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 8,
     padding: "8px 10px",
     color: "#ff6675",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  creditBadge: {
+    border: "1px solid #d6a700",
+    borderRadius: 8,
+    padding: "8px 10px",
+    color: "#ffd84d",
     fontWeight: 800,
     whiteSpace: "nowrap",
   },
