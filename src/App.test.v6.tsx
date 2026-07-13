@@ -40,6 +40,7 @@ type V5Config = {
   macd_fast: number;
   macd_slow: number;
   macd_signal: number;
+  flip_confirm_bars: number;
 };
 
 type V5Snapshot = {
@@ -191,6 +192,7 @@ const DEFAULT_CONFIG: V5Config = {
   macd_fast: 2,
   macd_slow: 26,
   macd_signal: 9,
+  flip_confirm_bars: 3,
 };
 
 function configKey(symbol: string, interval: string) {
@@ -341,6 +343,9 @@ function normalizeConfig(row: any): V5Config {
     macd_fast: Number(row?.macd_fast ?? DEFAULT_CONFIG.macd_fast),
     macd_slow: Number(row?.macd_slow ?? DEFAULT_CONFIG.macd_slow),
     macd_signal: Number(row?.macd_signal ?? DEFAULT_CONFIG.macd_signal),
+    flip_confirm_bars: Number(
+      row?.flip_confirm_bars ?? DEFAULT_CONFIG.flip_confirm_bars
+    ),
   };
 }
 
@@ -531,6 +536,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
     ["MACD Fast", "macd_fast"],
     ["MACD Slow", "macd_slow"],
     ["MACD Signal", "macd_signal"],
+    ["Flip Bestätigung", "flip_confirm_bars"],
   ] as const;
 
   return (
@@ -539,7 +545,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        Änderungen werden nach 0,5 Sekunden automatisch gespeichert und im Chart aktualisiert.
+        Flip Bestätigung: 1 = V6.0 sofort, 3 = Gegensignal muss 3 Kerzen aktiv bleiben. Änderungen aktualisieren den Chart automatisch.
       </div>
 
       {fields.map(([label, key]) => (
@@ -2016,6 +2022,7 @@ export default function AppTESTv5() {
     config.macd_fast,
     config.macd_slow,
     config.macd_signal,
+    config.flip_confirm_bars,
     marketRefreshVersion,
   ]);
 
@@ -2037,6 +2044,7 @@ export default function AppTESTv5() {
             macd_fast: Number(row.macd_fast),
             macd_slow: Number(row.macd_slow),
             macd_signal: Number(row.macd_signal),
+            flip_confirm_bars: Number(row.flip_confirm_bars),
           })
         : "";
 
@@ -2111,6 +2119,7 @@ export default function AppTESTv5() {
     config.macd_fast,
     config.macd_slow,
     config.macd_signal,
+    config.flip_confirm_bars,
   ]);
 
   async function saveConfig(next: V5Config = config) {
@@ -2192,7 +2201,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7 Phase 1 · TF Config Live</strong>
+          <strong>QTrend V7.1 · Flip Delay Lab</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
