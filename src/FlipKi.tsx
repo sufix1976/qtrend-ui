@@ -111,24 +111,83 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const candidateUrl = new URL("/trainer/candidates", BACKEND_BASE);
-      candidateUrl.searchParams.set("symbol", symbol);
-      candidateUrl.searchParams.set("interval", interval);
-      candidateUrl.searchParams.set("limit", "2500");
-      const candidateResponse = await fetch(candidateUrl, {
-        cache: "no-store",
-      });
-      const candidatePayload = await candidateResponse.json();
-      if (!candidateResponse.ok || !candidatePayload.ok) {
+      const historyUrl = new URL("/v5/history", BACKEND_BASE);
+      historyUrl.searchParams.set("symbol", symbol);
+      historyUrl.searchParams.set("interval", interval);
+      historyUrl.searchParams.set("limit", "5000");
+
+      const candlesUrl = new URL("/v5/candles", BACKEND_BASE);
+      candlesUrl.searchParams.set("symbol", symbol);
+      candlesUrl.searchParams.set("interval", interval);
+      candlesUrl.searchParams.set("limit", "5000");
+
+      const [historyResponse, candlesResponse] = await Promise.all([
+        fetch(historyUrl, { cache: "no-store" }),
+        fetch(candlesUrl, { cache: "no-store" }),
+      ]);
+
+      const [historyPayload, candlesPayload] = await Promise.all([
+        historyResponse.json(),
+        candlesResponse.json(),
+      ]);
+
+      if (!historyResponse.ok || !historyPayload.ok) {
         throw new Error(
-          candidatePayload.error || `HTTP ${candidateResponse.status}`,
+          historyPayload.info ||
+            historyPayload.error ||
+            `History HTTP ${historyResponse.status}`,
+        );
+      }
+      if (!candlesResponse.ok || !candlesPayload.ok) {
+        throw new Error(
+          candlesPayload.info ||
+            candlesPayload.error ||
+            `Candles HTTP ${candlesResponse.status}`,
         );
       }
 
-      const nextCandles = (candidatePayload.candles || []) as Candle[];
-      const candidates = (
-        (candidatePayload.candidates || []) as Candidate[]
-      ).slice(-1200);
+      const nextCandles = (candlesPayload.candles || []) as Candle[];
+      const candleByTime = new Map(
+        nextCandles.map((candle) => [Number(candle.time), candle]),
+      );
+
+      // Exakt dieselben Entry-Signale wie im normalen QTrend-Chart.
+      // Keine Trainer-Annotationen und keine von der KI erfundenen Stellen.
+      const candidates = (historyPayload.history || [])
+        .filter(
+          (row: any) =>
+            row.entry_long_signal === true ||
+            row.entry_short_signal === true,
+        )
+        .map((row: any, index: number): Candidate => {
+          const time = Number(row.time);
+          const candle = candleByTime.get(time);
+          const side: "long" | "short" =
+            row.entry_long_signal === true ? "long" : "short";
+          return {
+            candidate_id: `strategy_entry_${time}_${side}_${index}`,
+            symbol,
+            interval,
+            time,
+            price: Number(candle?.close ?? row.close ?? 0),
+            side,
+            scanner_version: "v5_current_strategy_entry",
+          };
+        })
+        .filter(
+          (candidate: Candidate) =>
+            Number.isFinite(candidate.time) &&
+            Number.isFinite(candidate.price) &&
+            candidate.price > 0,
+        )
+        .slice(-1200);
+
+      if (candidates.length < 3) {
+        throw new Error(
+          `Nur ${candidates.length} Strategie-Entrys für ${symbol} · ${interval} gefunden.`,
+        );
+      }
+
       setCandles(nextCandles);
 
       const labResponse = await fetch(
