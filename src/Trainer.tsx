@@ -101,6 +101,24 @@ type MlStatus = {
         fold_votes: number;
         average_rank: number;
         average_importance: number;
+        profile?: {
+          good_count: number;
+          bad_count: number;
+          good_mean: number;
+          bad_mean: number;
+          good_median: number;
+          bad_median: number;
+          good_q25: number;
+          good_q75: number;
+          bad_q25: number;
+          bad_q75: number;
+          good_positive_pct: number;
+          bad_positive_pct: number;
+          difference: number;
+          standardized_effect: number;
+          direction: string;
+          strength: string;
+        } | null;
       }>;
     };
     model_exists?: boolean;
@@ -134,6 +152,16 @@ function dt(t: number) {
   return new Date(t * 1000).toLocaleString("de-DE");
 }
 
+
+function formatFeatureValue(value?: number) {
+  if (value == null || !Number.isFinite(Number(value))) return "–";
+  const number = Number(value);
+  const absolute = Math.abs(number);
+  if (absolute > 0 && absolute < 0.001) return number.toExponential(2);
+  if (absolute >= 1000) return number.toFixed(1);
+  if (absolute >= 10) return number.toFixed(2);
+  return number.toFixed(3);
+}
 
 function shortFeatureName(name: string) {
   return name
@@ -771,12 +799,44 @@ export default function Trainer() {
                       {features.length > 0 && (
                         <details className="ml-features">
                           <summary>Wichtigste Merkmale</summary>
-                          {features.slice(0, 8).map((item) => (
-                            <div key={item.feature}>
-                              <span>{shortFeatureName(item.feature)}</span>
-                              <b>{item.fold_votes} / 3</b>
-                            </div>
-                          ))}
+                          {features.slice(0, 8).map((item) => {
+                            const profile = item.profile;
+                            return (
+                              <details className="ml-feature-item" key={item.feature}>
+                                <summary>
+                                  <span>{shortFeatureName(item.feature)}</span>
+                                  <b>{item.fold_votes} / 3</b>
+                                </summary>
+                                {profile ? (
+                                  <div className="ml-feature-profile">
+                                    <div className="ml-profile-direction">
+                                      <strong>{profile.direction}</strong>
+                                      <span>
+                                        Trennung {profile.strength} · Effekt {Math.abs(profile.standardized_effect).toFixed(2)}
+                                      </span>
+                                    </div>
+                                    <div className="ml-profile-table">
+                                      <span></span><b>GOOD</b><b>BAD</b>
+                                      <span>Ø Wert</span>
+                                      <b>{formatFeatureValue(profile.good_mean)}</b>
+                                      <b>{formatFeatureValue(profile.bad_mean)}</b>
+                                      <span>Median</span>
+                                      <b>{formatFeatureValue(profile.good_median)}</b>
+                                      <b>{formatFeatureValue(profile.bad_median)}</b>
+                                      <span>Mittlere 50 %</span>
+                                      <b>{formatFeatureValue(profile.good_q25)} – {formatFeatureValue(profile.good_q75)}</b>
+                                      <b>{formatFeatureValue(profile.bad_q25)} – {formatFeatureValue(profile.bad_q75)}</b>
+                                      <span>Positiv</span>
+                                      <b>{(profile.good_positive_pct * 100).toFixed(1)} %</b>
+                                      <b>{(profile.bad_positive_pct * 100).toFixed(1)} %</b>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="ml-profile-empty">Für dieses Merkmal fehlen Vergleichswerte.</div>
+                                )}
+                              </details>
+                            );
+                          })}
                         </details>
                       )}
                     </>
