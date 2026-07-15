@@ -139,7 +139,7 @@ type TrajectorySummary = {
 type TrainingHistoryItem = {
   job_id: string;
   trained_at: string;
-  selection?: { symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
+  selection?: { source?: string; symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
   trained_rows: number;
   labels?: { good?: number; bad?: number };
   auc?: number | null;
@@ -152,15 +152,15 @@ type TrainingHistoryItem = {
 
 type MlStatus = {
   annotations?: { total: number; good: number; bad: number };
-  selected_annotations?: { total: number; good: number; bad: number; symbol: string; interval: string };
-  catalog?: { rows: Array<{symbol:string;interval:string;total:number;good:number;bad:number}>; symbols:string[]; intervals:string[] };
+  selected_annotations?: { total: number; good: number; bad: number; source: string; symbol: string; interval: string };
+  catalog?: { rows: Array<{symbol:string;interval:string;total:number;good:number;bad:number}>; symbols:string[]; intervals:string[]; archives:Array<{archive_key:string;display_name:string;symbol:string;created_at:string;row_count:number}> };
   trained_rows?: number;
   new_examples?: number;
   model_current?: boolean;
   ml?: {
     training?: {
       trained_at?: string;
-      selection?: { symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
+      selection?: { source?: string; symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
       walk_forward_summary?: {
         auc?: number;
         precision_good?: number;
@@ -478,6 +478,8 @@ export default function Trainer() {
     [trainingInterval, setTrainingInterval] = useState("5m"),
     [trainingOrder, setTrainingOrder] = useState<"latest" | "oldest">("latest"),
     [trainingLimit, setTrainingLimit] = useState<500 | 1000 | 1500 | 0>(500),
+    [trainingSource, setTrainingSource] = useState("ACTIVE"),
+    [archiveBusy, setArchiveBusy] = useState(false),
     [training, setTraining] = useState(false),
     [trainingMessage, setTrainingMessage] = useState("");
   const priceRef = useRef<HTMLDivElement>(null),
@@ -511,6 +513,7 @@ export default function Trainer() {
       const statusUrl = new URL("/trainer/ml/status", BACKEND_BASE);
       statusUrl.searchParams.set("symbol", trainingSymbol);
       statusUrl.searchParams.set("interval", trainingInterval);
+      statusUrl.searchParams.set("source", trainingSource);
       const r = await fetch(statusUrl, { cache: "no-store" });
       const j = await r.json();
       if (r.ok && j.ok) {
@@ -553,6 +556,7 @@ export default function Trainer() {
       retrainUrl.searchParams.set("interval", trainingInterval);
       retrainUrl.searchParams.set("order", trainingOrder);
       retrainUrl.searchParams.set("limit", String(trainingLimit));
+      retrainUrl.searchParams.set("source", trainingSource);
       const r = await fetch(retrainUrl, { method: "POST" });
       const text = await r.text();
       let j: any;
@@ -573,6 +577,43 @@ export default function Trainer() {
       window.setTimeout(() => { void loadMlStatus(); }, 1500);
     }
   }
+  async function archiveGoldAndRestart() {
+    if (archiveBusy || training) return;
+    const available = Number(mlStatus?.selected_annotations?.total || 0);
+    if (!available) {
+      setTrainingMessage("Im aktiven GOLD-Bestand gibt es nichts zu archivieren.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Alle bisherigen GOLD-Markierungen (${available}) archivieren und GOLD leer neu starten?\n\nDas Archiv bleibt trainierbar und wird nicht gelöscht.`,
+    );
+    if (!confirmed) return;
+
+    setArchiveBusy(true);
+    setTrainingMessage("GOLD wird archiviert …");
+    try {
+      const archiveUrl = new URL("/trainer/ml/archive-symbol", BACKEND_BASE);
+      archiveUrl.searchParams.set("symbol", "GOLD");
+      archiveUrl.searchParams.set("name", "GOLD_ARCHIV_2026_07");
+      const response = await fetch(archiveUrl, { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || `HTTP ${response.status}`);
+      }
+      setTrainingSource("ACTIVE");
+      setTrainingSymbol("GOLD");
+      setTrainingMessage(
+        `${payload.archive?.display_name || "GOLD-Archiv"} erstellt · ${payload.archive?.row_count || 0} Markierungen gesichert · aktives GOLD ist jetzt leer.`,
+      );
+      await load();
+      await loadMlStatus();
+    } catch (error: any) {
+      setTrainingMessage(`Archivieren fehlgeschlagen: ${error.message || String(error)}`);
+    } finally {
+      setArchiveBusy(false);
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError("");
@@ -600,7 +641,7 @@ export default function Trainer() {
   }, [symbol, interval]);
   useEffect(() => {
     loadMlStatus();
-  }, [trainingSymbol, trainingInterval, trainingOrder, trainingLimit]);
+  }, [trainingSource, trainingSymbol, trainingInterval, trainingOrder, trainingLimit]);
   useEffect(() => {
     const timer = window.setInterval(
       () => {
@@ -1007,6 +1048,8 @@ export default function Trainer() {
               <b>{mlStatus?.trained_rows ?? 0}</b>
               <span>Neu</span>
               <b>{mlStatus?.new_examples ?? 0}</b>
+              <span>Quelle</span>
+              <b>{trainingSource === "ACTIVE" ? "AKTIV" : trainingSource}</b>
               <span>Auswahl</span>
               <b>{trainingSymbol} · {trainingInterval}</b>
               <span>Verfügbar</span>
@@ -1017,12 +1060,38 @@ export default function Trainer() {
               <b>{trainingLimit === 0 ? "ALLE" : trainingLimit}</b>
             </div>
             {!training && (
+              <>
               <div className="ml-source-controls">
+                <label>
+                  <span>Datenbestand</span>
+                  <select
+                    value={trainingSource}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setTrainingSource(value);
+                      if (value !== "ACTIVE") {
+                        const archive = (mlStatus?.catalog?.archives || []).find(
+                          (item) => item.archive_key === value,
+                        );
+                        if (archive?.symbol) setTrainingSymbol(archive.symbol);
+                      }
+                    }}
+                  >
+                    <option value="ACTIVE">AKTIV</option>
+                    {(mlStatus?.catalog?.archives || []).map((item) => (
+                      <option value={item.archive_key} key={item.archive_key}>
+                        {item.display_name} ({item.row_count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   <span>Instrument</span>
                   <select value={trainingSymbol} onChange={(e) => setTrainingSymbol(e.target.value)}>
                     <option value="ALL">ALLE</option>
-                    {(mlStatus?.catalog?.symbols || SYMBOLS).map((item) => <option value={item} key={item}>{item}</option>)}
+                    {SYMBOLS.map((item) => (
+                      <option value={item} key={item}>{item}</option>
+                    ))}
                   </select>
                 </label>
                 <label>
@@ -1049,6 +1118,20 @@ export default function Trainer() {
                   </select>
                 </label>
               </div>
+              {trainingSource === "ACTIVE" &&
+                trainingSymbol === "GOLD" &&
+                Number(mlStatus?.selected_annotations?.total || 0) > 0 && (
+                  <button
+                    className="ml-archive-button"
+                    disabled={archiveBusy}
+                    onClick={archiveGoldAndRestart}
+                  >
+                    {archiveBusy
+                      ? "GOLD WIRD ARCHIVIERT …"
+                      : "GOLD ALT ARCHIVIEREN · GOLD LEER NEU STARTEN"}
+                  </button>
+                )}
+              </>
             )}
             {training ? (
               <div className="ml-progress">
@@ -1084,7 +1167,7 @@ export default function Trainer() {
             {!training && mlStatus?.ml?.training?.walk_forward_summary && (
               <div className="ml-analysis">
                 <div className="ml-analysis-title">
-                  KI-Auswertung · {mlStatus.ml?.training?.selection?.symbol || "ALLE"} · {mlStatus.ml?.training?.selection?.interval || "ALLE"}
+                  KI-Auswertung · {mlStatus.ml?.training?.selection?.source || "ACTIVE"} · {mlStatus.ml?.training?.selection?.symbol || "ALLE"} · {mlStatus.ml?.training?.selection?.interval || "ALLE"}
                 </div>
                 {(() => {
                   const wf = mlStatus.ml?.training?.walk_forward_summary || {};
@@ -1341,7 +1424,7 @@ export default function Trainer() {
                 {(mlStatus?.ml?.history || []).slice(0, 10).map((item) => (
                   <div className="ml-history-row" key={item.job_id}>
                     <div>
-                      <b>{item.selection?.symbol || "ALL"} · {item.selection?.interval || "ALL"}</b>
+                      <b>{item.selection?.source && item.selection.source !== "ACTIVE" ? `${item.selection.source} · ` : ""}{item.selection?.symbol || "ALL"} · {item.selection?.interval || "ALL"}</b>
                       <span>{item.selection?.order === "oldest" ? "älteste" : "neueste"} {item.trained_rows} · {new Date(item.trained_at).toLocaleString("de-DE")}</span>
                     </div>
                     <div>
