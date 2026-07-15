@@ -11,23 +11,15 @@ import {
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const SYMBOLS = [
+  "DE40",
+  "US30",
+  "US100",
+  "UK100",
+  "J225",
+  "CN50",
   "BTCUSD",
   "ETHUSD",
-  "XRPUSD",
-  "DE40",
-  "US100",
-  "US500",
-  "US30",
-  "J225",
-  "UK100",
   "GOLD",
-  "SILVER",
-  "OIL_CRUDE",
-  "CORN",
-  "SOLUSD",
-  "TSLA",
-  "TY",
-  "EURUSD",
 ];
 const INTERVALS = ["1m", "5m", "15m", "30m", "1h"];
 
