@@ -474,6 +474,7 @@ export default function Trainer() {
     [archiveBusy, setArchiveBusy] = useState(false),
     [training, setTraining] = useState(false),
     [trainingMessage, setTrainingMessage] = useState("");
+  const lastServerJobRef = useRef<MlJob | null>(null);
   const priceRef = useRef<HTMLDivElement>(null),
     macdRef = useRef<HTMLDivElement>(null),
     chartRef = useRef<IChartApi | null>(null);
@@ -511,28 +512,27 @@ export default function Trainer() {
       if (r.ok && j.ok) {
         setMlStatus(j);
         const job = j?.ml?.job as MlJob | undefined;
+        lastServerJobRef.current = job || null;
         const active = job?.state === "queued" || job?.state === "running";
         setTraining(Boolean(active));
-        if (job?.state === "failed")
-          setTrainingMessage(
-            `Training fehlgeschlagen: ${job.error || job.message || "Unbekannter Fehler"}`,
-          );
-        else if (active)
-          setTrainingMessage(
-            `${job.message || "Training läuft"} · ${Number(job.progress_pct || 0).toFixed(0)} %`,
-          );
-        else if (job?.state === "succeeded") {
+        if (job?.state === "failed") {
+          setTrainingMessage(`Training fehlgeschlagen: ${job.error || job.message || "Unbekannter Fehler"}`);
+        } else if (active) {
+          setTrainingMessage(`${job.message || "Training läuft"} · ${Number(job.progress_pct || 0).toFixed(0)} %`);
+        } else if (job?.state === "succeeded") {
           const wf = j?.ml?.training?.walk_forward_summary || {};
-          setTrainingMessage(
-            `Training fertig · AUC ${Number(wf.auc || 0).toFixed(3)} · GOOD-Präzision ${(Number(wf.precision_good || 0) * 100).toFixed(1)} %`,
-          );
+          setTrainingMessage(`Training fertig · AUC ${Number(wf.auc || 0).toFixed(3)} · GOOD-Präzision ${(Number(wf.precision_good || 0) * 100).toFixed(1)} %`);
+        } else if (trainingMessage.startsWith("NetworkError") || trainingMessage.includes("operation was aborted") || trainingMessage.includes("Statusverbindung")) {
+          setTrainingMessage("");
         }
-      } else setTrainingMessage(j.error || "KI-Status nicht verfügbar");
-    } catch (e: any) {
-      if (training) {
-        setTrainingMessage("Statusverbindung kurz unterbrochen – Training wird weiter geprüft …");
-      } else {
-        setTrainingMessage(e.message || String(e));
+      } else if (lastServerJobRef.current?.state === "running" || lastServerJobRef.current?.state === "queued") {
+        setTraining(true);
+      }
+    } catch {
+      const last = lastServerJobRef.current;
+      if (last?.state === "running" || last?.state === "queued" || training) {
+        setTraining(true);
+        setTrainingMessage("Statusverbindung kurz unterbrochen – Servertraining läuft weiter …");
       }
     }
   }
