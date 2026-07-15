@@ -136,14 +136,31 @@ type TrajectorySummary = {
   quality: string;
 };
 
+type TrainingHistoryItem = {
+  job_id: string;
+  trained_at: string;
+  selection?: { symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
+  trained_rows: number;
+  labels?: { good?: number; bad?: number };
+  auc?: number | null;
+  precision_good?: number | null;
+  precision_lift?: number | null;
+  fold_stability_pct?: number | null;
+  typical_separation_begin_lag?: number | null;
+  quality?: string;
+};
+
 type MlStatus = {
   annotations?: { total: number; good: number; bad: number };
+  selected_annotations?: { total: number; good: number; bad: number; symbol: string; interval: string };
+  catalog?: { rows: Array<{symbol:string;interval:string;total:number;good:number;bad:number}>; symbols:string[]; intervals:string[] };
   trained_rows?: number;
   new_examples?: number;
   model_current?: boolean;
   ml?: {
     training?: {
       trained_at?: string;
+      selection?: { symbol?: string; interval?: string; order?: string; limit?: number; signature?: string };
       walk_forward_summary?: {
         auc?: number;
         precision_good?: number;
@@ -187,6 +204,7 @@ type MlStatus = {
     };
     model_exists?: boolean;
     job?: MlJob;
+    history?: TrainingHistoryItem[];
   };
   ml_error?: string;
 };
@@ -456,6 +474,9 @@ export default function Trainer() {
     [rating, setRating] = useState(3),
     [note, setNote] = useState("");
   const [mlStatus, setMlStatus] = useState<MlStatus | null>(null),
+    [trainingSymbol, setTrainingSymbol] = useState("GOLD"),
+    [trainingInterval, setTrainingInterval] = useState("5m"),
+    [trainingOrder, setTrainingOrder] = useState<"latest" | "oldest">("latest"),
     [trainingLimit, setTrainingLimit] = useState<500 | 1000 | 1500 | 0>(500),
     [training, setTraining] = useState(false),
     [trainingMessage, setTrainingMessage] = useState("");
@@ -487,9 +508,10 @@ export default function Trainer() {
 
   async function loadMlStatus() {
     try {
-      const r = await fetch(`${BACKEND_BASE}/trainer/ml/status`, {
-        cache: "no-store",
-      });
+      const statusUrl = new URL("/trainer/ml/status", BACKEND_BASE);
+      statusUrl.searchParams.set("symbol", trainingSymbol);
+      statusUrl.searchParams.set("interval", trainingInterval);
+      const r = await fetch(statusUrl, { cache: "no-store" });
       const j = await r.json();
       if (r.ok && j.ok) {
         setMlStatus(j);
@@ -512,7 +534,11 @@ export default function Trainer() {
         }
       } else setTrainingMessage(j.error || "KI-Status nicht verfügbar");
     } catch (e: any) {
-      if (!training) setTrainingMessage(e.message || String(e));
+      if (training) {
+        setTrainingMessage("Statusverbindung kurz unterbrochen – Training wird weiter geprüft …");
+      } else {
+        setTrainingMessage(e.message || String(e));
+      }
     }
   }
   async function retrainMl() {
@@ -522,10 +548,12 @@ export default function Trainer() {
       "Datensatz wird synchronisiert und der Trainingsjob gestartet …",
     );
     try {
-      const r = await fetch(
-        `${BACKEND_BASE}/trainer/ml/retrain?limit=${trainingLimit}`,
-        { method: "POST" },
-      );
+      const retrainUrl = new URL("/trainer/ml/retrain", BACKEND_BASE);
+      retrainUrl.searchParams.set("symbol", trainingSymbol);
+      retrainUrl.searchParams.set("interval", trainingInterval);
+      retrainUrl.searchParams.set("order", trainingOrder);
+      retrainUrl.searchParams.set("limit", String(trainingLimit));
+      const r = await fetch(retrainUrl, { method: "POST" });
       const text = await r.text();
       let j: any;
       try {
@@ -541,10 +569,8 @@ export default function Trainer() {
       );
       await loadMlStatus();
     } catch (e: any) {
-      setTraining(false);
-      setTrainingMessage(
-        `Training konnte nicht gestartet werden: ${e.message || String(e)}`,
-      );
+      setTrainingMessage("Startantwort unterbrochen – Serverstatus wird geprüft …");
+      window.setTimeout(() => { void loadMlStatus(); }, 1500);
     }
   }
   async function load() {
@@ -571,8 +597,10 @@ export default function Trainer() {
   }
   useEffect(() => {
     load();
-    loadMlStatus();
   }, [symbol, interval]);
+  useEffect(() => {
+    loadMlStatus();
+  }, [trainingSymbol, trainingInterval, trainingOrder, trainingLimit]);
   useEffect(() => {
     const timer = window.setInterval(
       () => {
@@ -979,24 +1007,48 @@ export default function Trainer() {
               <b>{mlStatus?.trained_rows ?? 0}</b>
               <span>Neu</span>
               <b>{mlStatus?.new_examples ?? 0}</b>
+              <span>Auswahl</span>
+              <b>{trainingSymbol} · {trainingInterval}</b>
+              <span>Verfügbar</span>
+              <b>{mlStatus?.selected_annotations?.total ?? "–"}</b>
+              <span>GOOD / BAD Auswahl</span>
+              <b>{mlStatus?.selected_annotations?.good ?? "–"} / {mlStatus?.selected_annotations?.bad ?? "–"}</b>
               <span>Trainingsblock</span>
               <b>{trainingLimit === 0 ? "ALLE" : trainingLimit}</b>
             </div>
             {!training && (
-              <label className="ml-limit-row">
-                <span>Verwendete Beispiele</span>
-                <select
-                  value={trainingLimit}
-                  onChange={(e) =>
-                    setTrainingLimit(Number(e.target.value) as 500 | 1000 | 1500 | 0)
-                  }
-                >
-                  <option value={500}>älteste 500</option>
-                  <option value={1000}>älteste 1000</option>
-                  <option value={1500}>älteste 1500</option>
-                  <option value={0}>alle</option>
-                </select>
-              </label>
+              <div className="ml-source-controls">
+                <label>
+                  <span>Instrument</span>
+                  <select value={trainingSymbol} onChange={(e) => setTrainingSymbol(e.target.value)}>
+                    <option value="ALL">ALLE</option>
+                    {(mlStatus?.catalog?.symbols || SYMBOLS).map((item) => <option value={item} key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Timeframe</span>
+                  <select value={trainingInterval} onChange={(e) => setTrainingInterval(e.target.value)}>
+                    <option value="ALL">ALLE</option>
+                    {(mlStatus?.catalog?.intervals || INTERVALS).map((item) => <option value={item} key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Zeitraum</span>
+                  <select value={trainingOrder} onChange={(e) => setTrainingOrder(e.target.value as "latest" | "oldest")}>
+                    <option value="latest">neueste zuerst</option>
+                    <option value="oldest">älteste zuerst</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Beispiele</span>
+                  <select value={trainingLimit} onChange={(e) => setTrainingLimit(Number(e.target.value) as 500 | 1000 | 1500 | 0)}>
+                    <option value={500}>500</option>
+                    <option value={1000}>1000</option>
+                    <option value={1500}>1500</option>
+                    <option value={0}>ALLE</option>
+                  </select>
+                </label>
+              </div>
             )}
             {training ? (
               <div className="ml-progress">
@@ -1012,7 +1064,7 @@ export default function Trainer() {
             ) : (
               <button
                 className="ml-train-button"
-                disabled={!mlStatus?.annotations?.total}
+                disabled={!mlStatus?.selected_annotations?.total}
                 onClick={retrainMl}
               >
                 KI NEU TRAINIEREN
@@ -1031,7 +1083,9 @@ export default function Trainer() {
             )}
             {!training && mlStatus?.ml?.training?.walk_forward_summary && (
               <div className="ml-analysis">
-                <div className="ml-analysis-title">KI-Auswertung</div>
+                <div className="ml-analysis-title">
+                  KI-Auswertung · {mlStatus.ml?.training?.selection?.symbol || "ALLE"} · {mlStatus.ml?.training?.selection?.interval || "ALLE"}
+                </div>
                 {(() => {
                   const wf = mlStatus.ml?.training?.walk_forward_summary || {};
                   const features = mlStatus.ml?.training?.feature_league || [];
@@ -1281,10 +1335,25 @@ export default function Trainer() {
                 })()}
               </div>
             )}
+            {!training && (mlStatus?.ml?.history || []).length > 0 && (
+              <details className="ml-history">
+                <summary>Trainingshistorie</summary>
+                {(mlStatus?.ml?.history || []).slice(0, 10).map((item) => (
+                  <div className="ml-history-row" key={item.job_id}>
+                    <div>
+                      <b>{item.selection?.symbol || "ALL"} · {item.selection?.interval || "ALL"}</b>
+                      <span>{item.selection?.order === "oldest" ? "älteste" : "neueste"} {item.trained_rows} · {new Date(item.trained_at).toLocaleString("de-DE")}</span>
+                    </div>
+                    <div>
+                      <b>AUC {item.auc == null ? "–" : Number(item.auc).toFixed(3)}</b>
+                      <span>Lift {item.precision_lift == null ? "–" : `${Number(item.precision_lift).toFixed(2)}×`}</span>
+                    </div>
+                  </div>
+                ))}
+              </details>
+            )}
             {mlStatus?.ml_error && (
-              <div className="trainer-error">
-                ML-Dienst: {mlStatus.ml_error}
-              </div>
+              <div className="trainer-error">ML-Dienst: {mlStatus.ml_error}</div>
             )}
           </div>
           {error && <div className="trainer-error">{error}</div>}
