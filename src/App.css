@@ -258,3 +258,25 @@
 .ml-trajectory-grid> :nth-child(3){color:#fb7185}
 .ml-trajectory-note{margin-top:8px;padding-top:7px;border-top:1px solid #17314a;color:#8da9c0;font-size:9px;line-height:1.45}
 .ml-trajectory-note b{color:#dcecf8}
+
+
+.ml-separation-chart{margin-top:8px;padding-top:8px;border-top:1px solid #17314a}
+.ml-separation-chart-title{color:#8fb4d0;font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+.ml-separation-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.ml-separation-threshold{stroke:#526b82;stroke-width:1;stroke-dasharray:3 3}
+.ml-separation-line{fill:none;stroke:#fbbf24;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ml-separation-dot{fill:#fbbf24}
+.ml-separation-dot.maximum{fill:#ffffff;stroke:#fbbf24;stroke-width:1.5}
+.ml-separation-summary{display:grid;grid-template-columns:1fr;gap:5px;margin:8px 0;padding:7px;border-radius:6px;background:#0b2238;font-size:9px}
+.ml-separation-summary>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ml-separation-summary span{color:#84a2bb}
+.ml-separation-summary b{color:#e8f2fb;text-align:right}
+.ml-separation-stars{display:inline-flex;gap:1px;white-space:nowrap}
+.ml-separation-stars span{color:#334b61;font-size:11px;line-height:1}
+.ml-separation-stars span.on{color:#fbbf24;text-shadow:0 0 5px #f59e0b88}
+.ml-analysis-final{margin-top:11px;padding:10px;border:1px solid #36516b;border-radius:8px;background:linear-gradient(180deg,#0b2135,#081827)}
+.ml-analysis-final-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#7dd3fc;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.ml-analysis-final-grid{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin-top:9px;font-size:10px}
+.ml-analysis-final-grid span{color:#819ab0}
+.ml-analysis-final-grid b{text-align:right;color:#e7f2fb;text-transform:capitalize}
+.ml-analysis-final-note{margin-top:9px;padding-top:8px;border-top:1px solid #1c3952;color:#9cb6ca;font-size:9px;line-height:1.5}

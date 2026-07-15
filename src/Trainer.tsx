@@ -105,7 +105,35 @@ type TrajectoryProfile = {
   separation_start: number;
   separation_end: number;
   separation_change: number;
+  separation_points: Array<{
+    lag: number;
+    signed_difference: number;
+    absolute_difference: number;
+    standardized_effect: number;
+    absolute_effect: number;
+  }>;
+  separation_threshold: number;
+  separation_begin_lag: number | null;
+  separation_begin_index: number | null;
+  maximum_separation_lag: number;
+  maximum_separation_effect: number;
+  strongest_change_from_lag: number | null;
+  strongest_change_to_lag: number | null;
+  strongest_change_effect: number;
+  separation_stars: number;
   points: TrajectoryPoint[];
+};
+
+type TrajectorySummary = {
+  family_count: number;
+  average_stars: number;
+  rounded_stars: number;
+  stability_pct: number;
+  stable_family_count: number;
+  median_separation_begin_lag: number | null;
+  earliest_separation_begin_lag: number | null;
+  latest_separation_begin_lag: number | null;
+  quality: string;
 };
 
 type MlStatus = {
@@ -155,6 +183,7 @@ type MlStatus = {
         } | null;
       }>;
       trajectory_profiles?: TrajectoryProfile[];
+      trajectory_summary?: TrajectorySummary;
     };
     model_exists?: boolean;
     job?: MlJob;
@@ -294,6 +323,111 @@ function TrajectoryChart({
               r="2.3"
             />
           </g>
+        ))}
+      </svg>
+      <div className="ml-trajectory-axis">
+        <span>Kerze −{profile.maximum_lag}</span>
+        <span>Entry 0</span>
+      </div>
+    </div>
+  );
+}
+
+
+function SeparationStars({ value }: { value: number }) {
+  const safe = Math.max(1, Math.min(5, Math.round(value || 1)));
+  return (
+    <span
+      className="ml-separation-stars"
+      aria-label={`${safe} von 5 Sternen`}
+      title={`${safe} von 5 Sternen`}
+    >
+      {Array.from({ length: 5 }, (_, index) => (
+        <span
+          className={index < safe ? "on" : ""}
+          key={index}
+        >
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function SeparationChart({
+  profile,
+}: {
+  profile: TrajectoryProfile;
+}) {
+  const width = 250;
+  const height = 72;
+  const paddingX = 12;
+  const paddingY = 10;
+  const points = profile.separation_points || [];
+  const maximum = Math.max(
+    profile.separation_threshold || 0,
+    ...points.map((point) => Number(point.absolute_effect) || 0),
+    0.01,
+  );
+
+  const xFor = (index: number) =>
+    paddingX +
+    (index / Math.max(1, points.length - 1)) *
+      (width - paddingX * 2);
+
+  const yFor = (value: number) =>
+    paddingY +
+    ((maximum - value) / maximum) *
+      (height - paddingY * 2);
+
+  const line = points
+    .map(
+      (point, index) =>
+        `${xFor(index)},${yFor(point.absolute_effect)}`,
+    )
+    .join(" ");
+
+  const thresholdY = yFor(profile.separation_threshold || 0);
+
+  return (
+    <div className="ml-separation-chart">
+      <div className="ml-separation-chart-title">
+        Trennung GOOD/BAD
+      </div>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${shortFeatureName(
+          profile.family,
+        )} Trennungsverlauf`}
+      >
+        <line
+          className="ml-separation-threshold"
+          x1={paddingX}
+          x2={width - paddingX}
+          y1={thresholdY}
+          y2={thresholdY}
+        />
+        <polyline
+          className="ml-separation-line"
+          points={line}
+        />
+        {points.map((point, index) => (
+          <circle
+            className={
+              point.lag === profile.maximum_separation_lag
+                ? "ml-separation-dot maximum"
+                : "ml-separation-dot"
+            }
+            cx={xFor(index)}
+            cy={yFor(point.absolute_effect)}
+            r={
+              point.lag === profile.maximum_separation_lag
+                ? "3.1"
+                : "2.1"
+            }
+            key={point.lag}
+          />
         ))}
       </svg>
       <div className="ml-trajectory-axis">
@@ -951,6 +1085,37 @@ export default function Trainer() {
                                     <span className="bad">BAD</span>
                                   </div>
                                   <TrajectoryChart profile={profile} />
+                                  <SeparationChart profile={profile} />
+                                  <div className="ml-separation-summary">
+                                    <div>
+                                      <span>Trennstärke</span>
+                                      <SeparationStars
+                                        value={profile.separation_stars}
+                                      />
+                                    </div>
+                                    <div>
+                                      <span>Trennung beginnt</span>
+                                      <b>
+                                        {profile.separation_begin_lag == null
+                                          ? "nicht eindeutig"
+                                          : `Kerze −${profile.separation_begin_lag}`}
+                                      </b>
+                                    </div>
+                                    <div>
+                                      <span>Größte Trennung</span>
+                                      <b>
+                                        Kerze −{profile.maximum_separation_lag}
+                                      </b>
+                                    </div>
+                                    <div>
+                                      <span>Stärkste Zunahme</span>
+                                      <b>
+                                        {profile.strongest_change_from_lag == null
+                                          ? "–"
+                                          : `−${profile.strongest_change_from_lag} → −${profile.strongest_change_to_lag}`}
+                                      </b>
+                                    </div>
+                                  </div>
                                   <div className="ml-trajectory-grid">
                                     <span></span>
                                     <b>GOOD</b>
@@ -1011,6 +1176,62 @@ export default function Trainer() {
                               </details>
                             ))}
                         </details>
+                      )}
+                      {mlStatus.ml?.training?.trajectory_summary && (
+                        <div className="ml-analysis-final">
+                          {(() => {
+                            const trajectory =
+                              mlStatus.ml?.training?.trajectory_summary;
+                            if (!trajectory) {
+                              return null;
+                            }
+                            const begin =
+                              trajectory.median_separation_begin_lag;
+                            return (
+                              <>
+                                <div className="ml-analysis-final-head">
+                                  <span>Analyse-Abschluss</span>
+                                  <SeparationStars
+                                    value={trajectory.average_stars}
+                                  />
+                                </div>
+                                <div className="ml-analysis-final-grid">
+                                  <span>Qualität</span>
+                                  <b>{trajectory.quality}</b>
+                                  <span>Stabile Merkmale</span>
+                                  <b>
+                                    {trajectory.stable_family_count} /{" "}
+                                    {trajectory.family_count}
+                                  </b>
+                                  <span>Fold-Stabilität</span>
+                                  <b>
+                                    {Number(
+                                      trajectory.stability_pct || 0,
+                                    ).toFixed(0)} %
+                                  </b>
+                                  <span>Typischer Trennungsbeginn</span>
+                                  <b>
+                                    {begin == null
+                                      ? "nicht eindeutig"
+                                      : `Kerze −${Number(begin).toFixed(
+                                          begin % 1 === 0 ? 0 : 1,
+                                        )}`}
+                                  </b>
+                                </div>
+                                <div className="ml-analysis-final-note">
+                                  GOOD und BAD beginnen sich bei den
+                                  wichtigsten Merkmalen typischerweise{" "}
+                                  {begin == null
+                                    ? "noch nicht eindeutig"
+                                    : `etwa ${Math.abs(
+                                        Number(begin),
+                                      )} Kerzen vor dem Entry`}{" "}
+                                  zu unterscheiden.
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       )}
                       {features.length > 0 && (
                         <details className="ml-features">
