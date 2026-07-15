@@ -74,6 +74,40 @@ type MlJob = {
   finished_at?: string | null;
   error?: string | null;
 };
+type TrajectoryPoint = {
+  lag: number;
+  feature: string;
+  good_mean: number;
+  bad_mean: number;
+  good_median: number;
+  bad_median: number;
+  standardized_effect: number;
+  good_count: number;
+  bad_count: number;
+};
+
+type TrajectoryProfile = {
+  family: string;
+  maximum_lag: number;
+  point_count: number;
+  fold_votes: number;
+  league_importance_sum: number;
+  good_start: number;
+  good_end: number;
+  good_change: number;
+  good_slope: number;
+  good_direction: string;
+  bad_start: number;
+  bad_end: number;
+  bad_change: number;
+  bad_slope: number;
+  bad_direction: string;
+  separation_start: number;
+  separation_end: number;
+  separation_change: number;
+  points: TrajectoryPoint[];
+};
+
 type MlStatus = {
   annotations?: { total: number; good: number; bad: number };
   trained_rows?: number;
@@ -120,6 +154,7 @@ type MlStatus = {
           strength: string;
         } | null;
       }>;
+      trajectory_profiles?: TrajectoryProfile[];
     };
     model_exists?: boolean;
     job?: MlJob;
@@ -169,6 +204,104 @@ function shortFeatureName(name: string) {
     .replace(/_lag_/g, " · Kerze -")
     .replace(/_window_/g, " · Fenster ")
     .replace(/_/g, " ");
+}
+
+
+function TrajectoryChart({
+  profile,
+}: {
+  profile: TrajectoryProfile;
+}) {
+  const width = 250;
+  const height = 104;
+  const paddingX = 12;
+  const paddingY = 12;
+
+  const values = profile.points.flatMap((point) => [
+    Number(point.good_mean),
+    Number(point.bad_mean),
+  ]);
+  const finiteValues = values.filter(Number.isFinite);
+  const minimum = finiteValues.length
+    ? Math.min(...finiteValues)
+    : -1;
+  const maximum = finiteValues.length
+    ? Math.max(...finiteValues)
+    : 1;
+  const span = Math.max(maximum - minimum, 1e-9);
+
+  const xFor = (index: number) =>
+    paddingX +
+    (index / Math.max(1, profile.points.length - 1)) *
+      (width - paddingX * 2);
+
+  const yFor = (value: number) =>
+    paddingY +
+    ((maximum - value) / span) *
+      (height - paddingY * 2);
+
+  const line = (
+    selector: (point: TrajectoryPoint) => number,
+  ) =>
+    profile.points
+      .map(
+        (point, index) =>
+          `${xFor(index)},${yFor(selector(point))}`,
+      )
+      .join(" ");
+
+  const zeroVisible = minimum <= 0 && maximum >= 0;
+  const zeroY = yFor(0);
+
+  return (
+    <div className="ml-trajectory-chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${shortFeatureName(
+          profile.family,
+        )} Verlauf GOOD gegen BAD`}
+      >
+        {zeroVisible && (
+          <line
+            className="ml-trajectory-zero"
+            x1={paddingX}
+            x2={width - paddingX}
+            y1={zeroY}
+            y2={zeroY}
+          />
+        )}
+        <polyline
+          className="ml-trajectory-good-line"
+          points={line((point) => point.good_mean)}
+        />
+        <polyline
+          className="ml-trajectory-bad-line"
+          points={line((point) => point.bad_mean)}
+        />
+        {profile.points.map((point, index) => (
+          <g key={point.lag}>
+            <circle
+              className="ml-trajectory-good-dot"
+              cx={xFor(index)}
+              cy={yFor(point.good_mean)}
+              r="2.3"
+            />
+            <circle
+              className="ml-trajectory-bad-dot"
+              cx={xFor(index)}
+              cy={yFor(point.bad_mean)}
+              r="2.3"
+            />
+          </g>
+        ))}
+      </svg>
+      <div className="ml-trajectory-axis">
+        <span>Kerze −{profile.maximum_lag}</span>
+        <span>Entry 0</span>
+      </div>
+    </div>
+  );
 }
 
 export default function Trainer() {
@@ -796,6 +929,89 @@ export default function Trainer() {
                         <span>BAD richtig <b>{wf.true_bad ?? "–"}</b></span>
                         <span>BAD erlaubt <b>{wf.false_good ?? "–"}</b></span>
                       </div>
+                      {(mlStatus.ml?.training?.trajectory_profiles || []).length > 0 && (
+                        <details className="ml-trajectories" open>
+                          <summary>GOOD/BAD-Verläufe</summary>
+                          {(mlStatus.ml?.training?.trajectory_profiles || [])
+                            .slice(0, 6)
+                            .map((profile) => (
+                              <details
+                                className="ml-trajectory-item"
+                                key={profile.family}
+                              >
+                                <summary>
+                                  <span>
+                                    {shortFeatureName(profile.family)}
+                                  </span>
+                                  <b>{profile.fold_votes} / 3</b>
+                                </summary>
+                                <div className="ml-trajectory-body">
+                                  <div className="ml-trajectory-legend">
+                                    <span className="good">GOOD</span>
+                                    <span className="bad">BAD</span>
+                                  </div>
+                                  <TrajectoryChart profile={profile} />
+                                  <div className="ml-trajectory-grid">
+                                    <span></span>
+                                    <b>GOOD</b>
+                                    <b>BAD</b>
+                                    <span>
+                                      Kerze −{profile.maximum_lag}
+                                    </span>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.good_start,
+                                      )}
+                                    </b>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.bad_start,
+                                      )}
+                                    </b>
+                                    <span>Entry 0</span>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.good_end,
+                                      )}
+                                    </b>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.bad_end,
+                                      )}
+                                    </b>
+                                    <span>Veränderung</span>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.good_change,
+                                      )}
+                                    </b>
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.bad_change,
+                                      )}
+                                    </b>
+                                    <span>Richtung</span>
+                                    <b>{profile.good_direction}</b>
+                                    <b>{profile.bad_direction}</b>
+                                  </div>
+                                  <div className="ml-trajectory-note">
+                                    Abstand GOOD/BAD am Entry:{" "}
+                                    <b>
+                                      {formatFeatureValue(
+                                        profile.separation_end,
+                                      )}
+                                    </b>
+                                    {profile.separation_change > 0
+                                      ? " · Trennung wird größer"
+                                      : profile.separation_change < 0
+                                        ? " · Trennung wird kleiner"
+                                        : " · Trennung bleibt ähnlich"}
+                                  </div>
+                                </div>
+                              </details>
+                            ))}
+                        </details>
+                      )}
                       {features.length > 0 && (
                         <details className="ml-features">
                           <summary>Wichtigste Merkmale</summary>
