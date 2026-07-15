@@ -193,7 +193,7 @@ export default function Trainer() {
         }
       } else setTrainingMessage(j.error || "KI-Status nicht verfügbar");
     } catch (e: any) {
-      setTrainingMessage(e.message || String(e));
+      if (!training) setTrainingMessage(e.message || String(e));
     }
   }
   async function retrainMl() {
