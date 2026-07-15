@@ -138,6 +138,7 @@ export default function Trainer() {
     [rating, setRating] = useState(3),
     [note, setNote] = useState("");
   const [mlStatus, setMlStatus] = useState<MlStatus | null>(null),
+    [trainingLimit, setTrainingLimit] = useState<500 | 1000 | 1500 | 0>(500),
     [training, setTraining] = useState(false),
     [trainingMessage, setTrainingMessage] = useState("");
   const priceRef = useRef<HTMLDivElement>(null),
@@ -203,9 +204,10 @@ export default function Trainer() {
       "Datensatz wird synchronisiert und der Trainingsjob gestartet …",
     );
     try {
-      const r = await fetch(`${BACKEND_BASE}/trainer/ml/retrain`, {
-        method: "POST",
-      });
+      const r = await fetch(
+        `${BACKEND_BASE}/trainer/ml/retrain?limit=${trainingLimit}`,
+        { method: "POST" },
+      );
       const text = await r.text();
       let j: any;
       try {
@@ -659,7 +661,25 @@ export default function Trainer() {
               <b>{mlStatus?.trained_rows ?? 0}</b>
               <span>Neu</span>
               <b>{mlStatus?.new_examples ?? 0}</b>
+              <span>Trainingsblock</span>
+              <b>{trainingLimit === 0 ? "ALLE" : trainingLimit}</b>
             </div>
+            {!training && (
+              <label className="ml-limit-row">
+                <span>Verwendete Beispiele</span>
+                <select
+                  value={trainingLimit}
+                  onChange={(e) =>
+                    setTrainingLimit(Number(e.target.value) as 500 | 1000 | 1500 | 0)
+                  }
+                >
+                  <option value={500}>älteste 500</option>
+                  <option value={1000}>älteste 1000</option>
+                  <option value={1500}>älteste 1500</option>
+                  <option value={0}>alle</option>
+                </select>
+              </label>
+            )}
             {training ? (
               <div className="ml-progress">
                 <div

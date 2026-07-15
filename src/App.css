@@ -193,3 +193,5 @@
 .ml-progress>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#e5f3ff}
 .ml-training-message.failed{background:#7f1d1d;color:#fee2e2}
 @keyframes trainerPulse{0%,100%{opacity:.55}50%{opacity:1}}
+
+.ml-limit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;font-size:11px;color:#8193a9}.ml-limit-row select{min-width:120px;background:#0b1a2b;color:#dce8f7;border:1px solid #2b405d;border-radius:7px;padding:7px 8px}.ml-limit-row select:focus{outline:1px solid #38bdf8}
