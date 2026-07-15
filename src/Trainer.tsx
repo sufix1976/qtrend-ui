@@ -87,7 +87,21 @@ type MlStatus = {
         precision_good?: number;
         recall_good?: number;
         balanced_accuracy?: number;
+        pr_auc?: number;
+        recall_bad?: number;
+        base_good_rate?: number;
+        precision_lift?: number;
+        true_good?: number;
+        missed_good?: number;
+        true_bad?: number;
+        false_good?: number;
       };
+      feature_league?: Array<{
+        feature: string;
+        fold_votes: number;
+        average_rank: number;
+        average_importance: number;
+      }>;
     };
     model_exists?: boolean;
     job?: MlJob;
@@ -118,6 +132,15 @@ function macd(candles: Candle[]) {
 }
 function dt(t: number) {
   return new Date(t * 1000).toLocaleString("de-DE");
+}
+
+
+function shortFeatureName(name: string) {
+  return name
+    .replace(/^dir_/, "")
+    .replace(/_lag_/g, " · Kerze -")
+    .replace(/_window_/g, " · Fenster ")
+    .replace(/_/g, " ");
 }
 
 export default function Trainer() {
@@ -709,6 +732,56 @@ export default function Trainer() {
                 }
               >
                 {trainingMessage}
+              </div>
+            )}
+            {!training && mlStatus?.ml?.training?.walk_forward_summary && (
+              <div className="ml-analysis">
+                <div className="ml-analysis-title">KI-Auswertung</div>
+                {(() => {
+                  const wf = mlStatus.ml?.training?.walk_forward_summary || {};
+                  const features = mlStatus.ml?.training?.feature_league || [];
+                  const pct = (value?: number) =>
+                    value == null ? "–" : `${(Number(value) * 100).toFixed(1)} %`;
+                  return (
+                    <>
+                      <div className="ml-analysis-grid">
+                        <span>AUC</span>
+                        <b>{wf.auc == null ? "–" : Number(wf.auc).toFixed(3)}</b>
+                        <span>PR-AUC</span>
+                        <b>{wf.pr_auc == null ? "–" : Number(wf.pr_auc).toFixed(3)}</b>
+                        <span>GOOD-Präzision</span>
+                        <b>{pct(wf.precision_good)}</b>
+                        <span>GOOD erkannt</span>
+                        <b>{pct(wf.recall_good)}</b>
+                        <span>BAD erkannt</span>
+                        <b>{pct(wf.recall_bad)}</b>
+                        <span>Treffer-Lift</span>
+                        <b>
+                          {wf.precision_lift == null
+                            ? "–"
+                            : `${Number(wf.precision_lift).toFixed(2)}×`}
+                        </b>
+                      </div>
+                      <div className="ml-confusion">
+                        <span>GOOD richtig <b>{wf.true_good ?? "–"}</b></span>
+                        <span>GOOD verpasst <b>{wf.missed_good ?? "–"}</b></span>
+                        <span>BAD richtig <b>{wf.true_bad ?? "–"}</b></span>
+                        <span>BAD erlaubt <b>{wf.false_good ?? "–"}</b></span>
+                      </div>
+                      {features.length > 0 && (
+                        <details className="ml-features">
+                          <summary>Wichtigste Merkmale</summary>
+                          {features.slice(0, 8).map((item) => (
+                            <div key={item.feature}>
+                              <span>{shortFeatureName(item.feature)}</span>
+                              <b>{item.fold_votes} / 3</b>
+                            </div>
+                          ))}
+                        </details>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
             {mlStatus?.ml_error && (

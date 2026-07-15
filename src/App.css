@@ -195,3 +195,17 @@
 @keyframes trainerPulse{0%,100%{opacity:.55}50%{opacity:1}}
 
 .ml-limit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;font-size:11px;color:#8193a9}.ml-limit-row select{min-width:120px;background:#0b1a2b;color:#dce8f7;border:1px solid #2b405d;border-radius:7px;padding:7px 8px}.ml-limit-row select:focus{outline:1px solid #38bdf8}
+
+
+.ml-analysis{margin-top:11px;padding:10px;border:1px solid #24405f;border-radius:8px;background:#071522}
+.ml-analysis-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7dd3fc;margin-bottom:9px}
+.ml-analysis-grid{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:11px}
+.ml-analysis-grid span{color:#8193a9}.ml-analysis-grid b{text-align:right;color:#e5eef8}
+.ml-confusion{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:10px}
+.ml-confusion span{display:flex;justify-content:space-between;gap:5px;padding:5px 6px;border-radius:5px;background:#0d2034;color:#9fb5ca}
+.ml-confusion b{color:#e5eef8}
+.ml-features{margin-top:10px;border-top:1px solid #1f354e;padding-top:8px;font-size:10px}
+.ml-features summary{cursor:pointer;color:#9cc7e8;font-weight:700}
+.ml-features>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #11263a}
+.ml-features span{text-transform:capitalize;color:#9fb5ca;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml-features b{color:#e5eef8;white-space:nowrap}
