@@ -37,6 +37,7 @@ type Candidate = {
   price: number;
   side: "long" | "short";
   scanner_version?: string;
+  features?: Record<string, number>;
 };
 
 type StrategyTrade = {
@@ -71,7 +72,10 @@ type FlipDecision = {
   bars_since_flip: number;
   position_open_atr: number;
   position_mfe_atr: number;
+  position_mae_atr: number;
   position_drawdown_from_mfe_atr: number;
+  feature_core_score?: number;
+  feature_snapshot?: Record<string, number>;
 };
 
 type FlipMetrics = {
@@ -136,6 +140,11 @@ type FlipLabResponse = {
     trades: StrategyTrade[];
     metrics: FlipMetrics;
   };
+  feature_dataset?: {
+    architecture: string;
+    row_count: number;
+    labels: { flip: number; hold: number };
+  };
   dataset?: { row_count: number };
 };
 
@@ -158,6 +167,50 @@ function buildFineValues(
   return Array.from({ length: count }, (_, index) =>
     Number((start + index * step).toFixed(digits)),
   );
+}
+
+
+function featureLabel(key: string) {
+  const labels: Record<string, string> = {
+    macd_histogram_atr: "Histogramm ATR",
+    macd_slope_atr: "MACD Slope ATR",
+    fast_distance_atr: "Fast Distance ATR",
+    slow_distance_atr: "Slow Distance ATR",
+    return_bps: "Return BPS",
+    body_atr: "Body ATR",
+    range_atr: "Range ATR",
+    trend_credit: "Trend Credit",
+    momentum: "Momentum",
+    energy: "Energy",
+    structure: "Structure",
+    macd_histogram_speed: "Histogramm Speed",
+  };
+  return labels[key] || key;
+}
+
+function phaseVisual(trade: StrategyTrade) {
+  const result = Number(trade.net_points || 0);
+  const magnitude = Math.min(1, Math.abs(result) / 250);
+  const alpha = 0.30 + magnitude * 0.62;
+
+  if (result > 1) {
+    return {
+      background: `rgba(22, 163, 74, ${alpha})`,
+      borderColor: "rgba(74, 222, 128, .85)",
+    };
+  }
+
+  if (result < -1) {
+    return {
+      background: `rgba(220, 38, 38, ${alpha})`,
+      borderColor: "rgba(248, 113, 113, .85)",
+    };
+  }
+
+  return {
+    background: "rgba(245, 158, 11, .55)",
+    borderColor: "rgba(251, 191, 36, .85)",
+  };
 }
 
 export default function FlipKi() {
@@ -517,6 +570,7 @@ export default function FlipKi() {
                     style={{
                       left: `${phase.left}%`,
                       width: `${phase.width}%`,
+                      ...phaseVisual(phase),
                     }}
                     title={`${phase.side.toUpperCase()} · ${phase.holding_bars} Kerzen · ${signed(phase.net_points)} Punkte`}
                     onClick={() => {
@@ -538,17 +592,19 @@ export default function FlipKi() {
                     {phase.width >= 4 && (
                       <span>
                         {phase.side.toUpperCase()} ·{" "}
-                        {phase.holding_bars}
+                        {phase.holding_bars} ·{" "}
+                        {signed(phase.net_points, 0)}
                       </span>
                     )}
                   </button>
                 ))}
               </div>
               <div className="flip-position-ribbon-legend">
-                <span className="long">LONG</span>
-                <span className="short">SHORT</span>
+                <span className="winner">GEWINNER</span>
+                <span className="neutral">NEUTRAL</span>
+                <span className="loser">VERLIERER</span>
                 <small>
-                  Klick auf einen Abschnitt springt zur Position.
+                  Intensität zeigt die Größe des Trade-Ergebnisses.
                 </small>
               </div>
             </div>
@@ -785,6 +841,72 @@ export default function FlipKi() {
                   ATR
                 </b>
               </div>
+            </div>
+          )}
+
+          {selected && (
+            <div className="flip-feature-card">
+              <div className="flip-feature-title">
+                <strong>FLIP-KI FEATURE-SNAPSHOT</strong>
+                <span>
+                  Kernscore{" "}
+                  {Number(selected.feature_core_score || 0).toFixed(3)}
+                </span>
+              </div>
+              <small>
+                Marktwerte am echten QTrend-Gegensignal. Diese
+                Merkmale bilden die Lernbasis für FLIP oder HOLD.
+              </small>
+              <div className="flip-feature-grid">
+                {[
+                  "macd_histogram_atr",
+                  "macd_slope_atr",
+                  "fast_distance_atr",
+                  "slow_distance_atr",
+                  "return_bps",
+                  "body_atr",
+                  "range_atr",
+                  "trend_credit",
+                  "momentum",
+                  "energy",
+                  "structure",
+                  "macd_histogram_speed",
+                ].map((key) => (
+                  <div key={key}>
+                    <span>{featureLabel(key)}</span>
+                    <b>
+                      {Number(
+                        selected.feature_snapshot?.[key] || 0,
+                      ).toFixed(3)}
+                    </b>
+                  </div>
+                ))}
+              </div>
+              <div className="flip-feature-context">
+                <span>Position offen</span>
+                <b>{signed(selected.position_open_atr, 2)} ATR</b>
+                <span>MFE</span>
+                <b>{signed(selected.position_mfe_atr, 2)} ATR</b>
+                <span>MAE</span>
+                <b>{signed(selected.position_mae_atr, 2)} ATR</b>
+                <span>Rücklauf</span>
+                <b>
+                  {Number(
+                    selected.position_drawdown_from_mfe_atr || 0,
+                  ).toFixed(2)}{" "}
+                  ATR
+                </b>
+              </div>
+              {summary?.feature_dataset && (
+                <div className="flip-dataset-status">
+                  Lernzeilen{" "}
+                  <b>{summary.feature_dataset.row_count}</b>
+                  <span>
+                    FLIP {summary.feature_dataset.labels.flip} ·
+                    HOLD {summary.feature_dataset.labels.hold}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
