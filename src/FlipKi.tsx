@@ -77,6 +77,7 @@ type FlipDecision = {
   feature_core_score?: number;
   feature_snapshot?: Record<string, any>;
   ki_prediction?: KiPrediction | null;
+  raw_ki_prediction?: KiPrediction | null;
 };
 
 type KiMetrics = {
@@ -206,6 +207,8 @@ type FlipLabResponse = {
     metrics: FlipMetrics;
   };
   ki_model?: FlipKiModel | null;
+  raw_ki_model?: FlipKiModel | null;
+  model_comparison?: { feature_auc: number | null; raw_auc: number | null; winner: "feature" | "raw" | "tie" } | null;
   feature_statistics?: FlipFeatureStatistics;
   feature_dataset?: {
     architecture: string;
@@ -303,6 +306,7 @@ export default function FlipKi() {
   const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
+  const [rawModelLoading, setRawModelLoading] = useState(false);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -447,6 +451,16 @@ export default function FlipKi() {
     } finally {
       setModelLoading(false);
     }
+  }
+
+  async function trainRawModel() {
+    setRawModelLoading(true); setError("");
+    try {
+      const response=await fetch(`${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,limit:2500,cost_atr:costAtr,minimum_advantage_atr:minimumAdvantageAtr,test_fraction:0.25})});
+      const text=await response.text(); let payload:any; try{payload=JSON.parse(text)}catch{throw new Error(text||`HTTP ${response.status}`)}
+      if(!response.ok||!payload?.ok) throw new Error(payload?.details||payload?.error||`HTTP ${response.status}`);
+      await load();
+    } catch(exception:any){setError(exception?.message||String(exception))} finally{setRawModelLoading(false)}
   }
 
   async function optimize() {
@@ -671,6 +685,9 @@ export default function FlipKi() {
             disabled={modelLoading || loading}
           >
             {modelLoading ? "KI LERNT …" : "KI TRAINIEREN"}
+          </button>
+          <button className="flip-raw-model-button" onClick={() => void trainRawModel()} disabled={rawModelLoading || loading}>
+            {rawModelLoading ? "RAW KI LERNT …" : "RAW KI TRAINIEREN"}
           </button>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
@@ -926,6 +943,21 @@ export default function FlipKi() {
             </div>
           )}
 
+          {summary?.model_comparison && (
+            <div className="flip-ab-card">
+              <strong>V7 · A/B-TEST</strong>
+              <span>Gewinner <b>{summary.model_comparison.winner === "raw" ? "RAW-KI" : summary.model_comparison.winner === "feature" ? "FEATURE-KI" : "GLEICHSTAND"}</b></span>
+              <div><span>Feature AUC</span><b>{summary.model_comparison.feature_auc?.toFixed(3) ?? "–"}</b><span>Raw AUC</span><b>{summary.model_comparison.raw_auc?.toFixed(3) ?? "–"}</b></div>
+            </div>
+          )}
+
+          {summary?.raw_ki_model ? (
+            <div className="flip-model-card raw">
+              <div className="flip-model-title"><div><strong>V7 · RAW-PATTERN-KI</strong><small>20 Kerzen × 8 Rohkanäle</small></div><span>AKTIV</span></div>
+              <div className="flip-model-metrics"><div><span>Test-AUC</span><b>{summary.raw_ki_model.test_metrics.auc?.toFixed(3) ?? "–"}</b></div><div><span>Accuracy</span><b>{(summary.raw_ki_model.test_metrics.accuracy*100).toFixed(1)} %</b></div><div><span>FLIP-Präzision</span><b>{(summary.raw_ki_model.test_metrics.precision*100).toFixed(1)} %</b></div><div><span>FLIP erkannt</span><b>{(summary.raw_ki_model.test_metrics.recall*100).toFixed(1)} %</b></div></div>
+            </div>
+          ) : <div className="flip-model-empty raw"><strong>V7 · NOCH KEIN RAW-MODELL</strong><span>RAW KI TRAINIEREN startet den direkten Vergleich.</span></div>}
+
           {summary?.ki_model ? (
             <div className="flip-model-card">
               <div className="flip-model-title">
@@ -1114,6 +1146,13 @@ export default function FlipKi() {
                       ? "KI stimmt mit dem historischen Lehrer überein."
                       : "KI widerspricht dem historischen Lehrer."}
                   </small>
+                </div>
+              )}
+
+              {selected.raw_ki_prediction && (
+                <div className={`flip-ki-prediction raw ${selected.raw_ki_prediction.prediction}`}>
+                  <div><span>RAW-KI-ENTSCHEIDUNG</span><strong>{selected.raw_ki_prediction.prediction.toUpperCase()}</strong></div>
+                  <div><span>FLIP-Wahrscheinlichkeit</span><b>{(selected.raw_ki_prediction.probability_flip*100).toFixed(1)} %</b></div>
                 </div>
               )}
 
