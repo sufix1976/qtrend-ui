@@ -39,6 +39,19 @@ type Candidate = {
   scanner_version?: string;
 };
 
+type StrategyTrade = {
+  side: "long" | "short";
+  entry_time: number;
+  entry_price: number;
+  exit_time: number;
+  exit_price: number;
+  holding_bars: number;
+  gross_points: number;
+  costs_points: number;
+  net_points: number;
+  exit_reason: string;
+};
+
 type FlipDecision = {
   candidate_id: string;
   symbol: string;
@@ -119,6 +132,10 @@ type FlipLabResponse = {
   };
   decisions: FlipDecision[];
   metrics?: FlipMetrics;
+  strategy_path?: {
+    trades: StrategyTrade[];
+    metrics: FlipMetrics;
+  };
   dataset?: { row_count: number };
 };
 
@@ -149,6 +166,7 @@ export default function FlipKi() {
   const [costAtr, setCostAtr] = useState(0.05);
   const [minimumAdvantageAtr, setMinimumAdvantageAtr] = useState(0.15);
   const [showHold, setShowHold] = useState(true);
+  const [showPhases, setShowPhases] = useState(true);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [decisions, setDecisions] = useState<FlipDecision[]>([]);
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
@@ -164,6 +182,30 @@ export default function FlipKi() {
     () => decisions.filter((item) => item.label === "flip").length,
     [decisions],
   );
+
+  const positionPhases = useMemo(() => {
+    const trades = summary?.strategy_path?.trades || [];
+    if (!trades.length) return [];
+
+    const startTime = trades[0].entry_time;
+    const endTime = trades[trades.length - 1].exit_time;
+    const total = Math.max(1, endTime - startTime);
+
+    return trades.map((trade, index) => {
+      const left = ((trade.entry_time - startTime) / total) * 100;
+      const width = Math.max(
+        0.35,
+        ((trade.exit_time - trade.entry_time) / total) * 100,
+      );
+
+      return {
+        ...trade,
+        index,
+        left,
+        width,
+      };
+    });
+  }, [summary]);
 
   async function load() {
     setLoading(true);
@@ -436,6 +478,16 @@ export default function FlipKi() {
             />
             <span>HOLD anzeigen</span>
           </label>
+          <label className="flip-hold-toggle">
+            <input
+              type="checkbox"
+              checked={showPhases}
+              onChange={(event) =>
+                setShowPhases(event.target.checked)
+              }
+            />
+            <span>Positionen anzeigen</span>
+          </label>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
           </button>
@@ -452,6 +504,55 @@ export default function FlipKi() {
 
       <main className="flip-ki-layout">
         <section className="flip-ki-chart">
+          {showPhases && positionPhases.length > 0 && (
+            <div className="flip-position-ribbon">
+              <div className="flip-position-ribbon-label">
+                POSITIONSVERLAUF
+              </div>
+              <div className="flip-position-ribbon-track">
+                {positionPhases.map((phase) => (
+                  <button
+                    key={`${phase.entry_time}-${phase.side}-${phase.index}`}
+                    className={`flip-position-segment ${phase.side}`}
+                    style={{
+                      left: `${phase.left}%`,
+                      width: `${phase.width}%`,
+                    }}
+                    title={`${phase.side.toUpperCase()} · ${phase.holding_bars} Kerzen · ${signed(phase.net_points)} Punkte`}
+                    onClick={() => {
+                      const index = candles.findIndex(
+                        (candle) =>
+                          candle.time >= phase.entry_time,
+                      );
+                      if (index >= 0) {
+                        chartRef.current?.timeScale().setVisibleLogicalRange({
+                          from: Math.max(0, index - 15),
+                          to: Math.min(
+                            candles.length - 1,
+                            index + phase.holding_bars + 15,
+                          ),
+                        });
+                      }
+                    }}
+                  >
+                    {phase.width >= 4 && (
+                      <span>
+                        {phase.side.toUpperCase()} ·{" "}
+                        {phase.holding_bars}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="flip-position-ribbon-legend">
+                <span className="long">LONG</span>
+                <span className="short">SHORT</span>
+                <small>
+                  Klick auf einen Abschnitt springt zur Position.
+                </small>
+              </div>
+            </div>
+          )}
           <div ref={chartHost} />
         </section>
         <aside className="flip-ki-sidebar">

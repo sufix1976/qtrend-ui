@@ -490,3 +490,75 @@
   text-transform:none!important;
   white-space:nowrap;
 }
+
+
+/* V3.4: sichtbarer vollständiger LONG-/SHORT-Positionsverlauf */
+.flip-position-ribbon{
+  padding:8px 10px 7px;
+  border-bottom:1px solid #1d3047;
+  background:#081522;
+}
+.flip-position-ribbon-label{
+  margin-bottom:5px;
+  color:#7dd3fc;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.flip-position-ribbon-track{
+  position:relative;
+  height:30px;
+  overflow:hidden;
+  border:1px solid #29445f;
+  border-radius:5px;
+  background:#050d17;
+}
+.flip-position-segment{
+  position:absolute;
+  top:0;
+  bottom:0;
+  min-width:2px;
+  padding:0 4px;
+  overflow:hidden;
+  border:0;
+  border-right:1px solid rgba(255,255,255,.18);
+  color:#f8fafc;
+  font-size:7px;
+  font-weight:800;
+  white-space:nowrap;
+  cursor:pointer;
+  opacity:.88;
+}
+.flip-position-segment:hover{
+  z-index:2;
+  opacity:1;
+  filter:brightness(1.2);
+}
+.flip-position-segment.long{
+  background:rgba(22,163,74,.72);
+}
+.flip-position-segment.short{
+  background:rgba(220,38,38,.72);
+}
+.flip-position-segment span{
+  pointer-events:none;
+}
+.flip-position-ribbon-legend{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:5px;
+  font-size:7px;
+}
+.flip-position-ribbon-legend .long{
+  color:#4ade80;
+  font-weight:800;
+}
+.flip-position-ribbon-legend .short{
+  color:#f87171;
+  font-weight:800;
+}
+.flip-position-ribbon-legend small{
+  margin-left:auto;
+  color:#70879d;
+}
