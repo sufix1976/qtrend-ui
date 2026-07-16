@@ -316,7 +316,7 @@
 .flip-ki-error{margin:10px 16px;padding:9px 11px;border:1px solid #7f1d1d;border-radius:7px;background:#2a0d13;color:#fecaca;font-size:11px}
 .flip-ki-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:10px;padding:10px}
 .flip-ki-chart,.flip-ki-sidebar{border:1px solid #1d3047;border-radius:8px;background:#07111f;overflow:hidden}
-.flip-ki-sidebar{height:590px;display:flex;flex-direction:column;padding:9px;gap:8px}
+.flip-ki-sidebar{height:590px;min-height:0;display:flex;flex-direction:column;padding:9px;gap:8px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
 .flip-ki-summary{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:9px;border:1px solid #233c57;border-radius:7px;background:#0a1a2b;font-size:10px}
 .flip-ki-summary strong,.flip-ki-summary small{grid-column:1/-1}
 .flip-ki-summary span{color:#8fa7be}.flip-ki-summary b{color:#e7f1fa}
@@ -364,3 +364,24 @@
 .flip-matrix button b{font-size:9px;color:#f8fafc}
 .flip-matrix button small{font-size:7px;color:#7890a8}
 .flip-optimizer-card>small{display:block;margin-top:6px;color:#70879d;font-size:8px}
+
+
+/* V3.1a: rechte Auswertung unabhängig vom Chart scrollbar */
+.flip-ki-layout{
+  min-height:0;
+  align-items:start;
+}
+.flip-ki-sidebar{
+  max-height:calc(100vh - 115px);
+  overscroll-behavior:contain;
+}
+.flip-decision-list{
+  flex:none;
+  overflow:visible;
+}
+@media(max-width:1000px){
+  .flip-ki-sidebar{
+    max-height:70vh;
+    overflow-y:auto!important;
+  }
+}
