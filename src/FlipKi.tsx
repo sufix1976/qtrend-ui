@@ -61,6 +61,45 @@ type FlipDecision = {
   position_drawdown_from_mfe_atr: number;
 };
 
+type FlipMetrics = {
+  trades: number;
+  net_points: number;
+  average_points: number;
+  profit_factor: number | null;
+  gross_profit: number;
+  gross_loss: number;
+  wins: number;
+  losses: number;
+  win_rate_pct: number;
+  max_drawdown_points: number;
+  right_flips: number;
+  false_flips: number;
+  right_holds: number;
+  false_holds: number;
+  decision_accuracy_pct: number;
+  saved_by_hold_points: number;
+  gained_by_flip_points: number;
+  average_absolute_advantage_atr: number;
+};
+
+type MatrixRow = {
+  cost_atr: number;
+  minimum_advantage_atr: number;
+  decision_count: number;
+  flip_count: number;
+  hold_count: number;
+  metrics: FlipMetrics;
+};
+
+type OptimizerResponse = {
+  ok: boolean;
+  symbol: string;
+  interval: string;
+  candidate_count: number;
+  best: MatrixRow | null;
+  matrix: MatrixRow[];
+};
+
 type FlipLabResponse = {
   ok: boolean;
   symbol: string;
@@ -76,6 +115,7 @@ type FlipLabResponse = {
     path_mode: string;
   };
   decisions: FlipDecision[];
+  metrics?: FlipMetrics;
   dataset?: { row_count: number };
 };
 
@@ -96,6 +136,8 @@ export default function FlipKi() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [decisions, setDecisions] = useState<FlipDecision[]>([]);
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
+  const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -111,51 +153,25 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const sourceUrl = new URL(
-        "/trainer/flip-lab/strategy-entries",
-        BACKEND_BASE,
-      );
-      sourceUrl.searchParams.set("symbol", symbol);
-      sourceUrl.searchParams.set("interval", interval);
-      sourceUrl.searchParams.set("limit", "2500");
-
-      const sourceResponse = await fetch(sourceUrl, {
+      const candidateUrl = new URL("/trainer/candidates", BACKEND_BASE);
+      candidateUrl.searchParams.set("symbol", symbol);
+      candidateUrl.searchParams.set("interval", interval);
+      candidateUrl.searchParams.set("limit", "2500");
+      const candidateResponse = await fetch(candidateUrl, {
         cache: "no-store",
       });
-      const sourceText = await sourceResponse.text();
-
-      let sourcePayload: any;
-      try {
-        sourcePayload = JSON.parse(sourceText);
-      } catch {
-        throw new Error(sourceText || `HTTP ${sourceResponse.status}`);
-      }
-
-      if (!sourceResponse.ok || !sourcePayload.ok) {
+      const candidatePayload = await candidateResponse.json();
+      if (!candidateResponse.ok || !candidatePayload.ok) {
         throw new Error(
-          sourcePayload.info ||
-          sourcePayload.error ||
-          `HTTP ${sourceResponse.status}`,
+          candidatePayload.error || `HTTP ${candidateResponse.status}`,
         );
       }
 
-      const nextCandles = (sourcePayload.candles || []) as Candle[];
+      const nextCandles = (candidatePayload.candles || []) as Candle[];
       const candidates = (
-        (sourcePayload.candidates || []) as Candidate[]
+        (candidatePayload.candidates || []) as Candidate[]
       ).slice(-1200);
-
       setCandles(nextCandles);
-
-      if (candidates.length < 3) {
-        setDecisions([]);
-        setSummary(null);
-        setSelected(null);
-        setError(
-          `Nur ${candidates.length} echte QTrend-Entrys gefunden. ` +
-          `Für FLIP/HOLD werden mindestens drei Entry-Signale benötigt.`,
-        );
-        return;
-      }
 
       const labResponse = await fetch(
         `${BACKEND_BASE}/trainer/flip-lab/evaluate`,
@@ -171,28 +187,20 @@ export default function FlipKi() {
           }),
         },
       );
-
-      const labText = await labResponse.text();
-      let payload: FlipLabResponse & { error?: string; info?: string };
-
+      const text = await labResponse.text();
+      let payload: FlipLabResponse & { error?: string };
       try {
-        payload = JSON.parse(labText);
+        payload = JSON.parse(text);
       } catch {
-        throw new Error(labText || `HTTP ${labResponse.status}`);
+        throw new Error(text || `HTTP ${labResponse.status}`);
       }
-
       if (!labResponse.ok || !payload.ok) {
-        throw new Error(
-          payload.info ||
-          payload.error ||
-          `HTTP ${labResponse.status}`,
-        );
+        throw new Error(payload.error || `HTTP ${labResponse.status}`);
       }
 
       const nextDecisions = [...(payload.decisions || [])].sort(
         (left, right) => left.time - right.time,
       );
-
       setDecisions(nextDecisions);
       setSummary(payload);
       setSelected(nextDecisions[nextDecisions.length - 1] || null);
@@ -203,6 +211,72 @@ export default function FlipKi() {
       setError(exception.message || String(exception));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function optimize() {
+    setOptimizing(true);
+    setError("");
+    try {
+      const sourceUrl = new URL(
+        "/trainer/flip-lab/strategy-entries",
+        BACKEND_BASE,
+      );
+      sourceUrl.searchParams.set("symbol", symbol);
+      sourceUrl.searchParams.set("interval", interval);
+      sourceUrl.searchParams.set("limit", "2500");
+
+      const sourceResponse = await fetch(sourceUrl, {
+        cache: "no-store",
+      });
+      const sourcePayload = await sourceResponse.json();
+
+      if (!sourceResponse.ok || !sourcePayload.ok) {
+        throw new Error(
+          sourcePayload.info ||
+          sourcePayload.error ||
+          `HTTP ${sourceResponse.status}`,
+        );
+      }
+
+      const candidates = (
+        (sourcePayload.candidates || []) as Candidate[]
+      ).slice(-1200);
+
+      const response = await fetch(
+        `${BACKEND_BASE}/trainer/flip-lab/optimize`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol,
+            interval,
+            candidates,
+            cost_values: [0.05, 0.10, 0.15],
+            minimum_advantage_values: [0.15, 0.30, 0.50],
+          }),
+        },
+      );
+
+      const payload = (await response.json()) as OptimizerResponse & {
+        error?: string;
+        info?: string;
+      };
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(
+          payload.info ||
+          payload.error ||
+          `HTTP ${response.status}`,
+        );
+      }
+
+      setOptimizer(payload);
+    } catch (exception: any) {
+      setOptimizer(null);
+      setError(exception.message || String(exception));
+    } finally {
+      setOptimizing(false);
     }
   }
 
@@ -333,6 +407,12 @@ export default function FlipKi() {
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
           </button>
+          <button
+            onClick={() => void optimize()}
+            disabled={optimizing}
+          >
+            {optimizing ? "OPTIMIERT …" : "MATRIX TESTEN"}
+          </button>
         </div>
       </header>
 
@@ -368,6 +448,85 @@ export default function FlipKi() {
               FLIP enthält Kosten; HOLD hat keinen neuen Entry.
             </small>
           </div>
+
+          {summary?.metrics && (
+            <div className="flip-result-card">
+              <strong>FLIP-LAB ERGEBNIS</strong>
+              <span>Netto</span>
+              <b>{signed(summary.metrics.net_points)}</b>
+              <span>Profit Factor</span>
+              <b>
+                {summary.metrics.profit_factor == null
+                  ? "∞"
+                  : summary.metrics.profit_factor.toFixed(2)}
+              </b>
+              <span>Winrate</span>
+              <b>{summary.metrics.win_rate_pct.toFixed(1)} %</b>
+              <span>Max Drawdown</span>
+              <b>
+                -{summary.metrics.max_drawdown_points.toFixed(1)}
+              </b>
+              <span>Richtige FLIPs</span>
+              <b>{summary.metrics.right_flips}</b>
+              <span>Falsche FLIPs</span>
+              <b>{summary.metrics.false_flips}</b>
+              <span>Richtige HOLDs</span>
+              <b>{summary.metrics.right_holds}</b>
+              <span>Falsche HOLDs</span>
+              <b>{summary.metrics.false_holds}</b>
+              <span>Durch HOLD gespart</span>
+              <b>{signed(summary.metrics.saved_by_hold_points)}</b>
+              <span>Durch FLIP gewonnen</span>
+              <b>{signed(summary.metrics.gained_by_flip_points)}</b>
+            </div>
+          )}
+
+          {optimizer && (
+            <div className="flip-optimizer-card">
+              <div className="flip-optimizer-title">
+                <strong>PARAMETER-MATRIX</strong>
+                {optimizer.best && (
+                  <span>
+                    BESTE: {optimizer.best.cost_atr.toFixed(2)} /{" "}
+                    {optimizer.best.minimum_advantage_atr.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              <div className="flip-matrix">
+                {optimizer.matrix.map((row, index) => (
+                  <button
+                    key={`${row.cost_atr}-${row.minimum_advantage_atr}`}
+                    className={index === 0 ? "best" : ""}
+                    onClick={() => {
+                      setCostAtr(row.cost_atr);
+                      setMinimumAdvantageAtr(
+                        row.minimum_advantage_atr,
+                      );
+                    }}
+                  >
+                    <span>
+                      K {row.cost_atr.toFixed(2)} · V{" "}
+                      {row.minimum_advantage_atr.toFixed(2)}
+                    </span>
+                    <b>
+                      PF{" "}
+                      {row.metrics.profit_factor == null
+                        ? "∞"
+                        : row.metrics.profit_factor.toFixed(2)}
+                    </b>
+                    <small>
+                      Netto {signed(row.metrics.net_points)} · DD -
+                      {row.metrics.max_drawdown_points.toFixed(1)}
+                    </small>
+                  </button>
+                ))}
+              </div>
+              <small>
+                Klick auf eine Kombination übernimmt Kosten und
+                Mindestvorteil. Danach „Neu berechnen“ drücken.
+              </small>
+            </div>
+          )}
 
           {selected && (
             <div
