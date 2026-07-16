@@ -349,7 +349,7 @@ export default function FlipKi() {
       const candidateUrl = new URL("/trainer/candidates", BACKEND_BASE);
       candidateUrl.searchParams.set("symbol", symbol);
       candidateUrl.searchParams.set("interval", interval);
-      candidateUrl.searchParams.set("limit", "2500");
+      candidateUrl.searchParams.set("limit", "10000");
       const candidateResponse = await fetch(candidateUrl, {
         cache: "no-store",
       });
@@ -420,7 +420,7 @@ export default function FlipKi() {
           body: JSON.stringify({
             symbol,
             interval,
-            limit: 5000,
+            limit: 10000,
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
             test_fraction: 0.25,
