@@ -420,7 +420,7 @@ export default function FlipKi() {
           body: JSON.stringify({
             symbol,
             interval,
-            limit: 2500,
+            limit: 5000,
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
             test_fraction: 0.25,
