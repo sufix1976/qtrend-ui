@@ -62,24 +62,20 @@ type FlipDecision = {
 };
 
 type FlipMetrics = {
-  trades: number;
+  trade_count: number;
+  completed_trades: number;
   net_points: number;
-  average_points: number;
-  profit_factor: number | null;
   gross_profit: number;
   gross_loss: number;
+  profit_factor: number | null;
   wins: number;
   losses: number;
   win_rate_pct: number;
   max_drawdown_points: number;
-  right_flips: number;
-  false_flips: number;
-  right_holds: number;
-  false_holds: number;
-  decision_accuracy_pct: number;
-  saved_by_hold_points: number;
-  gained_by_flip_points: number;
-  average_absolute_advantage_atr: number;
+  average_trade_points: number;
+  average_holding_bars: number;
+  flip_count: number;
+  hold_count: number;
 };
 
 type MatrixRow = {
@@ -152,6 +148,7 @@ export default function FlipKi() {
   const [interval, setInterval] = useState("15m");
   const [costAtr, setCostAtr] = useState(0.05);
   const [minimumAdvantageAtr, setMinimumAdvantageAtr] = useState(0.15);
+  const [showHold, setShowHold] = useState(true);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [decisions, setDecisions] = useState<FlipDecision[]>([]);
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
@@ -343,6 +340,7 @@ export default function FlipKi() {
     createSeriesMarkers(
       series,
       decisions
+        .filter((item) => showHold || item.label === "flip")
         .map((item) => ({
           time: item.time as Time,
           position:
@@ -363,7 +361,7 @@ export default function FlipKi() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, decisions]);
+  }, [candles, decisions, showHold]);
 
   function choose(item: FlipDecision) {
     setSelected(item);
@@ -428,6 +426,16 @@ export default function FlipKi() {
               }
             />
           </label>
+          <label className="flip-hold-toggle">
+            <input
+              type="checkbox"
+              checked={showHold}
+              onChange={(event) =>
+                setShowHold(event.target.checked)
+              }
+            />
+            <span>HOLD anzeigen</span>
+          </label>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
           </button>
@@ -475,7 +483,9 @@ export default function FlipKi() {
 
           {summary?.metrics && (
             <div className="flip-result-card">
-              <strong>FLIP-LAB ERGEBNIS</strong>
+              <strong>VOLLSTÄNDIGER POSITIONSVERLAUF</strong>
+              <span>Abgeschlossene Trades</span>
+              <b>{summary.metrics.trade_count}</b>
               <span>Netto</span>
               <b>{signed(summary.metrics.net_points)}</b>
               <span>Profit Factor</span>
@@ -490,18 +500,19 @@ export default function FlipKi() {
               <b>
                 -{summary.metrics.max_drawdown_points.toFixed(1)}
               </b>
-              <span>Richtige FLIPs</span>
-              <b>{summary.metrics.right_flips}</b>
-              <span>Falsche FLIPs</span>
-              <b>{summary.metrics.false_flips}</b>
-              <span>Richtige HOLDs</span>
-              <b>{summary.metrics.right_holds}</b>
-              <span>Falsche HOLDs</span>
-              <b>{summary.metrics.false_holds}</b>
-              <span>Durch HOLD gespart</span>
-              <b>{signed(summary.metrics.saved_by_hold_points)}</b>
-              <span>Durch FLIP gewonnen</span>
-              <b>{signed(summary.metrics.gained_by_flip_points)}</b>
+              <span>Ø Trade</span>
+              <b>
+                {signed(summary.metrics.average_trade_points)}
+              </b>
+              <span>Ø Haltedauer</span>
+              <b>
+                {summary.metrics.average_holding_bars.toFixed(1)}
+                {" "}Kerzen
+              </b>
+              <span>Ausgeführte FLIPs</span>
+              <b>{summary.metrics.flip_count}</b>
+              <span>Geblockte FLIPs</span>
+              <b>{summary.metrics.hold_count}</b>
             </div>
           )}
 
@@ -551,6 +562,15 @@ export default function FlipKi() {
                     <span>Winrate</span>
                     <b>
                       {optimizer.best.metrics.win_rate_pct.toFixed(1)} %
+                    </b>
+                    <span>Trades</span>
+                    <b>{optimizer.best.metrics.trade_count}</b>
+                    <span>Ø Haltedauer</span>
+                    <b>
+                      {optimizer.best.metrics.average_holding_bars.toFixed(
+                        1,
+                      )}{" "}
+                      Kerzen
                     </b>
                     <span>FLIP / HOLD</span>
                     <b>
@@ -668,7 +688,10 @@ export default function FlipKi() {
           )}
 
           <div className="flip-decision-list">
-            {[...decisions].reverse().map((item) => (
+            {[...decisions]
+              .filter((item) => showHold || item.label === "flip")
+              .reverse()
+              .map((item) => (
               <button
                 key={`${item.candidate_id}-${item.time}`}
                 className={`${item.label} ${
