@@ -111,84 +111,51 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const historyUrl = new URL("/v5/history", BACKEND_BASE);
-      historyUrl.searchParams.set("symbol", symbol);
-      historyUrl.searchParams.set("interval", interval);
-      historyUrl.searchParams.set("limit", "5000");
-
-      const candlesUrl = new URL("/v5/candles", BACKEND_BASE);
-      candlesUrl.searchParams.set("symbol", symbol);
-      candlesUrl.searchParams.set("interval", interval);
-      candlesUrl.searchParams.set("limit", "5000");
-
-      const [historyResponse, candlesResponse] = await Promise.all([
-        fetch(historyUrl, { cache: "no-store" }),
-        fetch(candlesUrl, { cache: "no-store" }),
-      ]);
-
-      const [historyPayload, candlesPayload] = await Promise.all([
-        historyResponse.json(),
-        candlesResponse.json(),
-      ]);
-
-      if (!historyResponse.ok || !historyPayload.ok) {
-        throw new Error(
-          historyPayload.info ||
-            historyPayload.error ||
-            `History HTTP ${historyResponse.status}`,
-        );
-      }
-      if (!candlesResponse.ok || !candlesPayload.ok) {
-        throw new Error(
-          candlesPayload.info ||
-            candlesPayload.error ||
-            `Candles HTTP ${candlesResponse.status}`,
-        );
-      }
-
-      const nextCandles = (candlesPayload.candles || []) as Candle[];
-      const candleByTime = new Map(
-        nextCandles.map((candle) => [Number(candle.time), candle]),
+      const sourceUrl = new URL(
+        "/trainer/flip-lab/strategy-entries",
+        BACKEND_BASE,
       );
+      sourceUrl.searchParams.set("symbol", symbol);
+      sourceUrl.searchParams.set("interval", interval);
+      sourceUrl.searchParams.set("limit", "2500");
 
-      // Exakt dieselben Entry-Signale wie im normalen QTrend-Chart.
-      // Keine Trainer-Annotationen und keine von der KI erfundenen Stellen.
-      const candidates = (historyPayload.history || [])
-        .filter(
-          (row: any) =>
-            row.entry_long_signal === true ||
-            row.entry_short_signal === true,
-        )
-        .map((row: any, index: number): Candidate => {
-          const time = Number(row.time);
-          const candle = candleByTime.get(time);
-          const side: "long" | "short" =
-            row.entry_long_signal === true ? "long" : "short";
-          return {
-            candidate_id: `strategy_entry_${time}_${side}_${index}`,
-            symbol,
-            interval,
-            time,
-            price: Number(candle?.close ?? row.close ?? 0),
-            side,
-            scanner_version: "v5_current_strategy_entry",
-          };
-        })
-        .filter(
-          (candidate: Candidate) =>
-            Number.isFinite(candidate.time) &&
-            Number.isFinite(candidate.price) &&
-            candidate.price > 0,
-        )
-        .slice(-1200);
+      const sourceResponse = await fetch(sourceUrl, {
+        cache: "no-store",
+      });
+      const sourceText = await sourceResponse.text();
 
-      if (candidates.length < 3) {
+      let sourcePayload: any;
+      try {
+        sourcePayload = JSON.parse(sourceText);
+      } catch {
+        throw new Error(sourceText || `HTTP ${sourceResponse.status}`);
+      }
+
+      if (!sourceResponse.ok || !sourcePayload.ok) {
         throw new Error(
-          `Nur ${candidates.length} Strategie-Entrys für ${symbol} · ${interval} gefunden.`,
+          sourcePayload.info ||
+          sourcePayload.error ||
+          `HTTP ${sourceResponse.status}`,
         );
       }
+
+      const nextCandles = (sourcePayload.candles || []) as Candle[];
+      const candidates = (
+        (sourcePayload.candidates || []) as Candidate[]
+      ).slice(-1200);
 
       setCandles(nextCandles);
+
+      if (candidates.length < 3) {
+        setDecisions([]);
+        setSummary(null);
+        setSelected(null);
+        setError(
+          `Nur ${candidates.length} echte QTrend-Entrys gefunden. ` +
+          `Für FLIP/HOLD werden mindestens drei Entry-Signale benötigt.`,
+        );
+        return;
+      }
 
       const labResponse = await fetch(
         `${BACKEND_BASE}/trainer/flip-lab/evaluate`,
@@ -204,20 +171,28 @@ export default function FlipKi() {
           }),
         },
       );
-      const text = await labResponse.text();
-      let payload: FlipLabResponse & { error?: string };
+
+      const labText = await labResponse.text();
+      let payload: FlipLabResponse & { error?: string; info?: string };
+
       try {
-        payload = JSON.parse(text);
+        payload = JSON.parse(labText);
       } catch {
-        throw new Error(text || `HTTP ${labResponse.status}`);
+        throw new Error(labText || `HTTP ${labResponse.status}`);
       }
+
       if (!labResponse.ok || !payload.ok) {
-        throw new Error(payload.error || `HTTP ${labResponse.status}`);
+        throw new Error(
+          payload.info ||
+          payload.error ||
+          `HTTP ${labResponse.status}`,
+        );
       }
 
       const nextDecisions = [...(payload.decisions || [])].sort(
         (left, right) => left.time - right.time,
       );
+
       setDecisions(nextDecisions);
       setSummary(payload);
       setSelected(nextDecisions[nextDecisions.length - 1] || null);
