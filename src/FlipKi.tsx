@@ -407,11 +407,39 @@ export default function FlipKi() {
     }
   }
 
+  async function loadTrainingCandidates() {
+  const sourceUrl = new URL(
+    "/trainer/flip-lab/strategy-entries",
+    BACKEND_BASE,
+  );
+
+  sourceUrl.searchParams.set("symbol", symbol);
+  sourceUrl.searchParams.set("interval", interval);
+  sourceUrl.searchParams.set("limit", "10000");
+
+  const response = await fetch(sourceUrl, {
+    cache: "no-store",
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(
+      payload?.info ||
+      payload?.error ||
+      `HTTP ${response.status}`,
+    );
+  }
+
+  return ((payload.candidates || []) as Candidate[]).slice(-5000);
+}
+
   async function trainModel() {
     setModelLoading(true);
     setError("");
 
     try {
+      const candidates = await loadTrainingCandidates();
       const response = await fetch(
         `${BACKEND_BASE}/trainer/flip-lab/train-model`,
         {
@@ -420,7 +448,7 @@ export default function FlipKi() {
           body: JSON.stringify({
             symbol,
             interval,
-            limit: 10000,
+            
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
             test_fraction: 0.25,
@@ -456,7 +484,8 @@ export default function FlipKi() {
   async function trainRawModel() {
     setRawModelLoading(true); setError("");
     try {
-      const response=await fetch(`${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,limit:2500,cost_atr:costAtr,minimum_advantage_atr:minimumAdvantageAtr,test_fraction:0.25})});
+      const candidates = await loadTrainingCandidates();
+      const response=await fetch(`${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,cost_atr:costAtr,minimum_advantage_atr:minimumAdvantageAtr,test_fraction:0.25})});
       const text=await response.text(); let payload:any; try{payload=JSON.parse(text)}catch{throw new Error(text||`HTTP ${response.status}`)}
       if(!response.ok||!payload?.ok) throw new Error(payload?.details||payload?.error||`HTTP ${response.status}`);
       await load();
