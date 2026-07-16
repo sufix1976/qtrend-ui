@@ -385,3 +385,81 @@
     overflow-y:auto!important;
   }
 }
+
+
+/* V3.2 Fine Optimizer */
+.flip-best-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  margin-bottom:9px;
+  padding:9px;
+  border:1px solid #f59e0b;
+  border-radius:7px;
+  background:#0b2135;
+}
+.flip-best-card>div:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.flip-best-card>div:first-child small{
+  color:#fbbf24;
+  font-size:7px;
+  font-weight:800;
+}
+.flip-best-card>div:first-child strong{
+  color:#f8fafc;
+  font-size:10px;
+}
+.flip-best-score{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+}
+.flip-best-score span{
+  color:#8fa7be;
+  font-size:7px;
+}
+.flip-best-score b{
+  color:#fbbf24;
+  font-size:20px;
+  line-height:1;
+}
+.flip-best-grid{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:1fr auto 1fr auto;
+  gap:5px 8px;
+  padding-top:7px;
+  border-top:1px solid #24425e;
+  font-size:8px;
+}
+.flip-best-grid span{color:#829ab1}
+.flip-best-grid b{color:#e8f2fb}
+.flip-best-card>button{
+  grid-column:1/-1;
+  height:28px;
+  border:1px solid #b45309;
+  border-radius:5px;
+  background:#7c2d12;
+  color:#ffedd5;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+}
+.flip-top-label{
+  margin:5px 0;
+  color:#7dd3fc;
+  font-size:8px;
+  font-weight:800;
+}
+.flip-score-info{
+  margin-top:7px;
+  padding:6px;
+  border-radius:5px;
+  background:#071522;
+  color:#7890a8;
+  font-size:7px;
+  line-height:1.45;
+}

@@ -88,6 +88,13 @@ type MatrixRow = {
   decision_count: number;
   flip_count: number;
   hold_count: number;
+  score: number;
+  score_components?: {
+    pf: number;
+    net: number;
+    drawdown: number;
+    winrate: number;
+  };
   metrics: FlipMetrics;
 };
 
@@ -126,6 +133,18 @@ function formatTime(time: number) {
 function signed(value: number, digits = 1) {
   const number = Number(value || 0);
   return `${number >= 0 ? "+" : ""}${number.toFixed(digits)}`;
+}
+
+
+function buildFineValues(
+  start: number,
+  step: number,
+  count: number,
+  digits: number,
+) {
+  return Array.from({ length: count }, (_, index) =>
+    Number((start + index * step).toFixed(digits)),
+  );
 }
 
 export default function FlipKi() {
@@ -252,8 +271,13 @@ export default function FlipKi() {
             symbol,
             interval,
             candidates,
-            cost_values: [0.05, 0.10, 0.15],
-            minimum_advantage_values: [0.15, 0.30, 0.50],
+            cost_values: buildFineValues(0.02, 0.015, 20, 3),
+            minimum_advantage_values: buildFineValues(
+              0.05,
+              0.05,
+              20,
+              2,
+            ),
           }),
         },
       );
@@ -411,7 +435,7 @@ export default function FlipKi() {
             onClick={() => void optimize()}
             disabled={optimizing}
           >
-            {optimizing ? "OPTIMIERT …" : "MATRIX TESTEN"}
+            {optimizing ? "400 TESTS …" : "FEINSUCHE 20×20"}
           </button>
         </div>
       </header>
@@ -484,16 +508,75 @@ export default function FlipKi() {
           {optimizer && (
             <div className="flip-optimizer-card">
               <div className="flip-optimizer-title">
-                <strong>PARAMETER-MATRIX</strong>
-                {optimizer.best && (
-                  <span>
-                    BESTE: {optimizer.best.cost_atr.toFixed(2)} /{" "}
-                    {optimizer.best.minimum_advantage_atr.toFixed(2)}
-                  </span>
-                )}
+                <strong>FEINOPTIMIERUNG · 400 TESTS</strong>
+                <span>
+                  {optimizer.matrix.length} Kombinationen
+                </span>
+              </div>
+
+              {optimizer.best && (
+                <div className="flip-best-card">
+                  <div>
+                    <small>BESTE KOMBINATION</small>
+                    <strong>
+                      Kosten {optimizer.best.cost_atr.toFixed(3)} ATR
+                      · Vorteil{" "}
+                      {optimizer.best.minimum_advantage_atr.toFixed(2)} ATR
+                    </strong>
+                  </div>
+                  <div className="flip-best-score">
+                    <span>SCORE</span>
+                    <b>{optimizer.best.score.toFixed(1)}</b>
+                  </div>
+                  <div className="flip-best-grid">
+                    <span>Netto</span>
+                    <b>
+                      {signed(optimizer.best.metrics.net_points)}
+                    </b>
+                    <span>PF</span>
+                    <b>
+                      {optimizer.best.metrics.profit_factor == null
+                        ? "∞"
+                        : optimizer.best.metrics.profit_factor.toFixed(
+                            2,
+                          )}
+                    </b>
+                    <span>Drawdown</span>
+                    <b>
+                      -
+                      {optimizer.best.metrics.max_drawdown_points.toFixed(
+                        1,
+                      )}
+                    </b>
+                    <span>Winrate</span>
+                    <b>
+                      {optimizer.best.metrics.win_rate_pct.toFixed(1)} %
+                    </b>
+                    <span>FLIP / HOLD</span>
+                    <b>
+                      {optimizer.best.flip_count} /{" "}
+                      {optimizer.best.hold_count}
+                    </b>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCostAtr(optimizer.best!.cost_atr);
+                      setMinimumAdvantageAtr(
+                        optimizer.best!
+                          .minimum_advantage_atr,
+                      );
+                    }}
+                  >
+                    BESTE WERTE ÜBERNEHMEN
+                  </button>
+                </div>
+              )}
+
+              <div className="flip-top-label">
+                TOP 12 NACH GESAMTSCORE
               </div>
               <div className="flip-matrix">
-                {optimizer.matrix.map((row, index) => (
+                {optimizer.matrix.slice(0, 12).map((row, index) => (
                   <button
                     key={`${row.cost_atr}-${row.minimum_advantage_atr}`}
                     className={index === 0 ? "best" : ""}
@@ -505,25 +588,32 @@ export default function FlipKi() {
                     }}
                   >
                     <span>
-                      K {row.cost_atr.toFixed(2)} · V{" "}
+                      K {row.cost_atr.toFixed(3)} · V{" "}
                       {row.minimum_advantage_atr.toFixed(2)}
                     </span>
-                    <b>
+                    <b>Score {row.score.toFixed(1)}</b>
+                    <small>
                       PF{" "}
                       {row.metrics.profit_factor == null
                         ? "∞"
                         : row.metrics.profit_factor.toFixed(2)}
-                    </b>
-                    <small>
-                      Netto {signed(row.metrics.net_points)} · DD -
+                      {" · "}Netto{" "}
+                      {signed(row.metrics.net_points)}
+                      {" · "}DD -
                       {row.metrics.max_drawdown_points.toFixed(1)}
                     </small>
                   </button>
                 ))}
               </div>
+
+              <div className="flip-score-info">
+                Score: 40 % PF · 30 % Netto · 20 % Drawdown ·
+                10 % Winrate. PF wird bei 10 gekappt und
+                logarithmisch gewichtet.
+              </div>
               <small>
-                Klick auf eine Kombination übernimmt Kosten und
-                Mindestvorteil. Danach „Neu berechnen“ drücken.
+                Klick auf eine Kombination übernimmt die Werte.
+                Danach „Neu berechnen“ drücken.
               </small>
             </div>
           )}
