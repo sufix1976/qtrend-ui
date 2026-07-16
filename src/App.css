@@ -764,3 +764,32 @@
   font-size:7px;
   line-height:1.45;
 }
+
+
+/* V6 First Model */
+.flip-model-button{border-color:#2f6de0!important;background:#1748a5!important;color:#fff!important}
+.flip-model-card,.flip-model-empty{padding:10px;border:1px solid #31516f;border-radius:8px;background:#081a2b}
+.flip-model-card{border-color:#1f8a5a}
+.flip-model-title{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
+.flip-model-title>div{display:flex;flex-direction:column;gap:2px}
+.flip-model-title strong,.flip-model-empty strong{color:#7dd3fc;font-size:9px}
+.flip-model-title small,.flip-model-empty span{color:#7189a0;font-size:7px}
+.flip-model-title>span{color:#4ade80;font-size:8px;font-weight:900}
+.flip-model-empty{display:flex;flex-direction:column;gap:5px;border-style:dashed}
+.flip-model-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.flip-model-metrics>div{display:flex;justify-content:space-between;padding:6px;border-radius:5px;background:#0c2439;font-size:8px}
+.flip-model-metrics span{color:#8199af}.flip-model-metrics b{color:#e8f3fb}
+.flip-model-confusion{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px}
+.flip-model-confusion span{padding:5px;border-radius:4px;background:#06131f;color:#8098ae;font-size:7px}
+.flip-model-confusion b{float:right;color:#f8fafc}
+.flip-model-importance{margin-top:8px;padding-top:7px;border-top:1px solid #213d58}
+.flip-model-importance>strong{display:block;margin-bottom:5px;color:#fbbf24;font-size:8px}
+.flip-model-importance>div{display:grid;grid-template-columns:minmax(0,1fr) 50px;gap:2px 5px;padding:4px 0;border-bottom:1px solid rgba(34,60,83,.55);font-size:7px}
+.flip-model-importance>div span{color:#d8e5f0}.flip-model-importance>div b{color:#fbbf24;text-align:right}
+.flip-model-importance>div small{grid-column:1/-1;color:#6f879d}
+.flip-ki-prediction{margin:8px 0;padding:7px;border:1px solid #31516f;border-radius:6px;background:#071726}
+.flip-ki-prediction.flip{border-color:#15945c}.flip-ki-prediction.hold{border-color:#c57b12}
+.flip-ki-prediction>div{display:flex;justify-content:space-between;margin-bottom:4px;font-size:8px}
+.flip-ki-prediction span{color:#8199af}.flip-ki-prediction strong,.flip-ki-prediction b{color:#f8fafc}
+.flip-ki-prediction.flip strong{color:#4ade80}.flip-ki-prediction.hold strong{color:#fbbf24}
+.flip-ki-prediction small{display:block;color:#7189a0;font-size:7px}

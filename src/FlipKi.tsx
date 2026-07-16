@@ -76,6 +76,47 @@ type FlipDecision = {
   position_drawdown_from_mfe_atr: number;
   feature_core_score?: number;
   feature_snapshot?: Record<string, any>;
+  ki_prediction?: KiPrediction | null;
+};
+
+type KiMetrics = {
+  threshold: number;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  specificity: number;
+  balanced_accuracy: number;
+  auc: number | null;
+  confusion: { tp: number; tn: number; fp: number; fn: number };
+};
+
+type KiImportance = {
+  feature: string;
+  coefficient: number;
+  absolute_coefficient: number;
+  direction: string;
+};
+
+type FlipKiModel = {
+  architecture: string;
+  trained_at: string;
+  row_count: number;
+  train_count: number;
+  test_count: number;
+  feature_count: number;
+  train_metrics: KiMetrics;
+  test_metrics: KiMetrics;
+  importance: KiImportance[];
+  test_time_from: number | null;
+  test_time_to: number | null;
+};
+
+type KiPrediction = {
+  probability_flip: number;
+  probability_hold: number;
+  prediction: "flip" | "hold";
+  threshold: number;
+  agrees_with_teacher: boolean;
 };
 
 type FlipFeatureStatistic = {
@@ -164,6 +205,7 @@ type FlipLabResponse = {
     trades: StrategyTrade[];
     metrics: FlipMetrics;
   };
+  ki_model?: FlipKiModel | null;
   feature_statistics?: FlipFeatureStatistics;
   feature_dataset?: {
     architecture: string;
@@ -260,6 +302,7 @@ export default function FlipKi() {
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
   const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
   const [optimizing, setOptimizing] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -357,6 +400,52 @@ export default function FlipKi() {
       setError(exception.message || String(exception));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function trainModel() {
+    setModelLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${BACKEND_BASE}/trainer/flip-lab/train-model`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol,
+            interval,
+            limit: 2500,
+            cost_atr: costAtr,
+            minimum_advantage_atr: minimumAdvantageAtr,
+            test_fraction: 0.25,
+          }),
+        },
+      );
+
+      const text = await response.text();
+      let payload: any;
+
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.details ||
+          payload?.error ||
+          `HTTP ${response.status}`,
+        );
+      }
+
+      await load();
+    } catch (exception: any) {
+      setError(exception?.message || String(exception));
+    } finally {
+      setModelLoading(false);
     }
   }
 
@@ -576,6 +665,13 @@ export default function FlipKi() {
             />
             <span>Positionen anzeigen</span>
           </label>
+          <button
+            className="flip-model-button"
+            onClick={() => void trainModel()}
+            disabled={modelLoading || loading}
+          >
+            {modelLoading ? "KI LERNT …" : "KI TRAINIEREN"}
+          </button>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
           </button>
@@ -830,6 +926,103 @@ export default function FlipKi() {
             </div>
           )}
 
+          {summary?.ki_model ? (
+            <div className="flip-model-card">
+              <div className="flip-model-title">
+                <div>
+                  <strong>V6 · ERSTES KI-MODELL</strong>
+                  <small>
+                    Chronologischer Test auf den letzten ungesehenen 25 %
+                  </small>
+                </div>
+                <span>AKTIV</span>
+              </div>
+
+              <div className="flip-model-metrics">
+                <div>
+                  <span>Test-AUC</span>
+                  <b>
+                    {summary.ki_model.test_metrics.auc == null
+                      ? "–"
+                      : summary.ki_model.test_metrics.auc.toFixed(3)}
+                  </b>
+                </div>
+                <div>
+                  <span>Accuracy</span>
+                  <b>
+                    {(summary.ki_model.test_metrics.accuracy * 100).toFixed(1)} %
+                  </b>
+                </div>
+                <div>
+                  <span>FLIP-Präzision</span>
+                  <b>
+                    {(summary.ki_model.test_metrics.precision * 100).toFixed(1)} %
+                  </b>
+                </div>
+                <div>
+                  <span>FLIP erkannt</span>
+                  <b>
+                    {(summary.ki_model.test_metrics.recall * 100).toFixed(1)} %
+                  </b>
+                </div>
+              </div>
+
+              <div className="flip-model-confusion">
+                <span>
+                  FLIP richtig
+                  <b>{summary.ki_model.test_metrics.confusion.tp}</b>
+                </span>
+                <span>
+                  FLIP verpasst
+                  <b>{summary.ki_model.test_metrics.confusion.fn}</b>
+                </span>
+                <span>
+                  HOLD richtig
+                  <b>{summary.ki_model.test_metrics.confusion.tn}</b>
+                </span>
+                <span>
+                  Falsche FLIPs
+                  <b>{summary.ki_model.test_metrics.confusion.fp}</b>
+                </span>
+              </div>
+
+              <div className="flip-model-importance">
+                <strong>WAS DIE KI TATSÄCHLICH VERWENDET</strong>
+                {summary.ki_model.importance.slice(0, 8).map(
+                  (item, index) => {
+                    const cleanFeature = item.feature
+                      .replace("__delta10", "")
+                      .replace("__slope10", "");
+                    const suffix = item.feature.endsWith("__delta10")
+                      ? " · Δ10"
+                      : item.feature.endsWith("__slope10")
+                        ? " · Steigung"
+                        : "";
+
+                    return (
+                      <div key={item.feature}>
+                        <span>
+                          {index + 1}. {featureLabel(cleanFeature)}
+                          {suffix}
+                        </span>
+                        <b>{signed(item.coefficient, 3)}</b>
+                        <small>{item.direction}</small>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flip-model-empty">
+              <strong>V6 · NOCH KEIN KI-MODELL</strong>
+              <span>
+                „KI TRAINIEREN“ startet den ersten chronologischen
+                Modelltest für {symbol} · {interval}.
+              </span>
+            </div>
+          )}
+
           {summary?.feature_statistics && (
             <div className="flip-statistics-card">
               <div className="flip-statistics-title">
@@ -899,6 +1092,30 @@ export default function FlipKi() {
                 <b>{selected.label.toUpperCase()}</b>
               </div>
               <small>{formatTime(selected.time)}</small>
+
+              {selected.ki_prediction && (
+                <div
+                  className={`flip-ki-prediction ${selected.ki_prediction.prediction}`}
+                >
+                  <div>
+                    <span>KI-ENTSCHEIDUNG</span>
+                    <strong>
+                      {selected.ki_prediction.prediction.toUpperCase()}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>FLIP-Wahrscheinlichkeit</span>
+                    <b>
+                      {(selected.ki_prediction.probability_flip * 100).toFixed(1)} %
+                    </b>
+                  </div>
+                  <small>
+                    {selected.ki_prediction.agrees_with_teacher
+                      ? "KI stimmt mit dem historischen Lehrer überein."
+                      : "KI widerspricht dem historischen Lehrer."}
+                  </small>
+                </div>
+              )}
 
               <div className="flip-comparison">
                 <div>
