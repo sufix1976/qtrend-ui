@@ -656,3 +656,111 @@
 .flip-dataset-status span{
   color:#c4d3e0;
 }
+
+
+/* V5 Feature Statistics */
+.flip-statistics-card{
+  padding:10px;
+  border:1px solid #31516f;
+  border-radius:8px;
+  background:#081a2b;
+}
+.flip-statistics-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:8px;
+  margin-bottom:8px;
+}
+.flip-statistics-title>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.flip-statistics-title strong{
+  color:#7dd3fc;
+  font-size:9px;
+}
+.flip-statistics-title small{
+  color:#7289a0;
+  font-size:7px;
+}
+.flip-statistics-title>span{
+  color:#fbbf24;
+  font-size:8px;
+  font-weight:800;
+}
+.flip-statistics-head,
+.flip-statistics-list>div{
+  display:grid;
+  grid-template-columns:minmax(115px,1fr) 58px 58px 68px;
+  gap:5px;
+  align-items:center;
+}
+.flip-statistics-head{
+  padding:0 6px 5px;
+  color:#6f89a2;
+  font-size:7px;
+  text-align:right;
+}
+.flip-statistics-head span:first-child{
+  text-align:left;
+}
+.flip-statistics-list{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.flip-statistics-list>div{
+  padding:6px;
+  border:1px solid #183550;
+  border-radius:5px;
+  background:#0c2439;
+  font-size:8px;
+}
+.flip-statistics-list>div.top{
+  border-color:#8b6b11;
+  background:#10283b;
+}
+.flip-statistics-list>div>span:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.flip-statistics-list>div>span:first-child b{
+  overflow:hidden;
+  color:#dce9f5;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.flip-statistics-list>div>span:first-child small{
+  color:#7189a0;
+  font-size:6px;
+}
+.flip-statistics-list>div>strong{
+  color:#e7f1fa;
+  text-align:right;
+}
+.flip-effect{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:1px;
+}
+.flip-effect b{
+  color:#fbbf24;
+}
+.flip-effect small{
+  color:#fbbf24;
+  font-size:7px;
+  letter-spacing:-1px;
+}
+.flip-statistics-note{
+  margin-top:7px;
+  padding-top:7px;
+  border-top:1px solid #213d58;
+  color:#7189a0;
+  font-size:7px;
+  line-height:1.45;
+}

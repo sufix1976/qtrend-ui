@@ -75,7 +75,31 @@ type FlipDecision = {
   position_mae_atr: number;
   position_drawdown_from_mfe_atr: number;
   feature_core_score?: number;
-  feature_snapshot?: Record<string, number>;
+  feature_snapshot?: Record<string, any>;
+};
+
+type FlipFeatureStatistic = {
+  feature: string;
+  flip_count: number;
+  hold_count: number;
+  flip_mean: number;
+  hold_mean: number;
+  flip_median: number;
+  hold_median: number;
+  difference: number;
+  standardized_effect: number;
+  absolute_effect: number;
+  direction: string;
+  strength: string;
+};
+
+type FlipFeatureStatistics = {
+  architecture: string;
+  row_count: number;
+  labels: { flip: number; hold: number };
+  feature_count: number;
+  top_features: FlipFeatureStatistic[];
+  features: FlipFeatureStatistic[];
 };
 
 type FlipMetrics = {
@@ -140,6 +164,7 @@ type FlipLabResponse = {
     trades: StrategyTrade[];
     metrics: FlipMetrics;
   };
+  feature_statistics?: FlipFeatureStatistics;
   feature_dataset?: {
     architecture: string;
     row_count: number;
@@ -186,6 +211,16 @@ function featureLabel(key: string) {
     macd_histogram_speed: "Histogramm Speed",
   };
   return labels[key] || key;
+}
+
+
+function effectStars(value: number) {
+  const effect = Math.abs(Number(value || 0));
+  if (effect >= 0.8) return "★★★★★";
+  if (effect >= 0.5) return "★★★★☆";
+  if (effect >= 0.3) return "★★★☆☆";
+  if (effect >= 0.15) return "★★☆☆☆";
+  return "★☆☆☆☆";
 }
 
 function phaseVisual(trade: StrategyTrade) {
@@ -792,6 +827,63 @@ export default function FlipKi() {
                 Klick auf eine Kombination übernimmt die Werte.
                 Danach „Neu berechnen“ drücken.
               </small>
+            </div>
+          )}
+
+          {summary?.feature_statistics && (
+            <div className="flip-statistics-card">
+              <div className="flip-statistics-title">
+                <div>
+                  <strong>V5 · FLIP GEGEN HOLD</strong>
+                  <small>
+                    Standardisierte Trennschärfe aller Kernmerkmale
+                  </small>
+                </div>
+                <span>
+                  {summary.feature_statistics.row_count} Zeilen
+                </span>
+              </div>
+
+              <div className="flip-statistics-head">
+                <span>Merkmal</span>
+                <span>FLIP</span>
+                <span>HOLD</span>
+                <span>Effekt</span>
+              </div>
+
+              <div className="flip-statistics-list">
+                {summary.feature_statistics.features.map(
+                  (item, index) => (
+                    <div
+                      key={item.feature}
+                      className={index < 3 ? "top" : ""}
+                    >
+                      <span>
+                        <b>{index + 1}. {featureLabel(item.feature)}</b>
+                        <small>
+                          {item.direction} · {item.strength}
+                        </small>
+                      </span>
+                      <strong>{item.flip_mean.toFixed(3)}</strong>
+                      <strong>{item.hold_mean.toFixed(3)}</strong>
+                      <span className="flip-effect">
+                        <b>
+                          {signed(item.standardized_effect, 2)}
+                        </b>
+                        <small>
+                          {effectStars(item.standardized_effect)}
+                        </small>
+                      </span>
+                    </div>
+                  ),
+                )}
+              </div>
+
+              <div className="flip-statistics-note">
+                Effekt ist die Differenz FLIP minus HOLD geteilt
+                durch die gemeinsame Streuung. Ab etwa 0,50 ist die
+                Trennung stark; das Vorzeichen zeigt die Richtung.
+              </div>
             </div>
           )}
 
