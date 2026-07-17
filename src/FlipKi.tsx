@@ -8,1990 +8,312 @@ import {
 } from "lightweight-charts";
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const SYMBOLS = [
-  "DE40",
-  "US30",
-  "US100",
-  "UK100",
-  "J225",
-  "CN50",
-  "BTCUSD",
-  "ETHUSD",
-  "GOLD",
-];
-const INTERVALS = ["1m", "5m", "15m", "30m", "1h"];
+const SYMBOLS = ["DE40", "US30", "US100", "UK100", "J225", "CN50", "BTCUSD", "ETHUSD", "GOLD"];
+const INTERVALS = ["1m", "5m", "10m", "15m", "30m", "1h"];
+const SOURCE = "guardian_marker";
 
-type Candle = {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
+type Candle = { time: number; open: number; high: number; low: number; close: number };
+type MarkerSide = "long" | "short";
+type ReviewLabel = "good" | "bad" | "unsure";
 
-type Candidate = {
-  candidate_id: string;
+type StrategyMarker = {
+  marker_id: string;
   symbol: string;
   interval: string;
   time: number;
   price: number;
-  side: "long" | "short";
+  side: MarkerSide;
   scanner_version?: string;
   features?: Record<string, number>;
 };
 
-type StrategyTrade = {
-  side: "long" | "short";
-  entry_time: number;
-  entry_price: number;
-  exit_time: number;
-  exit_price: number;
-  holding_bars: number;
-  gross_points: number;
-  costs_points: number;
-  net_points: number;
-  exit_reason: string;
-};
-
-type FlipDecision = {
-  candidate_id: string;
+type Annotation = {
+  id: number;
   symbol: string;
   interval: string;
   time: number;
-  price: number;
-  candidate_side: "long" | "short";
-  current_side: "long" | "short";
-  label: "flip" | "hold";
-  horizon_time: number;
-  horizon_price: number;
-  atr: number;
-  hold_points: number;
-  flip_net_points: number;
-  flip_advantage_points: number;
-  flip_advantage_atr: number;
-  bars_since_flip: number;
-  position_open_atr: number;
-  position_mfe_atr: number;
-  position_mae_atr: number;
-  position_drawdown_from_mfe_atr: number;
-  feature_core_score?: number;
-  feature_snapshot?: Record<string, any>;
-  ki_prediction?: KiPrediction | null;
-  raw_ki_prediction?: KiPrediction | null;
-  ensemble_ki_prediction?: EnsemblePrediction | null;
+  price: number | null;
+  side: MarkerSide;
+  label: ReviewLabel;
+  source: string;
+  note?: string | null;
 };
 
-type KiMetrics = {
-  threshold: number;
-  accuracy: number;
-  precision: number;
-  recall: number;
-  specificity: number;
-  balanced_accuracy: number;
-  auc: number | null;
-  confusion: { tp: number; tn: number; fp: number; fn: number };
-};
-
-type KiImportance = {
-  feature: string;
-  coefficient: number;
-  absolute_coefficient: number;
-  direction: string;
-};
-
-type FlipKiModel = {
-  architecture: string;
-  trained_at: string;
-  row_count: number;
-  train_count: number;
-  test_count: number;
-  feature_count: number;
-  train_metrics: KiMetrics;
-  test_metrics: KiMetrics;
-  importance: KiImportance[];
-  test_time_from: number | null;
-  test_time_to: number | null;
-};
-
-type KiPrediction = {
-  probability_flip: number;
-  probability_hold: number;
-  prediction: "flip" | "hold";
-  threshold: number;
-  agrees_with_teacher: boolean;
-};
-
-type EnsemblePrediction = KiPrediction & {
-  feature_probability: number;
-  raw_probability: number;
-};
-
-type EnsembleModel = {
-  architecture: string;
-  trained_at: string;
-  row_count: number;
-  base_train_count: number;
-  meta_train_count: number;
-  test_count: number;
-  feature_weight: number;
-  raw_weight: number;
-  meta_auc: number | null;
-  feature_test_metrics: KiMetrics;
-  raw_test_metrics: KiMetrics;
-  ensemble_test_metrics: KiMetrics;
-  test_time_from: number | null;
-  test_time_to: number | null;
-};
-
-type FlipFeatureStatistic = {
-  feature: string;
-  flip_count: number;
-  hold_count: number;
-  flip_mean: number;
-  hold_mean: number;
-  flip_median: number;
-  hold_median: number;
-  difference: number;
-  standardized_effect: number;
-  absolute_effect: number;
-  direction: string;
-  strength: string;
-};
-
-type FlipFeatureStatistics = {
-  architecture: string;
-  row_count: number;
-  labels: { flip: number; hold: number };
-  feature_count: number;
-  top_features: FlipFeatureStatistic[];
-  features: FlipFeatureStatistic[];
-};
-
-type FlipMetrics = {
-  trade_count: number;
-  completed_trades: number;
-  net_points: number;
-  gross_profit: number;
-  gross_loss: number;
-  profit_factor: number | null;
-  wins: number;
-  losses: number;
-  win_rate_pct: number;
-  max_drawdown_points: number;
-  average_trade_points: number;
-  average_holding_bars: number;
-  flip_count: number;
-  hold_count: number;
-};
-
-type MatrixRow = {
-  cost_atr: number;
-  minimum_advantage_atr: number;
-  decision_count: number;
-  flip_count: number;
-  hold_count: number;
-  score: number;
-  score_components?: {
-    pf: number;
-    net: number;
-    drawdown: number;
-    winrate: number;
-  };
-  metrics: FlipMetrics;
-};
-
-type WalkForwardReplay = {
-  trade_count: number;
-  net_points: number;
-  profit_factor: number | null;
-  win_rate_pct: number;
-  max_drawdown_points: number;
-  average_trade_points: number;
-  flip_count: number;
-  hold_count: number;
-};
-
-type WalkForwardDecision = {
-  candidate_id: string;
-  symbol: string;
-  interval: string;
-  time: number;
-  price: number;
-  current_side: "long" | "short";
-  candidate_side: "long" | "short";
-  action: "allow" | "block";
-  resulting_side: "long" | "short";
-  probability_flip: number;
-  probability_hold: number;
-  threshold: number;
-  selected_model: "feature" | "raw";
-  fold: number;
-  teacher_label: "flip" | "hold";
-  correct: boolean;
-  flip_advantage_atr: number;
-};
-
-type WalkForwardFold = {
-  fold: number;
-  fit_count: number;
-  validation_count: number;
-  test_count: number;
-  selected_model: "feature" | "raw";
-  feature_validation_auc: number | null;
-  raw_validation_auc: number | null;
-  threshold: number;
-  test_auc: number | null;
-  test_metrics: KiMetrics;
-  model_replay: WalkForwardReplay;
-  all_flip_replay: WalkForwardReplay;
-  teacher_replay: WalkForwardReplay;
-  test_time_from: number | null;
-  test_time_to: number | null;
-};
-
-type WalkForwardResult = {
-  architecture: string;
-  trained_at: string;
-  row_count: number;
-  fold_count: number;
-  initial_train_count: number;
-  aggregate_test_auc: number | null;
-  aggregate_test_metrics: KiMetrics;
-  selected_models: { feature: number; raw: number };
-  model_replay: WalkForwardReplay;
-  all_flip_replay: WalkForwardReplay;
-  teacher_replay: WalkForwardReplay;
-  oos_decisions?: WalkForwardDecision[];
-  oos_counts?: { allow: number; block: number; correct: number; total: number };
-  folds: WalkForwardFold[];
-};
-
-type V12Decision = {
-  time: number; price: number; action: "long" | "short" | "hold";
-  probability_long: number; probability_short: number; confidence: number;
-  fold: number; selected_model: "feature" | "raw"; teacher_side: "long" | "short";
-  future_move_atr: number;
-};
-
-type V12Result = {
-  architecture: string; trained_at: string; row_count: number; fold_count: number;
-  initial_train_count: number; aggregate_test_auc: number | null;
-  settings: { horizon_bars: number; stride: number; cost_atr: number; hold_band: number; lookahead_free_oos: boolean };
-  oos_decisions: V12Decision[];
-  counts: { long: number; short: number; hold: number; total: number };
-  replay: WalkForwardReplay & { average_holding_bars?: number };
-  folds: Array<{ fold:number; fit_count:number; validation_count:number; test_count:number; selected_model:"feature"|"raw"; feature_validation_auc:number|null; raw_validation_auc:number|null; test_auc:number|null; test_time_from:number|null; test_time_to:number|null }>;
-};
-
-type OptimizerResponse = {
+type GuardianResponse = {
   ok: boolean;
+  version: string;
+  source: string;
   symbol: string;
   interval: string;
-  candidate_count: number;
-  best: MatrixRow | null;
-  matrix: MatrixRow[];
-};
-
-type FlipLabResponse = {
-  ok: boolean;
-  symbol: string;
-  interval: string;
-  candidate_count: number;
-  decision_count: number;
-  labels: { flip: number; hold: number };
-  average_absolute_advantage_atr: number;
-  settings: {
-    cost_atr: number;
-    minimum_advantage_atr: number;
-    comparison_horizon: string;
-    path_mode: string;
-  };
-  decisions: FlipDecision[];
-  metrics?: FlipMetrics;
-  strategy_path?: {
-    trades: StrategyTrade[];
-    metrics: FlipMetrics;
-  };
-  ki_model?: FlipKiModel | null;
-  raw_ki_model?: FlipKiModel | null;
-  ensemble_ki_model?: EnsembleModel | null;
-  model_comparison?: { feature_auc: number | null; raw_auc: number | null; winner: "feature" | "raw" | "tie" } | null;
-  feature_statistics?: FlipFeatureStatistics;
-  feature_dataset?: {
-    architecture: string;
-    row_count: number;
-    labels: { flip: number; hold: number };
-  };
-  dataset?: { row_count: number };
+  candle_count: number;
+  marker_count: number;
+  candles: Candle[];
+  markers: StrategyMarker[];
+  annotations: Annotation[];
+  annotation_map: Record<string, Annotation>;
+  counts: { reviewed: number; good: number; bad: number; unsure: number };
+  error?: string;
+  details?: string;
 };
 
 function formatTime(time: number) {
   return new Date(time * 1000).toLocaleString("de-DE");
 }
 
-function signed(value: number, digits = 1) {
-  const number = Number(value || 0);
-  return `${number >= 0 ? "+" : ""}${number.toFixed(digits)}`;
-}
-
-
-function buildFineValues(
-  start: number,
-  step: number,
-  count: number,
-  digits: number,
-) {
-  return Array.from({ length: count }, (_, index) =>
-    Number((start + index * step).toFixed(digits)),
-  );
-}
-
-
-function featureLabel(key: string) {
-  const labels: Record<string, string> = {
-    macd_histogram_atr: "Histogramm ATR",
-    macd_slope_atr: "MACD Slope ATR",
-    fast_distance_atr: "Fast Distance ATR",
-    slow_distance_atr: "Slow Distance ATR",
-    return_bps: "Return BPS",
-    body_atr: "Body ATR",
-    range_atr: "Range ATR",
-    trend_credit: "Trend Credit",
-    momentum: "Momentum",
-    energy: "Energy",
-    structure: "Structure",
+function featureName(key: string) {
+  const names: Record<string, string> = {
+    macd_histogram: "MACD Histogramm",
+    macd_histogram_atr: "Histogramm / ATR",
+    macd_slope: "MACD Steigung",
+    macd_slope_atr: "MACD Steigung / ATR",
     macd_histogram_speed: "Histogramm Speed",
+    rsi: "RSI",
+    rsi_delta_1: "RSI Δ1",
+    rsi_delta_3: "RSI Δ3",
     adx: "ADX",
     plus_di: "+DI",
     minus_di: "-DI",
-    adx_delta_1: "ADX Δ1",
-    adx_delta_3: "ADX Δ3",
     di_difference: "DI Differenz",
-    di_strength: "DI Stärke",
-    bb_width: "BB Breite",
-    bb_width_norm: "BB Breite / ATR",
-    bb_width_delta_1: "BB Breite Δ1",
-    bb_width_delta_3: "BB Breite Δ3",
-    bb_position: "BB Position",
-    bb_mid_distance: "BB Mitte Distanz",
-    bb_outside_upper: "Über oberem Band",
-    bb_outside_lower: "Unter unterem Band",
+    bb_position: "Bollinger Position",
+    bb_width_norm: "Bollinger Breite / ATR",
+    trend_credit: "Trend",
+    momentum: "Momentum",
+    energy: "Energy",
+    structure: "Structure",
+    body_atr: "Kerzenkörper / ATR",
+    range_atr: "Kerzenrange / ATR",
   };
-  return labels[key] || key;
-}
-
-
-function effectStars(value: number) {
-  const effect = Math.abs(Number(value || 0));
-  if (effect >= 0.8) return "★★★★★";
-  if (effect >= 0.5) return "★★★★☆";
-  if (effect >= 0.3) return "★★★☆☆";
-  if (effect >= 0.15) return "★★☆☆☆";
-  return "★☆☆☆☆";
-}
-
-
-function aucText(value: number | null | undefined) {
-  return value == null || !Number.isFinite(Number(value))
-    ? "–"
-    : Number(value).toFixed(3);
-}
-
-function ensembleWinner(model: EnsembleModel) {
-  const values = [
-    {
-      key: "ensemble",
-      label: "ENSEMBLE",
-      auc: Number(model.ensemble_test_metrics.auc),
-    },
-    {
-      key: "feature",
-      label: "FEATURE-KI",
-      auc: Number(model.feature_test_metrics.auc),
-    },
-    {
-      key: "raw",
-      label: "RAW-KI",
-      auc: Number(model.raw_test_metrics.auc),
-    },
-  ].filter((item) => Number.isFinite(item.auc));
-
-  if (!values.length) return null;
-
-  return values.sort(
-    (left, right) => right.auc - left.auc,
-  )[0];
-}
-
-function predictionSide(
-  probability: number,
-  threshold = 0.5,
-) {
-  return probability >= threshold ? "FLIP" : "HOLD";
-}
-
-function phaseVisual(trade: StrategyTrade) {
-  const result = Number(trade.net_points || 0);
-  const magnitude = Math.min(1, Math.abs(result) / 250);
-  const alpha = 0.30 + magnitude * 0.62;
-
-  if (result > 1) {
-    return {
-      background: `rgba(22, 163, 74, ${alpha})`,
-      borderColor: "rgba(74, 222, 128, .85)",
-    };
-  }
-
-  if (result < -1) {
-    return {
-      background: `rgba(220, 38, 38, ${alpha})`,
-      borderColor: "rgba(248, 113, 113, .85)",
-    };
-  }
-
-  return {
-    background: "rgba(245, 158, 11, .55)",
-    borderColor: "rgba(251, 191, 36, .85)",
-  };
+  return names[key] || key;
 }
 
 export default function FlipKi() {
   const [symbol, setSymbol] = useState("US30");
   const [interval, setInterval] = useState("15m");
-  const [costAtr, setCostAtr] = useState(0.05);
-  const [minimumAdvantageAtr, setMinimumAdvantageAtr] = useState(0.15);
-  const [showHold, setShowHold] = useState(true);
-  const [showPhases, setShowPhases] = useState(true);
-  const [showKiDecisions, setShowKiDecisions] = useState(true);
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [decisions, setDecisions] = useState<FlipDecision[]>([]);
-  const [summary, setSummary] = useState<FlipLabResponse | null>(null);
-  const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
-  const [optimizing, setOptimizing] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
-  const [rawModelLoading, setRawModelLoading] = useState(false);
-  const [ensembleLoading, setEnsembleLoading] = useState(false);
-  const [walkForwardLoading, setWalkForwardLoading] = useState(false);
-  const [walkForward, setWalkForward] = useState<WalkForwardResult | null>(null);
-  const [v12Loading, setV12Loading] = useState(false);
-  const [v12, setV12] = useState<V12Result | null>(null);
-  const [showV12, setShowV12] = useState(true);
-  const [selected, setSelected] = useState<FlipDecision | null>(null);
+  const [data, setData] = useState<GuardianResponse | null>(null);
+  const [selected, setSelected] = useState<StrategyMarker | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const chartHost = useRef<HTMLDivElement>(null);
+  const [showReviewed, setShowReviewed] = useState(true);
+  const chartHost = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
-  const flipCount = useMemo(
-    () => decisions.filter((item) => item.label === "flip").length,
-    [decisions],
-  );
-
-  const positionPhases = useMemo(() => {
-    const trades = summary?.strategy_path?.trades || [];
-    if (!trades.length) return [];
-
-    const startTime = trades[0].entry_time;
-    const endTime = trades[trades.length - 1].exit_time;
-    const total = Math.max(1, endTime - startTime);
-
-    return trades.map((trade, index) => {
-      const left = ((trade.entry_time - startTime) / total) * 100;
-      const width = Math.max(
-        0.35,
-        ((trade.exit_time - trade.entry_time) / total) * 100,
-      );
-
-      return {
-        ...trade,
-        index,
-        left,
-        width,
-      };
-    });
-  }, [summary]);
+  const candles = data?.candles || [];
+  const markers = data?.markers || [];
+  const annotationMap = data?.annotation_map || {};
+  const selectedAnnotation = selected ? annotationMap[`${selected.time}:${selected.side}`] : undefined;
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const candidateUrl = new URL("/trainer/flip-lab/strategy-entries", BACKEND_BASE);
-      candidateUrl.searchParams.set("symbol", symbol);
-      candidateUrl.searchParams.set("interval", interval);
-      candidateUrl.searchParams.set("limit", "2500");
-      const candidateResponse = await fetch(candidateUrl, {
-        cache: "no-store",
+      const response = await fetch(
+        `${BACKEND_BASE}/trainer/flip-guardian/data?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=5000&_ts=${Date.now()}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json()) as GuardianResponse;
+      if (!response.ok || !payload.ok) throw new Error(payload.details || payload.error || `HTTP ${response.status}`);
+      setData(payload);
+      setSelected((current) => {
+        if (!current) return payload.markers[0] || null;
+        return payload.markers.find((item) => item.marker_id === current.marker_id) || payload.markers[0] || null;
       });
-      const candidatePayload = await candidateResponse.json();
-      if (!candidateResponse.ok || !candidatePayload.ok) {
-        throw new Error(
-          candidatePayload.error || `HTTP ${candidateResponse.status}`,
-        );
-      }
-
-      const nextCandles = (candidatePayload.candles || []) as Candle[];
-      const candidates = (
-        (candidatePayload.candidates || []) as Candidate[]
-      ).slice(-1200);
-      setCandles(nextCandles);
-
-      const labResponse = await fetch(
-        `${BACKEND_BASE}/trainer/flip-lab/evaluate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol,
-            interval,
-            limit: 2500,
-            candidates,
-            cost_atr: costAtr,
-            minimum_advantage_atr: minimumAdvantageAtr,
-          }),
-        },
-      );
-      const text = await labResponse.text();
-      let payload: FlipLabResponse & { error?: string };
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        throw new Error(text || `HTTP ${labResponse.status}`);
-      }
-      if (!labResponse.ok || !payload.ok) {
-        throw new Error(payload.error || `HTTP ${labResponse.status}`);
-      }
-
-      const nextDecisions = [...(payload.decisions || [])].sort(
-        (left, right) => left.time - right.time,
-      );
-      setDecisions(nextDecisions);
-      setSummary(payload);
-      setSelected(nextDecisions[nextDecisions.length - 1] || null);
     } catch (exception: any) {
-      setDecisions([]);
-      setSummary(null);
-      setSelected(null);
-      setError(exception.message || String(exception));
+      setData(null);
+      setError(exception?.message || String(exception));
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadTrainingCandidates(limit = 2500) {
-  const sourceUrl = new URL(
-    "/trainer/flip-lab/strategy-entries",
-    BACKEND_BASE,
-  );
-
-  sourceUrl.searchParams.set("symbol", symbol);
-  sourceUrl.searchParams.set("interval", interval);
-  sourceUrl.searchParams.set("limit", String(limit));
-
-  const response = await fetch(sourceUrl, {
-    cache: "no-store",
-  });
-
-  const payload = await response.json();
-
-  if (!response.ok || !payload?.ok) {
-    throw new Error(
-      payload?.info ||
-      payload?.error ||
-      `HTTP ${response.status}`,
-    );
-  }
-
-  return ((payload.candidates || []) as Candidate[]).slice(-5000);
-}
-
-  async function trainModel() {
-    setModelLoading(true);
-    setError("");
-
-    try {
-      const candidates = await loadTrainingCandidates();
-      const response = await fetch(
-        `${BACKEND_BASE}/trainer/flip-lab/train-model`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol,
-            interval,
-            limit: 2500,
-            candidates,
-            cost_atr: costAtr,
-            minimum_advantage_atr: minimumAdvantageAtr,
-            test_fraction: 0.25,
-          }),
-        },
-      );
-
-      const text = await response.text();
-      let payload: any;
-
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        throw new Error(text || `HTTP ${response.status}`);
-      }
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(
-          payload?.details ||
-          payload?.error ||
-          `HTTP ${response.status}`,
-        );
-      }
-
-      await load();
-    } catch (exception: any) {
-      setError(exception?.message || String(exception));
-    } finally {
-      setModelLoading(false);
-    }
-  }
-
-  async function trainRawModel() {
-    setRawModelLoading(true);
-    setError("");
-
-    try {
-      const candidates = await loadTrainingCandidates();
-
-      const response = await fetch(
-        `${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol,
-            interval,
-            limit: 2500,
-            candidates,
-            cost_atr: costAtr,
-            minimum_advantage_atr: minimumAdvantageAtr,
-            test_fraction: 0.25,
-          }),
-        },
-      );
-
-      const text = await response.text();
-      let payload: any;
-
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        throw new Error(text || `HTTP ${response.status}`);
-      }
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(
-          payload?.details ||
-          payload?.error ||
-          `HTTP ${response.status}`,
-        );
-      }
-
-      await load();
-    } catch (exception: any) {
-      setError(exception?.message || String(exception));
-    } finally {
-      setRawModelLoading(false);
-    }
-  }
-
-  async function trainEnsemble() {
-    setEnsembleLoading(true);
+  async function review(label: ReviewLabel) {
+    if (!selected) return;
+    setSaving(true);
     setError("");
     try {
-      const candidates = await loadTrainingCandidates(5000);
-      const response = await fetch(
-        `${BACKEND_BASE}/trainer/flip-lab/train-ensemble`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol, interval, limit: 5000, candidates,
-            cost_atr: costAtr,
-            minimum_advantage_atr: minimumAdvantageAtr,
-          }),
-        },
-      );
-      const text = await response.text();
-      let payload: any;
-      try { payload = JSON.parse(text); }
-      catch { throw new Error(text || `HTTP ${response.status}`); }
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
-      }
-      await load();
-    } catch (exception: any) {
-      setError(exception?.message || String(exception));
-    } finally {
-      setEnsembleLoading(false);
-    }
-  }
-
-  async function runWalkForward() {
-    setWalkForwardLoading(true);
-    setError("");
-    try {
-      const candidates = await loadTrainingCandidates(5000);
-      const response = await fetch(`${BACKEND_BASE}/trainer/flip-lab/walk-forward`, {
+      const response = await fetch(`${BACKEND_BASE}/trainer/annotation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol, interval, limit: 5000, candidates,
-          cost_atr: costAtr,
-          minimum_advantage_atr: minimumAdvantageAtr,
-          fold_count: 4,
+          symbol: selected.symbol,
+          interval: selected.interval,
+          time: selected.time,
+          price: selected.price,
+          side: selected.side,
+          label,
+          source: SOURCE,
+          scanner_version: selected.scanner_version || "QTREND_PINE_MIRROR",
         }),
       });
-      const text = await response.text();
-      let payload: any;
-      try { payload = JSON.parse(text); } catch { throw new Error(text || `HTTP ${response.status}`); }
-      if (!response.ok || !payload?.ok) throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
-      setWalkForward(payload.result);
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+      await load();
+      const index = markers.findIndex((item) => item.marker_id === selected.marker_id);
+      const next = markers[index + 1];
+      if (next) setSelected(next);
     } catch (exception: any) {
-      setWalkForward(null);
       setError(exception?.message || String(exception));
     } finally {
-      setWalkForwardLoading(false);
+      setSaving(false);
     }
   }
 
-  async function runV12() {
-    setV12Loading(true);
+  async function removeReview() {
+    if (!selected || !selectedAnnotation) return;
+    setSaving(true);
     setError("");
     try {
-      const response = await fetch(`${BACKEND_BASE}/trainer/flip-lab/v12-candle-walk-forward`, {
+      const response = await fetch(`${BACKEND_BASE}/trainer/delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol, interval, limit: 5000, cost_atr: costAtr,
-          fold_count: 4, horizon_bars: 8, hold_band: 0.08, stride: 2,
+          symbol: selected.symbol,
+          interval: selected.interval,
+          time: selected.time,
+          side: selected.side,
+          source: SOURCE,
         }),
       });
-      const text = await response.text();
-      let payload: any;
-      try { payload = JSON.parse(text); } catch { throw new Error(text || `HTTP ${response.status}`); }
-      if (!response.ok || !payload?.ok) throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
-      setV12(payload.result);
-      setShowV12(true);
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+      await load();
     } catch (exception: any) {
-      setV12(null);
       setError(exception?.message || String(exception));
     } finally {
-      setV12Loading(false);
+      setSaving(false);
     }
   }
 
-  async function optimize() {
-    setOptimizing(true);
-    setError("");
-    try {
-      const sourceUrl = new URL(
-        "/trainer/flip-lab/strategy-entries",
-        BACKEND_BASE,
-      );
-      sourceUrl.searchParams.set("symbol", symbol);
-      sourceUrl.searchParams.set("interval", interval);
-      sourceUrl.searchParams.set("limit", "2500");
-
-      const sourceResponse = await fetch(sourceUrl, {
-        cache: "no-store",
-      });
-      const sourcePayload = await sourceResponse.json();
-
-      if (!sourceResponse.ok || !sourcePayload.ok) {
-        throw new Error(
-          sourcePayload.info ||
-          sourcePayload.error ||
-          `HTTP ${sourceResponse.status}`,
-        );
-      }
-
-      const candidates = (
-        (sourcePayload.candidates || []) as Candidate[]
-      ).slice(-1200);
-
-      const response = await fetch(
-        `${BACKEND_BASE}/trainer/flip-lab/optimize`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol,
-            interval,
-            candidates,
-            cost_values: buildFineValues(0.02, 0.015, 20, 3),
-            minimum_advantage_values: buildFineValues(
-              0.05,
-              0.05,
-              20,
-              2,
-            ),
-          }),
-        },
-      );
-
-      const payload = (await response.json()) as OptimizerResponse & {
-        error?: string;
-        info?: string;
-      };
-
-      if (!response.ok || !payload.ok) {
-        throw new Error(
-          payload.info ||
-          payload.error ||
-          `HTTP ${response.status}`,
-        );
-      }
-
-      setOptimizer(payload);
-    } catch (exception: any) {
-      setOptimizer(null);
-      setError(exception.message || String(exception));
-    } finally {
-      setOptimizing(false);
-    }
-  }
+  useEffect(() => { void load(); }, [symbol, interval]);
 
   useEffect(() => {
-    void load();
-  }, [symbol, interval]);
-
-  useEffect(() => {
-    if (!chartHost.current) return;
+    if (!chartHost.current || !candles.length) return;
     chartHost.current.innerHTML = "";
     const chart = createChart(chartHost.current, {
-      height: 590,
-      layout: {
-        background: { color: "#07111f" },
-        textColor: "#a9b8ca",
-      },
-      grid: {
-        vertLines: { color: "#142235" },
-        horzLines: { color: "#142235" },
-      },
+      height: 650,
+      layout: { background: { color: "#07111f" }, textColor: "#a9b8ca" },
+      grid: { vertLines: { color: "#142235" }, horzLines: { color: "#142235" } },
       rightPriceScale: { borderColor: "#26364b" },
-      timeScale: {
-        borderColor: "#26364b",
-        timeVisible: true,
-      },
+      timeScale: { borderColor: "#26364b", timeVisible: true },
     });
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
-      borderVisible: false,
+      upColor: "#22c55e", downColor: "#ef4444", wickUpColor: "#22c55e", wickDownColor: "#ef4444", borderVisible: false,
     });
-    series.setData(
-      candles.map((candle) => ({
-        ...candle,
-        time: candle.time as Time,
-      })),
-    );
-    const teacherMarkers = decisions
-      .filter((item) => !showKiDecisions && (showHold || item.label === "flip"))
-      .map((item) => ({
+    series.setData(candles.map((item) => ({ ...item, time: item.time as Time })));
+
+    const visibleMarkers = markers.filter((item) => showReviewed || !annotationMap[`${item.time}:${item.side}`]);
+    createSeriesMarkers(series, visibleMarkers.map((item) => {
+      const annotation = annotationMap[`${item.time}:${item.side}`];
+      const isSelected = selected?.marker_id === item.marker_id;
+      const color = annotation?.label === "good" ? "#22c55e" : annotation?.label === "bad" ? "#ef4444" : annotation?.label === "unsure" ? "#f59e0b" : "#38bdf8";
+      const text = annotation ? annotation.label.toUpperCase() : item.side.toUpperCase();
+      return {
         time: item.time as Time,
-        position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
-        shape: item.candidate_side === "short" ? "arrowDown" : "arrowUp",
-        color: item.label === "flip" ? "#22c55e" : "#f59e0b",
-        text: item.label === "flip"
-          ? `LABEL FLIP ${signed(item.flip_advantage_atr, 2)} ATR`
-          : `LABEL HOLD ${signed(-item.flip_advantage_atr, 2)} ATR`,
-      }));
+        position: item.side === "short" ? "aboveBar" : "belowBar",
+        shape: item.side === "short" ? "arrowDown" : "arrowUp",
+        color: isSelected ? "#ffffff" : color,
+        text,
+      };
+    }) as any);
 
-    const kiMarkers = showKiDecisions
-      ? (walkForward?.oos_decisions || []).map((item) => ({
-          time: item.time as Time,
-          position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
-          shape: item.action === "allow"
-            ? item.candidate_side === "short" ? "arrowDown" : "arrowUp"
-            : "circle",
-          color: item.action === "allow"
-            ? item.candidate_side === "short" ? "#ef4444" : "#22c55e"
-            : "#f59e0b",
-          text: item.action === "allow"
-            ? `KI ${item.candidate_side.toUpperCase()} ${(item.probability_flip * 100).toFixed(0)}%`
-            : `KI BLOCK ${(item.probability_flip * 100).toFixed(0)}%`,
-        }))
-      : [];
+    chart.subscribeClick((param) => {
+      const clickedTime = Number(param.time);
+      if (!Number.isFinite(clickedTime)) return;
+      const nearest = markers.reduce<StrategyMarker | null>((best, item) => {
+        if (!best) return item;
+        return Math.abs(item.time - clickedTime) < Math.abs(best.time - clickedTime) ? item : best;
+      }, null);
+      if (nearest) setSelected(nearest);
+    });
 
-    const v12Markers = showV12
-      ? (v12?.oos_decisions || [])
-          .filter((item) => item.action !== "hold")
-          .map((item) => ({
-            time: item.time as Time,
-            position: item.action === "short" ? "aboveBar" : "belowBar",
-            shape: item.action === "short" ? "arrowDown" : "arrowUp",
-            color: item.action === "short" ? "#f43f5e" : "#38bdf8",
-            text: `V12 ${item.action.toUpperCase()} ${(item.confidence * 100).toFixed(0)}%`,
-          }))
-      : [];
-
-    createSeriesMarkers(
-      series,
-      [...teacherMarkers, ...kiMarkers, ...v12Markers]
-        .sort((left, right) => Number(left.time) - Number(right.time)) as any,
-    );
     chart.timeScale().fitContent();
     chartRef.current = chart;
-    return () => {
-      chart.remove();
-      chartRef.current = null;
-    };
-  }, [candles, decisions, showHold, showKiDecisions, walkForward, showV12, v12]);
+    return () => { chart.remove(); chartRef.current = null; };
+  }, [candles, markers, annotationMap, selected?.marker_id, showReviewed]);
 
-  function choose(item: FlipDecision) {
-    setSelected(item);
-    const index = candles.findIndex((candle) => candle.time === item.time);
-    if (index >= 0) {
-      chartRef.current?.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, index - 45),
-        to: Math.min(candles.length - 1, index + 20),
-      });
-    }
+  function choose(marker: StrategyMarker) {
+    setSelected(marker);
+    const index = candles.findIndex((item) => item.time >= marker.time);
+    if (index >= 0) chartRef.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, index - 35), to: Math.min(candles.length - 1, index + 35) });
   }
 
+  const featureRows = useMemo(() => {
+    if (!selected?.features) return [];
+    const preferred = ["macd_histogram", "macd_histogram_atr", "macd_slope", "macd_histogram_speed", "rsi", "rsi_delta_1", "rsi_delta_3", "adx", "plus_di", "minus_di", "di_difference", "bb_position", "bb_width_norm", "trend_credit", "momentum", "energy", "structure", "body_atr", "range_atr"];
+    return preferred.map((key) => [key, Number(selected.features?.[key])]).filter(([, value]) => Number.isFinite(value));
+  }, [selected]);
+
+  const reviewed = data?.counts?.reviewed || 0;
+  const progress = markers.length ? (reviewed / markers.length) * 100 : 0;
+
   return (
-    <div className="flip-ki-page">
-      <header className="flip-ki-header">
+    <div className="guardian-page">
+      <header className="guardian-header">
         <div>
-          <b>QTrend Flip-KI Lab</b>
-          <span>
-            Automatische FLIP/HOLD-Labels · keine Orders
-          </span>
+          <b>QTrend Strategy Flip Guardian</b>
+          <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
-        <div className="flip-ki-controls">
-          <select
-            value={symbol}
-            onChange={(event) => setSymbol(event.target.value)}
-          >
-            {SYMBOLS.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <select
-            value={interval}
-            onChange={(event) => setInterval(event.target.value)}
-          >
-            {INTERVALS.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <label>
-            <span>Kosten ATR</span>
-            <input
-              type="number"
-              min="0"
-              max="2"
-              step="0.01"
-              value={costAtr}
-              onChange={(event) =>
-                setCostAtr(Number(event.target.value))
-              }
-            />
-          </label>
-          <label>
-            <span>Min. Vorteil ATR</span>
-            <input
-              type="number"
-              min="0"
-              max="5"
-              step="0.05"
-              value={minimumAdvantageAtr}
-              onChange={(event) =>
-                setMinimumAdvantageAtr(Number(event.target.value))
-              }
-            />
-          </label>
-          <label className="flip-hold-toggle">
-            <input
-              type="checkbox"
-              checked={showHold}
-              onChange={(event) =>
-                setShowHold(event.target.checked)
-              }
-            />
-            <span>HOLD anzeigen</span>
-          </label>
-          <label className="flip-hold-toggle">
-            <input
-              type="checkbox"
-              checked={showPhases}
-              onChange={(event) =>
-                setShowPhases(event.target.checked)
-              }
-            />
-            <span>Positionen anzeigen</span>
-          </label>
-          <label className="flip-hold-toggle">
-            <input
-              type="checkbox"
-              checked={showKiDecisions}
-              onChange={(event) => setShowKiDecisions(event.target.checked)}
-            />
-            <span>KI-Entscheidungen</span>
-          </label>
-          <label className="flip-hold-toggle">
-            <input
-              type="checkbox"
-              checked={showV12}
-              onChange={(event) => setShowV12(event.target.checked)}
-            />
-            <span>V12 anzeigen</span>
-          </label>
-          <button
-            className="flip-v12-button"
-            onClick={() => void runV12()}
-            disabled={v12Loading || loading}
-          >
-            {v12Loading ? "V12 LÄUFT …" : "V12 CANDLE-KI"}
-          </button>
-          <button
-            className="flip-model-button"
-            onClick={() => void trainModel()}
-            disabled={modelLoading || loading}
-          >
-            {modelLoading ? "KI LERNT …" : "KI TRAINIEREN"}
-          </button>
-          <button className="flip-raw-model-button" onClick={() => void trainRawModel()} disabled={rawModelLoading || loading}>
-            {rawModelLoading ? "RAW KI LERNT …" : "RAW KI TRAINIEREN"}
-          </button>
-          <button
-            className="flip-ensemble-button"
-            onClick={() => void trainEnsemble()}
-            disabled={ensembleLoading || loading}
-          >
-            {ensembleLoading ? "ENSEMBLE LERNT …" : "ENSEMBLE TRAINIEREN"}
-          </button>
-          <button
-            className="flip-walk-forward-button"
-            onClick={() => void runWalkForward()}
-            disabled={walkForwardLoading || loading}
-          >
-            {walkForwardLoading ? "WALK-FORWARD LÄUFT …" : "WALK-FORWARD TEST"}
-          </button>
-          <button onClick={() => void load()} disabled={loading}>
-            {loading ? "BERECHNET …" : "NEU BERECHNEN"}
-          </button>
-          <button
-            onClick={() => void optimize()}
-            disabled={optimizing}
-          >
-            {optimizing ? "400 TESTS …" : "FEINSUCHE 20×20"}
-          </button>
+        <div className="guardian-controls">
+          <select value={symbol} onChange={(event) => setSymbol(event.target.value)}>{SYMBOLS.map((item) => <option key={item}>{item}</option>)}</select>
+          <select value={interval} onChange={(event) => setInterval(event.target.value)}>{INTERVALS.map((item) => <option key={item}>{item}</option>)}</select>
+          <label><input type="checkbox" checked={showReviewed} onChange={(event) => setShowReviewed(event.target.checked)} /> Bewertete anzeigen</label>
+          <button onClick={() => void load()} disabled={loading}>{loading ? "LÄDT …" : "NEU LADEN"}</button>
+          <button className="scout-button" disabled title="Wird als eigenes, unabhängiges Labor gebaut">KI-SCOUT · EIGENES FENSTER</button>
         </div>
       </header>
 
-      {error && <div className="flip-ki-error">{error}</div>}
+      {error && <div className="guardian-error">{error}</div>}
 
-      <main className="flip-ki-layout">
-        <section className="flip-ki-chart">
-          {showPhases && positionPhases.length > 0 && (
-            <div className="flip-position-ribbon">
-              <div className="flip-position-ribbon-label">
-                POSITIONSVERLAUF
-              </div>
-              <div className="flip-position-ribbon-track">
-                {positionPhases.map((phase) => (
-                  <button
-                    key={`${phase.entry_time}-${phase.side}-${phase.index}`}
-                    className={`flip-position-segment ${phase.side}`}
-                    style={{
-                      left: `${phase.left}%`,
-                      width: `${phase.width}%`,
-                      ...phaseVisual(phase),
-                    }}
-                    title={`${phase.side.toUpperCase()} · ${phase.holding_bars} Kerzen · ${signed(phase.net_points)} Punkte`}
-                    onClick={() => {
-                      const index = candles.findIndex(
-                        (candle) =>
-                          candle.time >= phase.entry_time,
-                      );
-                      if (index >= 0) {
-                        chartRef.current?.timeScale().setVisibleLogicalRange({
-                          from: Math.max(0, index - 15),
-                          to: Math.min(
-                            candles.length - 1,
-                            index + phase.holding_bars + 15,
-                          ),
-                        });
-                      }
-                    }}
-                  >
-                    {phase.width >= 4 && (
-                      <span>
-                        {phase.side.toUpperCase()} ·{" "}
-                        {phase.holding_bars} ·{" "}
-                        {signed(phase.net_points, 0)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-              <div className="flip-position-ribbon-legend">
-                <span className="winner">GEWINNER</span>
-                <span className="neutral">NEUTRAL</span>
-                <span className="loser">VERLIERER</span>
-                <small>
-                  Intensität zeigt die Größe des Trade-Ergebnisses.
-                </small>
-              </div>
-            </div>
-          )}
+      <main className="guardian-layout">
+        <section className="guardian-chart-panel">
+          <div className="guardian-progress">
+            <span>Strategie-Marker <b>{markers.length}</b></span>
+            <span>Bewertet <b>{reviewed}</b></span>
+            <span className="good">GOOD <b>{data?.counts?.good || 0}</b></span>
+            <span className="bad">BAD <b>{data?.counts?.bad || 0}</b></span>
+            <span>UNSICHER <b>{data?.counts?.unsure || 0}</b></span>
+            <div><i style={{ width: `${progress}%` }} /></div>
+          </div>
           <div ref={chartHost} />
         </section>
-        <aside className="flip-ki-sidebar">
-          <div className="flip-ki-summary">
-            <strong>Automatische Lernbasis</strong>
-            <span>
-              Entscheidungen <b>{decisions.length}</b>
-            </span>
-            <span>
-              FLIP <b>{flipCount}</b>
-            </span>
-            <span>
-              HOLD <b>{decisions.length - flipCount}</b>
-            </span>
-            <span>
-              Ø Entscheidungsabstand{" "}
-              <b>
-                {Number(
-                  summary?.average_absolute_advantage_atr || 0,
-                ).toFixed(2)}{" "}
-                ATR
-              </b>
-            </span>
-            <small>
-              Vergleich endet beim nächsten Strategiekandidaten.
-              FLIP enthält Kosten; HOLD hat keinen neuen Entry.
-            </small>
-          </div>
 
-          {summary?.metrics && (
-            <div className="flip-result-card">
-              <strong>VOLLSTÄNDIGER POSITIONSVERLAUF</strong>
-              <span>Abgeschlossene Trades</span>
-              <b>{summary.metrics.trade_count}</b>
-              <span>Netto</span>
-              <b>{signed(summary.metrics.net_points)}</b>
-              <span>Profit Factor</span>
-              <b>
-                {summary.metrics.profit_factor == null
-                  ? "∞"
-                  : summary.metrics.profit_factor.toFixed(2)}
-              </b>
-              <span>Winrate</span>
-              <b>{summary.metrics.win_rate_pct.toFixed(1)} %</b>
-              <span>Max Drawdown</span>
-              <b>
-                -{summary.metrics.max_drawdown_points.toFixed(1)}
-              </b>
-              <span>Ø Trade</span>
-              <b>
-                {signed(summary.metrics.average_trade_points)}
-              </b>
-              <span>Ø Haltedauer</span>
-              <b>
-                {summary.metrics.average_holding_bars.toFixed(1)}
-                {" "}Kerzen
-              </b>
-              <span>Ausgeführte FLIPs</span>
-              <b>{summary.metrics.flip_count}</b>
-              <span>Geblockte FLIPs</span>
-              <b>{summary.metrics.hold_count}</b>
-            </div>
-          )}
-
-          {optimizer && (
-            <div className="flip-optimizer-card">
-              <div className="flip-optimizer-title">
-                <strong>FEINOPTIMIERUNG · 400 TESTS</strong>
-                <span>
-                  {optimizer.matrix.length} Kombinationen
-                </span>
+        <aside className="guardian-sidebar">
+          {selected ? (
+            <>
+              <div className={`guardian-selection ${selectedAnnotation?.label || "open"}`}>
+                <small>BESTÄTIGTER STRATEGIE-MARKER</small>
+                <strong>{selected.side.toUpperCase()}</strong>
+                <span>{formatTime(selected.time)}</span>
+                <span>Preis <b>{selected.price.toFixed(2)}</b></span>
+                <span>Status <b>{selectedAnnotation?.label.toUpperCase() || "NOCH OFFEN"}</b></span>
               </div>
 
-              {optimizer.best && (
-                <div className="flip-best-card">
-                  <div>
-                    <small>BESTE KOMBINATION</small>
-                    <strong>
-                      Kosten {optimizer.best.cost_atr.toFixed(3)} ATR
-                      · Vorteil{" "}
-                      {optimizer.best.minimum_advantage_atr.toFixed(2)} ATR
-                    </strong>
-                  </div>
-                  <div className="flip-best-score">
-                    <span>SCORE</span>
-                    <b>{optimizer.best.score.toFixed(1)}</b>
-                  </div>
-                  <div className="flip-best-grid">
-                    <span>Netto</span>
-                    <b>
-                      {signed(optimizer.best.metrics.net_points)}
-                    </b>
-                    <span>PF</span>
-                    <b>
-                      {optimizer.best.metrics.profit_factor == null
-                        ? "∞"
-                        : optimizer.best.metrics.profit_factor.toFixed(
-                            2,
-                          )}
-                    </b>
-                    <span>Drawdown</span>
-                    <b>
-                      -
-                      {optimizer.best.metrics.max_drawdown_points.toFixed(
-                        1,
-                      )}
-                    </b>
-                    <span>Winrate</span>
-                    <b>
-                      {optimizer.best.metrics.win_rate_pct.toFixed(1)} %
-                    </b>
-                    <span>Trades</span>
-                    <b>{optimizer.best.metrics.trade_count}</b>
-                    <span>Ø Haltedauer</span>
-                    <b>
-                      {optimizer.best.metrics.average_holding_bars.toFixed(
-                        1,
-                      )}{" "}
-                      Kerzen
-                    </b>
-                    <span>FLIP / HOLD</span>
-                    <b>
-                      {optimizer.best.flip_count} /{" "}
-                      {optimizer.best.hold_count}
-                    </b>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setCostAtr(optimizer.best!.cost_atr);
-                      setMinimumAdvantageAtr(
-                        optimizer.best!
-                          .minimum_advantage_atr,
-                      );
-                    }}
-                  >
-                    BESTE WERTE ÜBERNEHMEN
-                  </button>
-                </div>
-              )}
-
-              <div className="flip-top-label">
-                TOP 12 NACH GESAMTSCORE
-              </div>
-              <div className="flip-matrix">
-                {optimizer.matrix.slice(0, 12).map((row, index) => (
-                  <button
-                    key={`${row.cost_atr}-${row.minimum_advantage_atr}`}
-                    className={index === 0 ? "best" : ""}
-                    onClick={() => {
-                      setCostAtr(row.cost_atr);
-                      setMinimumAdvantageAtr(
-                        row.minimum_advantage_atr,
-                      );
-                    }}
-                  >
-                    <span>
-                      K {row.cost_atr.toFixed(3)} · V{" "}
-                      {row.minimum_advantage_atr.toFixed(2)}
-                    </span>
-                    <b>Score {row.score.toFixed(1)}</b>
-                    <small>
-                      PF{" "}
-                      {row.metrics.profit_factor == null
-                        ? "∞"
-                        : row.metrics.profit_factor.toFixed(2)}
-                      {" · "}Netto{" "}
-                      {signed(row.metrics.net_points)}
-                      {" · "}DD -
-                      {row.metrics.max_drawdown_points.toFixed(1)}
-                    </small>
-                  </button>
-                ))}
+              <div className="guardian-review-buttons">
+                <button className="good" onClick={() => void review("good")} disabled={saving}>GUTER FLIP</button>
+                <button className="bad" onClick={() => void review("bad")} disabled={saving}>SCHLECHTER FLIP</button>
+                <button className="unsure" onClick={() => void review("unsure")} disabled={saving}>UNSICHER</button>
+                <button onClick={() => void removeReview()} disabled={saving || !selectedAnnotation}>BEWERTUNG LÖSCHEN</button>
               </div>
 
-              <div className="flip-score-info">
-                Score: 40 % PF · 30 % Netto · 20 % Drawdown ·
-                10 % Winrate. PF wird bei 10 gekappt und
-                logarithmisch gewichtet.
-              </div>
-              <small>
-                Klick auf eine Kombination übernimmt die Werte.
-                Danach „Neu berechnen“ drücken.
-              </small>
-            </div>
-          )}
-
-          {v12 && (
-            <div className="flip-v12-card">
-              <div className="flip-model-title">
-                <div><strong>V12 · CANDLE DECISION ENGINE</strong><small>Jede zweite Kerze · ausschließlich ungesehene Walk-Forward-Abschnitte</small></div>
-                <span>AKTIV</span>
-              </div>
-              <div className="flip-v12-score"><span>OOS-AUC Richtung</span><b>{aucText(v12.aggregate_test_auc)}</b></div>
-              <div className="flip-phase-b-counts">
-                <span>LONG <b>{v12.counts.long}</b></span><span>SHORT <b>{v12.counts.short}</b></span><span>HOLD <b>{v12.counts.hold}</b></span><span>Gesamt <b>{v12.counts.total}</b></span>
-              </div>
-              <div className="flip-walk-compare">
-                <strong>EIGENER KI-POSITIONSREPLAY</strong><span></span><b>V12</b><b></b>
-                <span>Trades</span><b>{v12.replay.trade_count}</b><b></b>
-                <span>Netto</span><b>{signed(v12.replay.net_points)}</b><b></b>
-                <span>Profit Factor</span><b>{v12.replay.profit_factor == null ? "∞" : v12.replay.profit_factor.toFixed(2)}</b><b></b>
-                <span>Winrate</span><b>{v12.replay.win_rate_pct.toFixed(1)} %</b><b></b>
-                <span>Max DD</span><b>-{v12.replay.max_drawdown_points.toFixed(1)}</b><b></b>
-              </div>
-              <div className="flip-ensemble-note">Horizont {v12.settings.horizon_bars} Kerzen · HOLD-Zone ±{(v12.settings.hold_band*100).toFixed(0)} % · keine Strategie-Entries, keine Orders.</div>
-            </div>
-          )}
-
-          {walkForward && (
-            <div className="flip-walk-forward-card">
-              <div className="flip-model-title">
-                <div>
-                  <strong>V11 · PHASE B · KI-ENTSCHEIDUNG</strong>
-                  <small>4 expandierende Folds · jeder Testabschnitt ungesehen</small>
-                </div>
-                <span>FERTIG</span>
-              </div>
-              {walkForward.oos_counts && (
-                <div className="flip-phase-b-card">
-                  <div>
-                    <strong>PHASE B · KI-ENTSCHEIDUNGEN</strong>
-                    <span>Nur ungesehene Walk-Forward-Punkte</span>
-                  </div>
-                  <div className="flip-phase-b-counts">
-                    <span>ALLOW <b>{walkForward.oos_counts.allow}</b></span>
-                    <span>BLOCK <b>{walkForward.oos_counts.block}</b></span>
-                    <span>Gesamt <b>{walkForward.oos_counts.total}</b></span>
-                  </div>
-                </div>
-              )}
-              <div className="flip-walk-score">
-                <span>Gesamt-AUC · alle ungesehenen Folds</span>
-                <b>{aucText(walkForward.aggregate_test_auc)}</b>
-              </div>
-              <div className="flip-walk-models">
-                <span>Gewähltes Modell</span>
-                <b>Feature {walkForward.selected_models.feature}× · Raw {walkForward.selected_models.raw}×</b>
-              </div>
-              <div className="flip-walk-compare">
-                <strong>UNGesehener ENTSCHEIDUNGS-REPLAY</strong>
-                <span></span><b>KI</b><b>Alle Flips</b>
-                <span>Trades</span><b>{walkForward.model_replay.trade_count}</b><b>{walkForward.all_flip_replay.trade_count}</b>
-                <span>Netto</span><b>{signed(walkForward.model_replay.net_points)}</b><b>{signed(walkForward.all_flip_replay.net_points)}</b>
-                <span>Profit Factor</span><b>{walkForward.model_replay.profit_factor == null ? "∞" : walkForward.model_replay.profit_factor.toFixed(2)}</b><b>{walkForward.all_flip_replay.profit_factor == null ? "∞" : walkForward.all_flip_replay.profit_factor.toFixed(2)}</b>
-                <span>Winrate</span><b>{walkForward.model_replay.win_rate_pct.toFixed(1)} %</b><b>{walkForward.all_flip_replay.win_rate_pct.toFixed(1)} %</b>
-                <span>Max DD</span><b>-{walkForward.model_replay.max_drawdown_points.toFixed(1)}</b><b>-{walkForward.all_flip_replay.max_drawdown_points.toFixed(1)}</b>
-              </div>
-              <div className="flip-walk-folds">
-                {walkForward.folds.map((fold) => (
-                  <div key={fold.fold}>
-                    <strong>Fold {fold.fold}</strong>
-                    <span>{fold.selected_model === "raw" ? "RAW" : "FEATURE"} · Schwelle {fold.threshold.toFixed(2)}</span>
-                    <b>AUC {aucText(fold.test_auc)}</b>
-                    <small>Test {fold.test_count} · KI PF {fold.model_replay.profit_factor == null ? "∞" : fold.model_replay.profit_factor.toFixed(2)} · Alle PF {fold.all_flip_replay.profit_factor == null ? "∞" : fold.all_flip_replay.profit_factor.toFixed(2)}</small>
-                  </div>
-                ))}
-              </div>
-              <div className="flip-ensemble-note">
-                Das ist ein chronologischer, ungesehener Entscheidungs-Replay – kein Live-Ordertest. Parameter werden während des Tests nicht nachoptimiert.
-              </div>
-            </div>
-          )}
-
-          {summary?.ensemble_ki_model ? (() => {
-            const model = summary.ensemble_ki_model;
-            const winner = ensembleWinner(model);
-
-            return (
-              <div className="flip-ensemble-card">
-                <div className="flip-model-title">
-                  <div>
-                    <strong>V8.1 · META-ENSEMBLE</strong>
-                    <small>
-                      60 % Basismodelle · 20 % Gewichtsauswahl ·
-                      20 % finaler Test
-                    </small>
-                  </div>
-                  <span>AKTIV</span>
-                </div>
-
-                <div className="flip-ensemble-score">
-                  <span>Ensemble-AUC · finaler Test</span>
-                  <b>
-                    {aucText(
-                      model.ensemble_test_metrics.auc,
-                    )}
-                  </b>
-                </div>
-
-                <div className="flip-ensemble-winner">
-                  <span>Bester Ansatz im finalen Test</span>
-                  <b>{winner?.label || "–"}</b>
-                </div>
-
-                <div className="flip-model-metrics">
-                  <div>
-                    <span>Feature-KI AUC · finaler Test</span>
-                    <b>
-                      {aucText(
-                        model.feature_test_metrics.auc,
-                      )}
-                    </b>
-                  </div>
-                  <div>
-                    <span>Raw-KI AUC · finaler Test</span>
-                    <b>
-                      {aucText(
-                        model.raw_test_metrics.auc,
-                      )}
-                    </b>
-                  </div>
-                  <div>
-                    <span>Ensemble Accuracy · final</span>
-                    <b>
-                      {(
-                        model.ensemble_test_metrics
-                          .accuracy * 100
-                      ).toFixed(1)} %
-                    </b>
-                  </div>
-                  <div>
-                    <span>Ensemble Präzision · final</span>
-                    <b>
-                      {(
-                        model.ensemble_test_metrics
-                          .precision * 100
-                      ).toFixed(1)} %
-                    </b>
-                  </div>
-                </div>
-
-                <div className="flip-ensemble-selection">
-                  <strong>
-                    GEWICHTUNG AUS DEM META-ABSCHNITT
-                  </strong>
-                  <small>
-                    Diese Gewichte wurden ausschließlich auf den
-                    mittleren 20 % gewählt. Die AUC darunter ist
-                    nicht das finale Testergebnis.
-                  </small>
-
-                  <div>
-                    <span>Feature-Anteil</span>
-                    <b>
-                      {(model.feature_weight * 100).toFixed(0)} %
-                    </b>
-                  </div>
-                  <div>
-                    <span>Raw-Anteil</span>
-                    <b>
-                      {(model.raw_weight * 100).toFixed(0)} %
-                    </b>
-                  </div>
-                  <div>
-                    <span>Meta-Auswahl-AUC</span>
-                    <b>{aucText(model.meta_auc)}</b>
-                  </div>
-                </div>
-
-                <div className="flip-model-confusion">
-                  <span>
-                    FLIP richtig
-                    <b>
-                      {
-                        model.ensemble_test_metrics
-                          .confusion.tp
-                      }
-                    </b>
-                  </span>
-                  <span>
-                    FLIP verpasst
-                    <b>
-                      {
-                        model.ensemble_test_metrics
-                          .confusion.fn
-                      }
-                    </b>
-                  </span>
-                  <span>
-                    HOLD richtig
-                    <b>
-                      {
-                        model.ensemble_test_metrics
-                          .confusion.tn
-                      }
-                    </b>
-                  </span>
-                  <span>
-                    Falsche FLIPs
-                    <b>
-                      {
-                        model.ensemble_test_metrics
-                          .confusion.fp
-                      }
-                    </b>
-                  </span>
-                </div>
-
-                <div className="flip-ensemble-note">
-                  Das Ensemble ist nur dann besser, wenn seine
-                  <b> finale Test-AUC </b>
-                  über beiden Basis-AUCs liegt. Ein Gewicht von
-                  0 % oder 100 % bedeutet: Im Meta-Abschnitt wurde
-                  keine Mischung besser als eines der Basismodelle.
-                </div>
-              </div>
-            );
-          })() : (
-            <div className="flip-model-empty ensemble">
-              <strong>V8.1 · NOCH KEIN ENSEMBLE</strong>
-              <span>
-                „ENSEMBLE TRAINIEREN“ nutzt 5000 Kerzen und
-                bewertet Feature, Raw und Mischung auf demselben
-                finalen Testabschnitt.
-              </span>
-            </div>
-          )}
-
-          {summary?.model_comparison && (
-            <div className="flip-ab-card">
-              <strong>V7 · A/B-TEST</strong>
-              <span>Gewinner <b>{summary.model_comparison.winner === "raw" ? "RAW-KI" : summary.model_comparison.winner === "feature" ? "FEATURE-KI" : "GLEICHSTAND"}</b></span>
-              <div><span>Feature AUC</span><b>{summary.model_comparison.feature_auc?.toFixed(3) ?? "–"}</b><span>Raw AUC</span><b>{summary.model_comparison.raw_auc?.toFixed(3) ?? "–"}</b></div>
-            </div>
-          )}
-
-          {summary?.raw_ki_model ? (
-            <div className="flip-model-card raw">
-              <div className="flip-model-title"><div><strong>V7 · RAW-PATTERN-KI</strong><small>20 Kerzen × 8 Rohkanäle</small></div><span>AKTIV</span></div>
-              <div className="flip-model-metrics"><div><span>Test-AUC</span><b>{summary.raw_ki_model.test_metrics.auc?.toFixed(3) ?? "–"}</b></div><div><span>Accuracy</span><b>{(summary.raw_ki_model.test_metrics.accuracy*100).toFixed(1)} %</b></div><div><span>FLIP-Präzision</span><b>{(summary.raw_ki_model.test_metrics.precision*100).toFixed(1)} %</b></div><div><span>FLIP erkannt</span><b>{(summary.raw_ki_model.test_metrics.recall*100).toFixed(1)} %</b></div></div>
-            </div>
-          ) : <div className="flip-model-empty raw"><strong>V7 · NOCH KEIN RAW-MODELL</strong><span>RAW KI TRAINIEREN startet den direkten Vergleich.</span></div>}
-
-          {summary?.ki_model ? (
-            <div className="flip-model-card">
-              <div className="flip-model-title">
-                <div>
-                  <strong>V6 · ERSTES KI-MODELL</strong>
-                  <small>
-                    Chronologischer Test auf den letzten ungesehenen 25 %
-                  </small>
-                </div>
-                <span>AKTIV</span>
+              <div className="guardian-rule">
+                Du bewertest nur den sichtbaren, echten Entry-Marker. Der Guardian lernt später: Strategie-Flip zulassen oder bestehenden Trend halten.
               </div>
 
-              <div className="flip-model-metrics">
-                <div>
-                  <span>Test-AUC</span>
-                  <b>
-                    {summary.ki_model.test_metrics.auc == null
-                      ? "–"
-                      : summary.ki_model.test_metrics.auc.toFixed(3)}
-                  </b>
-                </div>
-                <div>
-                  <span>Accuracy</span>
-                  <b>
-                    {(summary.ki_model.test_metrics.accuracy * 100).toFixed(1)} %
-                  </b>
-                </div>
-                <div>
-                  <span>FLIP-Präzision</span>
-                  <b>
-                    {(summary.ki_model.test_metrics.precision * 100).toFixed(1)} %
-                  </b>
-                </div>
-                <div>
-                  <span>FLIP erkannt</span>
-                  <b>
-                    {(summary.ki_model.test_metrics.recall * 100).toFixed(1)} %
-                  </b>
-                </div>
+              <div className="guardian-features">
+                <strong>ZUSTAND AM MARKER</strong>
+                {featureRows.map(([key, value]) => <div key={String(key)}><span>{featureName(String(key))}</span><b>{Number(value).toFixed(3)}</b></div>)}
               </div>
+            </>
+          ) : <div className="guardian-empty">Marker im Chart oder in der Liste auswählen.</div>}
 
-              <div className="flip-model-confusion">
-                <span>
-                  FLIP richtig
-                  <b>{summary.ki_model.test_metrics.confusion.tp}</b>
-                </span>
-                <span>
-                  FLIP verpasst
-                  <b>{summary.ki_model.test_metrics.confusion.fn}</b>
-                </span>
-                <span>
-                  HOLD richtig
-                  <b>{summary.ki_model.test_metrics.confusion.tn}</b>
-                </span>
-                <span>
-                  Falsche FLIPs
-                  <b>{summary.ki_model.test_metrics.confusion.fp}</b>
-                </span>
-              </div>
-
-              <div className="flip-model-importance">
-                <strong>WAS DIE KI TATSÄCHLICH VERWENDET</strong>
-                {summary.ki_model.importance.slice(0, 8).map(
-                  (item, index) => {
-                    const cleanFeature = item.feature
-                      .replace("__delta10", "")
-                      .replace("__slope10", "");
-                    const suffix = item.feature.endsWith("__delta10")
-                      ? " · Δ10"
-                      : item.feature.endsWith("__slope10")
-                        ? " · Steigung"
-                        : "";
-
-                    return (
-                      <div key={item.feature}>
-                        <span>
-                          {index + 1}. {featureLabel(cleanFeature)}
-                          {suffix}
-                        </span>
-                        <b>{signed(item.coefficient, 3)}</b>
-                        <small>{item.direction}</small>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flip-model-empty">
-              <strong>V6 · NOCH KEIN KI-MODELL</strong>
-              <span>
-                „KI TRAINIEREN“ startet den ersten chronologischen
-                Modelltest für {symbol} · {interval}.
-              </span>
-            </div>
-          )}
-
-          {summary?.feature_statistics && (
-            <div className="flip-statistics-card">
-              <div className="flip-statistics-title">
-                <div>
-                  <strong>V5 · FLIP GEGEN HOLD</strong>
-                  <small>
-                    Standardisierte Trennschärfe aller Kernmerkmale
-                  </small>
-                </div>
-                <span>
-                  {summary.feature_statistics.row_count} Zeilen
-                </span>
-              </div>
-
-              <div className="flip-statistics-head">
-                <span>Merkmal</span>
-                <span>FLIP</span>
-                <span>HOLD</span>
-                <span>Effekt</span>
-              </div>
-
-              <div className="flip-statistics-list">
-                {summary.feature_statistics.features.map(
-                  (item, index) => (
-                    <div
-                      key={item.feature}
-                      className={index < 3 ? "top" : ""}
-                    >
-                      <span>
-                        <b>{index + 1}. {featureLabel(item.feature)}</b>
-                        <small>
-                          {item.direction} · {item.strength}
-                        </small>
-                      </span>
-                      <strong>{item.flip_mean.toFixed(3)}</strong>
-                      <strong>{item.hold_mean.toFixed(3)}</strong>
-                      <span className="flip-effect">
-                        <b>
-                          {signed(item.standardized_effect, 2)}
-                        </b>
-                        <small>
-                          {effectStars(item.standardized_effect)}
-                        </small>
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
-
-              <div className="flip-statistics-note">
-                Effekt ist die Differenz FLIP minus HOLD geteilt
-                durch die gemeinsame Streuung. Ab etwa 0,50 ist die
-                Trennung stark; das Vorzeichen zeigt die Richtung.
-              </div>
-            </div>
-          )}
-
-          {selected && (
-            <div
-              className={`flip-decision-card ${selected.label}`}
-            >
-              <div className="flip-decision-head">
-                <span>
-                  {selected.current_side.toUpperCase()} →{" "}
-                  {selected.candidate_side.toUpperCase()}
-                </span>
-                <b>{selected.label.toUpperCase()}</b>
-              </div>
-              <small>{formatTime(selected.time)}</small>
-
-              {selected.ensemble_ki_prediction && (() => {
-                const ensemble =
-                  selected.ensemble_ki_prediction;
-                const featureSide = predictionSide(
-                  ensemble.feature_probability,
-                );
-                const rawSide = predictionSide(
-                  ensemble.raw_probability,
-                );
-                const ensembleSide =
-                  predictionSide(
-                    ensemble.probability_flip,
-                  );
-                const gap = Math.abs(
-                  ensemble.feature_probability -
-                    ensemble.raw_probability,
-                );
-                const agreement =
-                  featureSide === rawSide;
-
-                return (
-                  <div
-                    className={`flip-ki-prediction ensemble ${ensemble.prediction}`}
-                  >
-                    <div>
-                      <span>ENSEMBLE-ENTSCHEIDUNG</span>
-                      <strong>{ensembleSide}</strong>
-                    </div>
-                    <div>
-                      <span>Ensemble FLIP</span>
-                      <b>
-                        {(
-                          ensemble.probability_flip * 100
-                        ).toFixed(1)} %
-                      </b>
-                    </div>
-
-                    <div className="flip-consensus-grid">
-                      <span>Feature-KI</span>
-                      <b>
-                        {(
-                          ensemble.feature_probability *
-                          100
-                        ).toFixed(1)} % · {featureSide}
-                      </b>
-
-                      <span>Raw-KI</span>
-                      <b>
-                        {(
-                          ensemble.raw_probability * 100
-                        ).toFixed(1)} % · {rawSide}
-                      </b>
-
-                      <span>Modellabstand</span>
-                      <b>{(gap * 100).toFixed(1)} Punkte</b>
-
-                      <span>Konsens</span>
-                      <b>
-                        {agreement
-                          ? `JA · beide ${featureSide}`
-                          : "NEIN · Widerspruch"}
-                      </b>
-                    </div>
-
-                    <small>
-                      Historischer Lehrer:{" "}
-                      {selected.label.toUpperCase()} ·{" "}
-                      {ensemble.agrees_with_teacher
-                        ? "Ensemble stimmt überein."
-                        : "Ensemble widerspricht."}
-                    </small>
-                  </div>
-                );
-              })()}
-
-              {selected.ki_prediction && (
-                <div
-                  className={`flip-ki-prediction ${selected.ki_prediction.prediction}`}
-                >
-                  <div>
-                    <span>KI-ENTSCHEIDUNG</span>
-                    <strong>
-                      {selected.ki_prediction.prediction.toUpperCase()}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>FLIP-Wahrscheinlichkeit</span>
-                    <b>
-                      {(selected.ki_prediction.probability_flip * 100).toFixed(1)} %
-                    </b>
-                  </div>
-                  <small>
-                    {selected.ki_prediction.agrees_with_teacher
-                      ? "KI stimmt mit dem historischen Lehrer überein."
-                      : "KI widerspricht dem historischen Lehrer."}
-                  </small>
-                </div>
-              )}
-
-              {selected.raw_ki_prediction && (
-                <div className={`flip-ki-prediction raw ${selected.raw_ki_prediction.prediction}`}>
-                  <div><span>RAW-KI-ENTSCHEIDUNG</span><strong>{selected.raw_ki_prediction.prediction.toUpperCase()}</strong></div>
-                  <div><span>FLIP-Wahrscheinlichkeit</span><b>{(selected.raw_ki_prediction.probability_flip*100).toFixed(1)} %</b></div>
-                </div>
-              )}
-
-              <div className="flip-comparison">
-                <div>
-                  <span>FLIP netto</span>
-                  <b>{signed(selected.flip_net_points)}</b>
-                </div>
-                <div>
-                  <span>HOLD</span>
-                  <b>{signed(selected.hold_points)}</b>
-                </div>
-                <div>
-                  <span>Vorteil FLIP</span>
-                  <b>
-                    {signed(selected.flip_advantage_points)} ·{" "}
-                    {signed(selected.flip_advantage_atr, 2)} ATR
-                  </b>
-                </div>
-              </div>
-
-              <div className="flip-context">
-                <span>Position seit</span>
-                <b>{selected.bars_since_flip} Kerzen</b>
-                <span>Offener PnL</span>
-                <b>{signed(selected.position_open_atr, 2)} ATR</b>
-                <span>Maximaler Gewinn</span>
-                <b>{signed(selected.position_mfe_atr, 2)} ATR</b>
-                <span>Rücklauf vom Maximum</span>
-                <b>
-                  {Number(
-                    selected.position_drawdown_from_mfe_atr || 0,
-                  ).toFixed(2)}{" "}
-                  ATR
-                </b>
-              </div>
-            </div>
-          )}
-
-          {selected && (
-            <div className="flip-feature-card">
-              <div className="flip-feature-title">
-                <strong>FLIP-KI FEATURE-SNAPSHOT</strong>
-                <span>
-                  Kernscore{" "}
-                  {Number(selected.feature_core_score || 0).toFixed(3)}
-                </span>
-              </div>
-              <small>
-                Marktwerte am echten QTrend-Gegensignal. Diese
-                Merkmale bilden die Lernbasis für FLIP oder HOLD.
-              </small>
-              <div className="flip-feature-grid">
-                {[
-                  "macd_histogram_atr",
-                  "macd_slope_atr",
-                  "fast_distance_atr",
-                  "slow_distance_atr",
-                  "return_bps",
-                  "body_atr",
-                  "range_atr",
-                  "trend_credit",
-                  "momentum",
-                  "energy",
-                  "structure",
-                  "macd_histogram_speed",
-                  "adx",
-                  "plus_di",
-                  "minus_di",
-                  "adx_delta_1",
-                  "adx_delta_3",
-                  "di_difference",
-                  "di_strength",
-                  "bb_width",
-                  "bb_width_norm",
-                  "bb_width_delta_1",
-                  "bb_width_delta_3",
-                  "bb_position",
-                  "bb_mid_distance",
-                  "bb_outside_upper",
-                  "bb_outside_lower",
-                ].map((key) => (
-                  <div key={key}>
-                    <span>{featureLabel(key)}</span>
-                    <b>
-                      {Number(
-                        selected.feature_snapshot?.[key] || 0,
-                      ).toFixed(3)}
-                    </b>
-                  </div>
-                ))}
-              </div>
-              <div className="flip-feature-context">
-                <span>Position offen</span>
-                <b>{signed(selected.position_open_atr, 2)} ATR</b>
-                <span>MFE</span>
-                <b>{signed(selected.position_mfe_atr, 2)} ATR</b>
-                <span>MAE</span>
-                <b>{signed(selected.position_mae_atr, 2)} ATR</b>
-                <span>Rücklauf</span>
-                <b>
-                  {Number(
-                    selected.position_drawdown_from_mfe_atr || 0,
-                  ).toFixed(2)}{" "}
-                  ATR
-                </b>
-              </div>
-              {summary?.feature_dataset && (
-                <div className="flip-dataset-status">
-                  Lernzeilen{" "}
-                  <b>{summary.feature_dataset.row_count}</b>
-                  <span>
-                    FLIP {summary.feature_dataset.labels.flip} ·
-                    HOLD {summary.feature_dataset.labels.hold}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flip-decision-list">
-            {[...decisions]
-              .filter((item) => showHold || item.label === "flip")
-              .reverse()
-              .map((item) => (
-              <button
-                key={`${item.candidate_id}-${item.time}`}
-                className={`${item.label} ${
-                  selected?.candidate_id === item.candidate_id
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() => choose(item)}
-              >
-                <span>
-                  <b>
-                    {item.current_side.toUpperCase()} →{" "}
-                    {item.candidate_side.toUpperCase()}
-                  </b>
-                  <small>{formatTime(item.time)}</small>
-                </span>
-                <strong>{item.label.toUpperCase()}</strong>
-              </button>
-            ))}
+          <div className="guardian-marker-list">
+            <strong>MARKER</strong>
+            {markers.slice().reverse().map((item) => {
+              const annotation = annotationMap[`${item.time}:${item.side}`];
+              return <button key={item.marker_id} className={`${item.side} ${annotation?.label || "open"} ${selected?.marker_id === item.marker_id ? "active" : ""}`} onClick={() => choose(item)}>
+                <span>{item.side.toUpperCase()}</span><small>{formatTime(item.time)}</small><b>{annotation?.label.toUpperCase() || "OFFEN"}</b>
+              </button>;
+            })}
           </div>
         </aside>
       </main>
