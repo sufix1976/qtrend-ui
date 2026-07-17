@@ -883,3 +883,36 @@
 .flip-walk-compare{display:grid;grid-template-columns:1fr auto auto;gap:5px 10px;margin-top:8px;padding:8px;border:1px solid #14532d;border-radius:6px;font-size:8px}
 .flip-walk-compare>strong{grid-column:1/-1;color:#86efac}.flip-walk-compare span{color:#8eaa9f}.flip-walk-compare b{text-align:right;color:#fff}
 .flip-walk-folds{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.flip-walk-folds>div{display:grid;grid-template-columns:1fr auto;gap:3px 6px;padding:7px;background:#061e18;border-radius:5px;font-size:7px}.flip-walk-folds strong{color:#86efac}.flip-walk-folds span{color:#91afa3}.flip-walk-folds b{color:#fff}.flip-walk-folds small{grid-column:1/-1;color:#708e82}
+
+/* V11 Phase B · sichtbare Out-of-Sample-KI-Entscheidungen */
+.flip-phase-b-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid rgba(34, 197, 94, .45);
+  border-radius: 8px;
+  background: rgba(5, 46, 22, .28);
+}
+.flip-phase-b-card > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.flip-phase-b-card strong { color: #86efac; }
+.flip-phase-b-card span { color: #94a3b8; font-size: 11px; }
+.flip-phase-b-counts {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 12px;
+  align-items: center;
+}
+.flip-phase-b-counts b { color: #f8fafc; margin-left: 4px; }
+
+/* V11 Phase B */
+.flip-phase-b-card { display:flex; justify-content:space-between; gap:14px; padding:12px; margin:10px 0; border:1px solid rgba(34,197,94,.45); border-radius:8px; background:rgba(5,46,22,.28); }
+.flip-phase-b-card > div:first-child { display:grid; gap:4px; }
+.flip-phase-b-card strong { color:#86efac; }
+.flip-phase-b-card span { color:#94a3b8; font-size:11px; }
+.flip-phase-b-counts { display:grid; grid-template-columns:repeat(3,auto); gap:12px; align-items:center; }
+.flip-phase-b-counts b { color:#f8fafc; margin-left:4px; }

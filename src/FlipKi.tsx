@@ -211,6 +211,26 @@ type WalkForwardReplay = {
   hold_count: number;
 };
 
+type WalkForwardDecision = {
+  candidate_id: string;
+  symbol: string;
+  interval: string;
+  time: number;
+  price: number;
+  current_side: "long" | "short";
+  candidate_side: "long" | "short";
+  action: "allow" | "block";
+  resulting_side: "long" | "short";
+  probability_flip: number;
+  probability_hold: number;
+  threshold: number;
+  selected_model: "feature" | "raw";
+  fold: number;
+  teacher_label: "flip" | "hold";
+  correct: boolean;
+  flip_advantage_atr: number;
+};
+
 type WalkForwardFold = {
   fold: number;
   fit_count: number;
@@ -241,6 +261,8 @@ type WalkForwardResult = {
   model_replay: WalkForwardReplay;
   all_flip_replay: WalkForwardReplay;
   teacher_replay: WalkForwardReplay;
+  oos_decisions?: WalkForwardDecision[];
+  oos_counts?: { allow: number; block: number; correct: number; total: number };
   folds: WalkForwardFold[];
 };
 
@@ -423,6 +445,7 @@ export default function FlipKi() {
   const [minimumAdvantageAtr, setMinimumAdvantageAtr] = useState(0.15);
   const [showHold, setShowHold] = useState(true);
   const [showPhases, setShowPhases] = useState(true);
+  const [showKiDecisions, setShowKiDecisions] = useState(true);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [decisions, setDecisions] = useState<FlipDecision[]>([]);
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
@@ -825,22 +848,37 @@ export default function FlipKi() {
         time: candle.time as Time,
       })),
     );
+    const teacherMarkers = decisions
+      .filter((item) => !showKiDecisions && (showHold || item.label === "flip"))
+      .map((item) => ({
+        time: item.time as Time,
+        position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
+        shape: item.candidate_side === "short" ? "arrowDown" : "arrowUp",
+        color: item.label === "flip" ? "#22c55e" : "#f59e0b",
+        text: item.label === "flip"
+          ? `LABEL FLIP ${signed(item.flip_advantage_atr, 2)} ATR`
+          : `LABEL HOLD ${signed(-item.flip_advantage_atr, 2)} ATR`,
+      }));
+
+    const kiMarkers = showKiDecisions
+      ? (walkForward?.oos_decisions || []).map((item) => ({
+          time: item.time as Time,
+          position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
+          shape: item.action === "allow"
+            ? item.candidate_side === "short" ? "arrowDown" : "arrowUp"
+            : "circle",
+          color: item.action === "allow"
+            ? item.candidate_side === "short" ? "#ef4444" : "#22c55e"
+            : "#f59e0b",
+          text: item.action === "allow"
+            ? `KI ${item.candidate_side.toUpperCase()} ${(item.probability_flip * 100).toFixed(0)}%`
+            : `KI BLOCK ${(item.probability_flip * 100).toFixed(0)}%`,
+        }))
+      : [];
+
     createSeriesMarkers(
       series,
-      decisions
-        .filter((item) => showHold || item.label === "flip")
-        .map((item) => ({
-          time: item.time as Time,
-          position:
-            item.candidate_side === "short" ? "aboveBar" : "belowBar",
-          shape:
-            item.candidate_side === "short" ? "arrowDown" : "arrowUp",
-          color: item.label === "flip" ? "#22c55e" : "#f59e0b",
-          text:
-            item.label === "flip"
-              ? `FLIP ${signed(item.flip_advantage_atr, 2)} ATR`
-              : `HOLD ${signed(-item.flip_advantage_atr, 2)} ATR`,
-        }))
+      [...teacherMarkers, ...kiMarkers]
         .sort((left, right) => Number(left.time) - Number(right.time)) as any,
     );
     chart.timeScale().fitContent();
@@ -849,7 +887,7 @@ export default function FlipKi() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, decisions, showHold]);
+  }, [candles, decisions, showHold, showKiDecisions, walkForward]);
 
   function choose(item: FlipDecision) {
     setSelected(item);
@@ -933,6 +971,14 @@ export default function FlipKi() {
               }
             />
             <span>Positionen anzeigen</span>
+          </label>
+          <label className="flip-hold-toggle">
+            <input
+              type="checkbox"
+              checked={showKiDecisions}
+              onChange={(event) => setShowKiDecisions(event.target.checked)}
+            />
+            <span>KI-Entscheidungen</span>
           </label>
           <button
             className="flip-model-button"
@@ -1216,11 +1262,24 @@ export default function FlipKi() {
             <div className="flip-walk-forward-card">
               <div className="flip-model-title">
                 <div>
-                  <strong>V9 · KI-WALK-FORWARD</strong>
+                  <strong>V11 · PHASE B · KI-ENTSCHEIDUNG</strong>
                   <small>4 expandierende Folds · jeder Testabschnitt ungesehen</small>
                 </div>
                 <span>FERTIG</span>
               </div>
+              {walkForward.oos_counts && (
+                <div className="flip-phase-b-card">
+                  <div>
+                    <strong>PHASE B · KI-ENTSCHEIDUNGEN</strong>
+                    <span>Nur ungesehene Walk-Forward-Punkte</span>
+                  </div>
+                  <div className="flip-phase-b-counts">
+                    <span>ALLOW <b>{walkForward.oos_counts.allow}</b></span>
+                    <span>BLOCK <b>{walkForward.oos_counts.block}</b></span>
+                    <span>Gesamt <b>{walkForward.oos_counts.total}</b></span>
+                  </div>
+                </div>
+              )}
               <div className="flip-walk-score">
                 <span>Gesamt-AUC · alle ungesehenen Folds</span>
                 <b>{aucText(walkForward.aggregate_test_auc)}</b>
