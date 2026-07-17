@@ -329,6 +329,14 @@ function featureLabel(key: string) {
     adx_delta_3: "ADX Δ3",
     di_difference: "DI Differenz",
     di_strength: "DI Stärke",
+    bb_width: "BB Breite",
+    bb_width_norm: "BB Breite / ATR",
+    bb_width_delta_1: "BB Breite Δ1",
+    bb_width_delta_3: "BB Breite Δ3",
+    bb_position: "BB Position",
+    bb_mid_distance: "BB Mitte Distanz",
+    bb_outside_upper: "Über oberem Band",
+    bb_outside_lower: "Unter unterem Band",
   };
   return labels[key] || key;
 }
@@ -1759,6 +1767,14 @@ export default function FlipKi() {
                   "adx_delta_3",
                   "di_difference",
                   "di_strength",
+                  "bb_width",
+                  "bb_width_norm",
+                  "bb_width_delta_1",
+                  "bb_width_delta_3",
+                  "bb_position",
+                  "bb_mid_distance",
+                  "bb_outside_upper",
+                  "bb_outside_lower",
                 ].map((key) => (
                   <div key={key}>
                     <span>{featureLabel(key)}</span>
