@@ -292,6 +292,46 @@ function effectStars(value: number) {
   return "★☆☆☆☆";
 }
 
+
+function aucText(value: number | null | undefined) {
+  return value == null || !Number.isFinite(Number(value))
+    ? "–"
+    : Number(value).toFixed(3);
+}
+
+function ensembleWinner(model: EnsembleModel) {
+  const values = [
+    {
+      key: "ensemble",
+      label: "ENSEMBLE",
+      auc: Number(model.ensemble_test_metrics.auc),
+    },
+    {
+      key: "feature",
+      label: "FEATURE-KI",
+      auc: Number(model.feature_test_metrics.auc),
+    },
+    {
+      key: "raw",
+      label: "RAW-KI",
+      auc: Number(model.raw_test_metrics.auc),
+    },
+  ].filter((item) => Number.isFinite(item.auc));
+
+  if (!values.length) return null;
+
+  return values.sort(
+    (left, right) => right.auc - left.auc,
+  )[0];
+}
+
+function predictionSide(
+  probability: number,
+  threshold = 0.5,
+) {
+  return probability >= threshold ? "FLIP" : "HOLD";
+}
+
 function phaseVisual(trade: StrategyTrade) {
   const result = Number(trade.net_points || 0);
   const magnitude = Math.min(1, Math.abs(result) / 250);
@@ -1076,27 +1116,159 @@ export default function FlipKi() {
             </div>
           )}
 
-          {summary?.ensemble_ki_model ? (
-            <div className="flip-ensemble-card">
-              <div className="flip-model-title">
-                <div><strong>V8 · META-ENSEMBLE</strong><small>60 % Basis · 20 % Meta · 20 % finaler Test</small></div>
-                <span>AKTIV</span>
+          {summary?.ensemble_ki_model ? (() => {
+            const model = summary.ensemble_ki_model;
+            const winner = ensembleWinner(model);
+
+            return (
+              <div className="flip-ensemble-card">
+                <div className="flip-model-title">
+                  <div>
+                    <strong>V8.1 · META-ENSEMBLE</strong>
+                    <small>
+                      60 % Basismodelle · 20 % Gewichtsauswahl ·
+                      20 % finaler Test
+                    </small>
+                  </div>
+                  <span>AKTIV</span>
+                </div>
+
+                <div className="flip-ensemble-score">
+                  <span>Ensemble-AUC · finaler Test</span>
+                  <b>
+                    {aucText(
+                      model.ensemble_test_metrics.auc,
+                    )}
+                  </b>
+                </div>
+
+                <div className="flip-ensemble-winner">
+                  <span>Bester Ansatz im finalen Test</span>
+                  <b>{winner?.label || "–"}</b>
+                </div>
+
+                <div className="flip-model-metrics">
+                  <div>
+                    <span>Feature-KI AUC · finaler Test</span>
+                    <b>
+                      {aucText(
+                        model.feature_test_metrics.auc,
+                      )}
+                    </b>
+                  </div>
+                  <div>
+                    <span>Raw-KI AUC · finaler Test</span>
+                    <b>
+                      {aucText(
+                        model.raw_test_metrics.auc,
+                      )}
+                    </b>
+                  </div>
+                  <div>
+                    <span>Ensemble Accuracy · final</span>
+                    <b>
+                      {(
+                        model.ensemble_test_metrics
+                          .accuracy * 100
+                      ).toFixed(1)} %
+                    </b>
+                  </div>
+                  <div>
+                    <span>Ensemble Präzision · final</span>
+                    <b>
+                      {(
+                        model.ensemble_test_metrics
+                          .precision * 100
+                      ).toFixed(1)} %
+                    </b>
+                  </div>
+                </div>
+
+                <div className="flip-ensemble-selection">
+                  <strong>
+                    GEWICHTUNG AUS DEM META-ABSCHNITT
+                  </strong>
+                  <small>
+                    Diese Gewichte wurden ausschließlich auf den
+                    mittleren 20 % gewählt. Die AUC darunter ist
+                    nicht das finale Testergebnis.
+                  </small>
+
+                  <div>
+                    <span>Feature-Anteil</span>
+                    <b>
+                      {(model.feature_weight * 100).toFixed(0)} %
+                    </b>
+                  </div>
+                  <div>
+                    <span>Raw-Anteil</span>
+                    <b>
+                      {(model.raw_weight * 100).toFixed(0)} %
+                    </b>
+                  </div>
+                  <div>
+                    <span>Meta-Auswahl-AUC</span>
+                    <b>{aucText(model.meta_auc)}</b>
+                  </div>
+                </div>
+
+                <div className="flip-model-confusion">
+                  <span>
+                    FLIP richtig
+                    <b>
+                      {
+                        model.ensemble_test_metrics
+                          .confusion.tp
+                      }
+                    </b>
+                  </span>
+                  <span>
+                    FLIP verpasst
+                    <b>
+                      {
+                        model.ensemble_test_metrics
+                          .confusion.fn
+                      }
+                    </b>
+                  </span>
+                  <span>
+                    HOLD richtig
+                    <b>
+                      {
+                        model.ensemble_test_metrics
+                          .confusion.tn
+                      }
+                    </b>
+                  </span>
+                  <span>
+                    Falsche FLIPs
+                    <b>
+                      {
+                        model.ensemble_test_metrics
+                          .confusion.fp
+                      }
+                    </b>
+                  </span>
+                </div>
+
+                <div className="flip-ensemble-note">
+                  Das Ensemble ist nur dann besser, wenn seine
+                  <b> finale Test-AUC </b>
+                  über beiden Basis-AUCs liegt. Ein Gewicht von
+                  0 % oder 100 % bedeutet: Im Meta-Abschnitt wurde
+                  keine Mischung besser als eines der Basismodelle.
+                </div>
               </div>
-              <div className="flip-ensemble-score">
-                <span>Finale Test-AUC</span>
-                <b>{summary.ensemble_ki_model.ensemble_test_metrics.auc?.toFixed(3) ?? "–"}</b>
-              </div>
-              <div className="flip-model-metrics">
-                <div><span>Feature-Basis</span><b>{summary.ensemble_ki_model.feature_test_metrics.auc?.toFixed(3) ?? "–"}</b></div>
-                <div><span>Raw-Basis</span><b>{summary.ensemble_ki_model.raw_test_metrics.auc?.toFixed(3) ?? "–"}</b></div>
-                <div><span>Feature-Gewicht</span><b>{(summary.ensemble_ki_model.feature_weight*100).toFixed(0)} %</b></div>
-                <div><span>Raw-Gewicht</span><b>{(summary.ensemble_ki_model.raw_weight*100).toFixed(0)} %</b></div>
-                <div><span>Accuracy</span><b>{(summary.ensemble_ki_model.ensemble_test_metrics.accuracy*100).toFixed(1)} %</b></div>
-                <div><span>FLIP-Präzision</span><b>{(summary.ensemble_ki_model.ensemble_test_metrics.precision*100).toFixed(1)} %</b></div>
-              </div>
+            );
+          })() : (
+            <div className="flip-model-empty ensemble">
+              <strong>V8.1 · NOCH KEIN ENSEMBLE</strong>
+              <span>
+                „ENSEMBLE TRAINIEREN“ nutzt 5000 Kerzen und
+                bewertet Feature, Raw und Mischung auf demselben
+                finalen Testabschnitt.
+              </span>
             </div>
-          ) : (
-            <div className="flip-model-empty ensemble"><strong>V8 · NOCH KEIN ENSEMBLE</strong><span>ENSEMBLE TRAINIEREN startet den strengen 60/20/20-Test.</span></div>
           )}
 
           {summary?.model_comparison && (
@@ -1281,13 +1453,80 @@ export default function FlipKi() {
               </div>
               <small>{formatTime(selected.time)}</small>
 
-              {selected.ensemble_ki_prediction && (
-                <div className={`flip-ki-prediction ensemble ${selected.ensemble_ki_prediction.prediction}`}>
-                  <div><span>ENSEMBLE-ENTSCHEIDUNG</span><strong>{selected.ensemble_ki_prediction.prediction.toUpperCase()}</strong></div>
-                  <div><span>FLIP-Wahrscheinlichkeit</span><b>{(selected.ensemble_ki_prediction.probability_flip*100).toFixed(1)} %</b></div>
-                  <small>Feature {(selected.ensemble_ki_prediction.feature_probability*100).toFixed(1)} % · Raw {(selected.ensemble_ki_prediction.raw_probability*100).toFixed(1)} %</small>
-                </div>
-              )}
+              {selected.ensemble_ki_prediction && (() => {
+                const ensemble =
+                  selected.ensemble_ki_prediction;
+                const featureSide = predictionSide(
+                  ensemble.feature_probability,
+                );
+                const rawSide = predictionSide(
+                  ensemble.raw_probability,
+                );
+                const ensembleSide =
+                  predictionSide(
+                    ensemble.probability_flip,
+                  );
+                const gap = Math.abs(
+                  ensemble.feature_probability -
+                    ensemble.raw_probability,
+                );
+                const agreement =
+                  featureSide === rawSide;
+
+                return (
+                  <div
+                    className={`flip-ki-prediction ensemble ${ensemble.prediction}`}
+                  >
+                    <div>
+                      <span>ENSEMBLE-ENTSCHEIDUNG</span>
+                      <strong>{ensembleSide}</strong>
+                    </div>
+                    <div>
+                      <span>Ensemble FLIP</span>
+                      <b>
+                        {(
+                          ensemble.probability_flip * 100
+                        ).toFixed(1)} %
+                      </b>
+                    </div>
+
+                    <div className="flip-consensus-grid">
+                      <span>Feature-KI</span>
+                      <b>
+                        {(
+                          ensemble.feature_probability *
+                          100
+                        ).toFixed(1)} % · {featureSide}
+                      </b>
+
+                      <span>Raw-KI</span>
+                      <b>
+                        {(
+                          ensemble.raw_probability * 100
+                        ).toFixed(1)} % · {rawSide}
+                      </b>
+
+                      <span>Modellabstand</span>
+                      <b>{(gap * 100).toFixed(1)} Punkte</b>
+
+                      <span>Konsens</span>
+                      <b>
+                        {agreement
+                          ? `JA · beide ${featureSide}`
+                          : "NEIN · Widerspruch"}
+                      </b>
+                    </div>
+
+                    <small>
+                      Historischer Lehrer:{" "}
+                      {selected.label.toUpperCase()} ·{" "}
+                      {ensemble.agrees_with_teacher
+                        ? "Ensemble stimmt überein."
+                        : "Ensemble widerspricht."}
+                    </small>
+                  </div>
+                );
+              })()}
 
               {selected.ki_prediction && (
                 <div
