@@ -346,7 +346,10 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const candidateUrl = new URL("/trainer/flip-lab/strategy-entries", BACKEND_BASE);
+      const candidateUrl = new URL(
+  "/trainer/candidates",
+  BACKEND_BASE,
+);
       candidateUrl.searchParams.set("symbol", symbol);
       candidateUrl.searchParams.set("interval", interval);
       candidateUrl.searchParams.set("limit", "2500");
