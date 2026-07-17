@@ -266,6 +266,23 @@ type WalkForwardResult = {
   folds: WalkForwardFold[];
 };
 
+type V12Decision = {
+  time: number; price: number; action: "long" | "short" | "hold";
+  probability_long: number; probability_short: number; confidence: number;
+  fold: number; selected_model: "feature" | "raw"; teacher_side: "long" | "short";
+  future_move_atr: number;
+};
+
+type V12Result = {
+  architecture: string; trained_at: string; row_count: number; fold_count: number;
+  initial_train_count: number; aggregate_test_auc: number | null;
+  settings: { horizon_bars: number; stride: number; cost_atr: number; hold_band: number; lookahead_free_oos: boolean };
+  oos_decisions: V12Decision[];
+  counts: { long: number; short: number; hold: number; total: number };
+  replay: WalkForwardReplay & { average_holding_bars?: number };
+  folds: Array<{ fold:number; fit_count:number; validation_count:number; test_count:number; selected_model:"feature"|"raw"; feature_validation_auc:number|null; raw_validation_auc:number|null; test_auc:number|null; test_time_from:number|null; test_time_to:number|null }>;
+};
+
 type OptimizerResponse = {
   ok: boolean;
   symbol: string;
@@ -456,6 +473,9 @@ export default function FlipKi() {
   const [ensembleLoading, setEnsembleLoading] = useState(false);
   const [walkForwardLoading, setWalkForwardLoading] = useState(false);
   const [walkForward, setWalkForward] = useState<WalkForwardResult | null>(null);
+  const [v12Loading, setV12Loading] = useState(false);
+  const [v12, setV12] = useState<V12Result | null>(null);
+  const [showV12, setShowV12] = useState(true);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -741,6 +761,32 @@ export default function FlipKi() {
     }
   }
 
+  async function runV12() {
+    setV12Loading(true);
+    setError("");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/trainer/flip-lab/v12-candle-walk-forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol, interval, limit: 5000, cost_atr: costAtr,
+          fold_count: 4, horizon_bars: 8, hold_band: 0.08, stride: 2,
+        }),
+      });
+      const text = await response.text();
+      let payload: any;
+      try { payload = JSON.parse(text); } catch { throw new Error(text || `HTTP ${response.status}`); }
+      if (!response.ok || !payload?.ok) throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
+      setV12(payload.result);
+      setShowV12(true);
+    } catch (exception: any) {
+      setV12(null);
+      setError(exception?.message || String(exception));
+    } finally {
+      setV12Loading(false);
+    }
+  }
+
   async function optimize() {
     setOptimizing(true);
     setError("");
@@ -876,9 +922,21 @@ export default function FlipKi() {
         }))
       : [];
 
+    const v12Markers = showV12
+      ? (v12?.oos_decisions || [])
+          .filter((item) => item.action !== "hold")
+          .map((item) => ({
+            time: item.time as Time,
+            position: item.action === "short" ? "aboveBar" : "belowBar",
+            shape: item.action === "short" ? "arrowDown" : "arrowUp",
+            color: item.action === "short" ? "#f43f5e" : "#38bdf8",
+            text: `V12 ${item.action.toUpperCase()} ${(item.confidence * 100).toFixed(0)}%`,
+          }))
+      : [];
+
     createSeriesMarkers(
       series,
-      [...teacherMarkers, ...kiMarkers]
+      [...teacherMarkers, ...kiMarkers, ...v12Markers]
         .sort((left, right) => Number(left.time) - Number(right.time)) as any,
     );
     chart.timeScale().fitContent();
@@ -887,7 +945,7 @@ export default function FlipKi() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, decisions, showHold, showKiDecisions, walkForward]);
+  }, [candles, decisions, showHold, showKiDecisions, walkForward, showV12, v12]);
 
   function choose(item: FlipDecision) {
     setSelected(item);
@@ -980,6 +1038,21 @@ export default function FlipKi() {
             />
             <span>KI-Entscheidungen</span>
           </label>
+          <label className="flip-hold-toggle">
+            <input
+              type="checkbox"
+              checked={showV12}
+              onChange={(event) => setShowV12(event.target.checked)}
+            />
+            <span>V12 anzeigen</span>
+          </label>
+          <button
+            className="flip-v12-button"
+            onClick={() => void runV12()}
+            disabled={v12Loading || loading}
+          >
+            {v12Loading ? "V12 LÄUFT …" : "V12 CANDLE-KI"}
+          </button>
           <button
             className="flip-model-button"
             onClick={() => void trainModel()}
@@ -1255,6 +1328,28 @@ export default function FlipKi() {
                 Klick auf eine Kombination übernimmt die Werte.
                 Danach „Neu berechnen“ drücken.
               </small>
+            </div>
+          )}
+
+          {v12 && (
+            <div className="flip-v12-card">
+              <div className="flip-model-title">
+                <div><strong>V12 · CANDLE DECISION ENGINE</strong><small>Jede zweite Kerze · ausschließlich ungesehene Walk-Forward-Abschnitte</small></div>
+                <span>AKTIV</span>
+              </div>
+              <div className="flip-v12-score"><span>OOS-AUC Richtung</span><b>{aucText(v12.aggregate_test_auc)}</b></div>
+              <div className="flip-phase-b-counts">
+                <span>LONG <b>{v12.counts.long}</b></span><span>SHORT <b>{v12.counts.short}</b></span><span>HOLD <b>{v12.counts.hold}</b></span><span>Gesamt <b>{v12.counts.total}</b></span>
+              </div>
+              <div className="flip-walk-compare">
+                <strong>EIGENER KI-POSITIONSREPLAY</strong><span></span><b>V12</b><b></b>
+                <span>Trades</span><b>{v12.replay.trade_count}</b><b></b>
+                <span>Netto</span><b>{signed(v12.replay.net_points)}</b><b></b>
+                <span>Profit Factor</span><b>{v12.replay.profit_factor == null ? "∞" : v12.replay.profit_factor.toFixed(2)}</b><b></b>
+                <span>Winrate</span><b>{v12.replay.win_rate_pct.toFixed(1)} %</b><b></b>
+                <span>Max DD</span><b>-{v12.replay.max_drawdown_points.toFixed(1)}</b><b></b>
+              </div>
+              <div className="flip-ensemble-note">Horizont {v12.settings.horizon_bars} Kerzen · HOLD-Zone ±{(v12.settings.hold_band*100).toFixed(0)} % · keine Strategie-Entries, keine Orders.</div>
             </div>
           )}
 
