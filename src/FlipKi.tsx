@@ -346,7 +346,7 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const candidateUrl = new URL("/trainer/candidates", BACKEND_BASE);
+      const candidateUrl = new URL("/trainer/flip-lab/strategy-entries", BACKEND_BASE);
       candidateUrl.searchParams.set("symbol", symbol);
       candidateUrl.searchParams.set("interval", interval);
       candidateUrl.searchParams.set("limit", "2500");
@@ -374,6 +374,7 @@ export default function FlipKi() {
           body: JSON.stringify({
             symbol,
             interval,
+            limit: 2500,
             candidates,
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
@@ -415,7 +416,7 @@ export default function FlipKi() {
 
   sourceUrl.searchParams.set("symbol", symbol);
   sourceUrl.searchParams.set("interval", interval);
-  sourceUrl.searchParams.set("limit", "10000");
+  sourceUrl.searchParams.set("limit", "2500");
 
   const response = await fetch(sourceUrl, {
     cache: "no-store",
@@ -448,6 +449,7 @@ export default function FlipKi() {
           body: JSON.stringify({
             symbol,
             interval,
+            limit: 2500,
             candidates,
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
@@ -482,14 +484,52 @@ export default function FlipKi() {
   }
 
   async function trainRawModel() {
-    setRawModelLoading(true); setError("");
+    setRawModelLoading(true);
+    setError("");
+
     try {
       const candidates = await loadTrainingCandidates();
-      const response=await fetch(`${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,candidates,cost_atr:costAtr,minimum_advantage_atr:minimumAdvantageAtr,test_fraction:0.25})});
-      const text=await response.text(); let payload:any; try{payload=JSON.parse(text)}catch{throw new Error(text||`HTTP ${response.status}`)}
-      if(!response.ok||!payload?.ok) throw new Error(payload?.details||payload?.error||`HTTP ${response.status}`);
+
+      const response = await fetch(
+        `${BACKEND_BASE}/trainer/flip-lab/train-raw-model`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol,
+            interval,
+            limit: 2500,
+            candidates,
+            cost_atr: costAtr,
+            minimum_advantage_atr: minimumAdvantageAtr,
+            test_fraction: 0.25,
+          }),
+        },
+      );
+
+      const text = await response.text();
+      let payload: any;
+
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.details ||
+          payload?.error ||
+          `HTTP ${response.status}`,
+        );
+      }
+
       await load();
-    } catch(exception:any){setError(exception?.message||String(exception))} finally{setRawModelLoading(false)}
+    } catch (exception: any) {
+      setError(exception?.message || String(exception));
+    } finally {
+      setRawModelLoading(false);
+    }
   }
 
   async function optimize() {
