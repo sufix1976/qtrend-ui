@@ -322,6 +322,13 @@ function featureLabel(key: string) {
     energy: "Energy",
     structure: "Structure",
     macd_histogram_speed: "Histogramm Speed",
+    adx: "ADX",
+    plus_di: "+DI",
+    minus_di: "-DI",
+    adx_delta_1: "ADX Δ1",
+    adx_delta_3: "ADX Δ3",
+    di_difference: "DI Differenz",
+    di_strength: "DI Stärke",
   };
   return labels[key] || key;
 }
@@ -1745,6 +1752,13 @@ export default function FlipKi() {
                   "energy",
                   "structure",
                   "macd_histogram_speed",
+                  "adx",
+                  "plus_di",
+                  "minus_di",
+                  "adx_delta_1",
+                  "adx_delta_3",
+                  "di_difference",
+                  "di_strength",
                 ].map((key) => (
                   <div key={key}>
                     <span>{featureLabel(key)}</span>
