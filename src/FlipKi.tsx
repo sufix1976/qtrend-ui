@@ -413,7 +413,7 @@ export default function FlipKi() {
 
   async function loadTrainingCandidates() {
   const sourceUrl = new URL(
-    "/trainer/flip-lab/strategy-entries",
+    "/trainer/candidates",
     BACKEND_BASE,
   );
 
