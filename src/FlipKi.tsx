@@ -433,7 +433,7 @@ export default function FlipKi() {
     }
   }
 
-  async function loadTrainingCandidates() {
+  async function loadTrainingCandidates(limit = 2500) {
   const sourceUrl = new URL(
     "/trainer/flip-lab/strategy-entries",
     BACKEND_BASE,
@@ -441,7 +441,7 @@ export default function FlipKi() {
 
   sourceUrl.searchParams.set("symbol", symbol);
   sourceUrl.searchParams.set("interval", interval);
-  sourceUrl.searchParams.set("limit", "2500");
+  sourceUrl.searchParams.set("limit", String(limit));
 
   const response = await fetch(sourceUrl, {
     cache: "no-store",
@@ -561,14 +561,14 @@ export default function FlipKi() {
     setEnsembleLoading(true);
     setError("");
     try {
-      const candidates = await loadTrainingCandidates();
+      const candidates = await loadTrainingCandidates(5000);
       const response = await fetch(
         `${BACKEND_BASE}/trainer/flip-lab/train-ensemble`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            symbol, interval, limit: 2500, candidates,
+            symbol, interval, limit: 5000, candidates,
             cost_atr: costAtr,
             minimum_advantage_atr: minimumAdvantageAtr,
           }),
