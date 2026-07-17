@@ -78,6 +78,7 @@ type FlipDecision = {
   feature_snapshot?: Record<string, any>;
   ki_prediction?: KiPrediction | null;
   raw_ki_prediction?: KiPrediction | null;
+  ensemble_ki_prediction?: EnsemblePrediction | null;
 };
 
 type KiMetrics = {
@@ -118,6 +119,28 @@ type KiPrediction = {
   prediction: "flip" | "hold";
   threshold: number;
   agrees_with_teacher: boolean;
+};
+
+type EnsemblePrediction = KiPrediction & {
+  feature_probability: number;
+  raw_probability: number;
+};
+
+type EnsembleModel = {
+  architecture: string;
+  trained_at: string;
+  row_count: number;
+  base_train_count: number;
+  meta_train_count: number;
+  test_count: number;
+  feature_weight: number;
+  raw_weight: number;
+  meta_auc: number | null;
+  feature_test_metrics: KiMetrics;
+  raw_test_metrics: KiMetrics;
+  ensemble_test_metrics: KiMetrics;
+  test_time_from: number | null;
+  test_time_to: number | null;
 };
 
 type FlipFeatureStatistic = {
@@ -208,6 +231,7 @@ type FlipLabResponse = {
   };
   ki_model?: FlipKiModel | null;
   raw_ki_model?: FlipKiModel | null;
+  ensemble_ki_model?: EnsembleModel | null;
   model_comparison?: { feature_auc: number | null; raw_auc: number | null; winner: "feature" | "raw" | "tie" } | null;
   feature_statistics?: FlipFeatureStatistics;
   feature_dataset?: {
@@ -307,6 +331,7 @@ export default function FlipKi() {
   const [optimizing, setOptimizing] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
   const [rawModelLoading, setRawModelLoading] = useState(false);
+  const [ensembleLoading, setEnsembleLoading] = useState(false);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -346,10 +371,7 @@ export default function FlipKi() {
     setLoading(true);
     setError("");
     try {
-      const candidateUrl = new URL(
-  "/trainer/candidates",
-  BACKEND_BASE,
-);
+      const candidateUrl = new URL("/trainer/flip-lab/strategy-entries", BACKEND_BASE);
       candidateUrl.searchParams.set("symbol", symbol);
       candidateUrl.searchParams.set("interval", interval);
       candidateUrl.searchParams.set("limit", "2500");
@@ -413,7 +435,7 @@ export default function FlipKi() {
 
   async function loadTrainingCandidates() {
   const sourceUrl = new URL(
-    "/trainer/candidates",
+    "/trainer/flip-lab/strategy-entries",
     BACKEND_BASE,
   );
 
@@ -532,6 +554,38 @@ export default function FlipKi() {
       setError(exception?.message || String(exception));
     } finally {
       setRawModelLoading(false);
+    }
+  }
+
+  async function trainEnsemble() {
+    setEnsembleLoading(true);
+    setError("");
+    try {
+      const candidates = await loadTrainingCandidates();
+      const response = await fetch(
+        `${BACKEND_BASE}/trainer/flip-lab/train-ensemble`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol, interval, limit: 2500, candidates,
+            cost_atr: costAtr,
+            minimum_advantage_atr: minimumAdvantageAtr,
+          }),
+        },
+      );
+      const text = await response.text();
+      let payload: any;
+      try { payload = JSON.parse(text); }
+      catch { throw new Error(text || `HTTP ${response.status}`); }
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
+      }
+      await load();
+    } catch (exception: any) {
+      setError(exception?.message || String(exception));
+    } finally {
+      setEnsembleLoading(false);
     }
   }
 
@@ -760,6 +814,13 @@ export default function FlipKi() {
           </button>
           <button className="flip-raw-model-button" onClick={() => void trainRawModel()} disabled={rawModelLoading || loading}>
             {rawModelLoading ? "RAW KI LERNT …" : "RAW KI TRAINIEREN"}
+          </button>
+          <button
+            className="flip-ensemble-button"
+            onClick={() => void trainEnsemble()}
+            disabled={ensembleLoading || loading}
+          >
+            {ensembleLoading ? "ENSEMBLE LERNT …" : "ENSEMBLE TRAINIEREN"}
           </button>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
@@ -1015,6 +1076,29 @@ export default function FlipKi() {
             </div>
           )}
 
+          {summary?.ensemble_ki_model ? (
+            <div className="flip-ensemble-card">
+              <div className="flip-model-title">
+                <div><strong>V8 · META-ENSEMBLE</strong><small>60 % Basis · 20 % Meta · 20 % finaler Test</small></div>
+                <span>AKTIV</span>
+              </div>
+              <div className="flip-ensemble-score">
+                <span>Finale Test-AUC</span>
+                <b>{summary.ensemble_ki_model.ensemble_test_metrics.auc?.toFixed(3) ?? "–"}</b>
+              </div>
+              <div className="flip-model-metrics">
+                <div><span>Feature-Basis</span><b>{summary.ensemble_ki_model.feature_test_metrics.auc?.toFixed(3) ?? "–"}</b></div>
+                <div><span>Raw-Basis</span><b>{summary.ensemble_ki_model.raw_test_metrics.auc?.toFixed(3) ?? "–"}</b></div>
+                <div><span>Feature-Gewicht</span><b>{(summary.ensemble_ki_model.feature_weight*100).toFixed(0)} %</b></div>
+                <div><span>Raw-Gewicht</span><b>{(summary.ensemble_ki_model.raw_weight*100).toFixed(0)} %</b></div>
+                <div><span>Accuracy</span><b>{(summary.ensemble_ki_model.ensemble_test_metrics.accuracy*100).toFixed(1)} %</b></div>
+                <div><span>FLIP-Präzision</span><b>{(summary.ensemble_ki_model.ensemble_test_metrics.precision*100).toFixed(1)} %</b></div>
+              </div>
+            </div>
+          ) : (
+            <div className="flip-model-empty ensemble"><strong>V8 · NOCH KEIN ENSEMBLE</strong><span>ENSEMBLE TRAINIEREN startet den strengen 60/20/20-Test.</span></div>
+          )}
+
           {summary?.model_comparison && (
             <div className="flip-ab-card">
               <strong>V7 · A/B-TEST</strong>
@@ -1196,6 +1280,14 @@ export default function FlipKi() {
                 <b>{selected.label.toUpperCase()}</b>
               </div>
               <small>{formatTime(selected.time)}</small>
+
+              {selected.ensemble_ki_prediction && (
+                <div className={`flip-ki-prediction ensemble ${selected.ensemble_ki_prediction.prediction}`}>
+                  <div><span>ENSEMBLE-ENTSCHEIDUNG</span><strong>{selected.ensemble_ki_prediction.prediction.toUpperCase()}</strong></div>
+                  <div><span>FLIP-Wahrscheinlichkeit</span><b>{(selected.ensemble_ki_prediction.probability_flip*100).toFixed(1)} %</b></div>
+                  <small>Feature {(selected.ensemble_ki_prediction.feature_probability*100).toFixed(1)} % · Raw {(selected.ensemble_ki_prediction.raw_probability*100).toFixed(1)} %</small>
+                </div>
+              )}
 
               {selected.ki_prediction && (
                 <div

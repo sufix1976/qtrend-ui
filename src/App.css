@@ -795,3 +795,11 @@
 .flip-ki-prediction small{display:block;color:#7189a0;font-size:7px}
 
 .flip-raw-model-button{border-color:#7c3aed!important;background:#5b21b6!important;color:#fff!important}.flip-model-card.raw{border-color:#7c3aed}.flip-model-empty.raw{border-color:#6d28d9}.flip-ki-prediction.raw{background:#100b24}.flip-ab-card{padding:10px;border:1px solid #a16207;border-radius:8px;background:#181208;display:grid;grid-template-columns:1fr auto;gap:6px}.flip-ab-card strong{color:#fbbf24;font-size:9px}.flip-ab-card span{color:#9ca3af;font-size:8px}.flip-ab-card>div{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:5px 10px;padding:6px;background:#0c111b}.flip-ab-card b{color:#fff}
+
+/* V8 Meta Ensemble */
+.flip-ensemble-button{border-color:#0891b2!important;background:#0e7490!important;color:#fff!important}
+.flip-ensemble-card{padding:10px;border:1px solid #06b6d4;border-radius:8px;background:#071c29}
+.flip-model-empty.ensemble{border-color:#0891b2}
+.flip-ensemble-score{display:flex;justify-content:space-between;align-items:center;margin:7px 0;padding:8px;border-radius:6px;background:#052f3e}
+.flip-ensemble-score span{color:#8bb8c6;font-size:8px}.flip-ensemble-score b{color:#67e8f9;font-size:20px}
+.flip-ki-prediction.ensemble{background:#052430;border-color:#06b6d4}
