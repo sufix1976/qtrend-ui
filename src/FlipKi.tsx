@@ -200,6 +200,50 @@ type MatrixRow = {
   metrics: FlipMetrics;
 };
 
+type WalkForwardReplay = {
+  trade_count: number;
+  net_points: number;
+  profit_factor: number | null;
+  win_rate_pct: number;
+  max_drawdown_points: number;
+  average_trade_points: number;
+  flip_count: number;
+  hold_count: number;
+};
+
+type WalkForwardFold = {
+  fold: number;
+  fit_count: number;
+  validation_count: number;
+  test_count: number;
+  selected_model: "feature" | "raw";
+  feature_validation_auc: number | null;
+  raw_validation_auc: number | null;
+  threshold: number;
+  test_auc: number | null;
+  test_metrics: KiMetrics;
+  model_replay: WalkForwardReplay;
+  all_flip_replay: WalkForwardReplay;
+  teacher_replay: WalkForwardReplay;
+  test_time_from: number | null;
+  test_time_to: number | null;
+};
+
+type WalkForwardResult = {
+  architecture: string;
+  trained_at: string;
+  row_count: number;
+  fold_count: number;
+  initial_train_count: number;
+  aggregate_test_auc: number | null;
+  aggregate_test_metrics: KiMetrics;
+  selected_models: { feature: number; raw: number };
+  model_replay: WalkForwardReplay;
+  all_flip_replay: WalkForwardReplay;
+  teacher_replay: WalkForwardReplay;
+  folds: WalkForwardFold[];
+};
+
 type OptimizerResponse = {
   ok: boolean;
   symbol: string;
@@ -372,6 +416,8 @@ export default function FlipKi() {
   const [modelLoading, setModelLoading] = useState(false);
   const [rawModelLoading, setRawModelLoading] = useState(false);
   const [ensembleLoading, setEnsembleLoading] = useState(false);
+  const [walkForwardLoading, setWalkForwardLoading] = useState(false);
+  const [walkForward, setWalkForward] = useState<WalkForwardResult | null>(null);
   const [selected, setSelected] = useState<FlipDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -629,6 +675,34 @@ export default function FlipKi() {
     }
   }
 
+  async function runWalkForward() {
+    setWalkForwardLoading(true);
+    setError("");
+    try {
+      const candidates = await loadTrainingCandidates(5000);
+      const response = await fetch(`${BACKEND_BASE}/trainer/flip-lab/walk-forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol, interval, limit: 5000, candidates,
+          cost_atr: costAtr,
+          minimum_advantage_atr: minimumAdvantageAtr,
+          fold_count: 4,
+        }),
+      });
+      const text = await response.text();
+      let payload: any;
+      try { payload = JSON.parse(text); } catch { throw new Error(text || `HTTP ${response.status}`); }
+      if (!response.ok || !payload?.ok) throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
+      setWalkForward(payload.result);
+    } catch (exception: any) {
+      setWalkForward(null);
+      setError(exception?.message || String(exception));
+    } finally {
+      setWalkForwardLoading(false);
+    }
+  }
+
   async function optimize() {
     setOptimizing(true);
     setError("");
@@ -861,6 +935,13 @@ export default function FlipKi() {
             disabled={ensembleLoading || loading}
           >
             {ensembleLoading ? "ENSEMBLE LERNT …" : "ENSEMBLE TRAINIEREN"}
+          </button>
+          <button
+            className="flip-walk-forward-button"
+            onClick={() => void runWalkForward()}
+            disabled={walkForwardLoading || loading}
+          >
+            {walkForwardLoading ? "WALK-FORWARD LÄUFT …" : "WALK-FORWARD TEST"}
           </button>
           <button onClick={() => void load()} disabled={loading}>
             {loading ? "BERECHNET …" : "NEU BERECHNEN"}
@@ -1113,6 +1194,48 @@ export default function FlipKi() {
                 Klick auf eine Kombination übernimmt die Werte.
                 Danach „Neu berechnen“ drücken.
               </small>
+            </div>
+          )}
+
+          {walkForward && (
+            <div className="flip-walk-forward-card">
+              <div className="flip-model-title">
+                <div>
+                  <strong>V9 · KI-WALK-FORWARD</strong>
+                  <small>4 expandierende Folds · jeder Testabschnitt ungesehen</small>
+                </div>
+                <span>FERTIG</span>
+              </div>
+              <div className="flip-walk-score">
+                <span>Gesamt-AUC · alle ungesehenen Folds</span>
+                <b>{aucText(walkForward.aggregate_test_auc)}</b>
+              </div>
+              <div className="flip-walk-models">
+                <span>Gewähltes Modell</span>
+                <b>Feature {walkForward.selected_models.feature}× · Raw {walkForward.selected_models.raw}×</b>
+              </div>
+              <div className="flip-walk-compare">
+                <strong>UNGesehener ENTSCHEIDUNGS-REPLAY</strong>
+                <span></span><b>KI</b><b>Alle Flips</b>
+                <span>Trades</span><b>{walkForward.model_replay.trade_count}</b><b>{walkForward.all_flip_replay.trade_count}</b>
+                <span>Netto</span><b>{signed(walkForward.model_replay.net_points)}</b><b>{signed(walkForward.all_flip_replay.net_points)}</b>
+                <span>Profit Factor</span><b>{walkForward.model_replay.profit_factor == null ? "∞" : walkForward.model_replay.profit_factor.toFixed(2)}</b><b>{walkForward.all_flip_replay.profit_factor == null ? "∞" : walkForward.all_flip_replay.profit_factor.toFixed(2)}</b>
+                <span>Winrate</span><b>{walkForward.model_replay.win_rate_pct.toFixed(1)} %</b><b>{walkForward.all_flip_replay.win_rate_pct.toFixed(1)} %</b>
+                <span>Max DD</span><b>-{walkForward.model_replay.max_drawdown_points.toFixed(1)}</b><b>-{walkForward.all_flip_replay.max_drawdown_points.toFixed(1)}</b>
+              </div>
+              <div className="flip-walk-folds">
+                {walkForward.folds.map((fold) => (
+                  <div key={fold.fold}>
+                    <strong>Fold {fold.fold}</strong>
+                    <span>{fold.selected_model === "raw" ? "RAW" : "FEATURE"} · Schwelle {fold.threshold.toFixed(2)}</span>
+                    <b>AUC {aucText(fold.test_auc)}</b>
+                    <small>Test {fold.test_count} · KI PF {fold.model_replay.profit_factor == null ? "∞" : fold.model_replay.profit_factor.toFixed(2)} · Alle PF {fold.all_flip_replay.profit_factor == null ? "∞" : fold.all_flip_replay.profit_factor.toFixed(2)}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="flip-ensemble-note">
+                Das ist ein chronologischer, ungesehener Entscheidungs-Replay – kein Live-Ordertest. Parameter werden während des Tests nicht nachoptimiert.
+              </div>
             </div>
           )}
 
