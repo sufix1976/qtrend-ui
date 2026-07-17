@@ -337,15 +337,6 @@ function featureLabel(key: string) {
     bb_mid_distance: "BB Mitte Distanz",
     bb_outside_upper: "Über oberem Band",
     bb_outside_lower: "Unter unterem Band",
-    htf_trend: "HTF Trend",
-    htf_trend_delta: "HTF Trend Δ",
-    htf_momentum: "HTF Momentum",
-    htf_momentum_delta: "HTF Momentum Δ",
-    htf_macd_histogram: "HTF MACD Histogramm",
-    htf_macd_slope: "HTF MACD Steigung",
-    htf_macd_direction: "HTF MACD Richtung",
-    htf_structure: "HTF Structure",
-    htf_atr: "HTF ATR",
   };
   return labels[key] || key;
 }
@@ -1784,15 +1775,6 @@ export default function FlipKi() {
                   "bb_mid_distance",
                   "bb_outside_upper",
                   "bb_outside_lower",
-                  "htf_trend",
-                  "htf_trend_delta",
-                  "htf_momentum",
-                  "htf_momentum_delta",
-                  "htf_macd_histogram",
-                  "htf_macd_slope",
-                  "htf_macd_direction",
-                  "htf_structure",
-                  "htf_atr",
                 ].map((key) => (
                   <div key={key}>
                     <span>{featureLabel(key)}</span>
