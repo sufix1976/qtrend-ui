@@ -97,6 +97,7 @@ export default function FlipKi() {
   const [showReviewed, setShowReviewed] = useState(true);
   const chartHost = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const visibleRangeRef = useRef<any>(null);
 
   const candles = data?.candles || [];
   const markers = data?.markers || [];
@@ -147,6 +148,8 @@ export default function FlipKi() {
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+      visibleRangeRef.current =
+  chartRef.current?.timeScale().getVisibleLogicalRange() || null;
       await load();
       const index = markers.findIndex((item) => item.marker_id === selected.marker_id);
       const next = markers[index + 1];
@@ -226,7 +229,13 @@ export default function FlipKi() {
       if (nearest) setSelected(nearest);
     });
 
-    chart.timeScale().fitContent();
+    if (visibleRangeRef.current) {
+  chart.timeScale().setVisibleLogicalRange(
+    visibleRangeRef.current,
+  );
+} else {
+  chart.timeScale().fitContent();
+}
     chartRef.current = chart;
     return () => { chart.remove(); chartRef.current = null; };
   }, [candles, markers, annotationMap, selected?.marker_id, showReviewed]);
