@@ -73,6 +73,15 @@ type GuardianProofMetrics = {
   confusion: { tp: number; tn: number; fp: number; fn: number };
 };
 
+type GuardianProofDecision = {
+  time: number;
+  side: MarkerSide;
+  actual: "good" | "bad";
+  probability_good: number;
+  action: "allow" | "block";
+  correct: boolean;
+};
+
 type GuardianProofResponse = {
   ok: boolean;
   version: string;
@@ -90,6 +99,7 @@ type GuardianProofResponse = {
   guardian: { allowed: number; blocked: number; bad_blocked: number; good_lost: number; good_allowed: number; bad_allowed: number };
   feature_count: number;
   importance: Array<{ feature: string; coefficient: number; absolute_coefficient: number }>;
+  decisions: GuardianProofDecision[];
   note: string;
   error?: string;
   details?: string;
@@ -182,6 +192,8 @@ export default function FlipKi() {
   const [showReviewed, setShowReviewed] = useState(true);
   const [proofLoading, setProofLoading] = useState(false);
   const [proof, setProof] = useState<GuardianProofResponse | null>(null);
+  const [showGuardianDecisions, setShowGuardianDecisions] = useState(true);
+  const [showGuardianErrorsOnly, setShowGuardianErrorsOnly] = useState(false);
   const chartHost = useRef<HTMLDivElement | null>(null);
   const macdHost = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -192,6 +204,8 @@ export default function FlipKi() {
   const markers = data?.markers || [];
   const annotationMap = data?.annotation_map || {};
   const selectedAnnotation = selected ? annotationMap[`${selected.time}:${selected.side}`] : undefined;
+  const proofDecisionMap = useMemo(() => Object.fromEntries((proof?.decisions || []).map((item) => [`${item.time}:${item.side}`, item])), [proof]);
+  const selectedProofDecision = selected ? proofDecisionMap[`${selected.time}:${selected.side}`] as GuardianProofDecision | undefined : undefined;
 
   async function load() {
     setLoading(true);
@@ -316,7 +330,7 @@ export default function FlipKi() {
     series.setData(candles.map((item) => ({ ...item, time: item.time as Time })));
 
     const visibleMarkers = markers.filter((item) => showReviewed || !annotationMap[`${item.time}:${item.side}`]);
-    createSeriesMarkers(series, visibleMarkers.map((item) => {
+    const baseMarkers = visibleMarkers.map((item) => {
       const annotation = annotationMap[`${item.time}:${item.side}`];
       const isSelected = selected?.marker_id === item.marker_id;
       const color = annotation?.label === "good" ? "#22c55e" : annotation?.label === "bad" ? "#ef4444" : annotation?.label === "unsure" ? "#f59e0b" : "#38bdf8";
@@ -328,7 +342,19 @@ export default function FlipKi() {
         color: isSelected ? "#ffffff" : color,
         text,
       };
-    }) as any);
+    });
+    const guardianMarkers = showGuardianDecisions
+      ? (proof?.decisions || [])
+          .filter((item) => !showGuardianErrorsOnly || !item.correct)
+          .map((item) => ({
+            time: item.time as Time,
+            position: item.side === "short" ? "aboveBar" : "belowBar",
+            shape: "circle",
+            color: item.correct ? (item.action === "allow" ? "#22c55e" : "#f59e0b") : "#ef4444",
+            text: `${item.action.toUpperCase()} ${Math.round((item.action === "allow" ? item.probability_good : 1 - item.probability_good) * 100)}%`,
+          }))
+      : [];
+    createSeriesMarkers(series, [...baseMarkers, ...guardianMarkers].sort((left, right) => Number(left.time) - Number(right.time)) as any);
 
     const macdChart = createChart(macdHost.current, {
       height: 180,
@@ -491,13 +517,15 @@ export default function FlipKi() {
     <div className="guardian-page">
       <header className="guardian-header">
         <div>
-          <b>QTrend Strategy Flip Guardian V13.6</b>
+          <b>QTrend Strategy Flip Guardian V13.7</b>
           <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
         <div className="guardian-controls">
           <select value={symbol} onChange={(event) => setSymbol(event.target.value)}>{SYMBOLS.map((item) => <option key={item}>{item}</option>)}</select>
           <select value={interval} onChange={(event) => setInterval(event.target.value)}>{INTERVALS.map((item) => <option key={item}>{item}</option>)}</select>
           <label><input type="checkbox" checked={showReviewed} onChange={(event) => setShowReviewed(event.target.checked)} /> Bewertete anzeigen</label>
+          <label><input type="checkbox" checked={showGuardianDecisions} onChange={(event) => setShowGuardianDecisions(event.target.checked)} disabled={!proof} /> Guardian anzeigen</label>
+          <label><input type="checkbox" checked={showGuardianErrorsOnly} onChange={(event) => setShowGuardianErrorsOnly(event.target.checked)} disabled={!proof || !showGuardianDecisions} /> Nur Fehler</label>
           <button onClick={() => void load()} disabled={loading}>{loading ? "LÄDT …" : "NEU LADEN"}</button>
           <button className="guardian-proof-button" onClick={() => void runProofTest()} disabled={proofLoading || loading}>{proofLoading ? "GUARDIAN LERNT …" : "GUARDIAN PROOF TEST"}</button>
           <button className="scout-button" disabled title="Wird als eigenes, unabhängiges Labor gebaut">KI-SCOUT · EIGENES FENSTER</button>
@@ -525,7 +553,7 @@ export default function FlipKi() {
           {proof && (
             <div className="guardian-proof-card">
               <div className="guardian-proof-head">
-                <div><strong>V13.6 · US30 GUARDIAN PROOF</strong><small>Chronologisch: 70 % Lernen · 30 % ungesehen</small></div>
+                <div><strong>V13.7 · GUARDIAN CHART DECISIONS</strong><small>Chronologisch: 70 % Lernen · 30 % ungesehen</small></div>
                 <b>{(proof.test_metrics.accuracy * 100).toFixed(1)} %</b>
               </div>
               <div className="guardian-proof-grid">
@@ -550,7 +578,7 @@ export default function FlipKi() {
                   <div key={item.feature}><span>{index + 1}. {featureName(item.feature)}</span><b>{item.coefficient >= 0 ? "+" : ""}{item.coefficient.toFixed(3)}</b></div>
                 ))}
               </div>
-              <small className="guardian-proof-note">Das ist der erste ehrliche Label-Test auf ungesehenen Markern. PF und PnL werden hier noch nicht behauptet; V13.6 prüft zuerst, ob deine GOOD/BAD-Entscheidung überhaupt lernbar ist.</small>
+              <small className="guardian-proof-note">Das ist der erste ehrliche Label-Test auf ungesehenen Markern. PF und PnL werden hier noch nicht behauptet; V13.7 zeichnet jede Entscheidung des ungesehenen Testabschnitts direkt in den Chart.</small>
             </div>
           )}
           <div className={`guardian-audit ${auditProblems ? "warning" : "ok"}`}>
@@ -576,6 +604,17 @@ export default function FlipKi() {
                 <span>Status <b>{selectedAnnotation?.label.toUpperCase() || "NOCH OFFEN"}</b></span>
               </div>
 
+
+              {selectedProofDecision && (
+                <div className={`guardian-decision-result ${selectedProofDecision.correct ? "correct" : "wrong"}`}>
+                  <div><strong>GUARDIAN-ENTSCHEIDUNG</strong><b>{selectedProofDecision.action.toUpperCase()}</b></div>
+                  <span>Sicherheit <b>{Math.round((selectedProofDecision.action === "allow" ? selectedProofDecision.probability_good : 1 - selectedProofDecision.probability_good) * 100)} %</b></span>
+                  <span>Deine Bewertung <b>{selectedProofDecision.actual.toUpperCase()}</b></span>
+                  <span>Ergebnis <b>{selectedProofDecision.correct ? "RICHTIG" : "FALSCH"}</b></span>
+                  <small>Nur ungesehener chronologischer Testabschnitt.</small>
+                </div>
+              )}
+
               <div className="guardian-review-buttons">
                 <button className="good" onClick={() => void review("good")} disabled={saving}>GUTER FLIP</button>
                 <button className="bad" onClick={() => void review("bad")} disabled={saving}>SCHLECHTER FLIP</button>
@@ -590,7 +629,7 @@ export default function FlipKi() {
               {sensorTrace && (
                 <div className="guardian-trace">
                   <div className="guardian-trace-head">
-                    <div><strong>V13.6 · GUARDIAN PROOF TEST</strong><small>Kanonischer MACD- und Kerzen-Snapshot aus einer gemeinsamen Backend-Quelle</small></div>
+                    <div><strong>V13.7 · GUARDIAN CHART DECISIONS</strong><small>Kanonischer MACD- und Kerzen-Snapshot aus einer gemeinsamen Backend-Quelle</small></div>
                     <b>{formatTime(sensorTrace.candleTime)}</b>
                   </div>
                   <div className="guardian-trace-columns"><span>Sensor</span><span>Snapshot</span><span>UI berechnet</span><span>Status</span></div>

@@ -23,3 +23,7 @@
 .guardian-proof-importance span { color:#b7c4d4; }
 .guardian-proof-importance b { color:#ddd6fe; }
 .guardian-proof-note { display:block; margin-top:11px; color:#94a3b8; line-height:1.45; }
+
+
+/* V13.7 Guardian chart decisions */
+.guardian-decision-result{border:1px solid #334155;border-left:4px solid #38bdf8;border-radius:10px;background:#07111f;padding:12px;display:grid;grid-template-columns:1fr auto;gap:8px 12px}.guardian-decision-result.correct{border-left-color:#22c55e}.guardian-decision-result.wrong{border-left-color:#ef4444}.guardian-decision-result>div{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}.guardian-decision-result span{display:contents}.guardian-decision-result small{grid-column:1/-1;color:#94a3b8}.guardian-controls label:has(input:disabled){opacity:.45}
