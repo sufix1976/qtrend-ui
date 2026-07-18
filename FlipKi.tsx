@@ -211,26 +211,6 @@ type WalkForwardReplay = {
   hold_count: number;
 };
 
-type WalkForwardDecision = {
-  candidate_id: string;
-  symbol: string;
-  interval: string;
-  time: number;
-  price: number;
-  current_side: "long" | "short";
-  candidate_side: "long" | "short";
-  action: "allow" | "block";
-  resulting_side: "long" | "short";
-  probability_flip: number;
-  probability_hold: number;
-  threshold: number;
-  selected_model: "feature" | "raw";
-  fold: number;
-  teacher_label: "flip" | "hold";
-  correct: boolean;
-  flip_advantage_atr: number;
-};
-
 type WalkForwardFold = {
   fold: number;
   fit_count: number;
@@ -261,8 +241,6 @@ type WalkForwardResult = {
   model_replay: WalkForwardReplay;
   all_flip_replay: WalkForwardReplay;
   teacher_replay: WalkForwardReplay;
-  oos_decisions?: WalkForwardDecision[];
-  oos_counts?: { allow: number; block: number; correct: number; total: number };
   folds: WalkForwardFold[];
 };
 
@@ -344,21 +322,6 @@ function featureLabel(key: string) {
     energy: "Energy",
     structure: "Structure",
     macd_histogram_speed: "Histogramm Speed",
-    adx: "ADX",
-    plus_di: "+DI",
-    minus_di: "-DI",
-    adx_delta_1: "ADX Δ1",
-    adx_delta_3: "ADX Δ3",
-    di_difference: "DI Differenz",
-    di_strength: "DI Stärke",
-    bb_width: "BB Breite",
-    bb_width_norm: "BB Breite / ATR",
-    bb_width_delta_1: "BB Breite Δ1",
-    bb_width_delta_3: "BB Breite Δ3",
-    bb_position: "BB Position",
-    bb_mid_distance: "BB Mitte Distanz",
-    bb_outside_upper: "Über oberem Band",
-    bb_outside_lower: "Unter unterem Band",
   };
   return labels[key] || key;
 }
@@ -445,7 +408,6 @@ export default function FlipKi() {
   const [minimumAdvantageAtr, setMinimumAdvantageAtr] = useState(0.15);
   const [showHold, setShowHold] = useState(true);
   const [showPhases, setShowPhases] = useState(true);
-  const [showKiDecisions, setShowKiDecisions] = useState(true);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [decisions, setDecisions] = useState<FlipDecision[]>([]);
   const [summary, setSummary] = useState<FlipLabResponse | null>(null);
@@ -848,37 +810,22 @@ export default function FlipKi() {
         time: candle.time as Time,
       })),
     );
-    const teacherMarkers = decisions
-      .filter((item) => !showKiDecisions && (showHold || item.label === "flip"))
-      .map((item) => ({
-        time: item.time as Time,
-        position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
-        shape: item.candidate_side === "short" ? "arrowDown" : "arrowUp",
-        color: item.label === "flip" ? "#22c55e" : "#f59e0b",
-        text: item.label === "flip"
-          ? `LABEL FLIP ${signed(item.flip_advantage_atr, 2)} ATR`
-          : `LABEL HOLD ${signed(-item.flip_advantage_atr, 2)} ATR`,
-      }));
-
-    const kiMarkers = showKiDecisions
-      ? (walkForward?.oos_decisions || []).map((item) => ({
-          time: item.time as Time,
-          position: item.candidate_side === "short" ? "aboveBar" : "belowBar",
-          shape: item.action === "allow"
-            ? item.candidate_side === "short" ? "arrowDown" : "arrowUp"
-            : "circle",
-          color: item.action === "allow"
-            ? item.candidate_side === "short" ? "#ef4444" : "#22c55e"
-            : "#f59e0b",
-          text: item.action === "allow"
-            ? `KI ${item.candidate_side.toUpperCase()} ${(item.probability_flip * 100).toFixed(0)}%`
-            : `KI BLOCK ${(item.probability_flip * 100).toFixed(0)}%`,
-        }))
-      : [];
-
     createSeriesMarkers(
       series,
-      [...teacherMarkers, ...kiMarkers]
+      decisions
+        .filter((item) => showHold || item.label === "flip")
+        .map((item) => ({
+          time: item.time as Time,
+          position:
+            item.candidate_side === "short" ? "aboveBar" : "belowBar",
+          shape:
+            item.candidate_side === "short" ? "arrowDown" : "arrowUp",
+          color: item.label === "flip" ? "#22c55e" : "#f59e0b",
+          text:
+            item.label === "flip"
+              ? `FLIP ${signed(item.flip_advantage_atr, 2)} ATR`
+              : `HOLD ${signed(-item.flip_advantage_atr, 2)} ATR`,
+        }))
         .sort((left, right) => Number(left.time) - Number(right.time)) as any,
     );
     chart.timeScale().fitContent();
@@ -887,7 +834,7 @@ export default function FlipKi() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, decisions, showHold, showKiDecisions, walkForward]);
+  }, [candles, decisions, showHold]);
 
   function choose(item: FlipDecision) {
     setSelected(item);
@@ -971,14 +918,6 @@ export default function FlipKi() {
               }
             />
             <span>Positionen anzeigen</span>
-          </label>
-          <label className="flip-hold-toggle">
-            <input
-              type="checkbox"
-              checked={showKiDecisions}
-              onChange={(event) => setShowKiDecisions(event.target.checked)}
-            />
-            <span>KI-Entscheidungen</span>
           </label>
           <button
             className="flip-model-button"
@@ -1262,24 +1201,11 @@ export default function FlipKi() {
             <div className="flip-walk-forward-card">
               <div className="flip-model-title">
                 <div>
-                  <strong>V11 · PHASE B · KI-ENTSCHEIDUNG</strong>
+                  <strong>V9 · KI-WALK-FORWARD</strong>
                   <small>4 expandierende Folds · jeder Testabschnitt ungesehen</small>
                 </div>
                 <span>FERTIG</span>
               </div>
-              {walkForward.oos_counts && (
-                <div className="flip-phase-b-card">
-                  <div>
-                    <strong>PHASE B · KI-ENTSCHEIDUNGEN</strong>
-                    <span>Nur ungesehene Walk-Forward-Punkte</span>
-                  </div>
-                  <div className="flip-phase-b-counts">
-                    <span>ALLOW <b>{walkForward.oos_counts.allow}</b></span>
-                    <span>BLOCK <b>{walkForward.oos_counts.block}</b></span>
-                    <span>Gesamt <b>{walkForward.oos_counts.total}</b></span>
-                  </div>
-                </div>
-              )}
               <div className="flip-walk-score">
                 <span>Gesamt-AUC · alle ungesehenen Folds</span>
                 <b>{aucText(walkForward.aggregate_test_auc)}</b>
@@ -1819,21 +1745,6 @@ export default function FlipKi() {
                   "energy",
                   "structure",
                   "macd_histogram_speed",
-                  "adx",
-                  "plus_di",
-                  "minus_di",
-                  "adx_delta_1",
-                  "adx_delta_3",
-                  "di_difference",
-                  "di_strength",
-                  "bb_width",
-                  "bb_width_norm",
-                  "bb_width_delta_1",
-                  "bb_width_delta_3",
-                  "bb_position",
-                  "bb_mid_distance",
-                  "bb_outside_upper",
-                  "bb_outside_lower",
                 ].map((key) => (
                   <div key={key}>
                     <span>{featureLabel(key)}</span>
