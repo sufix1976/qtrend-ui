@@ -236,11 +236,20 @@ export default function QMomentumLab() {
     priceChart.subscribeClick((param) => {
       let clickedTime: number | null = null;
 
-      const seriesPoint = param.seriesData.get(candleSeries) as { time?: Time } | undefined;
-      if (seriesPoint?.time != null) {
-        clickedTime = Number(seriesPoint.time);
-      } else if (param.time != null) {
-        const rawTime = Number(param.time);
+      // Robusteste Variante: Der logische Chart-Index entspricht dem Index
+      // der sortierten candleSeries-Daten. Das funktioniert auch dann, wenn
+      // Lightweight Charts in param.time kein direkt konvertierbares Datum liefert.
+      if (param.logical != null && Number.isFinite(Number(param.logical))) {
+        const candleIndex = Math.max(
+          0,
+          Math.min(candles.length - 1, Math.round(Number(param.logical))),
+        );
+        clickedTime = candles[candleIndex]?.time ?? null;
+      }
+
+      // Fallback für Versionen, die einen Unix-Zeitstempel liefern.
+      if (clickedTime == null && param.time != null) {
+        const rawTime = typeof param.time === "number" ? param.time : Number(param.time);
         if (Number.isFinite(rawTime)) {
           let nearest = candles[0]?.time ?? null;
           let bestDistance = Number.POSITIVE_INFINITY;
@@ -256,7 +265,7 @@ export default function QMomentumLab() {
       }
 
       if (clickedTime == null) {
-        setMessage("Keine Kerze getroffen. Bitte direkt auf einen Kerzenkörper klicken.");
+        setMessage("Keine Kerze getroffen. Bitte innerhalb des Kerzencharts klicken.");
         return;
       }
 
