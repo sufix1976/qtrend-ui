@@ -315,6 +315,39 @@ function calculateMacd(
   return { macd, signal: signalLine, histogram };
 }
 
+function calculateAtrValues(candles: Candle[], length = 14) {
+  if (!candles.length) return [] as number[];
+
+  const safeLength = Math.max(1, Math.floor(length));
+  const trueRanges = candles.map((candle, index) => {
+    if (index === 0) return Math.max(0, candle.high - candle.low);
+    const previousClose = candles[index - 1].close;
+    return Math.max(
+      candle.high - candle.low,
+      Math.abs(candle.high - previousClose),
+      Math.abs(candle.low - previousClose),
+    );
+  });
+
+  const atr: number[] = [];
+  let current = trueRanges[0] || 0;
+
+  for (let index = 0; index < trueRanges.length; index += 1) {
+    if (index === 0) {
+      current = trueRanges[0] || 0;
+    } else if (index < safeLength) {
+      current =
+        trueRanges.slice(0, index + 1).reduce((sum, value) => sum + value, 0) /
+        (index + 1);
+    } else {
+      current = ((current * (safeLength - 1)) + trueRanges[index]) / safeLength;
+    }
+    atr.push(current);
+  }
+
+  return atr;
+}
+
 function calculateSma(candles: Candle[], length: number) {
   const points: { time: Time; value: number }[] = [];
   const safeLength = Math.max(1, Math.floor(length));
@@ -577,7 +610,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        ATR ist fest auf 14 gesetzt und kein einstellbarer Entry-Regler mehr. Der cyanfarbene MACD-Scout markiert nur Knicke zur Beobachtung und erzeugt keine Orders.
+        ATR ist intern fest auf 14 gesetzt und kein einstellbarer Entry-Regler. Der cyanfarbene MACD-Guard markiert nur relevante Knicke zur Beobachtung und erzeugt keine Orders. Parameteränderungen werden im normalen Chart sofort angewendet.
       </div>
 
       {fields.map(([label, key]) => (
@@ -587,17 +620,28 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
             type="number"
             min={1}
             value={config[key]}
-            onChange={(event) =>
-              onPatch(key, Math.max(1, Number(event.target.value) || 1))
-            }
+            onChange={(event) => {
+              const nextValue = Math.max(
+                1,
+                Number(event.target.value) || 1
+              );
+              const nextConfig = {
+                ...config,
+                [key]: nextValue,
+                atr_len: 14,
+              } as V5Config;
+
+              onPatch(key, nextValue as V5Config[typeof key]);
+              void onSave(nextConfig);
+            }}
             style={styles.numberInput}
           />
         </label>
       ))}
 
-      <button style={styles.saveButton} onClick={() => void onSave()}>
-        PARAMETER ANWENDEN
-      </button>
+      <div style={styles.liveParameterNotice}>
+        LIVE · jede Änderung wird sofort gespeichert und neu berechnet
+      </div>
     </section>
   );
 }
@@ -1564,7 +1608,7 @@ export default function AppTESTv5() {
   }, [history]);
 
   const macdScoutPoints = useMemo(() => {
-    if (candles.length < 4) return [];
+    if (candles.length < 8) return [];
 
     const calculated = calculateMacd(
       candles,
@@ -1573,32 +1617,79 @@ export default function AppTESTv5() {
       Math.max(1, appliedConfig.macd_signal)
     );
 
+    const atrValues = calculateAtrValues(candles, 14);
     const macdValues = calculated.macd.map((point) => Number(point.value));
+    const signalValues = calculated.signal.map((point) => Number(point.value));
     const histogramValues = calculated.histogram.map((point) => Number(point.value));
-    const points: Array<{ time: number; side: "long" | "short" }> = [];
+    const points: Array<{
+      time: number;
+      side: "long" | "short";
+      strength: number;
+    }> = [];
 
-    for (let index = 3; index < candles.length; index += 1) {
-      const slopePrevious = macdValues[index - 1] - macdValues[index - 2];
-      const slopeNow = macdValues[index] - macdValues[index - 1];
+    // Guard V3: weniger Rauschen, aber bewusst ohne Cooldown.
+    // Gute, dicht aufeinanderfolgende Knicke dürfen niemals zeitlich unterdrückt werden.
+    const minimumHistogramAtr = 0.20;
+    const minimumMacdTravelAtr = 0.15;
+    const minimumTurnAtr = 0.025;
+
+    for (let index = 4; index < candles.length; index += 1) {
+      const atr = Math.max(1e-9, Number(atrValues[index] || 0));
+      const histogramPrevious = histogramValues[index - 1];
       const histogramDeltaPrevious =
         histogramValues[index - 1] - histogramValues[index - 2];
       const histogramDeltaNow =
         histogramValues[index] - histogramValues[index - 1];
+      const slopePrevious = macdValues[index - 1] - macdValues[index - 2];
+      const slopeNow = macdValues[index] - macdValues[index - 1];
+      const lineDistancePrevious = Math.abs(
+        macdValues[index - 1] - signalValues[index - 1]
+      );
+      const lineDistanceNow = Math.abs(macdValues[index] - signalValues[index]);
+      const macdTravel = Math.abs(macdValues[index] - macdValues[index - 3]);
+
+      const enoughDistance =
+        Math.abs(histogramPrevious) / atr >= minimumHistogramAtr;
+      const enoughMovement = macdTravel / atr >= minimumMacdTravelAtr;
+      const linesConverging =
+        lineDistanceNow < lineDistancePrevious * 0.92;
+      const turnStrength = Math.abs(
+        histogramDeltaNow - histogramDeltaPrevious
+      ) / atr;
+      const clearTurn = turnStrength >= minimumTurnAtr;
 
       const longKnick =
+        histogramPrevious < 0 &&
         histogramDeltaPrevious <= 0 &&
         histogramDeltaNow > 0 &&
-        slopeNow > slopePrevious;
+        slopeNow > slopePrevious &&
+        (slopeNow > 0 || linesConverging);
 
       const shortKnick =
+        histogramPrevious > 0 &&
         histogramDeltaPrevious >= 0 &&
         histogramDeltaNow < 0 &&
-        slopeNow < slopePrevious;
+        slopeNow < slopePrevious &&
+        (slopeNow < 0 || linesConverging);
+
+      if (
+        !enoughDistance ||
+        !enoughMovement ||
+        !linesConverging ||
+        !clearTurn
+      ) {
+        continue;
+      }
+
+      const strength = Math.min(
+        1,
+        Math.abs(histogramPrevious) / atr + macdTravel / atr
+      );
 
       if (longKnick) {
-        points.push({ time: candles[index].time, side: "long" });
+        points.push({ time: candles[index].time, side: "long", strength });
       } else if (shortKnick) {
-        points.push({ time: candles[index].time, side: "short" });
+        points.push({ time: candles[index].time, side: "short", strength });
       }
     }
 
@@ -1908,7 +1999,7 @@ export default function AppTESTv5() {
           color: "#22d3ee",
           shape: "square",
           text: "",
-          size: 0.8,
+          size: 0.75 + point.strength * 0.45,
         }))
       : [];
 
@@ -2188,6 +2279,11 @@ export default function AppTESTv5() {
       ...previous,
       [key]: value,
     }));
+    setAppliedConfig((previous) => ({
+      ...previous,
+      [key]: value,
+      atr_len: 14,
+    }));
   }
 
   function updateTableConfig(rowSymbol: string, next: V5Config) {
@@ -2205,7 +2301,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7.4 · MACD Scout</strong>
+          <strong>QTrend V7.6 · MACD Guard</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2299,9 +2395,9 @@ export default function AppTESTv5() {
           <button
             style={showMacdScout ? styles.scoutToggleOn : styles.watchToggleOff}
             onClick={() => setShowMacdScout((previous) => !previous)}
-            title="MACD-Knick-Scout ein- oder ausblenden · keine Orders"
+            title="Guard V3: reduzierte, relevante MACD-Knicke ohne Cooldown · keine Orders"
           >
-            MACD SCOUT ■ {macdScoutPoints.length}
+            MACD GUARD V3 ■ {macdScoutPoints.length}
           </button>
 
           <span style={styles.longPowerBadge}>
@@ -2977,6 +3073,18 @@ const styles: Record<string, CSSProperties> = {
     padding: "8px 10px",
     cursor: "pointer",
     fontWeight: 800,
+  },
+
+  liveParameterNotice: {
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid #166534",
+    background: "#052e16",
+    color: "#86efac",
+    fontSize: 12,
+    fontWeight: 800,
+    textAlign: "center" as const,
   },
 
   scoutToggleOn: {
