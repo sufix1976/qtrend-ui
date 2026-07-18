@@ -18,6 +18,7 @@ type Candle = { time: number; open: number; high: number; low: number; close: nu
 type MarkerSide = "long" | "short";
 type ReviewLabel = "good" | "bad" | "unsure";
 type AuditStatus = "ok" | "missing" | "zero" | "constant" | "invalid";
+type TraceStatus = "stored" | "calculated" | "missing" | "mismatch";
 
 type StrategyMarker = {
   marker_id: string;
@@ -90,6 +91,9 @@ function buildMacd(candles: Candle[]) {
 
 function featureName(key: string) {
   const names: Record<string, string> = {
+    atr: "ATR",
+    macd: "MACD",
+    macd_signal: "MACD Signal",
     macd_histogram: "MACD Histogramm",
     macd_histogram_atr: "Histogramm / ATR",
     macd_slope: "MACD Steigung",
@@ -349,6 +353,62 @@ export default function FlipKi() {
 
   const auditProblems = featureAudit.filter((item) => item.status !== "ok").length;
 
+  const sensorTrace = useMemo(() => {
+    if (!selected || !candles.length) return null;
+
+    const macdData = buildMacd(candles);
+    let index = candles.findIndex((item) => item.time === selected.time);
+    if (index < 0) index = candles.findIndex((item) => item.time >= selected.time);
+    if (index < 0) return null;
+
+    const current = macdData[index];
+    const previous = index > 0 ? macdData[index - 1] : null;
+    const features = selected.features || {};
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(features, key) && Number.isFinite(Number(features[key]));
+    const stored = (key: string) => has(key) ? Number(features[key]) : null;
+    const atr = stored("atr");
+    const calculated = {
+      macd: current?.macd ?? null,
+      macd_previous: previous?.macd ?? null,
+      signal: current?.signal ?? null,
+      signal_previous: previous?.signal ?? null,
+      histogram: current?.histogram ?? null,
+      histogram_previous: previous?.histogram ?? null,
+      histogram_delta: current && previous ? current.histogram - previous.histogram : null,
+      histogram_atr: current && atr && Math.abs(atr) > 1e-12 ? current.histogram / atr : null,
+      macd_slope: current && previous ? current.macd - previous.macd : null,
+      macd_slope_atr: current && previous && atr && Math.abs(atr) > 1e-12 ? (current.macd - previous.macd) / atr : null,
+    };
+
+    const tolerance = (value: number | null) => Math.max(0.001, Math.abs(Number(value || 0)) * 0.02);
+    const row = (key: string, label: string, calc: number | null, prerequisites: string[]) => {
+      const value = stored(key);
+      let status: TraceStatus = "missing";
+      if (value != null && calc != null) status = Math.abs(value - calc) <= tolerance(calc) ? "stored" : "mismatch";
+      else if (value != null) status = "stored";
+      else if (calc != null) status = "calculated";
+      return { key, label, stored: value, calculated: calc, status, prerequisites };
+    };
+
+    return {
+      index,
+      candleTime: candles[index]?.time ?? selected.time,
+      rows: [
+        row("macd", "MACD aktuell", calculated.macd, ["Schlusskurse", "EMA 2", "EMA 26"]),
+        { key: "macd_previous", label: "MACD vorher", stored: null, calculated: calculated.macd_previous, status: calculated.macd_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        row("macd_signal", "Signal aktuell", calculated.signal, ["MACD", "EMA 9"]),
+        { key: "signal_previous", label: "Signal vorher", stored: null, calculated: calculated.signal_previous, status: calculated.signal_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        row("macd_histogram", "Histogramm aktuell", calculated.histogram, ["MACD", "Signal"]),
+        { key: "histogram_previous", label: "Histogramm vorher", stored: null, calculated: calculated.histogram_previous, status: calculated.histogram_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        { key: "histogram_delta", label: "Histogramm Delta", stored: stored("macd_histogram_speed"), calculated: calculated.histogram_delta, status: stored("macd_histogram_speed") == null ? (calculated.histogram_delta == null ? "missing" : "calculated") : (calculated.histogram_delta != null && Math.abs(stored("macd_histogram_speed")! - calculated.histogram_delta) <= tolerance(calculated.histogram_delta) ? "stored" : "mismatch"), prerequisites: ["Histogramm aktuell", "Histogramm vorher"] } as any,
+        row("atr", "ATR", atr, ["Snapshot"]),
+        row("macd_histogram_atr", "Histogramm / ATR", calculated.histogram_atr, ["Histogramm", "ATR"]),
+        row("macd_slope", "MACD Steigung", calculated.macd_slope, ["MACD aktuell", "MACD vorher"]),
+        row("macd_slope_atr", "MACD Steigung / ATR", calculated.macd_slope_atr, ["MACD Steigung", "ATR"]),
+      ],
+    };
+  }, [selected, candles]);
+
   const reviewed = data?.counts?.reviewed || 0;
   const progress = markers.length ? (reviewed / markers.length) * 100 : 0;
 
@@ -356,7 +416,7 @@ export default function FlipKi() {
     <div className="guardian-page">
       <header className="guardian-header">
         <div>
-          <b>QTrend Strategy Flip Guardian</b>
+          <b>QTrend Strategy Flip Guardian V13.3</b>
           <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
         <div className="guardian-controls">
@@ -419,6 +479,31 @@ export default function FlipKi() {
               <div className="guardian-rule">
                 Du bewertest nur den sichtbaren, echten Entry-Marker. Der Guardian lernt später: Strategie-Flip zulassen oder bestehenden Trend halten.
               </div>
+
+              {sensorTrace && (
+                <div className="guardian-trace">
+                  <div className="guardian-trace-head">
+                    <div><strong>V13.3 · SENSOR TRACE</strong><small>Backend-Snapshot gegen UI-Neuberechnung am ausgewählten Marker</small></div>
+                    <b>{formatTime(sensorTrace.candleTime)}</b>
+                  </div>
+                  <div className="guardian-trace-columns"><span>Sensor</span><span>Snapshot</span><span>UI berechnet</span><span>Status</span></div>
+                  <div className="guardian-trace-list">
+                    {sensorTrace.rows.map((item: any) => (
+                      <div key={item.key} className={item.status}>
+                        <span><b>{item.label}</b><small>benötigt: {item.prerequisites.join(" · ")}</small></span>
+                        <strong>{item.stored == null ? "—" : Number(item.stored).toFixed(6)}</strong>
+                        <strong>{item.calculated == null ? "—" : Number(item.calculated).toFixed(6)}</strong>
+                        <em>{item.status === "stored" ? "OK" : item.status === "calculated" ? "NUR UI" : item.status === "mismatch" ? "ABWEICHUNG" : "FEHLT"}</em>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="guardian-trace-legend">
+                    <span className="stored">OK = Snapshot stimmt</span>
+                    <span className="calculated">NUR UI = berechenbar, aber nicht gespeichert</span>
+                    <span className="mismatch">ABWEICHUNG = Backend und UI rechnen unterschiedlich</span>
+                  </div>
+                </div>
+              )}
 
               <div className="guardian-features">
                 <strong>ZUSTAND AM MARKER</strong>
