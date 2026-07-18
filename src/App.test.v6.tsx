@@ -564,7 +564,6 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
   const fields = [
     ["Fast SMA", "sma_fast"],
     ["Slow SMA", "sma_slow"],
-    ["ATR-Länge", "atr_len"],
     ["RSI Länge", "rsi_len"],
     ["MACD Fast", "macd_fast"],
     ["MACD Slow", "macd_slow"],
@@ -578,7 +577,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
         Strategieparameter · {config.symbol} {config.interval}
       </h3>
       <div style={styles.tfConfigNotice}>
-        Power Haltestärke: 1 = schneller Credit-Abbau, 10 = stärkeres Trendgedächtnis. Ein Flip braucht Gegen-Power und ausreichend niedrigen Trend-Credit.
+        ATR ist fest auf 14 gesetzt und kein einstellbarer Entry-Regler mehr. Der cyanfarbene MACD-Scout markiert nur Knicke zur Beobachtung und erzeugt keine Orders.
       </div>
 
       {fields.map(([label, key]) => (
@@ -597,7 +596,7 @@ function ParameterCard({ config, onPatch, onSave }: ParameterCardProps) {
       ))}
 
       <button style={styles.saveButton} onClick={() => void onSave()}>
-        Parameter speichern
+        PARAMETER ANWENDEN
       </button>
     </section>
   );
@@ -1529,17 +1528,17 @@ export default function AppTESTv5() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [configs, setConfigs] = useState<ConfigMap>({});
   const [config, setConfig] = useState<V5Config>(DEFAULT_CONFIG);
+  const [appliedConfig, setAppliedConfig] = useState<V5Config>(DEFAULT_CONFIG);
   const [snapshot, setSnapshot] = useState<V5Snapshot | null>(null);
   const [status, setStatus] = useState("Start");
   const [busy, setBusy] = useState(false);
   const [marketRefreshVersion, setMarketRefreshVersion] = useState(0);
-  const autoSaveTimerRef = useRef<number | null>(null);
-  const autoSaveRequestRef = useRef(0);
 
   
   const [showReadyMarkers, setShowReadyMarkers] = useState(true);
   const [showPermissionMarkers, setShowPermissionMarkers] = useState(true);
   const [showEntryMarkers, setShowEntryMarkers] = useState(true);
+  const [showMacdScout, setShowMacdScout] = useState(true);
   const [history, setHistory] = useState<V5HistoryPoint[]>([]);
 
   const markerCounts = useMemo(() => {
@@ -1564,6 +1563,53 @@ export default function AppTESTv5() {
     );
   }, [history]);
 
+  const macdScoutPoints = useMemo(() => {
+    if (candles.length < 4) return [];
+
+    const calculated = calculateMacd(
+      candles,
+      Math.max(1, appliedConfig.macd_fast),
+      Math.max(1, appliedConfig.macd_slow),
+      Math.max(1, appliedConfig.macd_signal)
+    );
+
+    const macdValues = calculated.macd.map((point) => Number(point.value));
+    const histogramValues = calculated.histogram.map((point) => Number(point.value));
+    const points: Array<{ time: number; side: "long" | "short" }> = [];
+
+    for (let index = 3; index < candles.length; index += 1) {
+      const slopePrevious = macdValues[index - 1] - macdValues[index - 2];
+      const slopeNow = macdValues[index] - macdValues[index - 1];
+      const histogramDeltaPrevious =
+        histogramValues[index - 1] - histogramValues[index - 2];
+      const histogramDeltaNow =
+        histogramValues[index] - histogramValues[index - 1];
+
+      const longKnick =
+        histogramDeltaPrevious <= 0 &&
+        histogramDeltaNow > 0 &&
+        slopeNow > slopePrevious;
+
+      const shortKnick =
+        histogramDeltaPrevious >= 0 &&
+        histogramDeltaNow < 0 &&
+        slopeNow < slopePrevious;
+
+      if (longKnick) {
+        points.push({ time: candles[index].time, side: "long" });
+      } else if (shortKnick) {
+        points.push({ time: candles[index].time, side: "short" });
+      }
+    }
+
+    return points;
+  }, [
+    candles,
+    appliedConfig.macd_fast,
+    appliedConfig.macd_slow,
+    appliedConfig.macd_signal,
+  ]);
+
   const visibleCandles = useMemo(
     () => (chartMode === "heikin" ? buildHeikinAshi(candles) : candles),
     [candles, chartMode]
@@ -1580,21 +1626,26 @@ export default function AppTESTv5() {
 
     if (current) {
       setConfig(current);
+      setAppliedConfig(current);
       return;
     }
 
     // Wichtig: den aktuell ausgewählten TF beibehalten.
     // Vorher wurde hier DEFAULT_CONFIG.interval (=15m) gesetzt,
     // wodurch jede andere Auswahl sofort wieder auf 15m sprang.
-    setConfig((previous) => ({
-      ...DEFAULT_CONFIG,
-      symbol,
-      interval,
-      size:
-        previous.symbol === symbol
-          ? previous.size
-          : DEFAULT_CONFIG.size,
-    }));
+    setConfig((previous) => {
+      const next = {
+        ...DEFAULT_CONFIG,
+        symbol,
+        interval,
+        size:
+          previous.symbol === symbol
+            ? previous.size
+            : DEFAULT_CONFIG.size,
+      };
+      setAppliedConfig(next);
+      return next;
+    });
   }, [symbol, interval, configs]);
 
 
@@ -1850,12 +1901,29 @@ export default function AppTESTv5() {
         return rowMarkers;
       });
 
-    watchMarkersApiRef.current.setMarkers(markers);
+    const scoutMarkers = showMacdScout
+      ? macdScoutPoints.map((point) => ({
+          time: point.time as Time,
+          position: point.side === "long" ? "belowBar" : "aboveBar",
+          color: "#22d3ee",
+          shape: "square",
+          text: "",
+          size: 0.8,
+        }))
+      : [];
+
+    watchMarkersApiRef.current.setMarkers(
+      [...markers, ...scoutMarkers].sort(
+        (left, right) => Number(left.time) - Number(right.time)
+      )
+    );
   }, [
     history,
     showReadyMarkers,
     showPermissionMarkers,
     showEntryMarkers,
+    showMacdScout,
+    macdScoutPoints,
   ]);
 
   useEffect(() => {
@@ -1877,13 +1945,13 @@ export default function AppTESTv5() {
       }))
     );
 
-    slowSeriesRef.current.setData(calculateSma(candles, config.sma_slow));
+    slowSeriesRef.current.setData(calculateSma(candles, appliedConfig.sma_slow));
 
     const macd = calculateMacd(
       candles,
-      Math.max(1, config.macd_fast),
-      Math.max(1, config.macd_slow),
-      Math.max(1, config.macd_signal)
+      Math.max(1, appliedConfig.macd_fast),
+      Math.max(1, appliedConfig.macd_slow),
+      Math.max(1, appliedConfig.macd_signal)
     );
 
     histogramSeriesRef.current.setData(
@@ -1925,10 +1993,10 @@ export default function AppTESTv5() {
   }, [
     visibleCandles,
     candles,
-    config.sma_slow,
-    config.macd_fast,
-    config.macd_slow,
-    config.macd_signal,
+    appliedConfig.sma_slow,
+    appliedConfig.macd_fast,
+    appliedConfig.macd_slow,
+    appliedConfig.macd_signal,
     symbol,
     interval,
   ]);
@@ -1976,6 +2044,7 @@ export default function AppTESTv5() {
         map[configKey(symbol, interval)];
       if (savedActiveConfig) {
         setConfig(savedActiveConfig);
+        setAppliedConfig(savedActiveConfig);
         setInterval(savedActiveConfig.interval);
       }
 
@@ -2048,126 +2117,28 @@ export default function AppTESTv5() {
   }, [
     symbol,
     interval,
-    config.sma_fast,
-    config.sma_slow,
-    config.atr_len,
-    config.rsi_len,
-    config.macd_fast,
-    config.macd_slow,
-    config.macd_signal,
-    config.flip_confirm_bars,
     marketRefreshVersion,
-  ]);
-
-  useEffect(() => {
-    const stored =
-      configs[configKey(config.symbol, config.interval)];
-
-    const comparable = (row?: V5Config) =>
-      row
-        ? JSON.stringify({
-            symbol: row.symbol,
-            interval: row.interval,
-            size: Number(row.size),
-            auto_enabled: Number(row.auto_enabled),
-            sma_fast: Number(row.sma_fast),
-            sma_slow: Number(row.sma_slow),
-            atr_len: Number(row.atr_len),
-            rsi_len: Number(row.rsi_len),
-            macd_fast: Number(row.macd_fast),
-            macd_slow: Number(row.macd_slow),
-            macd_signal: Number(row.macd_signal),
-            flip_confirm_bars: Number(row.flip_confirm_bars),
-          })
-        : "";
-
-    // Geladene Werte nicht erneut speichern.
-    if (stored && comparable(stored) === comparable(config)) {
-      return;
-    }
-
-    if (autoSaveTimerRef.current !== null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-    }
-
-    const requestId = autoSaveRequestRef.current + 1;
-    autoSaveRequestRef.current = requestId;
-
-    setStatus(
-      `${config.symbol} ${config.interval}: Vorschau wird aktualisiert…`
-    );
-
-    autoSaveTimerRef.current = window.setTimeout(async () => {
-      try {
-        const json = await fetchJson(`${BACKEND_BASE}/v5/config`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(config),
-        });
-
-        if (requestId !== autoSaveRequestRef.current) {
-          return;
-        }
-
-        const saved = normalizeConfig(json.row);
-
-        setConfigs((previous) => ({
-          ...previous,
-          [configKey(saved.symbol, saved.interval)]: saved,
-        }));
-
-        // History und State mit der neuen Server-Config erneut berechnen.
-        setMarketRefreshVersion((previous) => previous + 1);
-        setStatus(
-          `${saved.symbol} ${saved.interval}: Chart aktualisiert`
-        );
-      } catch (error) {
-        if (requestId !== autoSaveRequestRef.current) {
-          return;
-        }
-
-        setStatus(
-          `Live-Aktualisierung fehlgeschlagen: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-    }, 500);
-
-    return () => {
-      if (autoSaveTimerRef.current !== null) {
-        window.clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-    };
-  }, [
-    config.symbol,
-    config.interval,
-    config.size,
-    config.auto_enabled,
-    config.sma_fast,
-    config.sma_slow,
-    config.atr_len,
-    config.rsi_len,
-    config.macd_fast,
-    config.macd_slow,
-    config.macd_signal,
-    config.flip_confirm_bars,
   ]);
 
   async function saveConfig(next: V5Config = config) {
     setBusy(true);
 
+    const configToSave: V5Config = {
+      ...next,
+      atr_len: 14,
+    };
+
     try {
       const json = await fetchJson(`${BACKEND_BASE}/v5/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
+        body: JSON.stringify(configToSave),
       });
 
       const saved = normalizeConfig(json.row);
 
       setConfig(saved);
+      setAppliedConfig(saved);
       setConfigs((previous) => ({
         ...previous,
         [configKey(saved.symbol, saved.interval)]: saved,
@@ -2234,7 +2205,7 @@ export default function AppTESTv5() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <strong>QTrend V7.3 · Pre-Flip Research</strong>
+          <strong>QTrend V7.4 · MACD Scout</strong>
           <span style={styles.muted}> Büro / Engine Cockpit</span>
         </div>
 
@@ -2260,13 +2231,16 @@ export default function AppTESTv5() {
 
               if (stored) {
                 setConfig(stored);
+                setAppliedConfig(stored);
               } else {
-                setConfig({
+                const next = {
                   ...DEFAULT_CONFIG,
                   symbol,
                   interval: nextInterval,
                   size: config.size,
-                });
+                };
+                setConfig(next);
+                setAppliedConfig(next);
               }
             }}
             style={styles.input}
@@ -2320,6 +2294,14 @@ export default function AppTESTv5() {
             title="Pine Entry-Dreiecke ein- oder ausblenden"
           >
             ENTRY ▲ {markerCounts.ENTRY_LONG + markerCounts.ENTRY_SHORT}
+          </button>
+
+          <button
+            style={showMacdScout ? styles.scoutToggleOn : styles.watchToggleOff}
+            onClick={() => setShowMacdScout((previous) => !previous)}
+            title="MACD-Knick-Scout ein- oder ausblenden · keine Orders"
+          >
+            MACD SCOUT ■ {macdScoutPoints.length}
           </button>
 
           <span style={styles.longPowerBadge}>
@@ -2997,6 +2979,15 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
   },
 
+  scoutToggleOn: {
+    border: "1px solid #22d3ee",
+    background: "rgba(34, 211, 238, 0.14)",
+    color: "#cffafe",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
   watchToggleOff: {
     background: "#172033",
     color: "#64748b",
