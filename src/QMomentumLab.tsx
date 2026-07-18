@@ -137,6 +137,9 @@ export default function QMomentumLab() {
   const macdEl = useRef<HTMLDivElement>(null);
   const rsiEl = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<IChartApi[]>([]);
+  const candleSeriesRef = useRef<any>(null);
+  const markersApiRef = useRef<any>(null);
+  const visibleRangeRef = useRef<any>(null);
 
   const values = useMemo(() => indicators(candles), [candles]);
   const selectedCandle = useMemo(
@@ -208,7 +211,9 @@ export default function QMomentumLab() {
       upColor: "#24b47e", downColor: "#ef5350", borderVisible: false,
       wickUpColor: "#24b47e", wickDownColor: "#ef5350",
     });
+    candleSeriesRef.current = candleSeries;
     candleSeries.setData(candles.map((c) => ({ ...c, time: c.time as Time })));
+    markersApiRef.current = createSeriesMarkers(candleSeries, []);
 
     if (showSma) {
       const smaSeries = priceChart.addSeries(LineSeries, { lineWidth: 2, color: "#f5c451", priceLineVisible: false });
@@ -229,6 +234,71 @@ export default function QMomentumLab() {
     rsiMaSeries.setData(values.map((p) => ({ time: p.time, value: p.rsiMa })));
     [30, 50, 70].forEach((level) => rsiSeries.createPriceLine({ price: level, color: level === 50 ? "#394657" : "#6d4c7d", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "" }));
 
+    let syncing = false;
+    const applyRange = (targets: IChartApi[], range: any) => {
+      if (!range || syncing) return;
+      syncing = true;
+      visibleRangeRef.current = range;
+      targets.forEach((target) => target.timeScale().setVisibleLogicalRange(range));
+      syncing = false;
+    };
+    priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => applyRange([macdChart, rsiChart], range));
+    macdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => applyRange([priceChart, rsiChart], range));
+    rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => applyRange([priceChart, macdChart], range));
+
+    priceChart.subscribeClick((param) => {
+      let clickedTime: number | null = null;
+      if (param.logical != null && Number.isFinite(Number(param.logical))) {
+        const candleIndex = Math.max(0, Math.min(candles.length - 1, Math.round(Number(param.logical))));
+        clickedTime = candles[candleIndex]?.time ?? null;
+      }
+      if (clickedTime == null && param.time != null) {
+        const rawTime = typeof param.time === "number" ? param.time : Number(param.time);
+        if (Number.isFinite(rawTime)) {
+          let nearest = candles[0]?.time ?? null;
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (const candle of candles) {
+            const distance = Math.abs(candle.time - rawTime);
+            if (distance < bestDistance) { bestDistance = distance; nearest = candle.time; }
+          }
+          clickedTime = nearest;
+        }
+      }
+      if (clickedTime == null) {
+        setMessage("Keine Kerze getroffen. Bitte innerhalb des Kerzencharts klicken.");
+        return;
+      }
+      setSelectedTime(clickedTime);
+      setMessage("Moment gewählt – jetzt bewerten.");
+    });
+
+    if (visibleRangeRef.current) {
+      [priceChart, macdChart, rsiChart].forEach((chart) => chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current));
+    } else {
+      priceChart.timeScale().fitContent();
+      macdChart.timeScale().fitContent();
+      rsiChart.timeScale().fitContent();
+    }
+
+    const resize = () => {
+      priceChart.applyOptions({ width: priceEl.current?.clientWidth || 800 });
+      macdChart.applyOptions({ width: macdEl.current?.clientWidth || 800 });
+      rsiChart.applyOptions({ width: rsiEl.current?.clientWidth || 800 });
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => {
+      window.removeEventListener("resize", resize);
+      candleSeriesRef.current = null;
+      markersApiRef.current = null;
+      priceChart.remove();
+      macdChart.remove();
+      rsiChart.remove();
+      chartsRef.current = [];
+    };
+  }, [candles, values, showSma]);
+
+  useEffect(() => {
     const markers: any[] = [];
     if (showScanner) {
       scannerCandidates.forEach((candidate) => markers.push({
@@ -268,66 +338,9 @@ export default function QMomentumLab() {
         size: 1.5,
       });
     }
-    createSeriesMarkers(candleSeries, markers.sort((a, b) => Number(a.time) - Number(b.time)));
-
-    let syncing = false;
-    const syncRange = (source: IChartApi, targets: IChartApi[]) => {
-      source.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (!range || syncing) return;
-        syncing = true;
-        targets.forEach((target) => target.timeScale().setVisibleLogicalRange(range));
-        syncing = false;
-      });
-    };
-    syncRange(priceChart, [macdChart, rsiChart]);
-    syncRange(macdChart, [priceChart, rsiChart]);
-    syncRange(rsiChart, [priceChart, macdChart]);
-
-    priceChart.subscribeClick((param) => {
-      let clickedTime: number | null = null;
-      if (param.logical != null && Number.isFinite(Number(param.logical))) {
-        const candleIndex = Math.max(0, Math.min(candles.length - 1, Math.round(Number(param.logical))));
-        clickedTime = candles[candleIndex]?.time ?? null;
-      }
-      if (clickedTime == null && param.time != null) {
-        const rawTime = typeof param.time === "number" ? param.time : Number(param.time);
-        if (Number.isFinite(rawTime)) {
-          let nearest = candles[0]?.time ?? null;
-          let bestDistance = Number.POSITIVE_INFINITY;
-          for (const candle of candles) {
-            const distance = Math.abs(candle.time - rawTime);
-            if (distance < bestDistance) { bestDistance = distance; nearest = candle.time; }
-          }
-          clickedTime = nearest;
-        }
-      }
-      if (clickedTime == null) {
-        setMessage("Keine Kerze getroffen. Bitte innerhalb des Kerzencharts klicken.");
-        return;
-      }
-      setSelectedTime(clickedTime);
-      setMessage("Moment gewählt – jetzt bewerten.");
-    });
-
-    priceChart.timeScale().fitContent();
-    macdChart.timeScale().fitContent();
-    rsiChart.timeScale().fitContent();
-
-    const resize = () => {
-      priceChart.applyOptions({ width: priceEl.current?.clientWidth || 800 });
-      macdChart.applyOptions({ width: macdEl.current?.clientWidth || 800 });
-      rsiChart.applyOptions({ width: rsiEl.current?.clientWidth || 800 });
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => {
-      window.removeEventListener("resize", resize);
-      priceChart.remove();
-      macdChart.remove();
-      rsiChart.remove();
-      chartsRef.current = [];
-    };
-  }, [candles, values, annotations, scannerCandidates, aiCandidates, selectedTime, showSma, showScanner, showAi]);
+    markers.sort((a, b) => Number(a.time) - Number(b.time));
+    markersApiRef.current?.setMarkers(markers);
+  }, [annotations, scannerCandidates, aiCandidates, selectedTime, showScanner, showAi, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
