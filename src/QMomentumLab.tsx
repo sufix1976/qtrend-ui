@@ -208,8 +208,15 @@ export default function QMomentumLab() {
       text: a.label === "missed" ? "○" : "",
       size: 1,
     }));
-    if (selectedTime && !annotations.some((a) => a.time === selectedTime)) {
-      annotationMarkers.push({ time: selectedTime as Time, position: "aboveBar", shape: "circle", color: "#8b5cf6", text: "", size: 1 });
+    if (selectedTime) {
+      annotationMarkers.push({
+        time: selectedTime as Time,
+        position: "aboveBar",
+        shape: "arrowDown",
+        color: "#a855f7",
+        text: "MOMENT",
+        size: 2,
+      });
     }
     createSeriesMarkers(candleSeries, annotationMarkers.sort((a, b) => Number(a.time) - Number(b.time)));
 
@@ -227,9 +234,34 @@ export default function QMomentumLab() {
     syncRange(rsiChart, [priceChart, macdChart]);
 
     priceChart.subscribeClick((param) => {
-      if (param.time == null) return;
-      setSelectedTime(Number(param.time));
-      setMessage("");
+      let clickedTime: number | null = null;
+
+      const seriesPoint = param.seriesData.get(candleSeries) as { time?: Time } | undefined;
+      if (seriesPoint?.time != null) {
+        clickedTime = Number(seriesPoint.time);
+      } else if (param.time != null) {
+        const rawTime = Number(param.time);
+        if (Number.isFinite(rawTime)) {
+          let nearest = candles[0]?.time ?? null;
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (const candle of candles) {
+            const distance = Math.abs(candle.time - rawTime);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              nearest = candle.time;
+            }
+          }
+          clickedTime = nearest;
+        }
+      }
+
+      if (clickedTime == null) {
+        setMessage("Keine Kerze getroffen. Bitte direkt auf einen Kerzenkörper klicken.");
+        return;
+      }
+
+      setSelectedTime(clickedTime);
+      setMessage("Moment gewählt – jetzt bewerten.");
     });
 
     priceChart.timeScale().fitContent();
