@@ -200,7 +200,7 @@ export default function QMomentumLab() {
     rsiMaSeries.setData(values.map((p) => ({ time: p.time, value: p.rsiMa })));
     [30, 50, 70].forEach((level) => rsiSeries.createPriceLine({ price: level, color: level === 50 ? "#394657" : "#6d4c7d", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "" }));
 
-    const annotationMarkers = annotations.map((a) => ({
+    const annotationMarkers: any[] = annotations.map((a) => ({
       time: a.time as Time,
       position: "aboveBar" as const,
       shape: "circle" as const,
