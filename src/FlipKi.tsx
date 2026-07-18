@@ -14,7 +14,7 @@ const SYMBOLS = ["DE40", "US30", "US100", "UK100", "J225", "CN50", "BTCUSD", "ET
 const INTERVALS = ["1m", "5m", "10m", "15m", "30m", "1h"];
 const SOURCE = "guardian_marker";
 
-type Candle = { time: number; open: number; high: number; low: number; close: number };
+type Candle = { time: number; open: number; high: number; low: number; close: number; atr?: number | null; macd?: number | null; macd_signal?: number | null; macd_histogram?: number | null };
 type MarkerSide = "long" | "short";
 type ReviewLabel = "good" | "bad" | "unsure";
 type AuditStatus = "ok" | "missing" | "zero" | "constant" | "invalid";
@@ -56,6 +56,8 @@ type GuardianResponse = {
   annotations: Annotation[];
   annotation_map: Record<string, Annotation>;
   counts: { reviewed: number; good: number; bad: number; unsure: number };
+  indicator_source?: string;
+  indicator_settings?: { macd_fast: number; macd_slow: number; macd_signal: number };
   error?: string;
   details?: string;
 };
@@ -75,17 +77,34 @@ function ema(values: number[], period: number) {
   return result;
 }
 
-function buildMacd(candles: Candle[]) {
+function buildMacd(candles: Candle[], settings = { macd_fast: 2, macd_slow: 26, macd_signal: 9 }) {
+  const hasBackendSeries = candles.every((item) =>
+    Number.isFinite(Number(item.macd)) &&
+    Number.isFinite(Number(item.macd_signal)) &&
+    Number.isFinite(Number(item.macd_histogram)),
+  );
+
+  if (hasBackendSeries) {
+    return candles.map((item) => ({
+      time: item.time,
+      macd: Number(item.macd),
+      signal: Number(item.macd_signal),
+      histogram: Number(item.macd_histogram),
+      source: "backend" as const,
+    }));
+  }
+
   const closes = candles.map((item) => Number(item.close));
-  const fast = ema(closes, 2);
-  const slow = ema(closes, 26);
+  const fast = ema(closes, settings.macd_fast);
+  const slow = ema(closes, settings.macd_slow);
   const macd = closes.map((_, index) => fast[index] - slow[index]);
-  const signal = ema(macd, 9);
+  const signal = ema(macd, settings.macd_signal);
   return candles.map((item, index) => ({
     time: item.time,
     macd: macd[index],
     signal: signal[index],
     histogram: macd[index] - signal[index],
+    source: "ui-fallback" as const,
   }));
 }
 
@@ -262,7 +281,7 @@ export default function FlipKi() {
       rightPriceScale: { borderColor: "#26364b" },
       timeScale: { borderColor: "#26364b", timeVisible: true },
     });
-    const macdData = buildMacd(candles);
+    const macdData = buildMacd(candles, data?.indicator_settings);
     const histogram = macdChart.addSeries(HistogramSeries, { priceFormat: { type: "price", precision: 3, minMove: 0.001 } });
     histogram.setData(macdData.map((item) => ({ time: item.time as Time, value: item.histogram, color: item.histogram >= 0 ? "#22c55e" : "#ef4444" })));
     const macdLine = macdChart.addSeries(LineSeries, { lineWidth: 2, priceFormat: { type: "price", precision: 3, minMove: 0.001 } });
@@ -314,7 +333,7 @@ export default function FlipKi() {
       chartRef.current = null;
       macdChartRef.current = null;
     };
-  }, [candles, markers, annotationMap, selected?.marker_id, showReviewed]);
+  }, [candles, markers, annotationMap, selected?.marker_id, showReviewed, data?.indicator_settings]);
 
   function choose(marker: StrategyMarker) {
     setSelected(marker);
@@ -356,7 +375,7 @@ export default function FlipKi() {
   const sensorTrace = useMemo(() => {
     if (!selected || !candles.length) return null;
 
-    const macdData = buildMacd(candles);
+    const macdData = buildMacd(candles, data?.indicator_settings);
     let index = candles.findIndex((item) => item.time === selected.time);
     if (index < 0) index = candles.findIndex((item) => item.time >= selected.time);
     if (index < 0) return null;
@@ -395,11 +414,11 @@ export default function FlipKi() {
       candleTime: candles[index]?.time ?? selected.time,
       rows: [
         row("macd", "MACD aktuell", calculated.macd, ["Schlusskurse", "EMA 2", "EMA 26"]),
-        { key: "macd_previous", label: "MACD vorher", stored: null, calculated: calculated.macd_previous, status: calculated.macd_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        row("macd_previous", "MACD vorher", calculated.macd_previous, ["vorherige Kerze"]),
         row("macd_signal", "Signal aktuell", calculated.signal, ["MACD", "EMA 9"]),
-        { key: "signal_previous", label: "Signal vorher", stored: null, calculated: calculated.signal_previous, status: calculated.signal_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        row("macd_signal_previous", "Signal vorher", calculated.signal_previous, ["vorherige Kerze"]),
         row("macd_histogram", "Histogramm aktuell", calculated.histogram, ["MACD", "Signal"]),
-        { key: "histogram_previous", label: "Histogramm vorher", stored: null, calculated: calculated.histogram_previous, status: calculated.histogram_previous == null ? "missing" as TraceStatus : "calculated" as TraceStatus, prerequisites: ["vorherige Kerze"] },
+        row("macd_histogram_previous", "Histogramm vorher", calculated.histogram_previous, ["vorherige Kerze"]),
         { key: "histogram_delta", label: "Histogramm Delta", stored: stored("macd_histogram_speed"), calculated: calculated.histogram_delta, status: stored("macd_histogram_speed") == null ? (calculated.histogram_delta == null ? "missing" : "calculated") : (calculated.histogram_delta != null && Math.abs(stored("macd_histogram_speed")! - calculated.histogram_delta) <= tolerance(calculated.histogram_delta) ? "stored" : "mismatch"), prerequisites: ["Histogramm aktuell", "Histogramm vorher"] } as any,
         row("atr", "ATR", atr, ["Snapshot"]),
         row("macd_histogram_atr", "Histogramm / ATR", calculated.histogram_atr, ["Histogramm", "ATR"]),
@@ -407,7 +426,7 @@ export default function FlipKi() {
         row("macd_slope_atr", "MACD Steigung / ATR", calculated.macd_slope_atr, ["MACD Steigung", "ATR"]),
       ],
     };
-  }, [selected, candles]);
+  }, [selected, candles, data?.indicator_settings]);
 
   const reviewed = data?.counts?.reviewed || 0;
   const progress = markers.length ? (reviewed / markers.length) * 100 : 0;
@@ -416,7 +435,7 @@ export default function FlipKi() {
     <div className="guardian-page">
       <header className="guardian-header">
         <div>
-          <b>QTrend Strategy Flip Guardian V13.3</b>
+          <b>QTrend Strategy Flip Guardian V13.4</b>
           <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
         <div className="guardian-controls">
@@ -441,7 +460,7 @@ export default function FlipKi() {
             <div><i style={{ width: `${progress}%` }} /></div>
           </div>
           <div ref={chartHost} />
-          <div className="guardian-macd-title"><strong>MACD 2 / 26 / 9</strong><span>MACD · Signal · Histogramm</span></div>
+          <div className="guardian-macd-title"><strong>MACD {data?.indicator_settings?.macd_fast ?? 2} / {data?.indicator_settings?.macd_slow ?? 26} / {data?.indicator_settings?.macd_signal ?? 9}</strong><span>Backend-Quelle · MACD · Signal · Histogramm</span></div>
           <div ref={macdHost} className="guardian-macd-chart" />
         </section>
 
@@ -483,7 +502,7 @@ export default function FlipKi() {
               {sensorTrace && (
                 <div className="guardian-trace">
                   <div className="guardian-trace-head">
-                    <div><strong>V13.3 · SENSOR TRACE</strong><small>Backend-Snapshot gegen UI-Neuberechnung am ausgewählten Marker</small></div>
+                    <div><strong>V13.4 · SNAPSHOT REPAIR</strong><small>Kanonischer Strategie-Snapshot gegen dieselbe Backend-Indikatorserie</small></div>
                     <b>{formatTime(sensorTrace.candleTime)}</b>
                   </div>
                   <div className="guardian-trace-columns"><span>Sensor</span><span>Snapshot</span><span>UI berechnet</span><span>Status</span></div>
