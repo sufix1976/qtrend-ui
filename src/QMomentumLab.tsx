@@ -354,9 +354,31 @@ export default function QMomentumLab() {
       });
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
-      setAnnotations((previous) => [...previous.filter((a) => a.time !== json.annotation.time), json.annotation]);
+      const nextAnnotations = [
+        ...annotations.filter((a) => a.time !== json.annotation.time),
+        json.annotation,
+      ];
+      setAnnotations(nextAnnotations);
       setNote("");
-      setMessage(`${labelText(label)} gespeichert.`);
+
+      const reviewedTimes = new Set(nextAnnotations.map((a) => Number(a.time)));
+      const candidateTimes = [...new Set([
+        ...scannerCandidates.map((candidate) => Number(candidate.time)),
+        ...aiCandidates.map((candidate) => Number(candidate.time)),
+      ])].sort((a, b) => a - b);
+
+      const currentTime = Number(json.annotation.time);
+      const nextTime =
+        candidateTimes.find((time) => time > currentTime && !reviewedTimes.has(time)) ??
+        candidateTimes.find((time) => !reviewedTimes.has(time)) ??
+        null;
+
+      if (nextTime !== null) {
+        setSelectedTime(nextTime);
+        setMessage(`${labelText(label)} gespeichert · nächster Kandidat gewählt.`);
+      } else {
+        setMessage(`${labelText(label)} gespeichert · alle sichtbaren Kandidaten bewertet.`);
+      }
     } catch (error: any) {
       setMessage(error?.message || String(error));
     } finally {
