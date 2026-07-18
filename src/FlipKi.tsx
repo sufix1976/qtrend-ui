@@ -62,6 +62,40 @@ type GuardianResponse = {
   details?: string;
 };
 
+type GuardianProofMetrics = {
+  total: number;
+  accuracy: number;
+  balanced_accuracy: number;
+  precision: number;
+  recall: number;
+  specificity: number;
+  auc: number | null;
+  confusion: { tp: number; tn: number; fp: number; fn: number };
+};
+
+type GuardianProofResponse = {
+  ok: boolean;
+  version: string;
+  symbol: string;
+  interval: string;
+  row_count: number;
+  train_count: number;
+  test_count: number;
+  split: string;
+  threshold: number;
+  labels: { good: number; bad: number };
+  test_labels: { good: number; bad: number };
+  train_metrics: GuardianProofMetrics;
+  test_metrics: GuardianProofMetrics;
+  guardian: { allowed: number; blocked: number; bad_blocked: number; good_lost: number; good_allowed: number; bad_allowed: number };
+  feature_count: number;
+  importance: Array<{ feature: string; coefficient: number; absolute_coefficient: number }>;
+  note: string;
+  error?: string;
+  details?: string;
+};
+
+
 function formatTime(time: number) {
   return new Date(time * 1000).toLocaleString("de-DE");
 }
@@ -146,6 +180,8 @@ export default function FlipKi() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showReviewed, setShowReviewed] = useState(true);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [proof, setProof] = useState<GuardianProofResponse | null>(null);
   const chartHost = useRef<HTMLDivElement | null>(null);
   const macdHost = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -240,7 +276,27 @@ export default function FlipKi() {
     }
   }
 
-  useEffect(() => { void load(); }, [symbol, interval]);
+  async function runProofTest() {
+    setProofLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/trainer/flip-guardian/proof-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+      });
+      const payload = (await response.json()) as GuardianProofResponse;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.details || payload?.error || `HTTP ${response.status}`);
+      setProof(payload);
+    } catch (exception: any) {
+      setProof(null);
+      setError(exception?.message || String(exception));
+    } finally {
+      setProofLoading(false);
+    }
+  }
+
+  useEffect(() => { setProof(null); void load(); }, [symbol, interval]);
 
   useEffect(() => {
     if (!chartHost.current || !macdHost.current || !candles.length) return;
@@ -435,7 +491,7 @@ export default function FlipKi() {
     <div className="guardian-page">
       <header className="guardian-header">
         <div>
-          <b>QTrend Strategy Flip Guardian V13.5</b>
+          <b>QTrend Strategy Flip Guardian V13.6</b>
           <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
         <div className="guardian-controls">
@@ -443,6 +499,7 @@ export default function FlipKi() {
           <select value={interval} onChange={(event) => setInterval(event.target.value)}>{INTERVALS.map((item) => <option key={item}>{item}</option>)}</select>
           <label><input type="checkbox" checked={showReviewed} onChange={(event) => setShowReviewed(event.target.checked)} /> Bewertete anzeigen</label>
           <button onClick={() => void load()} disabled={loading}>{loading ? "LÄDT …" : "NEU LADEN"}</button>
+          <button className="guardian-proof-button" onClick={() => void runProofTest()} disabled={proofLoading || loading}>{proofLoading ? "GUARDIAN LERNT …" : "GUARDIAN PROOF TEST"}</button>
           <button className="scout-button" disabled title="Wird als eigenes, unabhängiges Labor gebaut">KI-SCOUT · EIGENES FENSTER</button>
         </div>
       </header>
@@ -465,6 +522,37 @@ export default function FlipKi() {
         </section>
 
         <aside className="guardian-sidebar">
+          {proof && (
+            <div className="guardian-proof-card">
+              <div className="guardian-proof-head">
+                <div><strong>V13.6 · US30 GUARDIAN PROOF</strong><small>Chronologisch: 70 % Lernen · 30 % ungesehen</small></div>
+                <b>{(proof.test_metrics.accuracy * 100).toFixed(1)} %</b>
+              </div>
+              <div className="guardian-proof-grid">
+                <span>Bewertungen</span><b>{proof.row_count}</b>
+                <span>Lernen / Test</span><b>{proof.train_count} / {proof.test_count}</b>
+                <span>Test-AUC</span><b>{proof.test_metrics.auc == null ? "–" : proof.test_metrics.auc.toFixed(3)}</b>
+                <span>Balanced Accuracy</span><b>{(proof.test_metrics.balanced_accuracy * 100).toFixed(1)} %</b>
+                <span>Schlechte Flips blockiert</span><b className="good">{proof.guardian.bad_blocked} / {proof.test_labels.bad}</b>
+                <span>Gute Flips verloren</span><b className="bad">{proof.guardian.good_lost} / {proof.test_labels.good}</b>
+                <span>Gute Flips erlaubt</span><b>{proof.guardian.good_allowed}</b>
+                <span>Schlechte Flips erlaubt</span><b>{proof.guardian.bad_allowed}</b>
+              </div>
+              <div className="guardian-proof-confusion">
+                <span>GOOD richtig <b>{proof.test_metrics.confusion.tp}</b></span>
+                <span>GOOD verloren <b>{proof.test_metrics.confusion.fn}</b></span>
+                <span>BAD blockiert <b>{proof.test_metrics.confusion.tn}</b></span>
+                <span>BAD erlaubt <b>{proof.test_metrics.confusion.fp}</b></span>
+              </div>
+              <strong className="guardian-proof-label">WICHTIGSTE MERKMALE</strong>
+              <div className="guardian-proof-importance">
+                {proof.importance.slice(0, 8).map((item, index) => (
+                  <div key={item.feature}><span>{index + 1}. {featureName(item.feature)}</span><b>{item.coefficient >= 0 ? "+" : ""}{item.coefficient.toFixed(3)}</b></div>
+                ))}
+              </div>
+              <small className="guardian-proof-note">Das ist der erste ehrliche Label-Test auf ungesehenen Markern. PF und PnL werden hier noch nicht behauptet; V13.6 prüft zuerst, ob deine GOOD/BAD-Entscheidung überhaupt lernbar ist.</small>
+            </div>
+          )}
           <div className={`guardian-audit ${auditProblems ? "warning" : "ok"}`}>
             <div className="guardian-audit-head"><strong>FEATURE-AUDIT</strong><b>{auditProblems ? `${auditProblems} PROBLEME` : "SAUBER"}</b></div>
             <small>Prüft alle sichtbaren Strategie-Marker auf fehlende, ungültige, konstante oder ausschließlich null gesetzte Werte.</small>
@@ -502,7 +590,7 @@ export default function FlipKi() {
               {sensorTrace && (
                 <div className="guardian-trace">
                   <div className="guardian-trace-head">
-                    <div><strong>V13.5 · CANDLE SNAPSHOT REPAIR</strong><small>Kanonischer MACD- und Kerzen-Snapshot aus einer gemeinsamen Backend-Quelle</small></div>
+                    <div><strong>V13.6 · GUARDIAN PROOF TEST</strong><small>Kanonischer MACD- und Kerzen-Snapshot aus einer gemeinsamen Backend-Quelle</small></div>
                     <b>{formatTime(sensorTrace.candleTime)}</b>
                   </div>
                   <div className="guardian-trace-columns"><span>Sensor</span><span>Snapshot</span><span>UI berechnet</span><span>Status</span></div>
