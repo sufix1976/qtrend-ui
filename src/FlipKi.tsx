@@ -435,7 +435,7 @@ export default function FlipKi() {
     <div className="guardian-page">
       <header className="guardian-header">
         <div>
-          <b>QTrend Strategy Flip Guardian V13.4</b>
+          <b>QTrend Strategy Flip Guardian V13.5</b>
           <span>Nur bestätigte Strategie-Marker · keine internen Kandidaten · keine Orders</span>
         </div>
         <div className="guardian-controls">
@@ -502,7 +502,7 @@ export default function FlipKi() {
               {sensorTrace && (
                 <div className="guardian-trace">
                   <div className="guardian-trace-head">
-                    <div><strong>V13.4 · SNAPSHOT REPAIR</strong><small>Kanonischer Strategie-Snapshot gegen dieselbe Backend-Indikatorserie</small></div>
+                    <div><strong>V13.5 · CANDLE SNAPSHOT REPAIR</strong><small>Kanonischer MACD- und Kerzen-Snapshot aus einer gemeinsamen Backend-Quelle</small></div>
                     <b>{formatTime(sensorTrace.candleTime)}</b>
                   </div>
                   <div className="guardian-trace-columns"><span>Sensor</span><span>Snapshot</span><span>UI berechnet</span><span>Status</span></div>
