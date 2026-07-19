@@ -36,6 +36,46 @@ type Candidate = {
   long_score?: number;
   short_score?: number;
 };
+
+function scoreToPercent(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const percent = Math.abs(n) <= 1.000001 ? n * 100 : n;
+  return Math.max(0, Math.min(100, percent));
+}
+
+function normalizePrediction(row: any): Candidate | null {
+  const time = Number(row?.time ?? row?.timestamp ?? row?.candle_time);
+  if (!Number.isFinite(time)) return null;
+
+  const longScore = scoreToPercent(
+    row?.long_score ?? row?.longScore ?? row?.long_probability ?? row?.longProbability ?? row?.long,
+  );
+  const shortScore = scoreToPercent(
+    row?.short_score ?? row?.shortScore ?? row?.short_probability ?? row?.shortProbability ?? row?.short,
+  );
+
+  let direction: Direction = String(row?.direction || row?.side || "").toLowerCase() === "short" ? "short" : "long";
+  if (longScore || shortScore) direction = longScore >= shortScore ? "long" : "short";
+
+  const directScore = scoreToPercent(row?.score ?? row?.confidence ?? row?.probability);
+  const score = Math.max(directScore, longScore, shortScore);
+
+  return {
+    time,
+    price: Number(row?.price ?? row?.close ?? 0),
+    score,
+    source: "ai",
+    direction,
+    long_score: longScore,
+    short_score: shortScore,
+  };
+}
+
+function normalizePredictions(rows: unknown): Candidate[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(normalizePrediction).filter((row): row is Candidate => row !== null);
+}
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -145,6 +185,7 @@ export default function QMomentumLab() {
   const [compareMode, setCompareMode] = useState<CompareMode>("new");
   const [threshold, setThreshold] = useState(80);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState("Bereit");
   const [showReviews, setShowReviews] = useState(true);
   const [trainingSummary, setTrainingSummary] = useState<TrainingSummary | null>(null);
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
@@ -206,9 +247,9 @@ export default function QMomentumLab() {
       setCandles(json.candles || []);
       setAnnotations(json.annotations || []);
       setScannerCandidates(json.scanner_candidates || []);
-      const predictions = json.chart_predictions || [];
+      const predictions = normalizePredictions(json.chart_predictions || json.predictions || []);
       setChartPredictions(predictions);
-      setAiCandidates(predictions.filter((row: Candidate) => Number(row.score) >= threshold));
+      setAiCandidates(predictions.filter((row) => row.score >= threshold));
       setModel(json.model || null);
       if (resetSelection) setSelectedTime(null);
     } catch (error: any) {
@@ -415,26 +456,74 @@ export default function QMomentumLab() {
   }
 
   async function analyze(showMessage = true) {
+    if (analyzing) return [] as Candidate[];
     setAnalyzing(true);
+    setAnalysisStatus("Anfrage wird gesendet …");
     if (showMessage) setMessage("KI analysiert jede Kerze im Chart …");
+
+    const url = new URL("/qmomentum/predict-chart", BACKEND_BASE);
+    url.searchParams.set("symbol", symbol);
+    url.searchParams.set("interval", interval);
+    url.searchParams.set("limit", "5000");
+    url.searchParams.set("_ts", String(Date.now()));
+
     try {
-      const response = await fetch(`${BACKEND_BASE}/qmomentum/predict-chart`, {
+      console.info("[QMomentum V4.1b] predict-chart request", url.toString());
+      const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
         body: JSON.stringify({ symbol, interval, limit: 5000 }),
       });
-      const json = await response.json();
-      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
-      const predictions: Candidate[] = json.predictions || [];
+
+      setAnalysisStatus(`Antwort ${response.status} wird gelesen …`);
+      const raw = await response.text();
+      let json: any;
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(`predict-chart lieferte kein JSON: ${raw.slice(0, 180)}`);
+      }
+
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `predict-chart HTTP ${response.status}`);
+      }
+
+      const predictions = normalizePredictions(json.predictions || json.chart_predictions || []);
       setChartPredictions(predictions);
-      const visible = predictions.filter((row) => Number(row.score) >= threshold);
+      const visible = predictions.filter((row) => row.score >= threshold);
+      const maxLong = predictions.reduce((max, row) => Math.max(max, row.long_score || 0), 0);
+      const maxShort = predictions.reduce((max, row) => Math.max(max, row.short_score || 0), 0);
+      const maxScore = predictions.reduce((max, row) => Math.max(max, row.score || 0), 0);
       setAiCandidates(visible);
       setModel((current) => ({ ...(current || {} as ModelInfo), ...(json.model || {}), threshold }));
       setCompareMode("new");
-      if (showMessage) setMessage(`KI hat ${json.prediction_count || predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.`);
+      setAnalysisStatus(`${json.prediction_count ?? predictions.length} Kerzen · ${visible.length} Marker · Max L ${maxLong.toFixed(1)} / S ${maxShort.toFixed(1)}`);
+      if (showMessage) {
+        const hint = visible.length === 0
+          ? ` Höchster Score ${maxScore.toFixed(1)}%. Senke die Schwelle unter diesen Wert.`
+          : "";
+        setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
+      }
+      console.info("[QMomentum V4.1b] predict-chart response", {
+        predictions: predictions.length,
+        visible: visible.length,
+        maxLong,
+        maxShort,
+        maxScore,
+        firstRawPrediction: Array.isArray(json.predictions) ? json.predictions[0] : null,
+        firstNormalizedPrediction: predictions[0] || null,
+        model: json.model,
+      });
       return visible;
     } catch (error: any) {
-      setMessage(error?.message || String(error));
+      const errorText = error?.message || String(error);
+      setAnalysisStatus(`Fehler: ${errorText}`);
+      setMessage(errorText);
+      console.error("[QMomentum V4.1b] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -442,7 +531,7 @@ export default function QMomentumLab() {
   }
 
   useEffect(() => {
-    const visible = chartPredictions.filter((row) => Number(row.score) >= threshold);
+    const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
 
@@ -468,8 +557,8 @@ export default function QMomentumLab() {
       const dataJson = await dataResponse.json();
       if (!dataResponse.ok || !dataJson.ok) throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
 
-      const predictions: Candidate[] = dataJson.chart_predictions || [];
-      const nextAi = predictions.filter((row) => Number(row.score) >= threshold);
+      const predictions = normalizePredictions(dataJson.chart_predictions || dataJson.predictions || []);
+      const nextAi = predictions.filter((row) => row.score >= threshold);
       const run = Number(localStorage.getItem("qmomentum_training_run") || "0") + 1;
       localStorage.setItem("qmomentum_training_run", String(run));
 
@@ -502,7 +591,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V4.1</span></h1><p>Echte Vollchart-KI · jede Kerze wird ohne Scanner bewertet · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V4.1b</span></h1><p>Echte Vollchart-KI · jede Kerze wird ohne Scanner bewertet · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -520,7 +609,8 @@ export default function QMomentumLab() {
           <button className={compareMode === "new" ? "active ai" : ""} onClick={() => setCompareMode("new")}>KI AKTUELL</button>
         </div>
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
-        <button className="qm-analyze" onClick={() => analyze()} disabled={analyzing || !model}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
+        <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
+        <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
         <button className="qm-train" onClick={train} disabled={training}>{training ? "Trainiert …" : "KI neu trainieren"}</button>
@@ -581,7 +671,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V4.1-Ablauf</b><span>Die KI bewertet jede Kerze selbstständig. Der Scanner ist nicht an der Vorhersage beteiligt. Schwelle ändern, KI-Marker bewerten, neu trainieren und denselben Chart erneut analysieren.</span></div>
+          <div className="qm-rule"><b>V4.1b-Ablauf</b><span>Die KI bewertet jede Kerze selbstständig. Der Scanner ist nicht an der Vorhersage beteiligt. Schwelle ändern, KI-Marker bewerten, neu trainieren und denselben Chart erneut analysieren.</span></div>
         </aside>
       </main>
     </div>
