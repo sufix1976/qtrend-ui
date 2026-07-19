@@ -37,6 +37,16 @@ type ModelInfo = {
   negative_count: number;
   threshold: number;
 };
+type CompareMode = "scanner" | "before" | "new";
+type TrainingSummary = {
+  run: number;
+  examples: number;
+  positive: number;
+  negative: number;
+  beforeCount: number;
+  afterCount: number;
+  trainedAt: string;
+};
 type IndicatorPoint = {
   time: Time;
   macd: number;
@@ -122,11 +132,13 @@ export default function QMomentumLab() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
   const [aiCandidates, setAiCandidates] = useState<Candidate[]>([]);
+  const [previousAiCandidates, setPreviousAiCandidates] = useState<Candidate[]>([]);
   const [model, setModel] = useState<ModelInfo | null>(null);
+  const [compareMode, setCompareMode] = useState<CompareMode>("scanner");
+  const [showReviews, setShowReviews] = useState(true);
+  const [trainingSummary, setTrainingSummary] = useState<TrainingSummary | null>(null);
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [showSma, setShowSma] = useState(false);
-  const [showScanner, setShowScanner] = useState(true);
-  const [showAi, setShowAi] = useState(true);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -164,7 +176,7 @@ export default function QMomentumLab() {
     return result;
   }, [annotations]);
 
-  async function load() {
+  async function load(resetSelection = true) {
     setLoading(true);
     setMessage("");
     try {
@@ -181,7 +193,7 @@ export default function QMomentumLab() {
       setScannerCandidates(json.scanner_candidates || []);
       setAiCandidates(json.ai_candidates || []);
       setModel(json.model || null);
-      setSelectedTime(null);
+      if (resetSelection) setSelectedTime(null);
     } catch (error: any) {
       setMessage(error?.message || String(error));
     } finally {
@@ -189,7 +201,13 @@ export default function QMomentumLab() {
     }
   }
 
-  useEffect(() => { load(); }, [symbol, interval]);
+  useEffect(() => {
+    setPreviousAiCandidates([]);
+    setTrainingSummary(null);
+    setCompareMode("scanner");
+    setShowReviews(true);
+    load();
+  }, [symbol, interval]);
 
   useEffect(() => {
     if (!priceEl.current || !macdEl.current || !rsiEl.current || !candles.length) return;
@@ -300,7 +318,7 @@ export default function QMomentumLab() {
 
   useEffect(() => {
     const markers: any[] = [];
-    if (showScanner) {
+    if (compareMode === "scanner") {
       scannerCandidates.forEach((candidate) => markers.push({
         time: candidate.time as Time,
         position: "belowBar",
@@ -310,17 +328,16 @@ export default function QMomentumLab() {
         size: candidate.score >= 75 ? 1.4 : 0.8,
       }));
     }
-    if (showAi) {
-      aiCandidates.forEach((candidate) => markers.push({
-        time: candidate.time as Time,
-        position: "aboveBar",
-        shape: "square",
-        color: "#d946ef",
-        text: `KI ${Math.round(candidate.score)}%`,
-        size: candidate.score >= 85 ? 2 : 1.3,
-      }));
-    }
-    annotations.forEach((annotation) => markers.push({
+    const visibleAiCandidates = compareMode === "before" ? previousAiCandidates : compareMode === "new" ? aiCandidates : [];
+    visibleAiCandidates.forEach((candidate) => markers.push({
+      time: candidate.time as Time,
+      position: "aboveBar",
+      shape: "square",
+      color: compareMode === "before" ? "#64748b" : "#d946ef",
+      text: `${compareMode === "before" ? "ALT" : "KI"} ${Math.round(candidate.score)}%`,
+      size: candidate.score >= 85 ? 2 : 1.3,
+    }));
+    if (showReviews) annotations.forEach((annotation) => markers.push({
       time: annotation.time as Time,
       position: "aboveBar",
       shape: annotation.label === "missed" ? "arrowDown" : "circle",
@@ -340,7 +357,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, scannerCandidates, aiCandidates, selectedTime, showScanner, showAi, candles]);
+  }, [annotations, scannerCandidates, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -389,6 +406,7 @@ export default function QMomentumLab() {
   async function train() {
     setTraining(true);
     setMessage("KI wird neu trainiert …");
+    const beforeCandidates = aiCandidates.slice();
     try {
       const response = await fetch(`${BACKEND_BASE}/qmomentum/train`, {
         method: "POST",
@@ -397,8 +415,38 @@ export default function QMomentumLab() {
       });
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
-      setMessage(`Training fertig: ${json.model.positive_count} positiv / ${json.model.negative_count} schlecht.`);
-      await load();
+
+      const dataUrl = new URL("/qmomentum/data", BACKEND_BASE);
+      dataUrl.searchParams.set("symbol", symbol);
+      dataUrl.searchParams.set("interval", interval);
+      dataUrl.searchParams.set("limit", "5000");
+      dataUrl.searchParams.set("_ts", String(Date.now()));
+      const dataResponse = await fetch(dataUrl, { cache: "no-store" });
+      const dataJson = await dataResponse.json();
+      if (!dataResponse.ok || !dataJson.ok) throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
+
+      const nextAi = dataJson.ai_candidates || [];
+      const run = Number(localStorage.getItem("qmomentum_training_run") || "0") + 1;
+      localStorage.setItem("qmomentum_training_run", String(run));
+
+      setPreviousAiCandidates(beforeCandidates);
+      setCandles(dataJson.candles || []);
+      setAnnotations(dataJson.annotations || []);
+      setScannerCandidates(dataJson.scanner_candidates || []);
+      setAiCandidates(nextAi);
+      setModel(dataJson.model || json.model || null);
+      setTrainingSummary({
+        run,
+        examples: Number(json.model.positive_count || 0) + Number(json.model.negative_count || 0),
+        positive: Number(json.model.positive_count || 0),
+        negative: Number(json.model.negative_count || 0),
+        beforeCount: beforeCandidates.length,
+        afterCount: nextAi.length,
+        trainedAt: json.model.trained_at || new Date().toISOString(),
+      });
+      setCompareMode("new");
+      setShowReviews(false);
+      setMessage(`Training #${run} abgeschlossen · KI-Marker ${beforeCandidates.length} → ${nextAi.length}.`);
     } catch (error: any) {
       setMessage(error?.message || String(error));
     } finally {
@@ -409,10 +457,11 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V0.2</span></h1><p>Scanner zeigt Kandidaten · Alexander korrigiert · KI lernt sichtbar</p></div>
+        <div><h1>QMomentum Lab <span>V0.2c</span></h1><p>Scanner zeigt Kandidaten · Alexander korrigiert · KI lernt sichtbar</p></div>
         <div className="qm-stats">
           <span>Scanner {scannerCandidates.length}</span>
-          <span className="ai">KI {aiCandidates.length}</span>
+          <span className="ai">KI neu {aiCandidates.length}</span>
+          <span>KI vorher {previousAiCandidates.length}</span>
           <span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
@@ -421,17 +470,32 @@ export default function QMomentumLab() {
         <label>Instrument<select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label>Timeframe<select value={interval} onChange={(e) => setInterval(e.target.value)}>{INTERVALS.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label className="qm-check"><input type="checkbox" checked={showSma} onChange={(e) => setShowSma(e.target.checked)} /> SMA 50</label>
-        <label className="qm-check scanner"><input type="checkbox" checked={showScanner} onChange={(e) => setShowScanner(e.target.checked)} /> Scanner</label>
-        <label className="qm-check ai"><input type="checkbox" checked={showAi} onChange={(e) => setShowAi(e.target.checked)} /> KI</label>
-        <button onClick={load} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
+        <div className="qm-compare" role="group" aria-label="Markervergleich">
+          <button className={compareMode === "scanner" ? "active scanner" : ""} onClick={() => setCompareMode("scanner")}>SCANNER</button>
+          <button className={compareMode === "before" ? "active before" : ""} disabled={!previousAiCandidates.length} onClick={() => setCompareMode("before")}>KI VORHER</button>
+          <button className={compareMode === "new" ? "active ai" : ""} disabled={!aiCandidates.length} onClick={() => setCompareMode("new")}>KI NEU</button>
+        </div>
+        <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
+        <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
         <button className="qm-train" onClick={train} disabled={training}>{training ? "Trainiert …" : "KI neu trainieren"}</button>
       </div>
 
       <div className="qm-modelbar">
-        <span className="scanner-dot"/> Scanner = großzügige Kandidaten
-        <span className="ai-dot"/> KI = gelerntes Muster
+        <span className="scanner-dot"/> Scanner
+        <span className="before-dot"/> KI vorher
+        <span className="ai-dot"/> KI neu
         {model ? <b>Modell: {model.positive_count} positiv / {model.negative_count} schlecht · Schwelle {model.threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
       </div>
+
+      {trainingSummary && <div className="qm-training-result">
+        <strong>Training #{trainingSummary.run} abgeschlossen</strong>
+        <span>Beispiele <b>{trainingSummary.examples}</b></span>
+        <span>Positiv <b>{trainingSummary.positive}</b></span>
+        <span>Schlecht <b>{trainingSummary.negative}</b></span>
+        <span>KI-Marker vorher <b>{trainingSummary.beforeCount}</b></span>
+        <span>KI-Marker jetzt <b>{trainingSummary.afterCount}</b></span>
+        <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
+      </div>}
 
       <main className="qm-main">
         <section className="qm-charts">
@@ -446,8 +510,9 @@ export default function QMomentumLab() {
             <h2>{formatTime(selectedCandle.time)}</h2>
             <div className="qm-source-score">
               {selectedScanner && <span className="scanner">Scanner {selectedScanner.score.toFixed(0)}</span>}
-              {selectedAi && <span className="ai">KI {selectedAi.score.toFixed(0)}%</span>}
-              {!selectedScanner && !selectedAi && <span>Manuell gewählt</span>}
+              {selectedAi && <span className="ai">KI neu {selectedAi.score.toFixed(0)}%</span>}
+              {previousAiCandidates.find((c) => c.time === selectedTime) && <span>KI vorher {previousAiCandidates.find((c) => c.time === selectedTime)!.score.toFixed(0)}%</span>}
+              {!selectedScanner && !selectedAi && !previousAiCandidates.some((c) => c.time === selectedTime) && <span>Manuell gewählt</span>}
             </div>
             <dl>
               <dt>Close</dt><dd>{selectedCandle.close.toFixed(2)}</dd>
@@ -467,7 +532,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V0.2-Ablauf</b><span>Violetten Scanner-Kandidaten bewerten. Fehlende Momente anklicken und „Verpasst“ wählen. Danach „KI neu trainieren“. Magenta KI-Marker zeigen, was das Modell gelernt hat.</span></div>
+          <div className="qm-rule"><b>V0.2c-Ablauf</b><span>Nach dem Training wird automatisch auf „KI NEU“ umgeschaltet. Scanner und Bewertungen werden ausgeblendet. Mit SCANNER · KI VORHER · KI NEU kannst du den Unterschied direkt im selben Chart vergleichen.</span></div>
         </aside>
       </main>
     </div>
