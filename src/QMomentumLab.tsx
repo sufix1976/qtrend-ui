@@ -16,6 +16,7 @@ const INTERVALS = ["1m", "5m", "10m", "15m", "30m", "1h"];
 
 type Candle = { time: number; open: number; high: number; low: number; close: number };
 type Label = "perfect" | "bad" | "missed" | "unsure";
+type Direction = "long" | "short";
 type Annotation = {
   id: number;
   symbol: string;
@@ -23,6 +24,7 @@ type Annotation = {
   time: number;
   price: number;
   label: Label;
+  direction: Direction | "none";
   note?: string | null;
 };
 type Candidate = {
@@ -30,11 +32,16 @@ type Candidate = {
   price: number;
   score: number;
   source: "scanner" | "ai";
+  direction: Direction;
+  long_score?: number;
+  short_score?: number;
 };
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
   negative_count: number;
+  long_count?: number;
+  short_count?: number;
   threshold: number;
 };
 type CompareMode = "scanner" | "before" | "new";
@@ -140,6 +147,7 @@ export default function QMomentumLab() {
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [showSma, setShowSma] = useState(false);
   const [note, setNote] = useState("");
+  const [direction, setDirection] = useState<Direction>("long");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
@@ -175,6 +183,10 @@ export default function QMomentumLab() {
     annotations.forEach((a) => { if (a.label in result) result[a.label] += 1; });
     return result;
   }, [annotations]);
+  const directionStats = useMemo(() => ({
+    long: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "long").length,
+    short: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "short").length,
+  }), [annotations]);
 
   async function load(resetSelection = true) {
     setLoading(true);
@@ -287,7 +299,10 @@ export default function QMomentumLab() {
         return;
       }
       setSelectedTime(clickedTime);
-      setMessage("Moment gewählt – jetzt bewerten.");
+      const candidate = aiCandidates.find((c) => c.time === clickedTime) || scannerCandidates.find((c) => c.time === clickedTime);
+      const idx = candles.findIndex((c) => c.time === clickedTime);
+      setDirection(candidate?.direction || ((values[idx]?.histogram ?? 0) <= 0 ? "long" : "short"));
+      setMessage("Moment gewählt – LONG oder SHORT prüfen und bewerten.");
     });
 
     if (visibleRangeRef.current) {
@@ -321,28 +336,28 @@ export default function QMomentumLab() {
     if (compareMode === "scanner") {
       scannerCandidates.forEach((candidate) => markers.push({
         time: candidate.time as Time,
-        position: "belowBar",
-        shape: "circle",
+        position: candidate.direction === "long" ? "belowBar" : "aboveBar",
+        shape: candidate.direction === "long" ? "arrowUp" : "arrowDown",
         color: "#8b5cf6",
-        text: candidate.score >= 75 ? `S ${Math.round(candidate.score)}` : "",
+        text: candidate.score >= 75 ? `${candidate.direction === "long" ? "L" : "S"} ${Math.round(candidate.score)}` : "",
         size: candidate.score >= 75 ? 1.4 : 0.8,
       }));
     }
     const visibleAiCandidates = compareMode === "before" ? previousAiCandidates : compareMode === "new" ? aiCandidates : [];
     visibleAiCandidates.forEach((candidate) => markers.push({
       time: candidate.time as Time,
-      position: "aboveBar",
-      shape: "square",
+      position: candidate.direction === "long" ? "belowBar" : "aboveBar",
+      shape: candidate.direction === "long" ? "arrowUp" : "arrowDown",
       color: compareMode === "before" ? "#64748b" : "#d946ef",
-      text: `${compareMode === "before" ? "ALT" : "KI"} ${Math.round(candidate.score)}%`,
+      text: `${candidate.direction === "long" ? "L" : "S"} ${compareMode === "before" ? "ALT" : "KI"} ${Math.round(candidate.score)}%`,
       size: candidate.score >= 85 ? 2 : 1.3,
     }));
     if (showReviews) annotations.forEach((annotation) => markers.push({
       time: annotation.time as Time,
-      position: "aboveBar",
-      shape: annotation.label === "missed" ? "arrowDown" : "circle",
-      color: annotation.label === "perfect" ? "#28c76f" : annotation.label === "bad" ? "#ef5350" : annotation.label === "missed" ? "#f59e0b" : "#f5c451",
-      text: annotation.label === "perfect" ? "✓" : annotation.label === "bad" ? "×" : annotation.label === "missed" ? "VERPASST" : "?",
+      position: annotation.direction === "long" ? "belowBar" : "aboveBar",
+      shape: annotation.direction === "long" ? "arrowUp" : annotation.direction === "short" ? "arrowDown" : "circle",
+      color: annotation.label === "perfect" ? (annotation.direction === "long" ? "#22c55e" : "#ef4444") : annotation.label === "bad" ? "#64748b" : annotation.label === "missed" ? "#f59e0b" : "#f5c451",
+      text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
     if (selectedTime) {
@@ -367,7 +382,7 @@ export default function QMomentumLab() {
       const response = await fetch(`${BACKEND_BASE}/qmomentum/annotation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, interval, time: selectedCandle.time, price: selectedCandle.close, label, note }),
+        body: JSON.stringify({ symbol, interval, time: selectedCandle.time, price: selectedCandle.close, label, direction: label === "bad" || label === "unsure" ? direction : direction, note }),
       });
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
@@ -392,6 +407,8 @@ export default function QMomentumLab() {
 
       if (nextTime !== null) {
         setSelectedTime(nextTime);
+        const nextCandidate = aiCandidates.find((c) => c.time === nextTime) || scannerCandidates.find((c) => c.time === nextTime);
+        if (nextCandidate) setDirection(nextCandidate.direction);
         setMessage(`${labelText(label)} gespeichert · nächster Kandidat gewählt.`);
       } else {
         setMessage(`${labelText(label)} gespeichert · alle sichtbaren Kandidaten bewertet.`);
@@ -457,12 +474,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V0.2c</span></h1><p>Scanner zeigt Kandidaten · Alexander korrigiert · KI lernt sichtbar</p></div>
+        <div><h1>QMomentum Lab <span>V0.3</span></h1><p>LONG- und SHORT-Momente getrennt erkennen · keine Trades</p></div>
         <div className="qm-stats">
           <span>Scanner {scannerCandidates.length}</span>
           <span className="ai">KI neu {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -484,7 +501,7 @@ export default function QMomentumLab() {
         <span className="scanner-dot"/> Scanner
         <span className="before-dot"/> KI vorher
         <span className="ai-dot"/> KI neu
-        {model ? <b>Modell: {model.positive_count} positiv / {model.negative_count} schlecht · Schwelle {model.threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
+        {model ? <b>Modell: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {model.threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
       </div>
 
       {trainingSummary && <div className="qm-training-result">
@@ -509,8 +526,8 @@ export default function QMomentumLab() {
           {selectedCandle && selectedIndicators ? <>
             <h2>{formatTime(selectedCandle.time)}</h2>
             <div className="qm-source-score">
-              {selectedScanner && <span className="scanner">Scanner {selectedScanner.score.toFixed(0)}</span>}
-              {selectedAi && <span className="ai">KI neu {selectedAi.score.toFixed(0)}%</span>}
+              {selectedScanner && <span className={selectedScanner.direction}>Scanner {selectedScanner.direction.toUpperCase()} {selectedScanner.score.toFixed(0)}</span>}
+              {selectedAi && <span className={selectedAi.direction}>KI {selectedAi.direction.toUpperCase()} {selectedAi.score.toFixed(0)}%</span>}
               {previousAiCandidates.find((c) => c.time === selectedTime) && <span>KI vorher {previousAiCandidates.find((c) => c.time === selectedTime)!.score.toFixed(0)}%</span>}
               {!selectedScanner && !selectedAi && !previousAiCandidates.some((c) => c.time === selectedTime) && <span>Manuell gewählt</span>}
             </div>
@@ -524,15 +541,19 @@ export default function QMomentumLab() {
             </dl>
           </> : <div className="qm-empty">Klicke einen Scanner-/KI-Marker oder eine fehlende Stelle im Chart an.</div>}
 
+          <div className="qm-direction">
+            <button className={direction === "long" ? "active long" : "long"} onClick={() => setDirection("long")}>▲ MÖGLICHER LONG-MOMENT</button>
+            <button className={direction === "short" ? "active short" : "short"} onClick={() => setDirection("short")}>▼ MÖGLICHER SHORT-MOMENT</button>
+          </div>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz optional" />
           <div className="qm-actions">
-            <button className="perfect" disabled={saving} onClick={() => save("perfect")}>👍<b>Perfekt</b></button>
+            <button className="perfect" disabled={saving} onClick={() => save("perfect")}>👍<b>{direction === "long" ? "LONG perfekt" : "SHORT perfekt"}</b></button>
             <button className="bad" disabled={saving} onClick={() => save("bad")}>👎<b>Schlecht</b></button>
-            <button className="missed" disabled={saving} onClick={() => save("missed")}>⭕<b>Verpasst</b></button>
+            <button className="missed" disabled={saving} onClick={() => save("missed")}>⭕<b>{direction === "long" ? "LONG verpasst" : "SHORT verpasst"}</b></button>
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V0.2c-Ablauf</b><span>Nach dem Training wird automatisch auf „KI NEU“ umgeschaltet. Scanner und Bewertungen werden ausgeblendet. Mit SCANNER · KI VORHER · KI NEU kannst du den Unterschied direkt im selben Chart vergleichen.</span></div>
+          <div className="qm-rule"><b>V0.3-Ablauf</b><span>Jeder positive Moment hat zwingend eine Richtung. LONG und SHORT werden getrennt gelernt. „Schlecht“ bedeutet: kein hochwertiger Moment in der gewählten Richtung.</span></div>
         </aside>
       </main>
     </div>
