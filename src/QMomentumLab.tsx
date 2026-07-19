@@ -44,7 +44,7 @@ type ModelInfo = {
   short_count?: number;
   threshold: number;
 };
-type CompareMode = "scanner" | "before" | "new";
+type CompareMode = "before" | "new";
 type TrainingSummary = {
   run: number;
   examples: number;
@@ -138,10 +138,13 @@ export default function QMomentumLab() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
+  const [chartPredictions, setChartPredictions] = useState<Candidate[]>([]);
   const [aiCandidates, setAiCandidates] = useState<Candidate[]>([]);
   const [previousAiCandidates, setPreviousAiCandidates] = useState<Candidate[]>([]);
   const [model, setModel] = useState<ModelInfo | null>(null);
-  const [compareMode, setCompareMode] = useState<CompareMode>("scanner");
+  const [compareMode, setCompareMode] = useState<CompareMode>("new");
+  const [threshold, setThreshold] = useState(80);
+  const [analyzing, setAnalyzing] = useState(false);
   const [showReviews, setShowReviews] = useState(true);
   const [trainingSummary, setTrainingSummary] = useState<TrainingSummary | null>(null);
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
@@ -203,7 +206,9 @@ export default function QMomentumLab() {
       setCandles(json.candles || []);
       setAnnotations(json.annotations || []);
       setScannerCandidates(json.scanner_candidates || []);
-      setAiCandidates(json.ai_candidates || []);
+      const predictions = json.chart_predictions || [];
+      setChartPredictions(predictions);
+      setAiCandidates(predictions.filter((row: Candidate) => Number(row.score) >= threshold));
       setModel(json.model || null);
       if (resetSelection) setSelectedTime(null);
     } catch (error: any) {
@@ -216,7 +221,7 @@ export default function QMomentumLab() {
   useEffect(() => {
     setPreviousAiCandidates([]);
     setTrainingSummary(null);
-    setCompareMode("scanner");
+    setCompareMode("new");
     setShowReviews(true);
     load();
   }, [symbol, interval]);
@@ -299,7 +304,7 @@ export default function QMomentumLab() {
         return;
       }
       setSelectedTime(clickedTime);
-      const candidate = aiCandidates.find((c) => c.time === clickedTime) || scannerCandidates.find((c) => c.time === clickedTime);
+      const candidate = chartPredictions.find((c) => c.time === clickedTime) || aiCandidates.find((c) => c.time === clickedTime);
       const idx = candles.findIndex((c) => c.time === clickedTime);
       setDirection(candidate?.direction || ((values[idx]?.histogram ?? 0) <= 0 ? "long" : "short"));
       setMessage("Moment gewählt – LONG oder SHORT prüfen und bewerten.");
@@ -333,17 +338,7 @@ export default function QMomentumLab() {
 
   useEffect(() => {
     const markers: any[] = [];
-    if (compareMode === "scanner") {
-      scannerCandidates.forEach((candidate) => markers.push({
-        time: candidate.time as Time,
-        position: candidate.direction === "long" ? "belowBar" : "aboveBar",
-        shape: candidate.direction === "long" ? "arrowUp" : "arrowDown",
-        color: "#8b5cf6",
-        text: candidate.score >= 75 ? `${candidate.direction === "long" ? "L" : "S"} ${Math.round(candidate.score)}` : "",
-        size: candidate.score >= 75 ? 1.4 : 0.8,
-      }));
-    }
-    const visibleAiCandidates = compareMode === "before" ? previousAiCandidates : compareMode === "new" ? aiCandidates : [];
+    const visibleAiCandidates = compareMode === "before" ? previousAiCandidates : aiCandidates;
     visibleAiCandidates.forEach((candidate) => markers.push({
       time: candidate.time as Time,
       position: candidate.direction === "long" ? "belowBar" : "aboveBar",
@@ -372,7 +367,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, scannerCandidates, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -394,10 +389,9 @@ export default function QMomentumLab() {
       setNote("");
 
       const reviewedTimes = new Set(nextAnnotations.map((a) => Number(a.time)));
-      const candidateTimes = [...new Set([
-        ...scannerCandidates.map((candidate) => Number(candidate.time)),
-        ...aiCandidates.map((candidate) => Number(candidate.time)),
-      ])].sort((a, b) => a - b);
+      const candidateTimes = [...new Set(
+        aiCandidates.map((candidate) => Number(candidate.time)),
+      )].sort((a, b) => a - b);
 
       const currentTime = Number(json.annotation.time);
       const nextTime =
@@ -407,7 +401,7 @@ export default function QMomentumLab() {
 
       if (nextTime !== null) {
         setSelectedTime(nextTime);
-        const nextCandidate = aiCandidates.find((c) => c.time === nextTime) || scannerCandidates.find((c) => c.time === nextTime);
+        const nextCandidate = aiCandidates.find((c) => c.time === nextTime);
         if (nextCandidate) setDirection(nextCandidate.direction);
         setMessage(`${labelText(label)} gespeichert · nächster Kandidat gewählt.`);
       } else {
@@ -419,6 +413,38 @@ export default function QMomentumLab() {
       setSaving(false);
     }
   }
+
+  async function analyze(showMessage = true) {
+    setAnalyzing(true);
+    if (showMessage) setMessage("KI analysiert jede Kerze im Chart …");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/predict-chart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+      const predictions: Candidate[] = json.predictions || [];
+      setChartPredictions(predictions);
+      const visible = predictions.filter((row) => Number(row.score) >= threshold);
+      setAiCandidates(visible);
+      setModel((current) => ({ ...(current || {} as ModelInfo), ...(json.model || {}), threshold }));
+      setCompareMode("new");
+      if (showMessage) setMessage(`KI hat ${json.prediction_count || predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.`);
+      return visible;
+    } catch (error: any) {
+      setMessage(error?.message || String(error));
+      return [] as Candidate[];
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  useEffect(() => {
+    const visible = chartPredictions.filter((row) => Number(row.score) >= threshold);
+    setAiCandidates(visible);
+  }, [threshold, chartPredictions]);
 
   async function train() {
     setTraining(true);
@@ -442,14 +468,16 @@ export default function QMomentumLab() {
       const dataJson = await dataResponse.json();
       if (!dataResponse.ok || !dataJson.ok) throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
 
-      const nextAi = dataJson.ai_candidates || [];
+      const predictions: Candidate[] = dataJson.chart_predictions || [];
+      const nextAi = predictions.filter((row) => Number(row.score) >= threshold);
       const run = Number(localStorage.getItem("qmomentum_training_run") || "0") + 1;
       localStorage.setItem("qmomentum_training_run", String(run));
 
       setPreviousAiCandidates(beforeCandidates);
       setCandles(dataJson.candles || []);
       setAnnotations(dataJson.annotations || []);
-      setScannerCandidates(dataJson.scanner_candidates || []);
+      setScannerCandidates([]);
+      setChartPredictions(predictions);
       setAiCandidates(nextAi);
       setModel(dataJson.model || json.model || null);
       setTrainingSummary({
@@ -474,10 +502,10 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V0.3</span></h1><p>LONG- und SHORT-Momente getrennt erkennen · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V4.1</span></h1><p>Echte Vollchart-KI · jede Kerze wird ohne Scanner bewertet · keine Trades</p></div>
         <div className="qm-stats">
-          <span>Scanner {scannerCandidates.length}</span>
-          <span className="ai">KI neu {aiCandidates.length}</span>
+          <span>Analysiert {chartPredictions.length}</span>
+          <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
           <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
@@ -487,21 +515,21 @@ export default function QMomentumLab() {
         <label>Instrument<select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label>Timeframe<select value={interval} onChange={(e) => setInterval(e.target.value)}>{INTERVALS.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label className="qm-check"><input type="checkbox" checked={showSma} onChange={(e) => setShowSma(e.target.checked)} /> SMA 50</label>
-        <div className="qm-compare" role="group" aria-label="Markervergleich">
-          <button className={compareMode === "scanner" ? "active scanner" : ""} onClick={() => setCompareMode("scanner")}>SCANNER</button>
+        <div className="qm-compare" role="group" aria-label="KI-Vergleich">
           <button className={compareMode === "before" ? "active before" : ""} disabled={!previousAiCandidates.length} onClick={() => setCompareMode("before")}>KI VORHER</button>
-          <button className={compareMode === "new" ? "active ai" : ""} disabled={!aiCandidates.length} onClick={() => setCompareMode("new")}>KI NEU</button>
+          <button className={compareMode === "new" ? "active ai" : ""} onClick={() => setCompareMode("new")}>KI AKTUELL</button>
         </div>
+        <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
+        <button className="qm-analyze" onClick={() => analyze()} disabled={analyzing || !model}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
         <button className="qm-train" onClick={train} disabled={training}>{training ? "Trainiert …" : "KI neu trainieren"}</button>
       </div>
 
       <div className="qm-modelbar">
-        <span className="scanner-dot"/> Scanner
         <span className="before-dot"/> KI vorher
-        <span className="ai-dot"/> KI neu
-        {model ? <b>Modell: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {model.threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
+        <span className="ai-dot"/> KI aktuell · Vollchart
+        {model ? <b>Modell: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
       </div>
 
       {trainingSummary && <div className="qm-training-result">
@@ -539,7 +567,7 @@ export default function QMomentumLab() {
               <dt>RSI</dt><dd>{selectedIndicators.rsi.toFixed(2)}</dd>
               <dt>RSI MA</dt><dd>{selectedIndicators.rsiMa.toFixed(2)}</dd>
             </dl>
-          </> : <div className="qm-empty">Klicke einen Scanner-/KI-Marker oder eine fehlende Stelle im Chart an.</div>}
+          </> : <div className="qm-empty">Klicke einen KI-Marker oder eine fehlende Stelle im Chart an.</div>}
 
           <div className="qm-direction">
             <button className={direction === "long" ? "active long" : "long"} onClick={() => setDirection("long")}>▲ MÖGLICHER LONG-MOMENT</button>
@@ -553,7 +581,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V0.3-Ablauf</b><span>Jeder positive Moment hat zwingend eine Richtung. LONG und SHORT werden getrennt gelernt. „Schlecht“ bedeutet: kein hochwertiger Moment in der gewählten Richtung.</span></div>
+          <div className="qm-rule"><b>V4.1-Ablauf</b><span>Die KI bewertet jede Kerze selbstständig. Der Scanner ist nicht an der Vorhersage beteiligt. Schwelle ändern, KI-Marker bewerten, neu trainieren und denselben Chart erneut analysieren.</span></div>
         </aside>
       </main>
     </div>
