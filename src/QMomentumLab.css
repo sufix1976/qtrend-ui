@@ -1,4 +1,4 @@
-:root { color-scheme: dark; } 
+:root { color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: #080b10; color: #e7edf6; font-family: Inter, system-ui, Arial, sans-serif; }
 button, select, textarea { font: inherit; }
