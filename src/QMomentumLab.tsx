@@ -454,8 +454,8 @@ export default function QMomentumLab() {
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
+  const [formulaStatus, setFormulaStatus] = useState("Bereit");
   const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
-  //const [formulaTop, setFormulaTop] = useState<Omit<FormulaResult, "states">[]>([]);
   const [showFormulaTrend, setShowFormulaTrend] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -810,7 +810,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V6.3a] predict-chart request", url.toString());
+      console.info("[Trend Formula Lab V0.1a] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -854,7 +854,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V6.3a] predict-chart response", {
+      console.info("[Trend Formula Lab V0.1a] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -869,7 +869,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V6.3a] predict-chart failed", error);
+      console.error("[Trend Formula Lab V0.1a] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -882,27 +882,54 @@ export default function QMomentumLab() {
   }, [threshold, chartPredictions]);
 
   async function optimizeFormula() {
+    if (formulaOptimizing) return;
+
+    const endpoint = `${BACKEND_BASE}/qmomentum/formula-optimize`;
     setFormulaOptimizing(true);
+    setFormulaStatus(`POST ${endpoint}`);
     setMessage("Trendformeln werden getestet …");
+
     try {
-      const response = await fetch(`${BACKEND_BASE}/qmomentum/formula-optimize`, {
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+        headers: {
+          "Content-Type": "text/plain;charset=UTF-8",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ symbol, interval, limit: 3000 }),
+        cache: "no-store",
       });
-      const json = await response.json();
-      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+
+      const raw = await response.text();
+      let json: any = null;
+      try {
+        json = raw ? JSON.parse(raw) : null;
+      } catch {
+        throw new Error(`HTTP ${response.status}: Antwort ist kein JSON: ${raw.slice(0, 240)}`);
+      }
+
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || `HTTP ${response.status}: ${raw.slice(0, 240)}`);
+      }
 
       setFormulaResult(json.best || null);
-      //setFormulaTop(json.top || []);
       setShowFormulaTrend(true);
+      setFormulaStatus(`Fertig · ${json.tested_formulas || 0} Formeln getestet`);
       setMessage(
         `Beste Formel aus ${json.tested_formulas || 0} Varianten · ` +
         `Treffer ${json.best?.accuracy_pct || 0}% · ` +
         `Wechselabweichung ${json.best?.avg_switch_distance_bars || 0} Kerzen.`,
       );
     } catch (error: any) {
-      setMessage(error?.message || String(error));
+      const errorText = error?.message || String(error);
+      setFormulaStatus(`Fehler: ${errorText}`);
+      setMessage(errorText);
+      console.error("[Trend Formula Lab V0.1a] formula-optimize failed", {
+        endpoint,
+        symbol,
+        interval,
+        error,
+      });
     } finally {
       setFormulaOptimizing(false);
     }
@@ -1003,7 +1030,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>Formula Lab V0.1</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.1a</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1023,9 +1050,12 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
-        <button type="button" onClick={optimizeFormula} disabled={formulaOptimizing || loading}>
+        <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
           {formulaOptimizing ? "Formeln rechnen …" : "Trendformel suchen"}
         </button>
+        <div className={`qm-analysis-status ${formulaStatus.startsWith("Fehler") ? "error" : formulaOptimizing ? "working" : ""}`}>
+          <b>Formelsuche</b><span>{formulaStatus}</span>
+        </div>
         <label className="qm-check"><input type="checkbox" checked={showFormulaTrend} onChange={(e) => setShowFormulaTrend(e.target.checked)} /> Formeltrend</label>
         <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
         <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trendstarts</label>
@@ -1110,7 +1140,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>Trend Formula Lab V0.1</b><span>Deine UT-/DT-Marker bilden die Zielzustände. Der Optimierer testet EMA-, ATR-, Hysterese-, Steigungs-, Momentum-, Bestätigungs- und Mindestdauer-Parameter und zeichnet die beste reproduzierbare Trendformel als grüne/rote Punkte.</span></div>
+          <div className="qm-rule"><b>Trend Formula Lab V0.1</b><span>Deine UT-/DT-Marker bilden die Zielzustände. Der Optimierer testet in einem schnellen ersten Lauf rund 3.000 EMA-, ATR-, Hysterese-, Steigungs-, Momentum-, Bestätigungs- und Mindestdauer-Kombinationen und zeichnet die beste reproduzierbare Trendformel als grüne/rote Punkte.</span></div>
         </aside>
       </main>
     </div>
