@@ -810,7 +810,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[Trend Formula Lab V0.1b] predict-chart request", url.toString());
+      console.info("[Trend Formula Lab V0.3] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -854,7 +854,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[Trend Formula Lab V0.1b] predict-chart response", {
+      console.info("[Trend Formula Lab V0.3] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -869,7 +869,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.1b] predict-chart failed", error);
+      console.error("[Trend Formula Lab V0.3] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -884,50 +884,87 @@ export default function QMomentumLab() {
   async function optimizeFormula() {
     if (formulaOptimizing) return;
 
-    const requestUrl = new URL("/qmomentum/formula-optimize", BACKEND_BASE);
-    requestUrl.searchParams.set("symbol", symbol);
-    requestUrl.searchParams.set("interval", interval);
-    requestUrl.searchParams.set("limit", "3000");
-    requestUrl.searchParams.set("_ts", String(Date.now()));
-    const endpoint = requestUrl.toString();
-
     setFormulaOptimizing(true);
-    setFormulaStatus(`GET ${endpoint}`);
-    setMessage("Trendformeln werden getestet …");
+    setFormulaResult(null);
+    setFormulaStatus("Job wird vorbereitet …");
+    setMessage("Trendformel-Batchsuche wird gestartet …");
 
     try {
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers: { "Accept": "application/json" },
-        cache: "no-store",
-      });
+      const startResponse = await fetch(
+        `${BACKEND_BASE}/qmomentum/formula-optimize/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({ symbol, interval, limit: 800 }),
+        },
+      );
 
-      const raw = await response.text();
-      let json: any = null;
-      try {
-        json = raw ? JSON.parse(raw) : null;
-      } catch {
-        throw new Error(`HTTP ${response.status}: Antwort ist kein JSON: ${raw.slice(0, 240)}`);
+      const startJson = await startResponse.json();
+      if (!startResponse.ok || !startJson?.ok) {
+        throw new Error(startJson?.error || `Start HTTP ${startResponse.status}`);
       }
 
-      if (!response.ok || !json?.ok) {
-        throw new Error(json?.error || `HTTP ${response.status}: ${raw.slice(0, 240)}`);
+      const jobId = String(startJson.job_id || "");
+      if (!jobId) throw new Error("Formelsuche lieferte keine Job-ID.");
+
+      let done = false;
+      let lastBest: FormulaResult | null = null;
+
+      while (!done) {
+        const stepResponse = await fetch(
+          `${BACKEND_BASE}/qmomentum/formula-optimize/step`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              job_id: jobId,
+              batch_size: 64,
+            }),
+          },
+        );
+
+        const stepJson = await stepResponse.json();
+        if (!stepResponse.ok || !stepJson?.ok) {
+          throw new Error(stepJson?.error || `Step HTTP ${stepResponse.status}`);
+        }
+
+        const processed = Number(stepJson.processed || 0);
+        const total = Number(stepJson.total || 3072);
+        const percent = Number(stepJson.progress_pct || 0);
+        done = Boolean(stepJson.done);
+        lastBest = stepJson.best || lastBest;
+
+        setFormulaStatus(`${processed} / ${total} · ${percent.toFixed(1)}%`);
+        if (stepJson.best) {
+          setFormulaResult(stepJson.best);
+          setShowFormulaTrend(done);
+        }
+
+        // Browser und Render kurz Luft geben, bevor der nächste Block startet.
+        if (!done) await new Promise((resolve) => window.setTimeout(resolve, 35));
       }
 
-      setFormulaResult(json.best || null);
+      if (!lastBest) throw new Error("Formelsuche wurde beendet, aber ohne Ergebnis.");
+
+      setFormulaResult(lastBest);
       setShowFormulaTrend(true);
-      setFormulaStatus(`Fertig · ${json.tested_formulas || 0} Formeln getestet`);
+      setFormulaStatus("Fertig · 3072 / 3072 · 100%");
       setMessage(
-        `Beste Formel aus ${json.tested_formulas || 0} Varianten · ` +
-        `Treffer ${json.best?.accuracy_pct || 0}% · ` +
-        `Wechselabweichung ${json.best?.avg_switch_distance_bars || 0} Kerzen.`,
+        `Beste Formel aus 3072 Varianten · ` +
+        `Treffer ${lastBest.accuracy_pct || 0}% · ` +
+        `Wechselabweichung ${lastBest.avg_switch_distance_bars || 0} Kerzen.`,
       );
     } catch (error: any) {
       const errorText = error?.message || String(error);
       setFormulaStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.1b] formula-optimize failed", {
-        endpoint,
+      console.error("[Trend Formula Lab V0.3] batch optimize failed", {
         symbol,
         interval,
         error,
@@ -1032,7 +1069,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>Formula Lab V0.1b</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.3</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1053,7 +1090,7 @@ export default function QMomentumLab() {
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
         <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
-          {formulaOptimizing ? "Formeln rechnen …" : "Trendformel suchen"}
+          {formulaOptimizing ? "Batch läuft …" : "Trendformel suchen"}
         </button>
         <div className={`qm-analysis-status ${formulaStatus.startsWith("Fehler") ? "error" : formulaOptimizing ? "working" : ""}`}>
           <b>Formelsuche</b><span>{formulaStatus}</span>
@@ -1142,7 +1179,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>Trend Formula Lab V0.1</b><span>Deine UT-/DT-Marker bilden die Zielzustände. Der Optimierer testet in einem schnellen ersten Lauf rund 3.000 EMA-, ATR-, Hysterese-, Steigungs-, Momentum-, Bestätigungs- und Mindestdauer-Kombinationen und zeichnet die beste reproduzierbare Trendformel als grüne/rote Punkte.</span></div>
+          <div className="qm-rule"><b>Trend Formula Lab V0.3</b><span>Die 3.072 Formeln werden in kleinen 64er-Blöcken geprüft. Der Fortschritt bleibt sichtbar, Render erhält nach jedem Block eine neue kurze Anfrage und die beste bisherige Formel wird fortlaufend aktualisiert.</span></div>
         </aside>
       </main>
     </div>
