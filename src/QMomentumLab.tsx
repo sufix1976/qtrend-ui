@@ -32,6 +32,26 @@ type TrendAnnotation = {
   trend_start: "up" | "down"; note?: string | null;
 };
 
+type TrendPrediction = {
+  time: number;
+  price: number;
+  score: number;
+  source: "trend_ai";
+  trend_start: "up" | "down";
+  up_score?: number;
+  down_score?: number;
+};
+
+type TrendModelInfo = {
+  trained_at: string;
+  positive_count: number;
+  up_count: number;
+  down_count: number;
+  background_count: number;
+  threshold?: number;
+  numeric_valid?: boolean;
+};
+
 type Candidate = {
   time: number;
   price: number;
@@ -81,6 +101,30 @@ function normalizePredictions(rows: unknown): Candidate[] {
   if (!Array.isArray(rows)) return [];
   return rows.map(normalizePrediction).filter((row): row is Candidate => row !== null);
 }
+function normalizeTrendPredictions(rows: unknown): TrendPrediction[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row: any) => {
+    const time = Number(row?.time ?? row?.timestamp ?? row?.candle_time);
+    if (!Number.isFinite(time)) return null;
+    const upScore = scoreToPercent(row?.up_score ?? row?.upScore ?? row?.up);
+    const downScore = scoreToPercent(row?.down_score ?? row?.downScore ?? row?.down);
+    const directScore = scoreToPercent(row?.score ?? row?.confidence ?? row?.probability);
+    const trendStart: "up" | "down" =
+      String(row?.trend_start || "").toLowerCase() === "down" || downScore > upScore
+        ? "down"
+        : "up";
+    return {
+      time,
+      price: Number(row?.price ?? row?.close ?? 0),
+      score: Math.max(directScore, upScore, downScore),
+      source: "trend_ai" as const,
+      trend_start: trendStart,
+      up_score: upScore,
+      down_score: downScore,
+    };
+  }).filter((row): row is TrendPrediction => row !== null);
+}
+
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -183,6 +227,12 @@ export default function QMomentumLab() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [trendAnnotations, setTrendAnnotations] = useState<TrendAnnotation[]>([]);
+  const [trendPredictions, setTrendPredictions] = useState<TrendPrediction[]>([]);
+  const [trendAiCandidates, setTrendAiCandidates] = useState<TrendPrediction[]>([]);
+  const [trendModel, setTrendModel] = useState<TrendModelInfo | null>(null);
+  const [trendThreshold, setTrendThreshold] = useState(70);
+  const [showTrendAi, setShowTrendAi] = useState(true);
+  const [trendTraining, setTrendTraining] = useState(false);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
   const [chartPredictions, setChartPredictions] = useState<Candidate[]>([]);
   const [aiCandidates, setAiCandidates] = useState<Candidate[]>([]);
@@ -257,6 +307,10 @@ export default function QMomentumLab() {
       setCandles(json.candles || []);
       setAnnotations(json.annotations || []);
       setTrendAnnotations(json.trend_annotations || []);
+      const loadedTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
+      setTrendPredictions(loadedTrendPredictions);
+      setTrendAiCandidates(loadedTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendModel(json.trend_model || null);
       setScannerCandidates(json.scanner_candidates || []);
       const predictions = normalizePredictions(json.chart_predictions || json.predictions || []);
       setChartPredictions(predictions);
@@ -277,6 +331,12 @@ export default function QMomentumLab() {
     setShowReviews(true);
     load();
   }, [symbol, interval]);
+
+  useEffect(() => {
+    setTrendAiCandidates(
+      trendPredictions.filter((row) => row.score >= trendThreshold),
+    );
+  }, [trendThreshold, trendPredictions]);
 
   useEffect(() => {
     if (!priceEl.current || !macdEl.current || !rsiEl.current || !candles.length) return;
@@ -407,6 +467,15 @@ export default function QMomentumLab() {
       text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
+    if (showTrendAi) trendAiCandidates.forEach((candidate) => markers.push({
+      time: candidate.time as Time,
+      position: candidate.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: candidate.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: candidate.trend_start === "up" ? "#0ea5e9" : "#f97316",
+      text: `${candidate.trend_start === "up" ? "UT KI" : "DT KI"} ${Math.round(candidate.score)}%`,
+      size: candidate.score >= 85 ? 2 : 1.4,
+    }));
+
     trendAnnotations.forEach((annotation) => markers.push({
       time: annotation.time as Time,
       position: annotation.trend_start === "up" ? "belowBar" : "aboveBar",
@@ -428,7 +497,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, showTrendAi, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -506,7 +575,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V4.1b] predict-chart request", url.toString());
+      console.info("[QMomentum V5.1] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -531,7 +600,11 @@ export default function QMomentumLab() {
       }
 
       const predictions = normalizePredictions(json.predictions || json.chart_predictions || []);
+      const nextTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
       setChartPredictions(predictions);
+      setTrendPredictions(nextTrendPredictions);
+      setTrendAiCandidates(nextTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendModel(json.trend_model || null);
       const visible = predictions.filter((row) => row.score >= threshold);
       const maxLong = predictions.reduce((max, row) => Math.max(max, row.long_score || 0), 0);
       const maxShort = predictions.reduce((max, row) => Math.max(max, row.short_score || 0), 0);
@@ -546,7 +619,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V4.1b] predict-chart response", {
+      console.info("[QMomentum V5.1] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -561,7 +634,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V4.1b] predict-chart failed", error);
+      console.error("[QMomentum V5.1] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -572,6 +645,45 @@ export default function QMomentumLab() {
     const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
+
+  async function trainTrend() {
+    setTrendTraining(true);
+    setMessage("Trend-KI wird trainiert …");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/train-trend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+
+      setTrendModel(json.trend_model || null);
+
+      const dataUrl = new URL("/qmomentum/data", BACKEND_BASE);
+      dataUrl.searchParams.set("symbol", symbol);
+      dataUrl.searchParams.set("interval", interval);
+      dataUrl.searchParams.set("limit", "5000");
+      dataUrl.searchParams.set("_ts", String(Date.now()));
+      const dataResponse = await fetch(dataUrl, { cache: "no-store" });
+      const dataJson = await dataResponse.json();
+      if (!dataResponse.ok || !dataJson.ok) {
+        throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
+      }
+
+      const nextTrendPredictions = normalizeTrendPredictions(dataJson.trend_predictions || []);
+      setTrendPredictions(nextTrendPredictions);
+      setTrendAiCandidates(nextTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendModel(dataJson.trend_model || json.trend_model || null);
+      setMessage(
+        `Trend-KI trainiert · UT ${json.trend_model?.up_count || 0} · DT ${json.trend_model?.down_count || 0} · Hintergrund ${json.trend_model?.background_count || 0}.`,
+      );
+    } catch (error: any) {
+      setMessage(error?.message || String(error));
+    } finally {
+      setTrendTraining(false);
+    }
+  }
 
   async function train() {
     setTraining(true);
@@ -629,12 +741,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V5</span></h1><p>Momentum-KI + Trenderkennung · UT-/DT-Starts lernen · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V5.1</span></h1><p>Momentum-KI + Trend-KI · UT-/DT-Starts automatisch erkennen · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Trend-KI {trendAiCandidates.length}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -649,6 +761,9 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
+        <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trend-KI</label>
+        <button type="button" onClick={trainTrend} disabled={trendTraining}>{trendTraining ? "Trend trainiert …" : "Trend-KI trainieren"}</button>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
         <button className="qm-train" onClick={train} disabled={training}>{training ? "Trainiert …" : "KI neu trainieren"}</button>
@@ -657,7 +772,8 @@ export default function QMomentumLab() {
       <div className="qm-modelbar">
         <span className="before-dot"/> KI vorher
         <span className="ai-dot"/> KI aktuell · Vollchart
-        {model ? <b>Modell: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
+        {model ? <b>Momentum: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein Momentum-Modell</b>}
+        {trendModel ? <b>Trend: UT {trendModel.up_count || 0} / DT {trendModel.down_count || 0} / Hintergrund {trendModel.background_count || 0} · Schwelle {trendThreshold}%</b> : <b>Noch keine Trend-KI trainiert</b>}
       </div>
 
       {trainingSummary && <div className="qm-training-result">
@@ -713,7 +829,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V5 – Trendstarts sammeln</b><span>Klicke exakt auf die Kerze, an der für dich ein neuer Aufwärts- oder Abwärtstrend beginnt. UT/DT werden separat gespeichert und verändern die Momentum-KI noch nicht.</span></div>
+          <div className="qm-rule"><b>V5.1 – Trend-KI</b><span>Blaue/orange START-Marker sind deine Vorgaben. UT KI/DT KI sind automatische Vorhersagen. Die Trend-KI bleibt getrennt von der Momentum-KI und blockiert noch keine Momentum-Marker.</span></div>
         </aside>
       </main>
     </div>
