@@ -27,6 +27,47 @@ type Annotation = {
   direction: Direction | "none";
   note?: string | null;
 };
+type TrendAnnotation = {
+  id: number; symbol: string; interval: string; time: number; price: number;
+  trend_start: "up" | "down"; note?: string | null;
+};
+
+type TrendPrediction = {
+  time: number;
+  price: number;
+  score: number;
+  source: "trend_ai";
+  trend_start: "up" | "down";
+  up_score?: number;
+  down_score?: number;
+};
+
+type TrendState = "neutral" | "up" | "down";
+
+type TrendStateTransition = TrendPrediction & {
+  state_before: TrendState;
+  state_after: TrendState;
+};
+
+type ConfirmedTrendPoint = {
+  time: number;
+  state: Exclude<TrendState, "neutral">;
+  score: number;
+};
+
+type TrendModelInfo = {
+  trained_at: string;
+  positive_count: number;
+  up_count: number;
+  down_count: number;
+  background_count: number;
+  labeled_candle_count?: number;
+  segment_count?: number;
+  model_type?: string;
+  threshold?: number;
+  numeric_valid?: boolean;
+};
+
 type Candidate = {
   time: number;
   price: number;
@@ -36,6 +77,296 @@ type Candidate = {
   long_score?: number;
   short_score?: number;
 };
+
+function scoreToPercent(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const percent = Math.abs(n) <= 1.000001 ? n * 100 : n;
+  return Math.max(0, Math.min(100, percent));
+}
+
+function normalizePrediction(row: any): Candidate | null {
+  const time = Number(row?.time ?? row?.timestamp ?? row?.candle_time);
+  if (!Number.isFinite(time)) return null;
+
+  const longScore = scoreToPercent(
+    row?.long_score ?? row?.longScore ?? row?.long_probability ?? row?.longProbability ?? row?.long,
+  );
+  const shortScore = scoreToPercent(
+    row?.short_score ?? row?.shortScore ?? row?.short_probability ?? row?.shortProbability ?? row?.short,
+  );
+
+  let direction: Direction = String(row?.direction || row?.side || "").toLowerCase() === "short" ? "short" : "long";
+  if (longScore || shortScore) direction = longScore >= shortScore ? "long" : "short";
+
+  const directScore = scoreToPercent(row?.score ?? row?.confidence ?? row?.probability);
+  const score = Math.max(directScore, longScore, shortScore);
+
+  return {
+    time,
+    price: Number(row?.price ?? row?.close ?? 0),
+    score,
+    source: "ai",
+    direction,
+    long_score: longScore,
+    short_score: shortScore,
+  };
+}
+
+function normalizePredictions(rows: unknown): Candidate[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(normalizePrediction).filter((row): row is Candidate => row !== null);
+}
+function normalizeTrendPredictions(rows: unknown): TrendPrediction[] {
+  if (!Array.isArray(rows)) return [];
+
+  const normalized: TrendPrediction[] = [];
+
+  for (const raw of rows) {
+    const row: any = raw;
+    const time = Number(row?.time ?? row?.timestamp ?? row?.candle_time);
+    if (!Number.isFinite(time)) continue;
+
+    const upScore = scoreToPercent(row?.up_score ?? row?.upScore ?? row?.up);
+    const downScore = scoreToPercent(row?.down_score ?? row?.downScore ?? row?.down);
+    const directScore = scoreToPercent(row?.score ?? row?.confidence ?? row?.probability);
+    const trendStart: "up" | "down" =
+      String(row?.trend_start || "").toLowerCase() === "down" || downScore > upScore
+        ? "down"
+        : "up";
+
+    normalized.push({
+      time,
+      price: Number(row?.price ?? row?.close ?? 0),
+      score: Math.max(directScore, upScore, downScore),
+      source: "trend_ai",
+      trend_start: trendStart,
+      up_score: upScore,
+      down_score: downScore,
+    });
+  }
+
+  return normalized;
+}
+
+type TrendEvaluation = {
+  transitions: TrendStateTransition[];
+  points: ConfirmedTrendPoint[];
+  finalState: TrendState;
+  finalHold: number;
+};
+
+function evaluateTrendState(
+  predictions: TrendPrediction[],
+  threshold: number,
+): TrendEvaluation {
+  const sorted = [...predictions].sort((a, b) => a.time - b.time);
+  const transitions: TrendStateTransition[] = [];
+  const points: ConfirmedTrendPoint[] = [];
+
+  let state: TrendState = "neutral";
+  let hold = 0;
+  let pending: TrendState = "neutral";
+  let pendingCount = 0;
+  let lastSwitchIndex = -9999;
+
+  const initialConfirmationBars = 2;
+  const switchConfirmationBars = 3;
+  const minimumBarsBetweenSwitches = 6;
+  const switchMargin = 8;
+  const switchHoldLimit = 35;
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const row = sorted[index];
+    const upScore = scoreToPercent(
+      row.up_score ?? (row.trend_start === "up" ? row.score : 0),
+    );
+    const downScore = scoreToPercent(
+      row.down_score ?? (row.trend_start === "down" ? row.score : 0),
+    );
+
+    if (state === "neutral") {
+      let wanted: TrendState = "neutral";
+      if (upScore >= threshold && upScore >= downScore + switchMargin) wanted = "up";
+      else if (downScore >= threshold && downScore >= upScore + switchMargin) wanted = "down";
+
+      if (wanted === "neutral") {
+        pending = "neutral";
+        pendingCount = 0;
+        continue;
+      }
+
+      if (pending === wanted) pendingCount += 1;
+      else {
+        pending = wanted;
+        pendingCount = 1;
+      }
+
+      if (pendingCount < initialConfirmationBars) continue;
+
+      const stateBefore = state;
+      state = wanted;
+      hold = 100;
+      transitions.push({
+        ...row,
+        score: state === "up" ? upScore : downScore,
+        trend_start: state,
+        state_before: stateBefore,
+        state_after: state,
+      });
+      lastSwitchIndex = index;
+      pending = "neutral";
+      pendingCount = 0;
+    } else {
+      const supportScore = state === "up" ? upScore : downScore;
+      const oppositeScore = state === "up" ? downScore : upScore;
+      const oppositeState: TrendState = state === "up" ? "down" : "up";
+      const supportEdge = supportScore - oppositeScore;
+      const oppositeEdge = oppositeScore - supportScore;
+
+      // Trendfortsetzung lädt den HOLD-Wert wieder auf.
+      if (supportEdge >= 4) {
+        hold = Math.min(100, hold + Math.min(10, 2 + supportEdge * 0.3));
+      } else if (oppositeEdge > 0) {
+        // Gegenbewegungen bauen HOLD abhängig von ihrer Stärke ab.
+        const damage = Math.min(32, Math.max(3, oppositeEdge * 1.35));
+        hold = Math.max(0, hold - damage);
+      } else {
+        // Unklare Kerzen schwächen den Trend nur minimal.
+        hold = Math.max(0, hold - 0.75);
+      }
+
+      const canSwitch =
+        index - lastSwitchIndex >= minimumBarsBetweenSwitches &&
+        hold <= switchHoldLimit &&
+        oppositeScore >= threshold &&
+        oppositeEdge >= switchMargin;
+
+      if (!canSwitch) {
+        pending = "neutral";
+        pendingCount = 0;
+      } else {
+        if (pending === oppositeState) pendingCount += 1;
+        else {
+          pending = oppositeState;
+          pendingCount = 1;
+        }
+
+        if (pendingCount >= switchConfirmationBars) {
+          const stateBefore = state;
+          state = oppositeState;
+          hold = 100;
+          transitions.push({
+            ...row,
+            score: state === "up" ? upScore : downScore,
+            trend_start: state,
+            state_before: stateBefore,
+            state_after: state,
+          });
+          lastSwitchIndex = index;
+          pending = "neutral";
+          pendingCount = 0;
+        }
+      }
+    }
+
+    if (state === "up" || state === "down") {
+      points.push({
+        time: row.time,
+        state,
+        score: state === "up" ? upScore : downScore,
+      });
+    }
+  }
+
+  return {
+    transitions,
+    points,
+    finalState: state,
+    finalHold: Math.round(hold),
+  };
+}
+
+function buildTrendStateTransitions(
+  predictions: TrendPrediction[],
+  threshold: number,
+): TrendStateTransition[] {
+  return evaluateTrendState(predictions, threshold).transitions;
+}
+
+
+
+type FormulaParams = {
+  ema_length: number;
+  atr_length: number;
+  hysteresis: number;
+  slope_lookback: number;
+  momentum_lookback: number;
+  slope_weight: number;
+  momentum_weight: number;
+  confirm_bars: number;
+  min_state_bars: number;
+};
+
+type FormulaStatePoint = {
+  time: number;
+  state: "neutral" | "up" | "down";
+  composite: number;
+};
+
+type FormulaResult = {
+  params: FormulaParams;
+  score: number;
+  accuracy_pct: number;
+  avg_switch_distance_bars: number;
+  switches: number;
+  extra_switches: number;
+  short_islands: number;
+  comparable_bars: number;
+  states?: FormulaStatePoint[];
+};
+
+type E1Prediction = {
+  time: number;
+  price: number;
+  trend_start: "up" | "down";
+  score: number;
+  ut_score: number;
+  dt_score: number;
+  none_score: number;
+};
+
+type E1Metrics = {
+  marker_count: number;
+  exact: number;
+  within_1: number;
+  within_2: number;
+  missed: number;
+  false_positives: number;
+  prediction_count: number;
+  exact_pct: number;
+  within_1_pct: number;
+  within_2_pct: number;
+  precision_pct: number;
+  verdict: "PASS" | "FAIL" | "UNCLEAR";
+};
+
+type E1Result = {
+  experiment: string;
+  symbol: string;
+  interval: string;
+  total_markers: number;
+  train_marker_count: number;
+  test_marker_count: number;
+  train_ut: number;
+  train_dt: number;
+  train_none: number;
+  split_time: number;
+  window_bars: number;
+  predictions: E1Prediction[];
+  metrics: E1Metrics;
+};
+
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -137,6 +468,14 @@ export default function QMomentumLab() {
   const [interval, setInterval] = useState("15m");
   const [candles, setCandles] = useState<Candle[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [trendAnnotations, setTrendAnnotations] = useState<TrendAnnotation[]>([]);
+  const [trendPredictions, setTrendPredictions] = useState<TrendPrediction[]>([]);
+  const [trendAiCandidates, setTrendAiCandidates] = useState<TrendPrediction[]>([]);
+  const [trendModel, setTrendModel] = useState<TrendModelInfo | null>(null);
+  const [trendThreshold, setTrendThreshold] = useState(60);
+  const [showTrendAi, setShowTrendAi] = useState(true);
+  const [showTrendConfirmation, setShowTrendConfirmation] = useState(true);
+  const [trendTraining, setTrendTraining] = useState(false);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
   const [chartPredictions, setChartPredictions] = useState<Candidate[]>([]);
   const [aiCandidates, setAiCandidates] = useState<Candidate[]>([]);
@@ -155,6 +494,14 @@ export default function QMomentumLab() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
+  const [formulaOptimizing, setFormulaOptimizing] = useState(false);
+  const [e1Running, setE1Running] = useState(false);
+  const [e1Status, setE1Status] = useState("Bereit");
+  const [e1Result, setE1Result] = useState<E1Result | null>(null);
+  const [showE1Markers, setShowE1Markers] = useState(true);
+  const [formulaStatus, setFormulaStatus] = useState("Bereit");
+  const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
+  const [showFormulaTrend, setShowFormulaTrend] = useState(true);
   const [message, setMessage] = useState("");
 
   const priceEl = useRef<HTMLDivElement>(null);
@@ -191,6 +538,46 @@ export default function QMomentumLab() {
     long: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "long").length,
     short: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "short").length,
   }), [annotations]);
+  const trendStats = useMemo(() => ({
+    up: trendAnnotations.filter((a) => a.trend_start === "up").length,
+    down: trendAnnotations.filter((a) => a.trend_start === "down").length,
+  }), [trendAnnotations]);
+  const currentTrendState = useMemo(
+    () => evaluateTrendState(trendPredictions, trendThreshold).finalState,
+    [trendPredictions, trendThreshold],
+  );
+  const trendEvaluation = useMemo(
+    () => evaluateTrendState(trendPredictions, trendThreshold),
+    [trendPredictions, trendThreshold],
+  );
+  const confirmedTrendPoints = trendEvaluation.points;
+  const currentTrendHold = trendEvaluation.finalHold;
+
+  const formulaTransitions = useMemo(() => {
+    const states = Array.isArray(formulaResult?.states) ? formulaResult.states : [];
+    const transitions: FormulaStatePoint[] = [];
+    let previous: FormulaStatePoint["state"] = "neutral";
+
+    for (const point of states) {
+      if (point.state === "neutral") continue;
+      if (point.state !== previous) {
+        transitions.push(point);
+        previous = point.state;
+      }
+    }
+
+    return transitions;
+  }, [formulaResult]);
+
+  const currentFormulaState = useMemo(() => {
+    const states = Array.isArray(formulaResult?.states) ? formulaResult.states : [];
+    for (let index = states.length - 1; index >= 0; index -= 1) {
+      if (states[index].state === "up" || states[index].state === "down") {
+        return states[index].state;
+      }
+    }
+    return "neutral" as const;
+  }, [formulaResult]);
 
   async function load(resetSelection = true) {
     setLoading(true);
@@ -206,10 +593,15 @@ export default function QMomentumLab() {
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
       setCandles(json.candles || []);
       setAnnotations(json.annotations || []);
+      setTrendAnnotations(json.trend_annotations || []);
+      const loadedTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
+      setTrendPredictions(loadedTrendPredictions);
+      setTrendAiCandidates(buildTrendStateTransitions(loadedTrendPredictions, trendThreshold));
+      setTrendModel(json.trend_model || null);
       setScannerCandidates(json.scanner_candidates || []);
-      const predictions = json.chart_predictions || [];
+      const predictions = normalizePredictions(json.chart_predictions || json.predictions || []);
       setChartPredictions(predictions);
-      setAiCandidates(predictions.filter((row: Candidate) => Number(row.score) >= threshold));
+      setAiCandidates(predictions.filter((row) => row.score >= threshold));
       setModel(json.model || null);
       if (resetSelection) setSelectedTime(null);
     } catch (error: any) {
@@ -224,8 +616,16 @@ export default function QMomentumLab() {
     setTrainingSummary(null);
     setCompareMode("new");
     setShowReviews(true);
+    setE1Result(null);
+    setE1Status("Bereit");
     load();
   }, [symbol, interval]);
+
+  useEffect(() => {
+    setTrendAiCandidates(
+      buildTrendStateTransitions(trendPredictions, trendThreshold),
+    );
+  }, [trendThreshold, trendPredictions]);
 
   useEffect(() => {
     if (!priceEl.current || !macdEl.current || !rsiEl.current || !candles.length) return;
@@ -356,6 +756,52 @@ export default function QMomentumLab() {
       text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
+    if (showFormulaTrend) formulaTransitions.forEach((point) => {
+      markers.push({
+        time: point.time as Time,
+        position: point.state === "up" ? "belowBar" : "aboveBar",
+        shape: point.state === "up" ? "arrowUp" : "arrowDown",
+        color: point.state === "up" ? "#16a34a" : "#dc2626",
+        text: point.state === "up" ? "FORMEL UT START" : "FORMEL DT START",
+        size: 1.7,
+      });
+    });
+
+    if (showTrendConfirmation) confirmedTrendPoints.forEach((point) => markers.push({
+      time: point.time as Time,
+      position: point.state === "up" ? "belowBar" : "aboveBar",
+      shape: "circle",
+      color: point.state === "up" ? "#22c55e" : "#ef4444",
+      size: 0.45,
+    }));
+
+    if (showTrendAi) trendAiCandidates.forEach((candidate) => markers.push({
+      time: candidate.time as Time,
+      position: candidate.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: candidate.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: candidate.trend_start === "up" ? "#0ea5e9" : "#f97316",
+      text: `${candidate.trend_start === "up" ? "UT KI START" : "DT KI START"} ${Math.round(candidate.score)}%`,
+      size: candidate.score >= 85 ? 2 : 1.4,
+    }));
+
+    trendAnnotations.forEach((annotation) => markers.push({
+      time: annotation.time as Time,
+      position: annotation.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: annotation.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: annotation.trend_start === "up" ? "#38bdf8" : "#fb923c",
+      text: annotation.trend_start === "up" ? "UT START" : "DT START",
+      size: 2,
+    }));
+
+    if (showE1Markers && e1Result) e1Result.predictions.forEach((prediction) => markers.push({
+      time: prediction.time as Time,
+      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: prediction.trend_start === "up" ? "#22d3ee" : "#f472b6",
+      text: `${prediction.trend_start === "up" ? "E1 UT" : "E1 DT"} ${Math.round(prediction.score)}%`,
+      size: 1.8,
+    }));
+
     if (selectedTime) {
       markers.push({
         time: selectedTime as Time,
@@ -368,7 +814,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -415,6 +861,24 @@ export default function QMomentumLab() {
     }
   }
 
+  async function saveTrendStart(trendStart: "up" | "down") {
+    if (!selectedCandle) { setMessage("Bitte zuerst die Kerze anklicken, an der der Trend beginnt."); return; }
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/trend-annotation`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, time: selectedCandle.time, price: selectedCandle.close, trend_start: trendStart, note }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+      const saved = json.trend_annotation as TrendAnnotation;
+      setTrendAnnotations((current) => [...current.filter((row) => Number(row.time) !== Number(saved.time)), saved].sort((a,b)=>Number(a.time)-Number(b.time)));
+      setNote("");
+      setMessage(trendStart === "up" ? "UT-START gespeichert." : "DT-START gespeichert.");
+    } catch (error: any) { setMessage(error?.message || String(error)); }
+    finally { setSaving(false); }
+  }
+
   async function analyze(showMessage = true) {
     if (analyzing) return [] as Candidate[];
     setAnalyzing(true);
@@ -428,7 +892,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V4.1a] predict-chart request", url.toString());
+      console.info("[Trend Marker Imitation E1] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -452,19 +916,34 @@ export default function QMomentumLab() {
         throw new Error(json.error || `predict-chart HTTP ${response.status}`);
       }
 
-      const predictions: Candidate[] = Array.isArray(json.predictions) ? json.predictions : [];
+      const predictions = normalizePredictions(json.predictions || json.chart_predictions || []);
+      const nextTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
       setChartPredictions(predictions);
-      const visible = predictions.filter((row) => Number(row.score) >= threshold);
+      setTrendPredictions(nextTrendPredictions);
+      setTrendAiCandidates(buildTrendStateTransitions(nextTrendPredictions, trendThreshold));
+      setTrendModel(json.trend_model || null);
+      const visible = predictions.filter((row) => row.score >= threshold);
+      const maxLong = predictions.reduce((max, row) => Math.max(max, row.long_score || 0), 0);
+      const maxShort = predictions.reduce((max, row) => Math.max(max, row.short_score || 0), 0);
+      const maxScore = predictions.reduce((max, row) => Math.max(max, row.score || 0), 0);
       setAiCandidates(visible);
       setModel((current) => ({ ...(current || {} as ModelInfo), ...(json.model || {}), threshold }));
       setCompareMode("new");
-      setAnalysisStatus(`${json.prediction_count ?? predictions.length} Kerzen · ${visible.length} Marker`);
+      setAnalysisStatus(`${json.prediction_count ?? predictions.length} Kerzen · ${visible.length} Marker · Max L ${maxLong.toFixed(1)} / S ${maxShort.toFixed(1)}`);
       if (showMessage) {
-        setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.`);
+        const hint = visible.length === 0
+          ? ` Höchster Score ${maxScore.toFixed(1)}%. Senke die Schwelle unter diesen Wert.`
+          : "";
+        setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V4.1a] predict-chart response", {
+      console.info("[Trend Formula Lab V0.31] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
+        maxLong,
+        maxShort,
+        maxScore,
+        firstRawPrediction: Array.isArray(json.predictions) ? json.predictions[0] : null,
+        firstNormalizedPrediction: predictions[0] || null,
         model: json.model,
       });
       return visible;
@@ -472,7 +951,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V4.1a] predict-chart failed", error);
+      console.error("[Trend Formula Lab V0.31] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -480,9 +959,189 @@ export default function QMomentumLab() {
   }
 
   useEffect(() => {
-    const visible = chartPredictions.filter((row) => Number(row.score) >= threshold);
+    const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
+
+  async function runMarkerImitationE1() {
+    if (e1Running) return;
+    setE1Running(true);
+    setE1Result(null);
+    setE1Status("Train/Test wird berechnet …");
+    setMessage("E1 prüft, ob deine UT-/DT-Marker aus OHLC, MACD und RSI nachgebildet werden können …");
+
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/marker-imitation-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+      });
+
+      const raw = await response.text();
+      let json: any;
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(`E1 lieferte kein JSON: ${raw.slice(0, 180)}`);
+      }
+
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || `E1 HTTP ${response.status}`);
+      }
+
+      const result = json as E1Result;
+      setE1Result(result);
+      setShowE1Markers(true);
+      setE1Status(
+        `${result.metrics.within_2} / ${result.metrics.marker_count} innerhalb ±2 · ${result.metrics.within_2_pct}% · ${result.metrics.verdict}`,
+      );
+      setMessage(
+        `E1 abgeschlossen: exakt ${result.metrics.exact_pct}% · ±1 ${result.metrics.within_1_pct}% · ` +
+        `±2 ${result.metrics.within_2_pct}% · Fehlmarker ${result.metrics.false_positives}.`,
+      );
+    } catch (error: any) {
+      const errorText = error?.message || String(error);
+      setE1Status(`Fehler: ${errorText}`);
+      setMessage(errorText);
+    } finally {
+      setE1Running(false);
+    }
+  }
+
+  async function optimizeFormula() {
+    if (formulaOptimizing) return;
+
+    setFormulaOptimizing(true);
+    setFormulaResult(null);
+    setFormulaStatus("Job wird vorbereitet …");
+    setMessage("Trendformel-Batchsuche wird gestartet …");
+
+    try {
+      const startResponse = await fetch(
+        `${BACKEND_BASE}/qmomentum/formula-optimize/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({ symbol, interval, limit: 800 }),
+        },
+      );
+
+      const startJson = await startResponse.json();
+      if (!startResponse.ok || !startJson?.ok) {
+        throw new Error(startJson?.error || `Start HTTP ${startResponse.status}`);
+      }
+
+      const jobId = String(startJson.job_id || "");
+      if (!jobId) throw new Error("Formelsuche lieferte keine Job-ID.");
+
+      let done = false;
+      let lastBest: FormulaResult | null = null;
+
+      while (!done) {
+        const stepResponse = await fetch(
+          `${BACKEND_BASE}/qmomentum/formula-optimize/step`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              job_id: jobId,
+              batch_size: 64,
+            }),
+          },
+        );
+
+        const stepJson = await stepResponse.json();
+        if (!stepResponse.ok || !stepJson?.ok) {
+          throw new Error(stepJson?.error || `Step HTTP ${stepResponse.status}`);
+        }
+
+        const processed = Number(stepJson.processed || 0);
+        const total = Number(stepJson.total || 3072);
+        const percent = Number(stepJson.progress_pct || 0);
+        done = Boolean(stepJson.done);
+        lastBest = stepJson.best || lastBest;
+
+        setFormulaStatus(`${processed} / ${total} · ${percent.toFixed(1)}%`);
+        if (stepJson.best) {
+          setFormulaResult(stepJson.best);
+          setShowFormulaTrend(done);
+        }
+
+        // Browser und Render kurz Luft geben, bevor der nächste Block startet.
+        if (!done) await new Promise((resolve) => window.setTimeout(resolve, 35));
+      }
+
+      if (!lastBest) throw new Error("Formelsuche wurde beendet, aber ohne Ergebnis.");
+
+      setFormulaResult(lastBest);
+      setShowFormulaTrend(true);
+      setFormulaStatus("Fertig · 3072 / 3072 · 100%");
+      setMessage(
+        `Beste Formel aus 3072 Varianten · ` +
+        `Treffer ${lastBest.accuracy_pct || 0}% · ` +
+        `Wechselabweichung ${lastBest.avg_switch_distance_bars || 0} Kerzen.`,
+      );
+    } catch (error: any) {
+      const errorText = error?.message || String(error);
+      setFormulaStatus(`Fehler: ${errorText}`);
+      setMessage(errorText);
+      console.error("[Trend Formula Lab V0.31] batch optimize failed", {
+        symbol,
+        interval,
+        error,
+      });
+    } finally {
+      setFormulaOptimizing(false);
+    }
+  }
+
+  async function trainTrend() {
+    setTrendTraining(true);
+    setMessage("Trend-KI wird trainiert …");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/train-trend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+
+      setTrendModel(json.trend_model || null);
+
+      const dataUrl = new URL("/qmomentum/data", BACKEND_BASE);
+      dataUrl.searchParams.set("symbol", symbol);
+      dataUrl.searchParams.set("interval", interval);
+      dataUrl.searchParams.set("limit", "5000");
+      dataUrl.searchParams.set("_ts", String(Date.now()));
+      const dataResponse = await fetch(dataUrl, { cache: "no-store" });
+      const dataJson = await dataResponse.json();
+      if (!dataResponse.ok || !dataJson.ok) {
+        throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
+      }
+
+      const nextTrendPredictions = normalizeTrendPredictions(dataJson.trend_predictions || []);
+      setTrendPredictions(nextTrendPredictions);
+      setTrendAiCandidates(buildTrendStateTransitions(nextTrendPredictions, trendThreshold));
+      setTrendModel(dataJson.trend_model || json.trend_model || null);
+      setMessage(
+        `Trendzustand gelernt · UT-Kerzen ${json.trend_model?.up_count || 0} · DT-Kerzen ${json.trend_model?.down_count || 0} · Segmente ${json.trend_model?.segment_count || 0}.`,
+      );
+    } catch (error: any) {
+      setMessage(error?.message || String(error));
+    } finally {
+      setTrendTraining(false);
+    }
+  }
 
   async function train() {
     setTraining(true);
@@ -506,8 +1165,8 @@ export default function QMomentumLab() {
       const dataJson = await dataResponse.json();
       if (!dataResponse.ok || !dataJson.ok) throw new Error(dataJson.error || `HTTP ${dataResponse.status}`);
 
-      const predictions: Candidate[] = dataJson.chart_predictions || [];
-      const nextAi = predictions.filter((row) => Number(row.score) >= threshold);
+      const predictions = normalizePredictions(dataJson.chart_predictions || dataJson.predictions || []);
+      const nextAi = predictions.filter((row) => row.score >= threshold);
       const run = Number(localStorage.getItem("qmomentum_training_run") || "0") + 1;
       localStorage.setItem("qmomentum_training_run", String(run));
 
@@ -540,12 +1199,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V4.1a</span></h1><p>Echte Vollchart-KI · jede Kerze wird ohne Scanner bewertet · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.31</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Wechsel {trendAiCandidates.length}</span><span>Bestätigt {confirmedTrendPoints.length}</span><span>HOLD {currentTrendHold}</span><span>STATE {currentTrendState === "up" ? "UT" : currentTrendState === "down" ? "DT" : "NEUTRAL"}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -560,6 +1219,24 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
+        <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
+          {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
+        </button>
+        <div className={`qm-analysis-status ${e1Status.startsWith("Fehler") ? "error" : e1Running ? "working" : ""}`}>
+          <b>Marker-Imitation</b><span>{e1Status}</span>
+        </div>
+        <label className="qm-check"><input type="checkbox" checked={showE1Markers} onChange={(e) => setShowE1Markers(e.target.checked)} /> E1-Marker</label>
+        <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
+          {formulaOptimizing ? "Batch läuft …" : "Trendformel suchen"}
+        </button>
+        <div className={`qm-analysis-status ${formulaStatus.startsWith("Fehler") ? "error" : formulaOptimizing ? "working" : ""}`}>
+          <b>Formelsuche</b><span>{formulaStatus}</span>
+        </div>
+        <label className="qm-check"><input type="checkbox" checked={showFormulaTrend} onChange={(e) => setShowFormulaTrend(e.target.checked)} /> Formelwechsel</label>
+        <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trendstarts</label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendConfirmation} onChange={(e) => setShowTrendConfirmation(e.target.checked)} /> Trendbestätigung</label>
+        <button type="button" onClick={trainTrend} disabled={trendTraining}>{trendTraining ? "Trendzustand lernt …" : "Trendzustand trainieren"}</button>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
         <button className="qm-train" onClick={train} disabled={training}>{training ? "Trainiert …" : "KI neu trainieren"}</button>
@@ -568,7 +1245,9 @@ export default function QMomentumLab() {
       <div className="qm-modelbar">
         <span className="before-dot"/> KI vorher
         <span className="ai-dot"/> KI aktuell · Vollchart
-        {model ? <b>Modell: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein KI-Modell trainiert</b>}
+        {model ? <b>Momentum: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein Momentum-Modell</b>}
+        {trendModel ? <b>Trendzustand: UT-Kerzen {trendModel.up_count || 0} / DT-Kerzen {trendModel.down_count || 0} / Segmente {trendModel.segment_count || 0} · Schwelle {trendThreshold}%</b> : <b>Noch kein Trendzustandsmodell trainiert</b>}
+        <b>Aktiver Zustand: {currentTrendState === "up" ? "UPTREND" : currentTrendState === "down" ? "DOWNTREND" : "NEUTRAL"}</b>
       </div>
 
       {trainingSummary && <div className="qm-training-result">
@@ -581,6 +1260,35 @@ export default function QMomentumLab() {
         <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
       </div>}
 
+      {e1Result && <div className={`qm-training-result e1-${e1Result.metrics.verdict.toLowerCase()}`}>
+        <strong>E1 Marker-Imitation · {e1Result.metrics.verdict}</strong>
+        <span>Testmarker <b>{e1Result.metrics.marker_count}</b></span>
+        <span>Exakt <b>{e1Result.metrics.exact} · {e1Result.metrics.exact_pct}%</b></span>
+        <span>Innerhalb ±1 <b>{e1Result.metrics.within_1} · {e1Result.metrics.within_1_pct}%</b></span>
+        <span>Innerhalb ±2 <b>{e1Result.metrics.within_2} · {e1Result.metrics.within_2_pct}%</b></span>
+        <span>Nicht gefunden <b>{e1Result.metrics.missed}</b></span>
+        <span>Zusätzliche Marker <b>{e1Result.metrics.false_positives}</b></span>
+        <span>Precision <b>{e1Result.metrics.precision_pct}%</b></span>
+        <span>Training <b>{e1Result.train_marker_count} Marker</b></span>
+        <span>Test <b>{e1Result.test_marker_count} Marker</b></span>
+        <span>Regel <b>≥70 PASS · &lt;40 FAIL</b></span>
+      </div>}
+
+      {formulaResult && <div className="qm-training-result">
+        <strong>Beste Trendformel</strong>
+        <span>Score <b>{formulaResult.score}</b></span>
+        <span>Treffer <b>{formulaResult.accuracy_pct}%</b></span>
+        <span>Wechselabweichung <b>{formulaResult.avg_switch_distance_bars} Kerzen</b></span>
+        <span>Zusatzwechsel <b>{formulaResult.extra_switches}</b></span>
+        <span>Kurze Inseln <b>{formulaResult.short_islands}</b></span>
+        <span>Formelzustand <b>{currentFormulaState === "up" ? "UPTREND" : currentFormulaState === "down" ? "DOWNTREND" : "NEUTRAL"}</b></span>
+        <span>Trendwechsel <b>{formulaTransitions.length}</b></span>
+        <span>EMA <b>{formulaResult.params.ema_length}</b></span>
+        <span>ATR <b>{formulaResult.params.atr_length}</b></span>
+        <span>Hysterese <b>{formulaResult.params.hysteresis}</b></span>
+        <span>Bestätigung <b>{formulaResult.params.confirm_bars}</b></span>
+        <span>Mindestdauer <b>{formulaResult.params.min_state_bars}</b></span>
+      </div>}
       <main className="qm-main">
         <section className="qm-charts">
           <div className="qm-pane"><div className="qm-pane-title">KERZEN</div><div ref={priceEl} /></div>
@@ -612,6 +1320,10 @@ export default function QMomentumLab() {
             <button className={direction === "long" ? "active long" : "long"} onClick={() => setDirection("long")}>▲ MÖGLICHER LONG-MOMENT</button>
             <button className={direction === "short" ? "active short" : "short"} onClick={() => setDirection("short")}>▼ MÖGLICHER SHORT-MOMENT</button>
           </div>
+          <div className="qm-direction" style={{ marginTop: 10 }}>
+            <button type="button" disabled={saving || !selectedCandle} onClick={() => saveTrendStart("up")} style={{ borderColor: "#38bdf8", color: "#7dd3fc" }}>↗ UT BEGINNT HIER</button>
+            <button type="button" disabled={saving || !selectedCandle} onClick={() => saveTrendStart("down")} style={{ borderColor: "#fb923c", color: "#fdba74" }}>↘ DT BEGINNT HIER</button>
+          </div>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz optional" />
           <div className="qm-actions">
             <button className="perfect" disabled={saving} onClick={() => save("perfect")}>👍<b>{direction === "long" ? "LONG perfekt" : "SHORT perfekt"}</b></button>
@@ -620,7 +1332,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V4.1-Ablauf</b><span>Die KI bewertet jede Kerze selbstständig. Der Scanner ist nicht an der Vorhersage beteiligt. Schwelle ändern, KI-Marker bewerten, neu trainieren und denselben Chart erneut analysieren.</span></div>
+          <div className="qm-rule"><b>Experiment E1</b><span>Die ersten 70% deiner UT-/DT-Marker dienen als Training, die letzten 30% bleiben unbekannter Test. Gewertet wird ausschließlich, wie viele Testmarker exakt oder innerhalb ±1/±2 Kerzen getroffen werden. Ab 70% innerhalb ±2 gilt die Idee als bestanden, unter 40% als gescheitert.</span></div>
         </aside>
       </main>
     </div>
