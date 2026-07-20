@@ -294,16 +294,7 @@ function buildTrendStateTransitions(
   return evaluateTrendState(predictions, threshold).transitions;
 }
 
-function activeTrendState(transitions: TrendStateTransition[]): TrendState {
-  return transitions.length ? transitions[transitions.length - 1].state_after : "neutral";
-}
 
-function buildConfirmedTrendPoints(
-  predictions: TrendPrediction[],
-  threshold: number,
-): ConfirmedTrendPoint[] {
-  return evaluateTrendState(predictions, threshold).points;
-}
 
 type ModelInfo = {
   trained_at: string;
@@ -774,7 +765,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V6.3] predict-chart request", url.toString());
+      console.info("[QMomentum V6.3a] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -818,7 +809,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V6.3] predict-chart response", {
+      console.info("[QMomentum V6.3a] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -833,7 +824,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V6.3] predict-chart failed", error);
+      console.error("[QMomentum V6.3a] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -940,7 +931,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V6.3</span></h1><p>Momentum-KI + robuster Trend-HOLD · kleine Pullbacks ohne Wechsel · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V6.3a</span></h1><p>Momentum-KI + robuster Trend-HOLD · kleine Pullbacks ohne Wechsel · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
