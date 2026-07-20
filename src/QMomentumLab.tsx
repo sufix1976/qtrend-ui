@@ -42,6 +42,13 @@ type TrendPrediction = {
   down_score?: number;
 };
 
+type TrendState = "neutral" | "up" | "down";
+
+type TrendStateTransition = TrendPrediction & {
+  state_before: TrendState;
+  state_after: TrendState;
+};
+
 type TrendModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -131,6 +138,70 @@ function normalizeTrendPredictions(rows: unknown): TrendPrediction[] {
   }
 
   return normalized;
+}
+
+function buildTrendStateTransitions(
+  predictions: TrendPrediction[],
+  threshold: number,
+): TrendStateTransition[] {
+  const sorted = [...predictions].sort((a, b) => a.time - b.time);
+  const transitions: TrendStateTransition[] = [];
+
+  let state: TrendState = "neutral";
+  let lastSwitchIndex = -9999;
+  const minimumBarsBetweenSwitches = 4;
+  const switchMargin = 2;
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const row = sorted[index];
+    const upScore = scoreToPercent(row.up_score ?? (row.trend_start === "up" ? row.score : 0));
+    const downScore = scoreToPercent(row.down_score ?? (row.trend_start === "down" ? row.score : 0));
+    const enoughDistance = index - lastSwitchIndex >= minimumBarsBetweenSwitches;
+
+    let nextState: TrendState | null = null;
+
+    if (state === "neutral") {
+      if (upScore >= threshold || downScore >= threshold) {
+        nextState = upScore >= downScore ? "up" : "down";
+      }
+    } else if (state === "up") {
+      // Im laufenden Aufwärtstrend interessieren nur noch echte DT-Wechsel.
+      if (
+        enoughDistance &&
+        downScore >= threshold &&
+        downScore >= upScore + switchMargin
+      ) {
+        nextState = "down";
+      }
+    } else if (state === "down") {
+      // Im laufenden Abwärtstrend interessieren nur noch echte UT-Wechsel.
+      if (
+        enoughDistance &&
+        upScore >= threshold &&
+        upScore >= downScore + switchMargin
+      ) {
+        nextState = "up";
+      }
+    }
+
+    if (nextState && nextState !== state) {
+      transitions.push({
+        ...row,
+        score: nextState === "up" ? upScore : downScore,
+        trend_start: nextState,
+        state_before: state,
+        state_after: nextState,
+      });
+      state = nextState;
+      lastSwitchIndex = index;
+    }
+  }
+
+  return transitions;
+}
+
+function activeTrendState(transitions: TrendStateTransition[]): TrendState {
+  return transitions.length ? transitions[transitions.length - 1].state_after : "neutral";
 }
 
 type ModelInfo = {
@@ -299,6 +370,10 @@ export default function QMomentumLab() {
     up: trendAnnotations.filter((a) => a.trend_start === "up").length,
     down: trendAnnotations.filter((a) => a.trend_start === "down").length,
   }), [trendAnnotations]);
+  const currentTrendState = useMemo(
+    () => activeTrendState(trendAiCandidates as TrendStateTransition[]),
+    [trendAiCandidates],
+  );
 
   async function load(resetSelection = true) {
     setLoading(true);
@@ -317,7 +392,7 @@ export default function QMomentumLab() {
       setTrendAnnotations(json.trend_annotations || []);
       const loadedTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
       setTrendPredictions(loadedTrendPredictions);
-      setTrendAiCandidates(loadedTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendAiCandidates(buildTrendStateTransitions(loadedTrendPredictions, trendThreshold));
       setTrendModel(json.trend_model || null);
       setScannerCandidates(json.scanner_candidates || []);
       const predictions = normalizePredictions(json.chart_predictions || json.predictions || []);
@@ -342,7 +417,7 @@ export default function QMomentumLab() {
 
   useEffect(() => {
     setTrendAiCandidates(
-      trendPredictions.filter((row) => row.score >= trendThreshold),
+      buildTrendStateTransitions(trendPredictions, trendThreshold),
     );
   }, [trendThreshold, trendPredictions]);
 
@@ -480,7 +555,7 @@ export default function QMomentumLab() {
       position: candidate.trend_start === "up" ? "belowBar" : "aboveBar",
       shape: candidate.trend_start === "up" ? "arrowUp" : "arrowDown",
       color: candidate.trend_start === "up" ? "#0ea5e9" : "#f97316",
-      text: `${candidate.trend_start === "up" ? "UT KI" : "DT KI"} ${Math.round(candidate.score)}%`,
+      text: `${candidate.trend_start === "up" ? "UT KI START" : "DT KI START"} ${Math.round(candidate.score)}%`,
       size: candidate.score >= 85 ? 2 : 1.4,
     }));
 
@@ -583,7 +658,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V5.1] predict-chart request", url.toString());
+      console.info("[QMomentum V6] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -611,7 +686,7 @@ export default function QMomentumLab() {
       const nextTrendPredictions = normalizeTrendPredictions(json.trend_predictions || []);
       setChartPredictions(predictions);
       setTrendPredictions(nextTrendPredictions);
-      setTrendAiCandidates(nextTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendAiCandidates(buildTrendStateTransitions(nextTrendPredictions, trendThreshold));
       setTrendModel(json.trend_model || null);
       const visible = predictions.filter((row) => row.score >= threshold);
       const maxLong = predictions.reduce((max, row) => Math.max(max, row.long_score || 0), 0);
@@ -627,7 +702,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V5.1] predict-chart response", {
+      console.info("[QMomentum V6] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -642,7 +717,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V5.1] predict-chart failed", error);
+      console.error("[QMomentum V6] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -681,7 +756,7 @@ export default function QMomentumLab() {
 
       const nextTrendPredictions = normalizeTrendPredictions(dataJson.trend_predictions || []);
       setTrendPredictions(nextTrendPredictions);
-      setTrendAiCandidates(nextTrendPredictions.filter((row) => row.score >= trendThreshold));
+      setTrendAiCandidates(buildTrendStateTransitions(nextTrendPredictions, trendThreshold));
       setTrendModel(dataJson.trend_model || json.trend_model || null);
       setMessage(
         `Trend-KI trainiert · UT ${json.trend_model?.up_count || 0} · DT ${json.trend_model?.down_count || 0} · Hintergrund ${json.trend_model?.background_count || 0}.`,
@@ -749,12 +824,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V5.1a</span></h1><p>Momentum-KI + Trend-KI · UT-/DT-Starts automatisch erkennen · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V6</span></h1><p>Momentum-KI + Trend-State-Machine · nur echte UT-/DT-Wechsel · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Trend-KI {trendAiCandidates.length}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Wechsel {trendAiCandidates.length}</span><span>STATE {currentTrendState === "up" ? "UT" : currentTrendState === "down" ? "DT" : "NEUTRAL"}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -770,7 +845,7 @@ export default function QMomentumLab() {
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
         <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
-        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trend-KI</label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trend-State</label>
         <button type="button" onClick={trainTrend} disabled={trendTraining}>{trendTraining ? "Trend trainiert …" : "Trend-KI trainieren"}</button>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
@@ -782,6 +857,7 @@ export default function QMomentumLab() {
         <span className="ai-dot"/> KI aktuell · Vollchart
         {model ? <b>Momentum: LONG {model.long_count || 0} / SHORT {model.short_count || 0} / schlecht {model.negative_count} · Schwelle {threshold}%</b> : <b>Noch kein Momentum-Modell</b>}
         {trendModel ? <b>Trend: UT {trendModel.up_count || 0} / DT {trendModel.down_count || 0} / Hintergrund {trendModel.background_count || 0} · Schwelle {trendThreshold}%</b> : <b>Noch keine Trend-KI trainiert</b>}
+        <b>Aktiver Zustand: {currentTrendState === "up" ? "UPTREND" : currentTrendState === "down" ? "DOWNTREND" : "NEUTRAL"}</b>
       </div>
 
       {trainingSummary && <div className="qm-training-result">
@@ -837,7 +913,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V5.1 – Trend-KI</b><span>Blaue/orange START-Marker sind deine Vorgaben. UT KI/DT KI sind automatische Vorhersagen. Die Trend-KI bleibt getrennt von der Momentum-KI und blockiert noch keine Momentum-Marker.</span></div>
+          <div className="qm-rule"><b>V6 – Trend-State-Machine</b><span>Nach UT KI START bleibt der Zustand UPTREND aktiv; weitere UT-Signale werden unterdrückt. Danach wird nur ein DT-Wechsel gesucht – und umgekehrt. Momentum-Marker werden noch nicht blockiert.</span></div>
         </aside>
       </main>
     </div>
