@@ -455,7 +455,7 @@ export default function QMomentumLab() {
   const [training, setTraining] = useState(false);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
-  const [formulaTop, setFormulaTop] = useState<Omit<FormulaResult, "states">[]>([]);
+  //const [formulaTop, setFormulaTop] = useState<Omit<FormulaResult, "states">[]>([]);
   const [showFormulaTrend, setShowFormulaTrend] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -894,7 +894,7 @@ export default function QMomentumLab() {
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
 
       setFormulaResult(json.best || null);
-      setFormulaTop(json.top || []);
+      //setFormulaTop(json.top || []);
       setShowFormulaTrend(true);
       setMessage(
         `Beste Formel aus ${json.tested_formulas || 0} Varianten · ` +
