@@ -27,6 +27,11 @@ type Annotation = {
   direction: Direction | "none";
   note?: string | null;
 };
+type TrendAnnotation = {
+  id: number; symbol: string; interval: string; time: number; price: number;
+  trend_start: "up" | "down"; note?: string | null;
+};
+
 type Candidate = {
   time: number;
   price: number;
@@ -177,6 +182,7 @@ export default function QMomentumLab() {
   const [interval, setInterval] = useState("15m");
   const [candles, setCandles] = useState<Candle[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [trendAnnotations, setTrendAnnotations] = useState<TrendAnnotation[]>([]);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
   const [chartPredictions, setChartPredictions] = useState<Candidate[]>([]);
   const [aiCandidates, setAiCandidates] = useState<Candidate[]>([]);
@@ -231,6 +237,10 @@ export default function QMomentumLab() {
     long: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "long").length,
     short: annotations.filter((a) => (a.label === "perfect" || a.label === "missed") && a.direction === "short").length,
   }), [annotations]);
+  const trendStats = useMemo(() => ({
+    up: trendAnnotations.filter((a) => a.trend_start === "up").length,
+    down: trendAnnotations.filter((a) => a.trend_start === "down").length,
+  }), [trendAnnotations]);
 
   async function load(resetSelection = true) {
     setLoading(true);
@@ -246,6 +256,7 @@ export default function QMomentumLab() {
       if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
       setCandles(json.candles || []);
       setAnnotations(json.annotations || []);
+      setTrendAnnotations(json.trend_annotations || []);
       setScannerCandidates(json.scanner_candidates || []);
       const predictions = normalizePredictions(json.chart_predictions || json.predictions || []);
       setChartPredictions(predictions);
@@ -396,6 +407,15 @@ export default function QMomentumLab() {
       text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
+    trendAnnotations.forEach((annotation) => markers.push({
+      time: annotation.time as Time,
+      position: annotation.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: annotation.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: annotation.trend_start === "up" ? "#38bdf8" : "#fb923c",
+      text: annotation.trend_start === "up" ? "UT START" : "DT START",
+      size: 2,
+    }));
+
     if (selectedTime) {
       markers.push({
         time: selectedTime as Time,
@@ -408,7 +428,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -453,6 +473,24 @@ export default function QMomentumLab() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveTrendStart(trendStart: "up" | "down") {
+    if (!selectedCandle) { setMessage("Bitte zuerst die Kerze anklicken, an der der Trend beginnt."); return; }
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/trend-annotation`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, time: selectedCandle.time, price: selectedCandle.close, trend_start: trendStart, note }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+      const saved = json.trend_annotation as TrendAnnotation;
+      setTrendAnnotations((current) => [...current.filter((row) => Number(row.time) !== Number(saved.time)), saved].sort((a,b)=>Number(a.time)-Number(b.time)));
+      setNote("");
+      setMessage(trendStart === "up" ? "UT-START gespeichert." : "DT-START gespeichert.");
+    } catch (error: any) { setMessage(error?.message || String(error)); }
+    finally { setSaving(false); }
   }
 
   async function analyze(showMessage = true) {
@@ -591,12 +629,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V4.1b</span></h1><p>Echte Vollchart-KI · jede Kerze wird ohne Scanner bewertet · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V5</span></h1><p>Momentum-KI + Trenderkennung · UT-/DT-Starts lernen · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -663,6 +701,10 @@ export default function QMomentumLab() {
             <button className={direction === "long" ? "active long" : "long"} onClick={() => setDirection("long")}>▲ MÖGLICHER LONG-MOMENT</button>
             <button className={direction === "short" ? "active short" : "short"} onClick={() => setDirection("short")}>▼ MÖGLICHER SHORT-MOMENT</button>
           </div>
+          <div className="qm-direction" style={{ marginTop: 10 }}>
+            <button type="button" disabled={saving || !selectedCandle} onClick={() => saveTrendStart("up")} style={{ borderColor: "#38bdf8", color: "#7dd3fc" }}>↗ UT BEGINNT HIER</button>
+            <button type="button" disabled={saving || !selectedCandle} onClick={() => saveTrendStart("down")} style={{ borderColor: "#fb923c", color: "#fdba74" }}>↘ DT BEGINNT HIER</button>
+          </div>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz optional" />
           <div className="qm-actions">
             <button className="perfect" disabled={saving} onClick={() => save("perfect")}>👍<b>{direction === "long" ? "LONG perfekt" : "SHORT perfekt"}</b></button>
@@ -671,7 +713,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V4.1b-Ablauf</b><span>Die KI bewertet jede Kerze selbstständig. Der Scanner ist nicht an der Vorhersage beteiligt. Schwelle ändern, KI-Marker bewerten, neu trainieren und denselben Chart erneut analysieren.</span></div>
+          <div className="qm-rule"><b>V5 – Trendstarts sammeln</b><span>Klicke exakt auf die Kerze, an der für dich ein neuer Aufwärts- oder Abwärtstrend beginnt. UT/DT werden separat gespeichert und verändern die Momentum-KI noch nicht.</span></div>
         </aside>
       </main>
     </div>
