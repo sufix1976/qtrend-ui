@@ -810,7 +810,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[Trend Formula Lab V0.1a] predict-chart request", url.toString());
+      console.info("[Trend Formula Lab V0.1b] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -854,7 +854,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[Trend Formula Lab V0.1a] predict-chart response", {
+      console.info("[Trend Formula Lab V0.1b] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -869,7 +869,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.1a] predict-chart failed", error);
+      console.error("[Trend Formula Lab V0.1b] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -884,19 +884,21 @@ export default function QMomentumLab() {
   async function optimizeFormula() {
     if (formulaOptimizing) return;
 
-    const endpoint = `${BACKEND_BASE}/qmomentum/formula-optimize`;
+    const requestUrl = new URL("/qmomentum/formula-optimize", BACKEND_BASE);
+    requestUrl.searchParams.set("symbol", symbol);
+    requestUrl.searchParams.set("interval", interval);
+    requestUrl.searchParams.set("limit", "3000");
+    requestUrl.searchParams.set("_ts", String(Date.now()));
+    const endpoint = requestUrl.toString();
+
     setFormulaOptimizing(true);
-    setFormulaStatus(`POST ${endpoint}`);
+    setFormulaStatus(`GET ${endpoint}`);
     setMessage("Trendformeln werden getestet …");
 
     try {
       const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=UTF-8",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({ symbol, interval, limit: 3000 }),
+        method: "GET",
+        headers: { "Accept": "application/json" },
         cache: "no-store",
       });
 
@@ -924,7 +926,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setFormulaStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.1a] formula-optimize failed", {
+      console.error("[Trend Formula Lab V0.1b] formula-optimize failed", {
         endpoint,
         symbol,
         interval,
@@ -1030,7 +1032,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>Formula Lab V0.1a</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.1b</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
