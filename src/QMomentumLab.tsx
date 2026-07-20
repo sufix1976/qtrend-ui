@@ -296,6 +296,36 @@ function buildTrendStateTransitions(
 
 
 
+type FormulaParams = {
+  ema_length: number;
+  atr_length: number;
+  hysteresis: number;
+  slope_lookback: number;
+  momentum_lookback: number;
+  slope_weight: number;
+  momentum_weight: number;
+  confirm_bars: number;
+  min_state_bars: number;
+};
+
+type FormulaStatePoint = {
+  time: number;
+  state: "neutral" | "up" | "down";
+  composite: number;
+};
+
+type FormulaResult = {
+  params: FormulaParams;
+  score: number;
+  accuracy_pct: number;
+  avg_switch_distance_bars: number;
+  switches: number;
+  extra_switches: number;
+  short_islands: number;
+  comparable_bars: number;
+  states: FormulaStatePoint[];
+};
+
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -423,6 +453,10 @@ export default function QMomentumLab() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
+  const [formulaOptimizing, setFormulaOptimizing] = useState(false);
+  const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
+  const [formulaTop, setFormulaTop] = useState<Omit<FormulaResult, "states">[]>([]);
+  const [showFormulaTrend, setShowFormulaTrend] = useState(true);
   const [message, setMessage] = useState("");
 
   const priceEl = useRef<HTMLDivElement>(null);
@@ -649,6 +683,17 @@ export default function QMomentumLab() {
       text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
+    if (showFormulaTrend && formulaResult) formulaResult.states.forEach((point) => {
+      if (point.state === "neutral") return;
+      markers.push({
+        time: point.time as Time,
+        position: point.state === "up" ? "belowBar" : "aboveBar",
+        shape: "circle",
+        color: point.state === "up" ? "#16a34a" : "#dc2626",
+        size: 0.5,
+      });
+    });
+
     if (showTrendConfirmation) confirmedTrendPoints.forEach((point) => markers.push({
       time: point.time as Time,
       position: point.state === "up" ? "belowBar" : "aboveBar",
@@ -687,7 +732,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaResult, showFormulaTrend, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -836,6 +881,33 @@ export default function QMomentumLab() {
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
 
+  async function optimizeFormula() {
+    setFormulaOptimizing(true);
+    setMessage("Trendformeln werden getestet …");
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/formula-optimize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.ok) throw new Error(json.error || `HTTP ${response.status}`);
+
+      setFormulaResult(json.best || null);
+      setFormulaTop(json.top || []);
+      setShowFormulaTrend(true);
+      setMessage(
+        `Beste Formel aus ${json.tested_formulas || 0} Varianten · ` +
+        `Treffer ${json.best?.accuracy_pct || 0}% · ` +
+        `Wechselabweichung ${json.best?.avg_switch_distance_bars || 0} Kerzen.`,
+      );
+    } catch (error: any) {
+      setMessage(error?.message || String(error));
+    } finally {
+      setFormulaOptimizing(false);
+    }
+  }
+
   async function trainTrend() {
     setTrendTraining(true);
     setMessage("Trend-KI wird trainiert …");
@@ -931,7 +1003,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V6.3a</span></h1><p>Momentum-KI + robuster Trend-HOLD · kleine Pullbacks ohne Wechsel · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.1</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -951,6 +1023,10 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
+        <button type="button" onClick={optimizeFormula} disabled={formulaOptimizing || loading}>
+          {formulaOptimizing ? "Formeln rechnen …" : "Trendformel suchen"}
+        </button>
+        <label className="qm-check"><input type="checkbox" checked={showFormulaTrend} onChange={(e) => setShowFormulaTrend(e.target.checked)} /> Formeltrend</label>
         <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
         <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trendstarts</label>
         <label className="qm-check"><input type="checkbox" checked={showTrendConfirmation} onChange={(e) => setShowTrendConfirmation(e.target.checked)} /> Trendbestätigung</label>
@@ -978,6 +1054,19 @@ export default function QMomentumLab() {
         <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
       </div>}
 
+      {formulaResult && <div className="qm-training-result">
+        <strong>Beste Trendformel</strong>
+        <span>Score <b>{formulaResult.score}</b></span>
+        <span>Treffer <b>{formulaResult.accuracy_pct}%</b></span>
+        <span>Wechselabweichung <b>{formulaResult.avg_switch_distance_bars} Kerzen</b></span>
+        <span>Zusatzwechsel <b>{formulaResult.extra_switches}</b></span>
+        <span>Kurze Inseln <b>{formulaResult.short_islands}</b></span>
+        <span>EMA <b>{formulaResult.params.ema_length}</b></span>
+        <span>ATR <b>{formulaResult.params.atr_length}</b></span>
+        <span>Hysterese <b>{formulaResult.params.hysteresis}</b></span>
+        <span>Bestätigung <b>{formulaResult.params.confirm_bars}</b></span>
+        <span>Mindestdauer <b>{formulaResult.params.min_state_bars}</b></span>
+      </div>}
       <main className="qm-main">
         <section className="qm-charts">
           <div className="qm-pane"><div className="qm-pane-title">KERZEN</div><div ref={priceEl} /></div>
@@ -1021,7 +1110,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V6.3 – Trend-HOLD</b><span>Ein bestätigter Trend startet mit HOLD 100. Kleine Pullbacks bauen HOLD nur teilweise ab; Fortsetzung lädt ihn wieder auf. Ein Wechsel ist erst unter HOLD 35 und nach drei bestätigten Gegenkerzen erlaubt.</span></div>
+          <div className="qm-rule"><b>Trend Formula Lab V0.1</b><span>Deine UT-/DT-Marker bilden die Zielzustände. Der Optimierer testet EMA-, ATR-, Hysterese-, Steigungs-, Momentum-, Bestätigungs- und Mindestdauer-Parameter und zeichnet die beste reproduzierbare Trendformel als grüne/rote Punkte.</span></div>
         </aside>
       </main>
     </div>
