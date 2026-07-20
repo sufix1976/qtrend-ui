@@ -103,9 +103,14 @@ function normalizePredictions(rows: unknown): Candidate[] {
 }
 function normalizeTrendPredictions(rows: unknown): TrendPrediction[] {
   if (!Array.isArray(rows)) return [];
-  return rows.map((row: any) => {
+
+  const normalized: TrendPrediction[] = [];
+
+  for (const raw of rows) {
+    const row: any = raw;
     const time = Number(row?.time ?? row?.timestamp ?? row?.candle_time);
-    if (!Number.isFinite(time)) return null;
+    if (!Number.isFinite(time)) continue;
+
     const upScore = scoreToPercent(row?.up_score ?? row?.upScore ?? row?.up);
     const downScore = scoreToPercent(row?.down_score ?? row?.downScore ?? row?.down);
     const directScore = scoreToPercent(row?.score ?? row?.confidence ?? row?.probability);
@@ -113,16 +118,19 @@ function normalizeTrendPredictions(rows: unknown): TrendPrediction[] {
       String(row?.trend_start || "").toLowerCase() === "down" || downScore > upScore
         ? "down"
         : "up";
-    return {
+
+    normalized.push({
       time,
       price: Number(row?.price ?? row?.close ?? 0),
       score: Math.max(directScore, upScore, downScore),
-      source: "trend_ai" as const,
+      source: "trend_ai",
       trend_start: trendStart,
       up_score: upScore,
       down_score: downScore,
-    };
-  }).filter((row): row is TrendPrediction => row !== null);
+    });
+  }
+
+  return normalized;
 }
 
 type ModelInfo = {
@@ -741,7 +749,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V5.1</span></h1><p>Momentum-KI + Trend-KI · UT-/DT-Starts automatisch erkennen · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V5.1a</span></h1><p>Momentum-KI + Trend-KI · UT-/DT-Starts automatisch erkennen · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
