@@ -326,6 +326,47 @@ type FormulaResult = {
   states?: FormulaStatePoint[];
 };
 
+type E1Prediction = {
+  time: number;
+  price: number;
+  trend_start: "up" | "down";
+  score: number;
+  ut_score: number;
+  dt_score: number;
+  none_score: number;
+};
+
+type E1Metrics = {
+  marker_count: number;
+  exact: number;
+  within_1: number;
+  within_2: number;
+  missed: number;
+  false_positives: number;
+  prediction_count: number;
+  exact_pct: number;
+  within_1_pct: number;
+  within_2_pct: number;
+  precision_pct: number;
+  verdict: "PASS" | "FAIL" | "UNCLEAR";
+};
+
+type E1Result = {
+  experiment: string;
+  symbol: string;
+  interval: string;
+  total_markers: number;
+  train_marker_count: number;
+  test_marker_count: number;
+  train_ut: number;
+  train_dt: number;
+  train_none: number;
+  split_time: number;
+  window_bars: number;
+  predictions: E1Prediction[];
+  metrics: E1Metrics;
+};
+
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -454,6 +495,10 @@ export default function QMomentumLab() {
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
+  const [e1Running, setE1Running] = useState(false);
+  const [e1Status, setE1Status] = useState("Bereit");
+  const [e1Result, setE1Result] = useState<E1Result | null>(null);
+  const [showE1Markers, setShowE1Markers] = useState(true);
   const [formulaStatus, setFormulaStatus] = useState("Bereit");
   const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
   const [showFormulaTrend, setShowFormulaTrend] = useState(true);
@@ -571,6 +616,8 @@ export default function QMomentumLab() {
     setTrainingSummary(null);
     setCompareMode("new");
     setShowReviews(true);
+    setE1Result(null);
+    setE1Status("Bereit");
     load();
   }, [symbol, interval]);
 
@@ -746,6 +793,15 @@ export default function QMomentumLab() {
       size: 2,
     }));
 
+    if (showE1Markers && e1Result) e1Result.predictions.forEach((prediction) => markers.push({
+      time: prediction.time as Time,
+      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: prediction.trend_start === "up" ? "#22d3ee" : "#f472b6",
+      text: `${prediction.trend_start === "up" ? "E1 UT" : "E1 DT"} ${Math.round(prediction.score)}%`,
+      size: 1.8,
+    }));
+
     if (selectedTime) {
       markers.push({
         time: selectedTime as Time,
@@ -758,7 +814,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -836,7 +892,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[Trend Formula Lab V0.31] predict-chart request", url.toString());
+      console.info("[Trend Marker Imitation E1] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -906,6 +962,54 @@ export default function QMomentumLab() {
     const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
+
+  async function runMarkerImitationE1() {
+    if (e1Running) return;
+    setE1Running(true);
+    setE1Result(null);
+    setE1Status("Train/Test wird berechnet …");
+    setMessage("E1 prüft, ob deine UT-/DT-Marker aus OHLC, MACD und RSI nachgebildet werden können …");
+
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/marker-imitation-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ symbol, interval, limit: 5000 }),
+      });
+
+      const raw = await response.text();
+      let json: any;
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(`E1 lieferte kein JSON: ${raw.slice(0, 180)}`);
+      }
+
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || `E1 HTTP ${response.status}`);
+      }
+
+      const result = json as E1Result;
+      setE1Result(result);
+      setShowE1Markers(true);
+      setE1Status(
+        `${result.metrics.within_2} / ${result.metrics.marker_count} innerhalb ±2 · ${result.metrics.within_2_pct}% · ${result.metrics.verdict}`,
+      );
+      setMessage(
+        `E1 abgeschlossen: exakt ${result.metrics.exact_pct}% · ±1 ${result.metrics.within_1_pct}% · ` +
+        `±2 ${result.metrics.within_2_pct}% · Fehlmarker ${result.metrics.false_positives}.`,
+      );
+    } catch (error: any) {
+      const errorText = error?.message || String(error);
+      setE1Status(`Fehler: ${errorText}`);
+      setMessage(errorText);
+    } finally {
+      setE1Running(false);
+    }
+  }
 
   async function optimizeFormula() {
     if (formulaOptimizing) return;
@@ -1115,6 +1219,13 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
+        <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
+          {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
+        </button>
+        <div className={`qm-analysis-status ${e1Status.startsWith("Fehler") ? "error" : e1Running ? "working" : ""}`}>
+          <b>Marker-Imitation</b><span>{e1Status}</span>
+        </div>
+        <label className="qm-check"><input type="checkbox" checked={showE1Markers} onChange={(e) => setShowE1Markers(e.target.checked)} /> E1-Marker</label>
         <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
           {formulaOptimizing ? "Batch läuft …" : "Trendformel suchen"}
         </button>
@@ -1147,6 +1258,20 @@ export default function QMomentumLab() {
         <span>KI-Marker vorher <b>{trainingSummary.beforeCount}</b></span>
         <span>KI-Marker jetzt <b>{trainingSummary.afterCount}</b></span>
         <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
+      </div>}
+
+      {e1Result && <div className={`qm-training-result e1-${e1Result.metrics.verdict.toLowerCase()}`}>
+        <strong>E1 Marker-Imitation · {e1Result.metrics.verdict}</strong>
+        <span>Testmarker <b>{e1Result.metrics.marker_count}</b></span>
+        <span>Exakt <b>{e1Result.metrics.exact} · {e1Result.metrics.exact_pct}%</b></span>
+        <span>Innerhalb ±1 <b>{e1Result.metrics.within_1} · {e1Result.metrics.within_1_pct}%</b></span>
+        <span>Innerhalb ±2 <b>{e1Result.metrics.within_2} · {e1Result.metrics.within_2_pct}%</b></span>
+        <span>Nicht gefunden <b>{e1Result.metrics.missed}</b></span>
+        <span>Zusätzliche Marker <b>{e1Result.metrics.false_positives}</b></span>
+        <span>Precision <b>{e1Result.metrics.precision_pct}%</b></span>
+        <span>Training <b>{e1Result.train_marker_count} Marker</b></span>
+        <span>Test <b>{e1Result.test_marker_count} Marker</b></span>
+        <span>Regel <b>≥70 PASS · &lt;40 FAIL</b></span>
       </div>}
 
       {formulaResult && <div className="qm-training-result">
@@ -1207,7 +1332,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>Trend Formula Lab V0.31</b><span>Die Formelzustände bleiben intern für jede Kerze erhalten. Im Chart werden nur echte Wechsel als FORMEL UT START oder FORMEL DT START markiert. Dadurch ist die Trendfolge lesbar, ohne rote und grüne Punktewolke.</span></div>
+          <div className="qm-rule"><b>Experiment E1</b><span>Die ersten 70% deiner UT-/DT-Marker dienen als Training, die letzten 30% bleiben unbekannter Test. Gewertet wird ausschließlich, wie viele Testmarker exakt oder innerhalb ±1/±2 Kerzen getroffen werden. Ab 70% innerhalb ±2 gilt die Idee als bestanden, unter 40% als gescheitert.</span></div>
         </aside>
       </main>
     </div>
