@@ -49,6 +49,12 @@ type TrendStateTransition = TrendPrediction & {
   state_after: TrendState;
 };
 
+type ConfirmedTrendPoint = {
+  time: number;
+  state: Exclude<TrendState, "neutral">;
+  score: number;
+};
+
 type TrendModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -229,6 +235,86 @@ function activeTrendState(transitions: TrendStateTransition[]): TrendState {
   return transitions.length ? transitions[transitions.length - 1].state_after : "neutral";
 }
 
+function buildConfirmedTrendPoints(
+  predictions: TrendPrediction[],
+  threshold: number,
+): ConfirmedTrendPoint[] {
+  const sorted = [...predictions].sort((a, b) => a.time - b.time);
+  const points: ConfirmedTrendPoint[] = [];
+
+  let state: TrendState = "neutral";
+  let pending: TrendState = "neutral";
+  let pendingCount = 0;
+  let lastSwitchIndex = -9999;
+
+  const confirmationBars = 3;
+  const initialConfirmationBars = 2;
+  const minimumBarsBetweenSwitches = 6;
+  const switchMargin = 8;
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const row = sorted[index];
+    const upScore = scoreToPercent(
+      row.up_score ?? (row.trend_start === "up" ? row.score : 0),
+    );
+    const downScore = scoreToPercent(
+      row.down_score ?? (row.trend_start === "down" ? row.score : 0),
+    );
+
+    let wanted: TrendState = "neutral";
+
+    if (state === "neutral") {
+      if (upScore >= threshold && upScore >= downScore + switchMargin) wanted = "up";
+      else if (downScore >= threshold && downScore >= upScore + switchMargin) wanted = "down";
+    } else if (state === "up") {
+      if (
+        index - lastSwitchIndex >= minimumBarsBetweenSwitches &&
+        downScore >= threshold &&
+        downScore >= upScore + switchMargin
+      ) {
+        wanted = "down";
+      }
+    } else if (state === "down") {
+      if (
+        index - lastSwitchIndex >= minimumBarsBetweenSwitches &&
+        upScore >= threshold &&
+        upScore >= downScore + switchMargin
+      ) {
+        wanted = "up";
+      }
+    }
+
+    if (wanted === "neutral") {
+      pending = "neutral";
+      pendingCount = 0;
+    } else {
+      if (pending === wanted) pendingCount += 1;
+      else {
+        pending = wanted;
+        pendingCount = 1;
+      }
+
+      const required = state === "neutral" ? initialConfirmationBars : confirmationBars;
+      if (pendingCount >= required) {
+        state = wanted;
+        lastSwitchIndex = index;
+        pending = "neutral";
+        pendingCount = 0;
+      }
+    }
+
+    if (state === "up" || state === "down") {
+      points.push({
+        time: row.time,
+        state,
+        score: state === "up" ? upScore : downScore,
+      });
+    }
+  }
+
+  return points;
+}
+
 type ModelInfo = {
   trained_at: string;
   positive_count: number;
@@ -336,6 +422,7 @@ export default function QMomentumLab() {
   const [trendModel, setTrendModel] = useState<TrendModelInfo | null>(null);
   const [trendThreshold, setTrendThreshold] = useState(60);
   const [showTrendAi, setShowTrendAi] = useState(true);
+  const [showTrendConfirmation, setShowTrendConfirmation] = useState(true);
   const [trendTraining, setTrendTraining] = useState(false);
   const [scannerCandidates, setScannerCandidates] = useState<Candidate[]>([]);
   const [chartPredictions, setChartPredictions] = useState<Candidate[]>([]);
@@ -398,6 +485,10 @@ export default function QMomentumLab() {
   const currentTrendState = useMemo(
     () => activeTrendState(trendAiCandidates as TrendStateTransition[]),
     [trendAiCandidates],
+  );
+  const confirmedTrendPoints = useMemo(
+    () => buildConfirmedTrendPoints(trendPredictions, trendThreshold),
+    [trendPredictions, trendThreshold],
   );
 
   async function load(resetSelection = true) {
@@ -575,6 +666,14 @@ export default function QMomentumLab() {
       text: annotation.label === "perfect" ? (annotation.direction === "long" ? "LONG ✓" : "SHORT ✓") : annotation.label === "bad" ? "×" : annotation.label === "missed" ? `${annotation.direction === "long" ? "L" : "S"} VERPASST` : "?",
       size: 1.2,
     }));
+    if (showTrendConfirmation) confirmedTrendPoints.forEach((point) => markers.push({
+      time: point.time as Time,
+      position: point.state === "up" ? "belowBar" : "aboveBar",
+      shape: "circle",
+      color: point.state === "up" ? "#22c55e" : "#ef4444",
+      size: 0.45,
+    }));
+
     if (showTrendAi) trendAiCandidates.forEach((candidate) => markers.push({
       time: candidate.time as Time,
       position: candidate.trend_start === "up" ? "belowBar" : "aboveBar",
@@ -605,7 +704,7 @@ export default function QMomentumLab() {
     }
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, showTrendAi, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -683,7 +782,7 @@ export default function QMomentumLab() {
     url.searchParams.set("_ts", String(Date.now()));
 
     try {
-      console.info("[QMomentum V6.1] predict-chart request", url.toString());
+      console.info("[QMomentum V6.2] predict-chart request", url.toString());
       const response = await fetch(url, {
         method: "POST",
         cache: "no-store",
@@ -727,7 +826,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[QMomentum V6.1] predict-chart response", {
+      console.info("[QMomentum V6.2] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -742,7 +841,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[QMomentum V6.1] predict-chart failed", error);
+      console.error("[QMomentum V6.2] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -849,12 +948,12 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>V6.1</span></h1><p>Momentum-KI + gelernter Trendzustand · stabile UT-/DT-Wechsel · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>V6.2</span></h1><p>Momentum-KI + Trendstart und bestätigter Trendzustand · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
           <span>KI vorher {previousAiCandidates.length}</span>
-          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Wechsel {trendAiCandidates.length}</span><span>STATE {currentTrendState === "up" ? "UT" : currentTrendState === "down" ? "DT" : "NEUTRAL"}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
+          <span className="long-stat">LONG {directionStats.long}</span><span className="short-stat">SHORT {directionStats.short}</span><span>UT {trendStats.up}</span><span>DT {trendStats.down}</span><span>Wechsel {trendAiCandidates.length}</span><span>Bestätigt {confirmedTrendPoints.length}</span><span>STATE {currentTrendState === "up" ? "UT" : currentTrendState === "down" ? "DT" : "NEUTRAL"}</span><span>👍 {stats.perfect}</span><span>👎 {stats.bad}</span><span>⭕ {stats.missed}</span><span>❓ {stats.unsure}</span>
         </div>
       </header>
 
@@ -870,7 +969,8 @@ export default function QMomentumLab() {
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
         <label>Trend-Schwelle <b>{trendThreshold}%</b><input type="range" min="50" max="99" step="1" value={trendThreshold} onChange={(e) => setTrendThreshold(Number(e.target.value))} /></label>
-        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trend-State</label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendAi} onChange={(e) => setShowTrendAi(e.target.checked)} /> Trendstarts</label>
+        <label className="qm-check"><input type="checkbox" checked={showTrendConfirmation} onChange={(e) => setShowTrendConfirmation(e.target.checked)} /> Trendbestätigung</label>
         <button type="button" onClick={trainTrend} disabled={trendTraining}>{trendTraining ? "Trendzustand lernt …" : "Trendzustand trainieren"}</button>
         <label className="qm-check"><input type="checkbox" checked={showReviews} onChange={(e) => setShowReviews(e.target.checked)} /> Bewertungen</label>
         <button onClick={() => load()} disabled={loading}>{loading ? "Lädt …" : "Neu laden"}</button>
@@ -938,7 +1038,7 @@ export default function QMomentumLab() {
             <button className="unsure" disabled={saving} onClick={() => save("unsure")}>❓<b>Unsicher</b></button>
           </div>
           {message && <div className="qm-message">{message}</div>}
-          <div className="qm-rule"><b>V6.1 – echter Trendzustand</b><span>Das Modell lernt alle Kerzen zwischen deinen UT-/DT-Starts als aktiven UPTREND oder DOWNTREND. Ein Wechsel erscheint erst nach drei bestätigten Kerzen und mindestens acht Prozentpunkten Vorsprung.</span></div>
+          <div className="qm-rule"><b>V6.2 – START und BESTÄTIGUNG getrennt</b><span>Pfeil mit Text zeigt den erkannten UT-/DT-Beginn. Kleine grüne Kreise bestätigen UPTREND, kleine rote Kreise bestätigen DOWNTREND auf jeder Kerze. Beide Anzeigen sind separat abschaltbar.</span></div>
         </aside>
       </main>
     </div>
