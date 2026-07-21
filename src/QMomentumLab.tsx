@@ -443,13 +443,25 @@ function sma(values: number[], length: number): number[] {
   return out;
 }
 
-function indicators(candles: Candle[]): IndicatorPoint[] {
+function heikinCandles(candles: Candle[]): Candle[] {
+  if (!candles.length) return [];
+  const out: Candle[] = [];
+  for (let i = 0; i < candles.length; i += 1) {
+    const c = candles[i];
+    const close = (c.open + c.high + c.low + c.close) / 4;
+    const open = i === 0 ? (c.open + c.close) / 2 : (out[i - 1].open + out[i - 1].close) / 2;
+    out.push({ time: c.time, open, close, high: Math.max(c.high, open, close), low: Math.min(c.low, open, close) });
+  }
+  return out;
+}
+
+function indicators(candles: Candle[], macdFast = 12, macdSlow = 26, macdSignal = 9, rsiLength = 14): IndicatorPoint[] {
   const closes = candles.map((c) => c.close);
-  const fast = ema(closes, 12);
-  const slow = ema(closes, 26);
+  const fast = ema(closes, macdFast);
+  const slow = ema(closes, macdSlow);
   const macd = closes.map((_, i) => fast[i] - slow[i]);
-  const signal = ema(macd, 9);
-  const rsiValues = rsi(closes, 14);
+  const signal = ema(macd, macdSignal);
+  const rsiValues = rsi(closes, rsiLength);
   const rsiMa = sma(rsiValues, 9);
   return candles.map((c, i) => ({
     time: c.time as Time,
@@ -522,7 +534,21 @@ export default function QMomentumLab() {
   const markersApiRef = useRef<any>(null);
   const visibleRangeRef = useRef<any>(null);
 
-  const values = useMemo(() => indicators(candles), [candles]);
+  const optimizerParams = kingResult?.best?.params ?? null;
+  const displayCandles = useMemo(
+    () => optimizerParams?.heikin ? heikinCandles(candles) : candles,
+    [candles, optimizerParams?.heikin],
+  );
+  const values = useMemo(
+    () => indicators(
+      displayCandles,
+      optimizerParams?.macd_fast ?? 12,
+      optimizerParams?.macd_slow ?? 26,
+      optimizerParams?.macd_signal ?? 9,
+      optimizerParams?.rsi_length ?? 14,
+    ),
+    [displayCandles, optimizerParams?.macd_fast, optimizerParams?.macd_slow, optimizerParams?.macd_signal, optimizerParams?.rsi_length],
+  );
   const selectedCandle = useMemo(
     () => candles.find((c) => c.time === selectedTime) || null,
     [candles, selectedTime],
@@ -658,7 +684,7 @@ export default function QMomentumLab() {
       wickUpColor: "#24b47e", wickDownColor: "#ef5350",
     });
     candleSeriesRef.current = candleSeries;
-    candleSeries.setData(candles.map((c) => ({ ...c, time: c.time as Time })));
+    candleSeries.setData(displayCandles.map((c) => ({ ...c, time: c.time as Time })));
     markersApiRef.current = createSeriesMarkers(candleSeries, []);
 
     if (showSma) {
@@ -745,7 +771,7 @@ export default function QMomentumLab() {
       rsiChart.remove();
       chartsRef.current = [];
     };
-  }, [candles, values, showSma]);
+  }, [candles, displayCandles, values, showSma]);
 
   useEffect(() => {
     const markers: any[] = [];
@@ -827,7 +853,7 @@ export default function QMomentumLab() {
       position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
       shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
       color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
-      text: prediction.trend_start === "up" ? "KING UT" : "KING DT",
+      text: prediction.trend_start === "up" ? "OPT UT" : "OPT DT",
     }));
 
     markers.sort((a, b) => Number(a.time) - Number(b.time));
@@ -997,8 +1023,10 @@ export default function QMomentumLab() {
         if(!done) await new Promise(resolve=>setTimeout(resolve,20));
       }
       if(!result?.best) throw new Error("Kein Ergebnis erhalten.");
-      setKingResult(result); setKingStatus(`Fertig · Test ±2 ${result.best.test.within_2_pct}% · Precision ${result.best.test.precision_pct}%`);
-      setMessage(`Beste Sicht: MACD ${result.best.params.macd_fast}/${result.best.params.macd_slow}/${result.best.params.macd_signal}, RSI ${result.best.params.rsi_length}, ATR ${result.best.params.atr_length}, Heikin ${result.best.params.heikin?"JA":"NEIN"}.`);
+      setKingResult(result);
+      setShowKingMarkers(true);
+      setKingStatus(`Vergleich aktiv · Test ±2 ${result.best.test.within_2_pct}% · Precision ${result.best.test.precision_pct}%`);
+      setMessage(`Vergleich aktiv: Chart, MACD und RSI zeigen jetzt automatisch die beste Optimizer-Sicht.`);
     } catch(error:any){ const text=error?.message||String(error); setKingStatus(`Fehler: ${text}`); setMessage(text); } finally { setKingRunning(false); }
   }
 
@@ -1238,7 +1266,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>King Optimizer V1</span></h1><p>MACD-, RSI-, ATR- und Heikin-Suche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>King Optimizer V2</span></h1><p>MACD-, RSI-, ATR- und Heikin-Suche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1262,7 +1290,7 @@ export default function QMomentumLab() {
           {kingRunning ? "KING sucht …" : "KING OPTIMIZER"}
         </button>
         <div className={`qm-analysis-status ${kingStatus.startsWith("Fehler") ? "error" : kingRunning ? "working" : ""}`}><b>MACD · RSI · ATR · Heikin</b><span>{kingStatus}</span></div>
-        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> KING-Marker</label>
+        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> OPT-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
           {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
         </button>
@@ -1305,7 +1333,7 @@ export default function QMomentumLab() {
       </div>}
 
       {kingResult && <div className="qm-training-result">
-        <strong>King Optimizer · beste Einstellung</strong>
+        <strong>King vs. Optimizer · Vergleich aktiv</strong>
         <span>MACD <b>{kingResult.best.params.macd_fast} / {kingResult.best.params.macd_slow} / {kingResult.best.params.macd_signal}</b></span>
         <span>RSI <b>{kingResult.best.params.rsi_length}</b></span>
         <span>ATR <b>{kingResult.best.params.atr_length}</b></span>
@@ -1350,9 +1378,9 @@ export default function QMomentumLab() {
       </div>}
       <main className="qm-main">
         <section className="qm-charts">
-          <div className="qm-pane"><div className="qm-pane-title">KERZEN</div><div ref={priceEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>MACD 12 / 26 / 9</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>RSI 14</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title">KERZEN {optimizerParams ? `· ${optimizerParams.heikin ? "HEIKIN OPTIMIZER" : "NORMAL OPTIMIZER"}` : ""}</div><div ref={priceEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {optimizerParams?.macd_fast ?? 12} / {optimizerParams?.macd_slow ?? 26} / {optimizerParams?.macd_signal ?? 9}{optimizerParams ? " · OPTIMIZER" : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>RSI {optimizerParams?.rsi_length ?? 14}{optimizerParams ? " · OPTIMIZER" : ""}</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
         </section>
 
         <aside className="qm-panel">
