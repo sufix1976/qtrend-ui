@@ -351,11 +351,11 @@ type E1Metrics = {
   verdict: "PASS" | "FAIL" | "UNCLEAR";
 };
 
-type KingParams = { macd_fast:number; macd_slow:number; macd_signal:number; rsi_length:number; atr_length:number; heikin:boolean; require_ha_color:boolean; atr_body_min:number; rsi_long:number; rsi_short:number; min_gap:number; };
-type KingMetrics = { marker_count:number; exact:number; within_1:number; within_2:number; missed:number; false_positives:number; prediction_count:number; exact_pct:number; within_1_pct:number; within_2_pct:number; precision_pct:number; avg_distance_bars:number; score:number; };
-type KingPrediction = { time:number; price:number; trend_start:"up"|"down"; score:number; index:number; };
+type KingParams = { macd_fast:number; macd_slow:number; macd_signal:number; rsi_length:number; atr_length:number; heikin:boolean; require_ha_color:boolean; atr_body_min:number; min_gap:number; kink_window:number; kink_threshold:number; rsi_mode:"none"|"slope"|"level"; };
+type KingMetrics = { marker_count:number; exact:number; within_1:number; within_2:number; missed:number; false_positives:number; prediction_count:number; exact_pct:number; within_1_pct:number; within_2_pct:number; precision_pct:number; avg_distance_bars:number; ut_total:number; ut_hit:number; dt_total:number; dt_hit:number; score:number; };
+type KingPrediction = { time:number; price:number; trend_start:"up"|"down"; score:number; index:number; kink_strength:number; macd_value:number; slope_before:number; slope_after:number; body_atr:number; };
 type KingRank = { params:KingParams; score:number; train:KingMetrics; test:KingMetrics; };
-type KingResult = { best:KingRank & { predictions:KingPrediction[] }; top:KingRank[]; };
+type KingResult = { version?:string; mode?:string; best:KingRank & { predictions:KingPrediction[] }; top:KingRank[]; };
 
 type E1Result = {
   experiment: string;
@@ -532,6 +532,7 @@ export default function QMomentumLab() {
   const chartsRef = useRef<IChartApi[]>([]);
   const candleSeriesRef = useRef<any>(null);
   const markersApiRef = useRef<any>(null);
+  const macdKnickMarkersApiRef = useRef<any>(null);
   const visibleRangeRef = useRef<any>(null);
 
   const optimizerParams = kingResult?.best?.params ?? null;
@@ -699,6 +700,7 @@ export default function QMomentumLab() {
     const signalSeries = macdChart.addSeries(LineSeries, { color: "#ffb74d", lineWidth: 2, priceLineVisible: false });
     macdSeries.setData(values.map((p) => ({ time: p.time, value: p.macd })));
     signalSeries.setData(values.map((p) => ({ time: p.time, value: p.signal })));
+    macdKnickMarkersApiRef.current = createSeriesMarkers(macdSeries, []);
 
     const rsiSeries = rsiChart.addSeries(LineSeries, { color: "#ab47bc", lineWidth: 2, priceLineVisible: false });
     const rsiMaSeries = rsiChart.addSeries(LineSeries, { color: "#f5c451", lineWidth: 2, priceLineVisible: false });
@@ -766,6 +768,7 @@ export default function QMomentumLab() {
       window.removeEventListener("resize", resize);
       candleSeriesRef.current = null;
       markersApiRef.current = null;
+      macdKnickMarkersApiRef.current = null;
       priceChart.remove();
       macdChart.remove();
       rsiChart.remove();
@@ -853,12 +856,31 @@ export default function QMomentumLab() {
       position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
       shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
       color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
-      text: prediction.trend_start === "up" ? "OPT UT" : "OPT DT",
+      text: `${prediction.trend_start === "up" ? "KNICK UT" : "KNICK DT"} ${prediction.kink_strength?.toFixed?.(1) ?? ""}`,
     }));
 
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
   }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, kingResult, showKingMarkers]);
+
+  useEffect(() => {
+    if (!macdKnickMarkersApiRef.current) return;
+    if (!showKingMarkers || !kingResult?.best?.predictions) {
+      macdKnickMarkersApiRef.current.setMarkers([]);
+      return;
+    }
+
+    const markers = kingResult.best.predictions.map((prediction) => ({
+      time: prediction.time as Time,
+      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: "circle",
+      color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
+      text: `${prediction.trend_start === "up" ? "UT-KNICK" : "DT-KNICK"} ${prediction.kink_strength.toFixed(1)}`,
+      size: prediction.kink_strength >= 2.5 ? 2 : prediction.kink_strength >= 1.8 ? 1.5 : 1,
+    }));
+
+    macdKnickMarkersApiRef.current.setMarkers(markers);
+  }, [kingResult, showKingMarkers, values]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -1009,7 +1031,7 @@ export default function QMomentumLab() {
 
   async function runKingOptimizer() {
     if (kingRunning) return;
-    setKingRunning(true); setKingResult(null); setKingStatus("Startet …"); setMessage("King Optimizer sucht MACD, RSI, ATR und Heikin-Einstellungen …");
+    setKingRunning(true); setKingResult(null); setKingStatus("MACD-Knick-Suche startet …"); setMessage("King Optimizer V3 sucht zuerst die großen MACD-Knicke an deinen UT-/DT-Starts …");
     try {
       const startRes=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/start`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({symbol,interval,limit:5000})});
       const startText=await startRes.text(); let start:any; try{start=startText?JSON.parse(startText):{}}catch{throw new Error(`START non-JSON: ${startText}`)}
@@ -1019,14 +1041,14 @@ export default function QMomentumLab() {
         const res=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({job_id:start.job_id,batch_size:120})});
         const text=await res.text(); let json:any; try{json=text?JSON.parse(text):{}}catch{throw new Error(`STEP non-JSON: ${text}`)}
         if(!res.ok||!json.ok) throw new Error(json.error||`STEP ${res.status}`);
-        done=Boolean(json.done); setKingStatus(`${json.processed} / ${json.total} · ${json.progress_pct}%`); if(done) result=json.result as KingResult;
+        done=Boolean(json.done); const phase=json.phase==="filters"?"Filter":"MACD-Knick"; setKingStatus(`${phase} ${json.processed} / ${json.total} · ${json.progress_pct}%`); if(done) result=json.result as KingResult;
         if(!done) await new Promise(resolve=>setTimeout(resolve,20));
       }
       if(!result?.best) throw new Error("Kein Ergebnis erhalten.");
       setKingResult(result);
       setShowKingMarkers(true);
-      setKingStatus(`Vergleich aktiv · Test ±2 ${result.best.test.within_2_pct}% · Precision ${result.best.test.precision_pct}%`);
-      setMessage(`Vergleich aktiv: Chart, MACD und RSI zeigen jetzt automatisch die beste Optimizer-Sicht.`);
+      setKingStatus(`Knick-Vergleich · UT ${result.best.test.ut_hit}/${result.best.test.ut_total} · DT ${result.best.test.dt_hit}/${result.best.test.dt_total}`);
+      setMessage(`V3 aktiv: Die markierten Punkte im MACD-Fenster sind die großen Knicke, die der Optimizer als UT-/DT-Starts erkannt hat.`);
     } catch(error:any){ const text=error?.message||String(error); setKingStatus(`Fehler: ${text}`); setMessage(text); } finally { setKingRunning(false); }
   }
 
@@ -1266,7 +1288,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>King Optimizer V2</span></h1><p>MACD-, RSI-, ATR- und Heikin-Suche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>King Optimizer V3</span></h1><p>Große MACD-Knicke gegen deine UT-/DT-Starts · Heikin, ATR und RSI nur als Filter · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1289,8 +1311,8 @@ export default function QMomentumLab() {
         <button type="button" className="qm-analyze" onClick={() => { void runKingOptimizer(); }} disabled={kingRunning || loading}>
           {kingRunning ? "KING sucht …" : "KING OPTIMIZER"}
         </button>
-        <div className={`qm-analysis-status ${kingStatus.startsWith("Fehler") ? "error" : kingRunning ? "working" : ""}`}><b>MACD · RSI · ATR · Heikin</b><span>{kingStatus}</span></div>
-        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> OPT-Marker</label>
+        <div className={`qm-analysis-status ${kingStatus.startsWith("Fehler") ? "error" : kingRunning ? "working" : ""}`}><b>MACD-KNICK · FILTER</b><span>{kingStatus}</span></div>
+        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> KNICK-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
           {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
         </button>
@@ -1333,18 +1355,23 @@ export default function QMomentumLab() {
       </div>}
 
       {kingResult && <div className="qm-training-result">
-        <strong>King vs. Optimizer · Vergleich aktiv</strong>
+        <strong>King Optimizer V3 · MACD-Knick-Vergleich</strong>
         <span>MACD <b>{kingResult.best.params.macd_fast} / {kingResult.best.params.macd_slow} / {kingResult.best.params.macd_signal}</b></span>
         <span>RSI <b>{kingResult.best.params.rsi_length}</b></span>
         <span>ATR <b>{kingResult.best.params.atr_length}</b></span>
         <span>Heikin <b>{kingResult.best.params.heikin ? "JA" : "NEIN"}</b></span>
+        <span>Knickfenster <b>{kingResult.best.params.kink_window} Kerze(n)</b></span>
+        <span>Knickschwelle <b>{kingResult.best.params.kink_threshold}</b></span>
+        <span>Mindestabstand <b>{kingResult.best.params.min_gap}</b></span>
         <span>HA-Farbe Pflicht <b>{kingResult.best.params.require_ha_color ? "JA" : "NEIN"}</b></span>
         <span>ATR-Body min. <b>{kingResult.best.params.atr_body_min}</b></span>
-        <span>Training ±2 <b>{kingResult.best.train.within_2_pct}%</b></span>
-        <span>Test ±2 <b>{kingResult.best.test.within_2_pct}%</b></span>
-        <span>Test Precision <b>{kingResult.best.test.precision_pct}%</b></span>
+        <span>RSI-Filter <b>{kingResult.best.params.rsi_mode === "none" ? "AUS" : kingResult.best.params.rsi_mode.toUpperCase()}</b></span>
+        <span>Test UT erkannt <b>{kingResult.best.test.ut_hit} / {kingResult.best.test.ut_total}</b></span>
+        <span>Test DT erkannt <b>{kingResult.best.test.dt_hit} / {kingResult.best.test.dt_total}</b></span>
+        <span>Ø Abstand <b>{kingResult.best.test.avg_distance_bars} Kerzen</b></span>
         <span>Test verpasst <b>{kingResult.best.test.missed}</b></span>
-        <span>Test Zusatzmarker <b>{kingResult.best.test.false_positives}</b></span>
+        <span>Zusatzknicke <b>{kingResult.best.test.false_positives}</b></span>
+        <span>Precision <b>{kingResult.best.test.precision_pct}%</b></span>
       </div>}
 
       {e1Result && <div className={`qm-training-result e1-${e1Result.metrics.verdict.toLowerCase()}`}>
@@ -1379,7 +1406,7 @@ export default function QMomentumLab() {
       <main className="qm-main">
         <section className="qm-charts">
           <div className="qm-pane"><div className="qm-pane-title">KERZEN {optimizerParams ? `· ${optimizerParams.heikin ? "HEIKIN OPTIMIZER" : "NORMAL OPTIMIZER"}` : ""}</div><div ref={priceEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {optimizerParams?.macd_fast ?? 12} / {optimizerParams?.macd_slow ?? 26} / {optimizerParams?.macd_signal ?? 9}{optimizerParams ? " · OPTIMIZER" : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {optimizerParams?.macd_fast ?? 12} / {optimizerParams?.macd_slow ?? 26} / {optimizerParams?.macd_signal ?? 9}{optimizerParams ? " · V3 KNICKE" : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
           <div className="qm-pane"><div className="qm-pane-title"><span>RSI {optimizerParams?.rsi_length ?? 14}{optimizerParams ? " · OPTIMIZER" : ""}</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
         </section>
 
