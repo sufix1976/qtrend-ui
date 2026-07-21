@@ -326,6 +326,71 @@ type FormulaResult = {
   states?: FormulaStatePoint[];
 };
 
+type ExtremeParams = {
+  macd_fast: number;
+  macd_slow: number;
+  macd_signal: number;
+  long_zone: number;
+  short_zone: number;
+  take_profit: number;
+  stop_loss: number;
+  use_be: boolean;
+  be_trigger: number;
+  be_lock: number;
+  use_heikin: boolean;
+  cancel_at_zero: boolean;
+};
+
+type ExtremeMetrics = {
+  trades: number;
+  wins: number;
+  losses: number;
+  win_rate_pct: number;
+  gross_profit: number;
+  gross_loss: number;
+  net: number;
+  profit_factor: number;
+  max_drawdown: number;
+  recovery_factor: number;
+  score: number;
+  events?: Array<{
+    type: "entry" | "exit";
+    direction: "long" | "short";
+    time: number;
+    price: number;
+    pnl?: number;
+    reason?: string;
+    macd?: number;
+  }>;
+};
+
+type ExtremeRank = {
+  params: ExtremeParams;
+  metrics: ExtremeMetrics;
+};
+
+type ExtremeResult = {
+  mode: string;
+  symbol: string;
+  interval: string;
+  candle_count: number;
+  tested_macd_sets: number;
+  tested_zone_pairs: number;
+  min_trades: number;
+  best: ExtremeRank | null;
+  stable_zone: null | {
+    based_on_top: number;
+    long_zone_min: number;
+    long_zone_max: number;
+    short_zone_min: number;
+    short_zone_max: number;
+    macd_fast_median: number;
+    macd_slow_median: number;
+    macd_signal_median: number;
+  };
+  top: ExtremeRank[];
+};
+
 type E1Prediction = {
   time: number;
   price: number;
@@ -350,12 +415,6 @@ type E1Metrics = {
   precision_pct: number;
   verdict: "PASS" | "FAIL" | "UNCLEAR";
 };
-
-type KingParams = { macd_fast:number; macd_slow:number; macd_signal:number; rsi_length:number; atr_length:number; heikin:boolean; require_ha_color:boolean; atr_body_min:number; min_gap:number; kink_window:number; kink_threshold:number; rsi_mode:"none"|"slope"|"level"; };
-type KingMetrics = { marker_count:number; exact:number; within_1:number; within_2:number; missed:number; false_positives:number; prediction_count:number; exact_pct:number; within_1_pct:number; within_2_pct:number; precision_pct:number; avg_distance_bars:number; ut_total:number; ut_hit:number; dt_total:number; dt_hit:number; score:number; };
-type KingPrediction = { time:number; price:number; trend_start:"up"|"down"; score:number; index:number; kink_strength:number; macd_value:number; slope_before:number; slope_after:number; body_atr:number; };
-type KingRank = { params:KingParams; score:number; train:KingMetrics; test:KingMetrics; };
-type KingResult = { version?:string; mode?:string; best:KingRank & { predictions:KingPrediction[] }; top:KingRank[]; };
 
 type E1Result = {
   experiment: string;
@@ -443,25 +502,13 @@ function sma(values: number[], length: number): number[] {
   return out;
 }
 
-function heikinCandles(candles: Candle[]): Candle[] {
-  if (!candles.length) return [];
-  const out: Candle[] = [];
-  for (let i = 0; i < candles.length; i += 1) {
-    const c = candles[i];
-    const close = (c.open + c.high + c.low + c.close) / 4;
-    const open = i === 0 ? (c.open + c.close) / 2 : (out[i - 1].open + out[i - 1].close) / 2;
-    out.push({ time: c.time, open, close, high: Math.max(c.high, open, close), low: Math.min(c.low, open, close) });
-  }
-  return out;
-}
-
-function indicators(candles: Candle[], macdFast = 12, macdSlow = 26, macdSignal = 9, rsiLength = 14): IndicatorPoint[] {
+function indicators(candles: Candle[], config = { fast: 12, slow: 26, signal: 9 }): IndicatorPoint[] {
   const closes = candles.map((c) => c.close);
-  const fast = ema(closes, macdFast);
-  const slow = ema(closes, macdSlow);
+  const fast = ema(closes, config.fast);
+  const slow = ema(closes, config.slow);
   const macd = closes.map((_, i) => fast[i] - slow[i]);
-  const signal = ema(macd, macdSignal);
-  const rsiValues = rsi(closes, rsiLength);
+  const signal = ema(macd, config.signal);
+  const rsiValues = rsi(closes, 14);
   const rsiMa = sma(rsiValues, 9);
   return candles.map((c, i) => ({
     time: c.time as Time,
@@ -512,12 +559,18 @@ export default function QMomentumLab() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [training, setTraining] = useState(false);
+  const [extremeOptimizing, setExtremeOptimizing] = useState(false);
+  const [extremeStatus, setExtremeStatus] = useState("Bereit");
+  const [extremeResult, setExtremeResult] = useState<ExtremeResult | null>(null);
+  const [showExtremeMarkers, setShowExtremeMarkers] = useState(true);
+  const [extremeTp, setExtremeTp] = useState(11);
+  const [extremeSl, setExtremeSl] = useState(10);
+  const [extremeBeTrigger, setExtremeBeTrigger] = useState(7);
+  const [extremeBeLock, setExtremeBeLock] = useState(0.8);
+  const [extremeMinTrades, setExtremeMinTrades] = useState(30);
+  const [extremeUseHeikin, setExtremeUseHeikin] = useState(true);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [e1Running, setE1Running] = useState(false);
-  const [kingRunning, setKingRunning] = useState(false);
-  const [kingStatus, setKingStatus] = useState("Bereit");
-  const [kingResult, setKingResult] = useState<KingResult | null>(null);
-  const [showKingMarkers, setShowKingMarkers] = useState(true);
   const [e1Status, setE1Status] = useState("Bereit");
   const [e1Result, setE1Result] = useState<E1Result | null>(null);
   const [showE1Markers, setShowE1Markers] = useState(true);
@@ -532,23 +585,18 @@ export default function QMomentumLab() {
   const chartsRef = useRef<IChartApi[]>([]);
   const candleSeriesRef = useRef<any>(null);
   const markersApiRef = useRef<any>(null);
-  const macdKnickMarkersApiRef = useRef<any>(null);
   const visibleRangeRef = useRef<any>(null);
 
-  const optimizerParams = kingResult?.best?.params ?? null;
-  const displayCandles = useMemo(
-    () => optimizerParams?.heikin ? heikinCandles(candles) : candles,
-    [candles, optimizerParams?.heikin],
-  );
+  const activeMacdConfig = useMemo(() => {
+    const params = extremeResult?.best?.params;
+    return params
+      ? { fast: params.macd_fast, slow: params.macd_slow, signal: params.macd_signal }
+      : { fast: 12, slow: 26, signal: 9 };
+  }, [extremeResult]);
+
   const values = useMemo(
-    () => indicators(
-      displayCandles,
-      optimizerParams?.macd_fast ?? 12,
-      optimizerParams?.macd_slow ?? 26,
-      optimizerParams?.macd_signal ?? 9,
-      optimizerParams?.rsi_length ?? 14,
-    ),
-    [displayCandles, optimizerParams?.macd_fast, optimizerParams?.macd_slow, optimizerParams?.macd_signal, optimizerParams?.rsi_length],
+    () => indicators(candles, activeMacdConfig),
+    [candles, activeMacdConfig],
   );
   const selectedCandle = useMemo(
     () => candles.find((c) => c.time === selectedTime) || null,
@@ -655,6 +703,8 @@ export default function QMomentumLab() {
     setShowReviews(true);
     setE1Result(null);
     setE1Status("Bereit");
+    setExtremeResult(null);
+    setExtremeStatus("Bereit");
     load();
   }, [symbol, interval]);
 
@@ -685,7 +735,7 @@ export default function QMomentumLab() {
       wickUpColor: "#24b47e", wickDownColor: "#ef5350",
     });
     candleSeriesRef.current = candleSeries;
-    candleSeries.setData(displayCandles.map((c) => ({ ...c, time: c.time as Time })));
+    candleSeries.setData(candles.map((c) => ({ ...c, time: c.time as Time })));
     markersApiRef.current = createSeriesMarkers(candleSeries, []);
 
     if (showSma) {
@@ -700,7 +750,26 @@ export default function QMomentumLab() {
     const signalSeries = macdChart.addSeries(LineSeries, { color: "#ffb74d", lineWidth: 2, priceLineVisible: false });
     macdSeries.setData(values.map((p) => ({ time: p.time, value: p.macd })));
     signalSeries.setData(values.map((p) => ({ time: p.time, value: p.signal })));
-    macdKnickMarkersApiRef.current = createSeriesMarkers(macdSeries, []);
+
+    const extremeParams = extremeResult?.best?.params;
+    if (extremeParams) {
+      macdSeries.createPriceLine({
+        price: extremeParams.long_zone,
+        color: "#22c55e",
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "LONG ZONE",
+      });
+      macdSeries.createPriceLine({
+        price: extremeParams.short_zone,
+        color: "#ef4444",
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "SHORT ZONE",
+      });
+    }
 
     const rsiSeries = rsiChart.addSeries(LineSeries, { color: "#ab47bc", lineWidth: 2, priceLineVisible: false });
     const rsiMaSeries = rsiChart.addSeries(LineSeries, { color: "#f5c451", lineWidth: 2, priceLineVisible: false });
@@ -768,13 +837,12 @@ export default function QMomentumLab() {
       window.removeEventListener("resize", resize);
       candleSeriesRef.current = null;
       markersApiRef.current = null;
-      macdKnickMarkersApiRef.current = null;
       priceChart.remove();
       macdChart.remove();
       rsiChart.remove();
       chartsRef.current = [];
     };
-  }, [candles, displayCandles, values, showSma]);
+  }, [candles, values, showSma, extremeResult]);
 
   useEffect(() => {
     const markers: any[] = [];
@@ -841,6 +909,29 @@ export default function QMomentumLab() {
       size: 1.8,
     }));
 
+    if (showExtremeMarkers && extremeResult?.best?.metrics?.events) {
+      extremeResult.best.metrics.events.forEach((event) => {
+        const isEntry = event.type === "entry";
+        markers.push({
+          time: event.time as Time,
+          position:
+            event.direction === "long"
+              ? (isEntry ? "belowBar" : "aboveBar")
+              : (isEntry ? "aboveBar" : "belowBar"),
+          shape: isEntry
+            ? (event.direction === "long" ? "arrowUp" : "arrowDown")
+            : "circle",
+          color: isEntry
+            ? (event.direction === "long" ? "#22c55e" : "#ef4444")
+            : "#facc15",
+          text: isEntry
+            ? (event.direction === "long" ? "EXT LONG" : "EXT SHORT")
+            : `EXIT ${event.reason || ""} ${Number(event.pnl || 0).toFixed(1)}`,
+          size: isEntry ? 1.8 : 1,
+        });
+      });
+    }
+
     if (selectedTime) {
       markers.push({
         time: selectedTime as Time,
@@ -851,36 +942,9 @@ export default function QMomentumLab() {
         size: 1.5,
       });
     }
-    if (showKingMarkers && kingResult?.best?.predictions) kingResult.best.predictions.forEach((prediction) => markers.push({
-      time: prediction.time as Time,
-      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
-      shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
-      color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
-      text: `${prediction.trend_start === "up" ? "KNICK UT" : "KNICK DT"} ${prediction.kink_strength?.toFixed?.(1) ?? ""}`,
-    }));
-
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, kingResult, showKingMarkers]);
-
-  useEffect(() => {
-    if (!macdKnickMarkersApiRef.current) return;
-    if (!showKingMarkers || !kingResult?.best?.predictions) {
-      macdKnickMarkersApiRef.current.setMarkers([]);
-      return;
-    }
-
-    const markers = kingResult.best.predictions.map((prediction) => ({
-      time: prediction.time as Time,
-      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
-      shape: "circle",
-      color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
-      text: `${prediction.trend_start === "up" ? "UT-KNICK" : "DT-KNICK"} ${prediction.kink_strength.toFixed(1)}`,
-      size: prediction.kink_strength >= 2.5 ? 2 : prediction.kink_strength >= 1.8 ? 1.5 : 1,
-    }));
-
-    macdKnickMarkersApiRef.current.setMarkers(markers);
-  }, [kingResult, showKingMarkers, values]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, extremeResult, showExtremeMarkers]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -1002,7 +1066,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[Trend King Optimizer V1] predict-chart response", {
+      console.info("[Trend Formula Lab V0.31] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -1017,7 +1081,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend King Optimizer V1] predict-chart failed", error);
+      console.error("[Trend Formula Lab V0.31] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -1028,29 +1092,6 @@ export default function QMomentumLab() {
     const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
-
-  async function runKingOptimizer() {
-    if (kingRunning) return;
-    setKingRunning(true); setKingResult(null); setKingStatus("MACD-Knick-Suche startet …"); setMessage("King Optimizer V3 sucht zuerst die großen MACD-Knicke an deinen UT-/DT-Starts …");
-    try {
-      const startRes=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/start`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({symbol,interval,limit:5000})});
-      const startText=await startRes.text(); let start:any; try{start=startText?JSON.parse(startText):{}}catch{throw new Error(`START non-JSON: ${startText}`)}
-      if(!startRes.ok||!start.ok) throw new Error(start.error||`START ${startRes.status}`);
-      let done=false; let result:KingResult|null=null;
-      while(!done){
-        const res=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({job_id:start.job_id,batch_size:120})});
-        const text=await res.text(); let json:any; try{json=text?JSON.parse(text):{}}catch{throw new Error(`STEP non-JSON: ${text}`)}
-        if(!res.ok||!json.ok) throw new Error(json.error||`STEP ${res.status}`);
-        done=Boolean(json.done); const phase=json.phase==="filters"?"Filter":"MACD-Knick"; setKingStatus(`${phase} ${json.processed} / ${json.total} · ${json.progress_pct}%`); if(done) result=json.result as KingResult;
-        if(!done) await new Promise(resolve=>setTimeout(resolve,20));
-      }
-      if(!result?.best) throw new Error("Kein Ergebnis erhalten.");
-      setKingResult(result);
-      setShowKingMarkers(true);
-      setKingStatus(`Knick-Vergleich · UT ${result.best.test.ut_hit}/${result.best.test.ut_total} · DT ${result.best.test.dt_hit}/${result.best.test.dt_total}`);
-      setMessage(`V3 aktiv: Die markierten Punkte im MACD-Fenster sind die großen Knicke, die der Optimizer als UT-/DT-Starts erkannt hat.`);
-    } catch(error:any){ const text=error?.message||String(error); setKingStatus(`Fehler: ${text}`); setMessage(text); } finally { setKingRunning(false); }
-  }
 
   async function runMarkerImitationE1() {
     if (e1Running) return;
@@ -1097,6 +1138,122 @@ export default function QMomentumLab() {
       setMessage(errorText);
     } finally {
       setE1Running(false);
+    }
+  }
+
+  async function optimizeExtremeMacd() {
+    if (extremeOptimizing) return;
+
+    setExtremeOptimizing(true);
+    setExtremeResult(null);
+    setExtremeStatus("Job wird vorbereitet …");
+    setMessage("Extreme-MACD-Suche startet: MACD und beide Zonen werden automatisch berechnet …");
+
+    try {
+      const startResponse = await fetch(
+        `${BACKEND_BASE}/qmomentum/extreme-optimize/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({
+            symbol,
+            interval,
+            limit: 5000,
+            take_profit: extremeTp,
+            stop_loss: extremeSl,
+            use_be: true,
+            be_trigger: extremeBeTrigger,
+            be_lock: extremeBeLock,
+            min_trades: extremeMinTrades,
+            use_heikin: extremeUseHeikin,
+            cancel_at_zero: true,
+          }),
+        },
+      );
+
+      const startRaw = await startResponse.text();
+      let startJson: any;
+      try {
+        startJson = startRaw ? JSON.parse(startRaw) : {};
+      } catch {
+        throw new Error(`Extreme-Start lieferte kein JSON: ${startRaw.slice(0, 180)}`);
+      }
+
+      if (!startResponse.ok || !startJson?.ok) {
+        throw new Error(startJson?.error || `Extreme-Start HTTP ${startResponse.status}`);
+      }
+
+      const jobId = String(startJson.job_id || "");
+      if (!jobId) throw new Error("Extreme-Suche lieferte keine Job-ID.");
+
+      let done = false;
+      let finalResult: ExtremeResult | null = null;
+
+      while (!done) {
+        const stepResponse = await fetch(
+          `${BACKEND_BASE}/qmomentum/extreme-optimize/step`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              job_id: jobId,
+              batch_size: 4,
+            }),
+          },
+        );
+
+        const stepRaw = await stepResponse.text();
+        let stepJson: any;
+        try {
+          stepJson = stepRaw ? JSON.parse(stepRaw) : {};
+        } catch {
+          throw new Error(`Extreme-Step lieferte kein JSON: ${stepRaw.slice(0, 180)}`);
+        }
+
+        if (!stepResponse.ok || !stepJson?.ok) {
+          throw new Error(stepJson?.error || `Extreme-Step HTTP ${stepResponse.status}`);
+        }
+
+        done = Boolean(stepJson.done);
+        setExtremeStatus(
+          `${stepJson.processed || 0} / ${stepJson.total || 0} MACD-Sätze · ` +
+          `${stepJson.tested_zone_pairs || 0} Zonenpaare · ${Number(stepJson.progress_pct || 0).toFixed(1)}%`,
+        );
+
+        if (done) finalResult = stepJson.result as ExtremeResult;
+        if (!done) await new Promise((resolve) => window.setTimeout(resolve, 35));
+      }
+
+      if (!finalResult?.best) {
+        throw new Error("Keine Kombination erreichte die Mindestzahl an Trades.");
+      }
+
+      setExtremeResult(finalResult);
+      setShowExtremeMarkers(true);
+
+      const best = finalResult.best;
+      setExtremeStatus(
+        `Fertig · PF ${best.metrics.profit_factor.toFixed(2)} · ` +
+        `${best.metrics.trades} Trades · ${finalResult.tested_zone_pairs} Zonenpaare`,
+      );
+      setMessage(
+        `Beste Extreme-Sicht: MACD ${best.params.macd_fast}/${best.params.macd_slow}/${best.params.macd_signal} · ` +
+        `LONG ${best.params.long_zone.toFixed(3)} · SHORT +${best.params.short_zone.toFixed(3)} · ` +
+        `PF ${best.metrics.profit_factor.toFixed(2)}.`,
+      );
+    } catch (error: any) {
+      const errorText = error?.message || String(error);
+      setExtremeStatus(`Fehler: ${errorText}`);
+      setMessage(errorText);
+      console.error("[Extreme MACD Optimizer] failed", error);
+    } finally {
+      setExtremeOptimizing(false);
     }
   }
 
@@ -1183,7 +1340,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setFormulaStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend King Optimizer V1] batch optimize failed", {
+      console.error("[Trend Formula Lab V0.31] batch optimize failed", {
         symbol,
         interval,
         error,
@@ -1288,7 +1445,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>King Optimizer V3</span></h1><p>Große MACD-Knicke gegen deine UT-/DT-Starts · Heikin, ATR und RSI nur als Filter · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.31</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1308,11 +1465,6 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
-        <button type="button" className="qm-analyze" onClick={() => { void runKingOptimizer(); }} disabled={kingRunning || loading}>
-          {kingRunning ? "KING sucht …" : "KING OPTIMIZER"}
-        </button>
-        <div className={`qm-analysis-status ${kingStatus.startsWith("Fehler") ? "error" : kingRunning ? "working" : ""}`}><b>MACD-KNICK · FILTER</b><span>{kingStatus}</span></div>
-        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> KNICK-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
           {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
         </button>
@@ -1320,6 +1472,19 @@ export default function QMomentumLab() {
           <b>Marker-Imitation</b><span>{e1Status}</span>
         </div>
         <label className="qm-check"><input type="checkbox" checked={showE1Markers} onChange={(e) => setShowE1Markers(e.target.checked)} /> E1-Marker</label>
+        <button type="button" className="qm-analyze" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
+          {extremeOptimizing ? "Extreme sucht …" : "Extreme MACD suchen"}
+        </button>
+        <div className={`qm-analysis-status ${extremeStatus.startsWith("Fehler") ? "error" : extremeOptimizing ? "working" : ""}`}>
+          <b>Extreme-Optimizer</b><span>{extremeStatus}</span>
+        </div>
+        <label>TP <input type="number" min="0.1" step="0.1" value={extremeTp} onChange={(e) => setExtremeTp(Number(e.target.value))} /></label>
+        <label>SL <input type="number" min="0.1" step="0.1" value={extremeSl} onChange={(e) => setExtremeSl(Number(e.target.value))} /></label>
+        <label>BE ab <input type="number" min="0" step="0.1" value={extremeBeTrigger} onChange={(e) => setExtremeBeTrigger(Number(e.target.value))} /></label>
+        <label>BE + <input type="number" min="0" step="0.1" value={extremeBeLock} onChange={(e) => setExtremeBeLock(Number(e.target.value))} /></label>
+        <label>Min. Trades <input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
+        <label className="qm-check"><input type="checkbox" checked={extremeUseHeikin} onChange={(e) => setExtremeUseHeikin(e.target.checked)} /> Heikin-Farbe</label>
+        <label className="qm-check"><input type="checkbox" checked={showExtremeMarkers} onChange={(e) => setShowExtremeMarkers(e.target.checked)} /> Extreme Trades</label>
         <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
           {formulaOptimizing ? "Batch läuft …" : "Trendformel suchen"}
         </button>
@@ -1354,26 +1519,6 @@ export default function QMomentumLab() {
         <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
       </div>}
 
-      {kingResult && <div className="qm-training-result">
-        <strong>King Optimizer V3 · MACD-Knick-Vergleich</strong>
-        <span>MACD <b>{kingResult.best.params.macd_fast} / {kingResult.best.params.macd_slow} / {kingResult.best.params.macd_signal}</b></span>
-        <span>RSI <b>{kingResult.best.params.rsi_length}</b></span>
-        <span>ATR <b>{kingResult.best.params.atr_length}</b></span>
-        <span>Heikin <b>{kingResult.best.params.heikin ? "JA" : "NEIN"}</b></span>
-        <span>Knickfenster <b>{kingResult.best.params.kink_window} Kerze(n)</b></span>
-        <span>Knickschwelle <b>{kingResult.best.params.kink_threshold}</b></span>
-        <span>Mindestabstand <b>{kingResult.best.params.min_gap}</b></span>
-        <span>HA-Farbe Pflicht <b>{kingResult.best.params.require_ha_color ? "JA" : "NEIN"}</b></span>
-        <span>ATR-Body min. <b>{kingResult.best.params.atr_body_min}</b></span>
-        <span>RSI-Filter <b>{kingResult.best.params.rsi_mode === "none" ? "AUS" : kingResult.best.params.rsi_mode.toUpperCase()}</b></span>
-        <span>Test UT erkannt <b>{kingResult.best.test.ut_hit} / {kingResult.best.test.ut_total}</b></span>
-        <span>Test DT erkannt <b>{kingResult.best.test.dt_hit} / {kingResult.best.test.dt_total}</b></span>
-        <span>Ø Abstand <b>{kingResult.best.test.avg_distance_bars} Kerzen</b></span>
-        <span>Test verpasst <b>{kingResult.best.test.missed}</b></span>
-        <span>Zusatzknicke <b>{kingResult.best.test.false_positives}</b></span>
-        <span>Precision <b>{kingResult.best.test.precision_pct}%</b></span>
-      </div>}
-
       {e1Result && <div className={`qm-training-result e1-${e1Result.metrics.verdict.toLowerCase()}`}>
         <strong>E1 Marker-Imitation · {e1Result.metrics.verdict}</strong>
         <span>Testmarker <b>{e1Result.metrics.marker_count}</b></span>
@@ -1387,6 +1532,48 @@ export default function QMomentumLab() {
         <span>Test <b>{e1Result.test_marker_count} Marker</b></span>
         <span>Regel <b>≥70 PASS · &lt;40 FAIL</b></span>
       </div>}
+
+      {extremeResult?.best && <div className="qm-training-result">
+        <strong>Extreme MACD · beste Sicht</strong>
+        <span>MACD <b>{extremeResult.best.params.macd_fast}/{extremeResult.best.params.macd_slow}/{extremeResult.best.params.macd_signal}</b></span>
+        <span>LONG-Zone <b>{extremeResult.best.params.long_zone.toFixed(4)}</b></span>
+        <span>SHORT-Zone <b>+{extremeResult.best.params.short_zone.toFixed(4)}</b></span>
+        <span>PF <b>{extremeResult.best.metrics.profit_factor.toFixed(3)}</b></span>
+        <span>Netto <b>{extremeResult.best.metrics.net.toFixed(2)}</b></span>
+        <span>Trades <b>{extremeResult.best.metrics.trades}</b></span>
+        <span>Winrate <b>{extremeResult.best.metrics.win_rate_pct.toFixed(1)}%</b></span>
+        <span>Drawdown <b>{extremeResult.best.metrics.max_drawdown.toFixed(2)}</b></span>
+        <span>Recovery <b>{extremeResult.best.metrics.recovery_factor.toFixed(2)}</b></span>
+        {extremeResult.stable_zone && <>
+          <span>Stabile LONG-Zone <b>{extremeResult.stable_zone.long_zone_min.toFixed(3)} bis {extremeResult.stable_zone.long_zone_max.toFixed(3)}</b></span>
+          <span>Stabile SHORT-Zone <b>+{extremeResult.stable_zone.short_zone_min.toFixed(3)} bis +{extremeResult.stable_zone.short_zone_max.toFixed(3)}</b></span>
+          <span>Stabiler MACD-Mittelpunkt <b>{extremeResult.stable_zone.macd_fast_median}/{extremeResult.stable_zone.macd_slow_median}/{extremeResult.stable_zone.macd_signal_median}</b></span>
+        </>}
+        <span>Geprüft <b>{extremeResult.tested_macd_sets} MACDs · {extremeResult.tested_zone_pairs} Zonenpaare</b></span>
+      </div>}
+
+      {extremeResult?.top?.length ? <div className="qm-training-result" style={{ alignItems: "stretch" }}>
+        <strong>Top 10 · stabile Bereiche statt Einzelspitze</strong>
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr>
+              <th style={{ textAlign: "left" }}>#</th><th>MACD</th><th>LONG</th><th>SHORT</th><th>PF</th><th>Netto</th><th>Trades</th><th>DD</th>
+            </tr></thead>
+            <tbody>
+              {extremeResult.top.slice(0, 10).map((row, index) => <tr key={`${row.params.macd_fast}-${row.params.macd_slow}-${row.params.macd_signal}-${row.params.long_zone}-${row.params.short_zone}`}>
+                <td>{index + 1}</td>
+                <td style={{ textAlign: "center" }}>{row.params.macd_fast}/{row.params.macd_slow}/{row.params.macd_signal}</td>
+                <td style={{ textAlign: "center" }}>{row.params.long_zone.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>+{row.params.short_zone.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>{row.metrics.profit_factor.toFixed(2)}</td>
+                <td style={{ textAlign: "center" }}>{row.metrics.net.toFixed(1)}</td>
+                <td style={{ textAlign: "center" }}>{row.metrics.trades}</td>
+                <td style={{ textAlign: "center" }}>{row.metrics.max_drawdown.toFixed(1)}</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      </div> : null}
 
       {formulaResult && <div className="qm-training-result">
         <strong>Beste Trendformel</strong>
@@ -1405,9 +1592,9 @@ export default function QMomentumLab() {
       </div>}
       <main className="qm-main">
         <section className="qm-charts">
-          <div className="qm-pane"><div className="qm-pane-title">KERZEN {optimizerParams ? `· ${optimizerParams.heikin ? "HEIKIN OPTIMIZER" : "NORMAL OPTIMIZER"}` : ""}</div><div ref={priceEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {optimizerParams?.macd_fast ?? 12} / {optimizerParams?.macd_slow ?? 26} / {optimizerParams?.macd_signal ?? 9}{optimizerParams ? " · V3 KNICKE" : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>RSI {optimizerParams?.rsi_length ?? 14}{optimizerParams ? " · OPTIMIZER" : ""}</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title">KERZEN</div><div ref={priceEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {activeMacdConfig.fast} / {activeMacdConfig.slow} / {activeMacdConfig.signal}{extremeResult?.best ? ` · Zonen ${extremeResult.best.params.long_zone.toFixed(3)} / +${extremeResult.best.params.short_zone.toFixed(3)}` : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>RSI 14</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
         </section>
 
         <aside className="qm-panel">
