@@ -351,6 +351,12 @@ type E1Metrics = {
   verdict: "PASS" | "FAIL" | "UNCLEAR";
 };
 
+type KingParams = { macd_fast:number; macd_slow:number; macd_signal:number; rsi_length:number; atr_length:number; heikin:boolean; require_ha_color:boolean; atr_body_min:number; rsi_long:number; rsi_short:number; min_gap:number; };
+type KingMetrics = { marker_count:number; exact:number; within_1:number; within_2:number; missed:number; false_positives:number; prediction_count:number; exact_pct:number; within_1_pct:number; within_2_pct:number; precision_pct:number; avg_distance_bars:number; score:number; };
+type KingPrediction = { time:number; price:number; trend_start:"up"|"down"; score:number; index:number; };
+type KingRank = { params:KingParams; score:number; train:KingMetrics; test:KingMetrics; };
+type KingResult = { best:KingRank & { predictions:KingPrediction[] }; top:KingRank[]; };
+
 type E1Result = {
   experiment: string;
   symbol: string;
@@ -496,6 +502,10 @@ export default function QMomentumLab() {
   const [training, setTraining] = useState(false);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [e1Running, setE1Running] = useState(false);
+  const [kingRunning, setKingRunning] = useState(false);
+  const [kingStatus, setKingStatus] = useState("Bereit");
+  const [kingResult, setKingResult] = useState<KingResult | null>(null);
+  const [showKingMarkers, setShowKingMarkers] = useState(true);
   const [e1Status, setE1Status] = useState("Bereit");
   const [e1Result, setE1Result] = useState<E1Result | null>(null);
   const [showE1Markers, setShowE1Markers] = useState(true);
@@ -812,9 +822,17 @@ export default function QMomentumLab() {
         size: 1.5,
       });
     }
+    if (showKingMarkers && kingResult?.best?.predictions) kingResult.best.predictions.forEach((prediction) => markers.push({
+      time: prediction.time as Time,
+      position: prediction.trend_start === "up" ? "belowBar" : "aboveBar",
+      shape: prediction.trend_start === "up" ? "arrowUp" : "arrowDown",
+      color: prediction.trend_start === "up" ? "#22c55e" : "#ef4444",
+      text: prediction.trend_start === "up" ? "KING UT" : "KING DT",
+    }));
+
     markers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, kingResult, showKingMarkers]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -936,7 +954,7 @@ export default function QMomentumLab() {
           : "";
         setMessage(`KI hat ${json.prediction_count ?? predictions.length} Kerzen analysiert · ${visible.length} Marker ab ${threshold}%.${hint}`);
       }
-      console.info("[Trend Formula Lab V0.31] predict-chart response", {
+      console.info("[Trend King Optimizer V1] predict-chart response", {
         predictions: predictions.length,
         visible: visible.length,
         maxLong,
@@ -951,7 +969,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setAnalysisStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.31] predict-chart failed", error);
+      console.error("[Trend King Optimizer V1] predict-chart failed", error);
       return [] as Candidate[];
     } finally {
       setAnalyzing(false);
@@ -962,6 +980,27 @@ export default function QMomentumLab() {
     const visible = chartPredictions.filter((row) => row.score >= threshold);
     setAiCandidates(visible);
   }, [threshold, chartPredictions]);
+
+  async function runKingOptimizer() {
+    if (kingRunning) return;
+    setKingRunning(true); setKingResult(null); setKingStatus("Startet …"); setMessage("King Optimizer sucht MACD, RSI, ATR und Heikin-Einstellungen …");
+    try {
+      const startRes=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/start`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({symbol,interval,limit:5000})});
+      const startText=await startRes.text(); let start:any; try{start=startText?JSON.parse(startText):{}}catch{throw new Error(`START non-JSON: ${startText}`)}
+      if(!startRes.ok||!start.ok) throw new Error(start.error||`START ${startRes.status}`);
+      let done=false; let result:KingResult|null=null;
+      while(!done){
+        const res=await fetch(`${BACKEND_BASE}/qmomentum/king-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({job_id:start.job_id,batch_size:120})});
+        const text=await res.text(); let json:any; try{json=text?JSON.parse(text):{}}catch{throw new Error(`STEP non-JSON: ${text}`)}
+        if(!res.ok||!json.ok) throw new Error(json.error||`STEP ${res.status}`);
+        done=Boolean(json.done); setKingStatus(`${json.processed} / ${json.total} · ${json.progress_pct}%`); if(done) result=json.result as KingResult;
+        if(!done) await new Promise(resolve=>setTimeout(resolve,20));
+      }
+      if(!result?.best) throw new Error("Kein Ergebnis erhalten.");
+      setKingResult(result); setKingStatus(`Fertig · Test ±2 ${result.best.test.within_2_pct}% · Precision ${result.best.test.precision_pct}%`);
+      setMessage(`Beste Sicht: MACD ${result.best.params.macd_fast}/${result.best.params.macd_slow}/${result.best.params.macd_signal}, RSI ${result.best.params.rsi_length}, ATR ${result.best.params.atr_length}, Heikin ${result.best.params.heikin?"JA":"NEIN"}.`);
+    } catch(error:any){ const text=error?.message||String(error); setKingStatus(`Fehler: ${text}`); setMessage(text); } finally { setKingRunning(false); }
+  }
 
   async function runMarkerImitationE1() {
     if (e1Running) return;
@@ -1094,7 +1133,7 @@ export default function QMomentumLab() {
       const errorText = error?.message || String(error);
       setFormulaStatus(`Fehler: ${errorText}`);
       setMessage(errorText);
-      console.error("[Trend Formula Lab V0.31] batch optimize failed", {
+      console.error("[Trend King Optimizer V1] batch optimize failed", {
         symbol,
         interval,
         error,
@@ -1199,7 +1238,7 @@ export default function QMomentumLab() {
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>Formula Lab V0.31</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>King Optimizer V1</span></h1><p>MACD-, RSI-, ATR- und Heikin-Suche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
@@ -1219,6 +1258,11 @@ export default function QMomentumLab() {
         <label>Schwelle <b>{threshold}%</b><input type="range" min="50" max="99" step="1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label>
         <button type="button" className="qm-analyze" onClick={() => { void analyze(true); }} disabled={analyzing || loading || candles.length === 0}>{analyzing ? "Analysiert …" : "KI analysieren"}</button>
         <div className={`qm-analysis-status ${analysisStatus.startsWith("Fehler") ? "error" : analyzing ? "working" : ""}`}><b>KI-Analyse</b><span>{analysisStatus}</span></div>
+        <button type="button" className="qm-analyze" onClick={() => { void runKingOptimizer(); }} disabled={kingRunning || loading}>
+          {kingRunning ? "KING sucht …" : "KING OPTIMIZER"}
+        </button>
+        <div className={`qm-analysis-status ${kingStatus.startsWith("Fehler") ? "error" : kingRunning ? "working" : ""}`}><b>MACD · RSI · ATR · Heikin</b><span>{kingStatus}</span></div>
+        <label className="qm-check"><input type="checkbox" checked={showKingMarkers} onChange={(e) => setShowKingMarkers(e.target.checked)} /> KING-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void runMarkerImitationE1(); }} disabled={e1Running || loading}>
           {e1Running ? "E1 prüft …" : "E1 Marker-Test"}
         </button>
@@ -1258,6 +1302,21 @@ export default function QMomentumLab() {
         <span>KI-Marker vorher <b>{trainingSummary.beforeCount}</b></span>
         <span>KI-Marker jetzt <b>{trainingSummary.afterCount}</b></span>
         <span>Modellstand <b>{new Date(trainingSummary.trainedAt.replace(" ", "T") + (trainingSummary.trainedAt.includes("Z") ? "" : "Z")).toLocaleString("de-DE")}</b></span>
+      </div>}
+
+      {kingResult && <div className="qm-training-result">
+        <strong>King Optimizer · beste Einstellung</strong>
+        <span>MACD <b>{kingResult.best.params.macd_fast} / {kingResult.best.params.macd_slow} / {kingResult.best.params.macd_signal}</b></span>
+        <span>RSI <b>{kingResult.best.params.rsi_length}</b></span>
+        <span>ATR <b>{kingResult.best.params.atr_length}</b></span>
+        <span>Heikin <b>{kingResult.best.params.heikin ? "JA" : "NEIN"}</b></span>
+        <span>HA-Farbe Pflicht <b>{kingResult.best.params.require_ha_color ? "JA" : "NEIN"}</b></span>
+        <span>ATR-Body min. <b>{kingResult.best.params.atr_body_min}</b></span>
+        <span>Training ±2 <b>{kingResult.best.train.within_2_pct}%</b></span>
+        <span>Test ±2 <b>{kingResult.best.test.within_2_pct}%</b></span>
+        <span>Test Precision <b>{kingResult.best.test.precision_pct}%</b></span>
+        <span>Test verpasst <b>{kingResult.best.test.missed}</b></span>
+        <span>Test Zusatzmarker <b>{kingResult.best.test.false_positives}</b></span>
       </div>}
 
       {e1Result && <div className={`qm-training-result e1-${e1Result.metrics.verdict.toLowerCase()}`}>
