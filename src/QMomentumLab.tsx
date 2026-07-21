@@ -378,16 +378,31 @@ type ExtremeResult = {
   tested_zone_pairs: number;
   min_trades: number;
   best: ExtremeRank | null;
-  stable_zone: null | {
-    based_on_top: number;
+  stable_islands: Array<{
+    rank: number;
+    member_count: number;
+    best: ExtremeRank;
+    macd_fast_min: number;
+    macd_fast_max: number;
+    macd_slow_min: number;
+    macd_slow_max: number;
+    macd_fast_median: number;
+    macd_slow_median: number;
+    macd_signal: number;
     long_zone_min: number;
     long_zone_max: number;
     short_zone_min: number;
     short_zone_max: number;
-    macd_fast_median: number;
-    macd_slow_median: number;
-    macd_signal_median: number;
-  };
+    pf_min: number;
+    pf_max: number;
+    pf_median: number;
+    net_min: number;
+    net_max: number;
+    dd_min: number;
+    dd_max: number;
+    trades_min: number;
+    trades_max: number;
+  }>;
   top: ExtremeRank[];
 };
 
@@ -1147,7 +1162,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage("Extreme-MACD-Suche startet: MACD und beide Zonen werden automatisch berechnet …");
+    setMessage("Extreme-MACD-Suche startet: Fast/Slow und beide Zonen werden automatisch berechnet. Signal bleibt fest auf 9 …");
 
     try {
       const startResponse = await fetch(
@@ -1544,16 +1559,38 @@ export default function QMomentumLab() {
         <span>Winrate <b>{extremeResult.best.metrics.win_rate_pct.toFixed(1)}%</b></span>
         <span>Drawdown <b>{extremeResult.best.metrics.max_drawdown.toFixed(2)}</b></span>
         <span>Recovery <b>{extremeResult.best.metrics.recovery_factor.toFixed(2)}</b></span>
-        {extremeResult.stable_zone && <>
-          <span>Stabile LONG-Zone <b>{extremeResult.stable_zone.long_zone_min.toFixed(3)} bis {extremeResult.stable_zone.long_zone_max.toFixed(3)}</b></span>
-          <span>Stabile SHORT-Zone <b>+{extremeResult.stable_zone.short_zone_min.toFixed(3)} bis +{extremeResult.stable_zone.short_zone_max.toFixed(3)}</b></span>
-          <span>Stabiler MACD-Mittelpunkt <b>{extremeResult.stable_zone.macd_fast_median}/{extremeResult.stable_zone.macd_slow_median}/{extremeResult.stable_zone.macd_signal_median}</b></span>
-        </>}
-        <span>Geprüft <b>{extremeResult.tested_macd_sets} MACDs · {extremeResult.tested_zone_pairs} Zonenpaare</b></span>
+        <span>Signal-Länge <b>{extremeResult.best.params.macd_signal} fest · nicht optimiert</b></span>
+        <span>Gefundene Inseln <b>{extremeResult.stable_islands?.length || 0}</b></span>
+        <span>Geprüft <b>{extremeResult.tested_macd_sets} Fast/Slow-Sätze · {extremeResult.tested_zone_pairs} Zonenpaare</b></span>
       </div>}
 
+      {extremeResult?.stable_islands?.length ? <div className="qm-training-result" style={{ alignItems: "stretch" }}>
+        <strong>Stabile Ergebnis-Inseln</strong>
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr>
+              <th style={{ textAlign: "left" }}>Insel</th><th>Treffer</th><th>Fast</th><th>Slow</th>
+              <th>LONG-Zone</th><th>SHORT-Zone</th><th>PF</th><th>Trades</th><th>DD</th>
+            </tr></thead>
+            <tbody>
+              {extremeResult.stable_islands.map((island) => <tr key={`island-${island.rank}`}>
+                <td>{island.rank}</td>
+                <td style={{ textAlign: "center" }}>{island.member_count}</td>
+                <td style={{ textAlign: "center" }}>{island.macd_fast_min === island.macd_fast_max ? island.macd_fast_min : `${island.macd_fast_min}–${island.macd_fast_max}`}</td>
+                <td style={{ textAlign: "center" }}>{island.macd_slow_min === island.macd_slow_max ? island.macd_slow_min : `${island.macd_slow_min}–${island.macd_slow_max}`}</td>
+                <td style={{ textAlign: "center" }}>{island.long_zone_min.toFixed(3)} bis {island.long_zone_max.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>+{island.short_zone_min.toFixed(3)} bis +{island.short_zone_max.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>{island.pf_min.toFixed(2)}–{island.pf_max.toFixed(2)}</td>
+                <td style={{ textAlign: "center" }}>{island.trades_min === island.trades_max ? island.trades_min : `${island.trades_min}–${island.trades_max}`}</td>
+                <td style={{ textAlign: "center" }}>{island.dd_min.toFixed(1)}–{island.dd_max.toFixed(1)}</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      </div> : null}
+
       {extremeResult?.top?.length ? <div className="qm-training-result" style={{ alignItems: "stretch" }}>
-        <strong>Top 10 · stabile Bereiche statt Einzelspitze</strong>
+        <strong>Top 10 Einzelkombinationen</strong>
         <div style={{ width: "100%", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr>
