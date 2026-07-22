@@ -407,6 +407,10 @@ type ExtremeMetrics = {
     open_entry_index: number;
     ad_value?: number;
     exit_armed?: boolean;
+    long_extreme_active?: boolean;
+    short_extreme_active?: boolean;
+    long_extreme_phase_id?: number;
+    short_extreme_phase_id?: number;
     htf_rsi?: number;
     ltf_rsi?: number;
     open_entry_price: number | null;
@@ -1669,6 +1673,8 @@ export default function QMomentumLab() {
               <dt>RSI Grenzen</dt><dd>{extremeBest?.params.exit_rsi_lower ?? exitRsiLower} / {extremeBest?.params.exit_rsi_upper ?? exitRsiUpper}</dd>
               <dt>HTF RSI</dt><dd>{extremeBest?.metrics.final_state?.htf_rsi?.toFixed(1) ?? "–"}</dd>
               <dt>Exit Armed</dt><dd>{extremeBest?.metrics.final_state?.exit_armed ? "JA" : "NEIN"}</dd>
+              <dt>LONG Extremphase</dt><dd>{extremeBest?.metrics.final_state?.long_extreme_active ? `AKTIV #${extremeBest?.metrics.final_state?.long_extreme_phase_id ?? "–"}` : "INAKTIV"}</dd>
+              <dt>SHORT Extremphase</dt><dd>{extremeBest?.metrics.final_state?.short_extreme_active ? `AKTIV #${extremeBest?.metrics.final_state?.short_extreme_phase_id ?? "–"}` : "INAKTIV"}</dd>
             </dl></div>
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : "red"}>{trade.direction.toUpperCase()}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
@@ -1677,7 +1683,7 @@ export default function QMomentumLab() {
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1a</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
