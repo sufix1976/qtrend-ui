@@ -72,3 +72,20 @@ button, select, textarea { font: inherit; }
 
 /* Extreme MACD Lab V6.1 */
 .ex61-rule{align-self:center;white-space:nowrap;color:#c7a0ff;border:1px solid #5a3478;background:#160e22;border-radius:5px;padding:7px 10px;font-size:10px;font-weight:800}.ex61-armed{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.ex61-armed span{padding:8px 5px;border:1px solid #2b374a;border-radius:5px;text-align:center;font-size:10px;font-weight:900;color:#68778d;background:#0a1019}.ex61-armed .on.long{color:#57e698;border-color:#17784d;background:#08271a}.ex61-armed .on.short{color:#ff7b83;border-color:#91333a;background:#2a0d11}@media(max-width:760px){.ex61-rule{white-space:normal}}
+
+/* V7.1: lesbares, zoombares und vertikal scrollbareres Dashboard */
+html,body,#root{min-height:100%;height:auto!important;overflow-y:auto!important;overflow-x:hidden}
+.ex6-shell{min-height:100vh;height:auto!important;overflow:visible!important;font-size:15px;padding:14px}
+.ex6-header,.ex6-toolbar,.ex6-kpis,.ex6-pane,.ex6-card,.ex6-footer{border-width:1px}
+.ex6-brand h1{font-size:25px}.ex6-brand p{font-size:14px}
+.ex6-toolbar{flex-wrap:wrap;align-items:flex-end;gap:12px;padding:12px}
+.ex6-toolbar label{font-size:11px}.ex6-toolbar input{width:96px;font-size:14px;padding:7px}
+.ex61-rule{font-size:11px;white-space:normal;line-height:1.35}
+.ex6-kpis{grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px;padding:10px}
+.ex6-kpis small{font-size:11px}.ex6-kpis strong{font-size:21px}.ex6-kpis em{font-size:11px}
+.ex6-grid{align-items:start}.ex6-pane-title{font-size:14px;padding:10px 14px}.ex6-pane-title b{font-size:16px}
+.ex6-price>div:last-child{min-height:560px}.ex6-macd>div:last-child,.ex6-rsi>div:last-child{min-height:270px}
+.ex6-card{padding:15px}.ex6-card h3{font-size:13px}.ex6-card dl{font-size:14px}.ex6-card p{font-size:13px}
+.ex6-side{position:sticky;top:10px;align-self:start}
+@media(max-width:1400px){.ex6-kpis{grid-template-columns:repeat(3,minmax(180px,1fr))}.ex6-grid{grid-template-columns:1fr}.ex6-side{position:static;display:grid;grid-template-columns:repeat(2,minmax(260px,1fr))}}
+@media(max-width:800px){.ex6-kpis{grid-template-columns:1fr 1fr}.ex6-side{grid-template-columns:1fr}.ex6-shell{padding:8px}}

@@ -371,7 +371,9 @@ type ExtremeParams = {
   profit_histogram_bars?: number;
   profit_ha_count?: number;
   profit_min_hold_bars?: number;
-  ad_length: number;
+  exit_rsi_lower?: number;
+  exit_rsi_upper?: number;
+  exit_htf_minutes?: number;
 };
 
 type ExtremeMetrics = {
@@ -404,6 +406,9 @@ type ExtremeMetrics = {
     short_ha_counter: number;
     open_entry_index: number;
     ad_value?: number;
+    exit_armed?: boolean;
+    htf_rsi?: number;
+    ltf_rsi?: number;
     open_entry_price: number | null;
   };
   events?: Array<{
@@ -568,6 +573,29 @@ function rsi(values: number[], length = 14): number[] {
   return out;
 }
 
+
+function alignedHigherTimeframeRsi(candles: Candle[], targetMinutes: number, length = 14): number[] {
+  const seconds = Math.max(60, Math.floor(targetMinutes || 30) * 60);
+  const buckets: Array<{ time: number; close: number; lastIndex: number }> = [];
+  for (let i = 0; i < candles.length; i += 1) {
+    const candle = candles[i];
+    const bucketTime = Math.floor(Number(candle.time) / seconds) * seconds;
+    const current = buckets[buckets.length - 1];
+    if (!current || current.time !== bucketTime) buckets.push({ time: bucketTime, close: candle.close, lastIndex: i });
+    else { current.close = candle.close; current.lastIndex = i; }
+  }
+  const bucketRsi = rsi(buckets.map((row) => row.close), length);
+  const aligned = Array(candles.length).fill(50);
+  let lastClosed = 50;
+  for (let b = 0; b < buckets.length; b += 1) {
+    const start = b === 0 ? 0 : buckets[b - 1].lastIndex + 1;
+    const stop = buckets[b].lastIndex;
+    for (let i = start; i <= stop; i += 1) aligned[i] = lastClosed;
+    lastClosed = Number.isFinite(bucketRsi[b]) ? bucketRsi[b] : lastClosed;
+  }
+  return aligned;
+}
+
 function sma(values: number[], length: number): number[] {
   const out: number[] = [];
   let sum = 0;
@@ -665,6 +693,9 @@ export default function QMomentumLab() {
   const [extremeMinTrades, setExtremeMinTrades] = useState(30);
   const [workspace, setWorkspace] = useState<"extreme" | "legacy">("extreme");
   const [extremeZWindow, setExtremeZWindow] = useState(200);
+  const [exitRsiLower, setExitRsiLower] = useState(30);
+  const [exitRsiUpper, setExitRsiUpper] = useState(70);
+  const [exitHtfMinutes, setExitHtfMinutes] = useState(30);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [e1Running, setE1Running] = useState(false);
   const [e1Status, setE1Status] = useState("Bereit");
@@ -823,9 +854,9 @@ export default function QMomentumLab() {
       crosshair: { vertLine: { color: "#8b5cf6" }, horzLine: { color: "#8b5cf6" } },
     } as const;
 
-    const priceChart = createChart(priceEl.current, { ...common, height: Math.max(430, window.innerHeight * 0.52) });
-    const macdChart = createChart(macdEl.current, { ...common, height: 220 });
-    const rsiChart = createChart(rsiEl.current, { ...common, height: 220 });
+    const priceChart = createChart(priceEl.current, { ...common, height: Math.max(560, window.innerHeight * 0.58) });
+    const macdChart = createChart(macdEl.current, { ...common, height: 270 });
+    const rsiChart = createChart(rsiEl.current, { ...common, height: 270 });
     chartsRef.current = [priceChart, macdChart, rsiChart];
 
     const candleSeries = priceChart.addSeries(CandlestickSeries, {
@@ -872,9 +903,15 @@ export default function QMomentumLab() {
 
     const rsiSeries = rsiChart.addSeries(LineSeries, { color: "#ab47bc", lineWidth: 2, priceLineVisible: false });
     const rsiMaSeries = rsiChart.addSeries(LineSeries, { color: "#f5c451", lineWidth: 2, priceLineVisible: false });
+    const htfRsiSeries = rsiChart.addSeries(LineSeries, { color: "#42c7ff", lineWidth: 3, priceLineVisible: false });
+    const activeExitHtf = extremeResult?.best?.params.exit_htf_minutes ?? exitHtfMinutes;
+    const htfRsiValues = alignedHigherTimeframeRsi(candles, activeExitHtf, 14);
     rsiSeries.setData(values.map((p) => ({ time: p.time, value: p.rsi })));
     rsiMaSeries.setData(values.map((p) => ({ time: p.time, value: p.rsiMa })));
-    [30, 50, 70].forEach((level) => rsiSeries.createPriceLine({ price: level, color: level === 50 ? "#394657" : "#6d4c7d", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "" }));
+    htfRsiSeries.setData(candles.map((c, i) => ({ time: c.time as Time, value: htfRsiValues[i] })));
+    const activeLower = extremeResult?.best?.params.exit_rsi_lower ?? exitRsiLower;
+    const activeUpper = extremeResult?.best?.params.exit_rsi_upper ?? exitRsiUpper;
+    [activeLower, 50, activeUpper].forEach((level) => rsiSeries.createPriceLine({ price: level, color: level === 50 ? "#394657" : "#6d4c7d", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: level === activeLower ? "EXIT SHORT ARMED" : level === activeUpper ? "EXIT LONG ARMED" : "" }));
 
     let syncing = false;
     const applyRange = (targets: IChartApi[], range: any) => {
@@ -1249,7 +1286,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage("Extreme MACD Dual Exit Lab V7 startet: Entry, Protect und Profit werden nacheinander optimiert …");
+    setMessage(`V7.1 startet: Entry bleibt unverändert. Protect fest, Exit über ${exitHtfMinutes}m-RSI ${exitRsiLower}/${exitRsiUpper} und Basis-RSI-Drehung …`);
 
     try {
       const startResponse = await fetch(
@@ -1267,6 +1304,9 @@ export default function QMomentumLab() {
             min_trades: extremeMinTrades,
             macd_signal: 9,
             z_window: extremeZWindow,
+            exit_rsi_lower: exitRsiLower,
+            exit_rsi_upper: exitRsiUpper,
+            exit_htf_minutes: exitHtfMinutes,
           }),
         },
       );
@@ -1567,7 +1607,7 @@ export default function QMomentumLab() {
     return (
       <div className="ex6-shell">
         <header className="ex6-header">
-          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Dual Exit Lab V7</h1><p>MACD Armed · RSI Entry · Protect + Profit Optimizer</p></div></div>
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD HTF RSI Exit Lab V7.1</h1><p>MACD Armed · RSI Entry · fester Protect · HTF-RSI Exit Armed</p></div></div>
           <div className="ex6-header-actions">
             <span className="ex6-live">● LIVE</span>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -1578,11 +1618,14 @@ export default function QMomentumLab() {
 
         <section className="ex6-toolbar">
           <button className="ex6-search" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
-            {extremeOptimizing ? "Optimizer läuft …" : "Entry + Dual Exit optimieren"}
+            {extremeOptimizing ? "Optimizer läuft …" : "Entry + HTF-RSI Exit optimieren"}
           </button>
           <label>Min. Trades<input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
           <label>Z-Fenster<input type="number" min="30" step="10" value={extremeZWindow} onChange={(e) => setExtremeZWindow(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY FEST → PROTECT GEGEN FEHLTRADES → PROFIT-EXIT FÜR MOMENTUM-ENDE</span>
+          <label>Exit HTF (Min.)<input type="number" min="5" step="5" value={exitHtfMinutes} onChange={(e) => setExitHtfMinutes(Number(e.target.value))} /></label>
+          <label>RSI Untergrenze<input type="number" min="10" max="45" step="1" value={exitRsiLower} onChange={(e) => setExitRsiLower(Number(e.target.value))} /></label>
+          <label>RSI Obergrenze<input type="number" min="55" max="90" step="1" value={exitRsiUpper} onChange={(e) => setExitRsiUpper(Number(e.target.value))} /></label>
+          <span className="ex61-rule">ENTRY UNVERÄNDERT → PROTECT NUR IM VERLUST → HTF RSI ARMED → BASIS-RSI DREHUNG</span>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
 
@@ -1590,8 +1633,8 @@ export default function QMomentumLab() {
           <div><small>BESTE KOMBINATION</small><strong>MACD {extremeBest ? `${extremeBest.params.macd_fast} / ${extremeBest.params.macd_slow} / ${extremeBest.params.macd_signal}` : "–"}</strong><em>Signal 9 fest</em></div>
           <div><small>LONG ZONE</small><strong className="green">≤ {extremeBest ? extremeBest.params.long_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: ${primaryIsland.long_sigma_min.toFixed(2)} bis ${primaryIsland.long_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
           <div><small>SHORT ZONE</small><strong className="red">≥ +{extremeBest ? extremeBest.params.short_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: +${primaryIsland.short_sigma_min.toFixed(2)} bis +${primaryIsland.short_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
-          <div><small>PROTECT-MODELL</small><strong className="red">{extremeBest?.params.protect_label || extremeBest?.params.protect_family || "–"}</strong><em>Größter Verlust {extremeBest?.metrics.largest_loss?.toFixed(1) ?? "–"}</em></div>
-          <div><small>PROFIT-MODELL</small><strong className="violet">{extremeBest?.params.profit_label || extremeBest?.params.profit_family || "–"}</strong><em>Peak Capture {extremeBest?.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</em></div>
+          <div><small>PROTECT FEST</small><strong className="red">{extremeBest?.params.protect_label || "3 Bars · Verlust · Invalidierung"}</strong><em>Größter Verlust {extremeBest?.metrics.largest_loss?.toFixed(1) ?? "–"}</em></div>
+          <div><small>EXIT-MODELL</small><strong className="violet">HTF RSI {extremeBest?.params.exit_rsi_lower ?? exitRsiLower}/{extremeBest?.params.exit_rsi_upper ?? exitRsiUpper}</strong><em>{extremeBest?.params.exit_htf_minutes ?? exitHtfMinutes}m Armed → Basis-RSI dreht</em></div>
           <div><small>PF (BEST)</small><strong className="violet">{extremeBest ? extremeBest.metrics.profit_factor.toFixed(2) : "–"}</strong><em>Netto {extremeBest ? extremeBest.metrics.net.toFixed(2) : "–"}</em></div>
           <div><small>TRADES (BEST)</small><strong>{extremeBest ? extremeBest.metrics.trades : "–"}</strong><em>Winrate {extremeBest ? `${extremeBest.metrics.win_rate_pct.toFixed(1)}%` : "–"}</em></div>
           <div><small>DRAWDOWN (BEST)</small><strong>{extremeBest ? extremeBest.metrics.max_drawdown.toFixed(2) : "–"}</strong><em>Recovery {extremeBest ? extremeBest.metrics.recovery_factor.toFixed(2) : "–"}</em></div>
@@ -1602,7 +1645,7 @@ export default function QMomentumLab() {
           <section className="ex6-charts">
             <div className="ex6-pane ex6-price"><div className="ex6-pane-title"><b>{symbol} · {interval}</b><span>{currentCandle ? `O ${currentCandle.open.toFixed(2)}  H ${currentCandle.high.toFixed(2)}  L ${currentCandle.low.toFixed(2)}  C ${currentCandle.close.toFixed(2)}` : ""}</span></div><div ref={priceEl} /></div>
             <div className="ex6-pane ex6-macd"><div className="ex6-pane-title"><b>MACD ({activeMacdConfig.fast}, {activeMacdConfig.slow}, {activeMacdConfig.signal}) · Sigma-normalisiert</b><span>MACD {currentSigma.toFixed(2)}σ · HIST {currentHistSigma.toFixed(2)}σ</span></div><div ref={macdEl} /></div>
-            <div className="ex6-pane ex6-rsi"><div className="ex6-pane-title"><b>RSI (14)</b><span>{currentIndicator?.rsi.toFixed(1) || "–"}</span></div><div ref={rsiEl} /></div>
+            <div className="ex6-pane ex6-rsi"><div className="ex6-pane-title"><b>Basis-RSI (14) · Exit-Timing</b><span>Basis {currentIndicator?.rsi.toFixed(1) || "–"} · HTF {extremeBest?.metrics.final_state?.htf_rsi?.toFixed(1) ?? "–"}</span></div><div ref={rsiEl} /></div>
           </section>
 
           <aside className="ex6-side">
@@ -1621,19 +1664,20 @@ export default function QMomentumLab() {
               <dt>Histogramm</dt><dd>{currentHistSigma.toFixed(2)}σ</dd>
               <dt>Z-Fenster</dt><dd>{extremeBest?.params.z_window || extremeZWindow}</dd>
               <dt>Position</dt><dd>{positionNow.toUpperCase()}</dd>
-              <dt>Protect</dt><dd>{extremeBest?.params.protect_label || extremeBest?.params.protect_family || "–"}</dd>
-              <dt>Profit</dt><dd>{extremeBest?.params.profit_label || extremeBest?.params.profit_family || "–"}</dd>
-              <dt>AD-Länge</dt><dd>{extremeBest?.params.ad_length ?? "–"}</dd>
-              <dt>Peak Capture</dt><dd>{extremeBest?.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</dd>
+              <dt>Protect</dt><dd>{extremeBest?.params.protect_label || "Fest"}</dd>
+              <dt>Exit HTF</dt><dd>{extremeBest?.params.exit_htf_minutes ?? exitHtfMinutes}m</dd>
+              <dt>RSI Grenzen</dt><dd>{extremeBest?.params.exit_rsi_lower ?? exitRsiLower} / {extremeBest?.params.exit_rsi_upper ?? exitRsiUpper}</dd>
+              <dt>HTF RSI</dt><dd>{extremeBest?.metrics.final_state?.htf_rsi?.toFixed(1) ?? "–"}</dd>
+              <dt>Exit Armed</dt><dd>{extremeBest?.metrics.final_state?.exit_armed ? "JA" : "NEIN"}</dd>
             </dl></div>
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : "red"}>{trade.direction.toUpperCase()}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit nach Gewinner des separaten Exit-Optimizers</p><p>– – Sigma-Armed-Zonen</p></div>
+            <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD Dual Exit Lab V7</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
@@ -1670,7 +1714,7 @@ export default function QMomentumLab() {
         </div>
         <label className="qm-check"><input type="checkbox" checked={showE1Markers} onChange={(e) => setShowE1Markers(e.target.checked)} /> E1-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
-          {extremeOptimizing ? "Optimizer läuft …" : "Entry + Dual Exit optimieren"}
+          {extremeOptimizing ? "Optimizer läuft …" : "Entry + HTF-RSI Exit optimieren"}
         </button>
         <div className={`qm-analysis-status ${extremeStatus.startsWith("Fehler") ? "error" : extremeOptimizing ? "working" : ""}`}>
           <b>Extreme-Optimizer</b><span>{extremeStatus}</span>
