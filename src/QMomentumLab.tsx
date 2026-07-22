@@ -411,18 +411,28 @@ type ExtremeMetrics = {
     short_extreme_active?: boolean;
     long_extreme_phase_id?: number;
     short_extreme_phase_id?: number;
+    long_extreme_consumed?: boolean;
+    short_extreme_consumed?: boolean;
     htf_rsi?: number;
     ltf_rsi?: number;
     open_entry_price: number | null;
   };
   events?: Array<{
-    type: "entry" | "exit";
-    direction: "long" | "short";
+    type: "entry" | "exit" | "state";
+    direction?: "long" | "short";
+    side?: "long" | "short";
+    action?: "ARMED" | "CONSUMED" | "RESET" | "DISARM";
     time: number;
     price: number;
     pnl?: number;
     reason?: string;
     exit_type?: "protect" | "profit" | "flip";
+    long_armed?: boolean;
+    short_armed?: boolean;
+    long_consumed?: boolean;
+    short_consumed?: boolean;
+    long_phase_id?: number;
+    short_phase_id?: number;
     macd?: number;
     signal?: number;
     z_score?: number;
@@ -694,6 +704,7 @@ export default function QMomentumLab() {
   const [extremeStatus, setExtremeStatus] = useState("Bereit");
   const [extremeResult, setExtremeResult] = useState<ExtremeResult | null>(null);
   const [showExtremeMarkers, setShowExtremeMarkers] = useState(true);
+  const [showStateDebug, setShowStateDebug] = useState(true);
   const [extremeMinTrades, setExtremeMinTrades] = useState(30);
   const [workspace, setWorkspace] = useState<"extreme" | "legacy">("extreme");
   const [extremeZWindow, setExtremeZWindow] = useState(200);
@@ -1051,21 +1062,37 @@ export default function QMomentumLab() {
 
     if (showExtremeMarkers && extremeResult?.best?.metrics?.events) {
       extremeResult.best.metrics.events.forEach((event) => {
+        if (event.type === "state") {
+          if (!showStateDebug) return;
+          const side = event.side || "long";
+          const action = event.action || "STATE";
+          const letter = action === "ARMED" ? "A" : action === "CONSUMED" ? "C" : action === "RESET" ? "R" : "D";
+          markers.push({
+            time: event.time as Time,
+            position: side === "long" ? "belowBar" : "aboveBar",
+            shape: "circle",
+            color: action === "ARMED" ? "#38bdf8" : action === "CONSUMED" ? "#a855f7" : action === "RESET" ? "#94a3b8" : "#f97316",
+            text: `${letter} ${side === "long" ? "L" : "S"} #${side === "long" ? event.long_phase_id ?? "–" : event.short_phase_id ?? "–"}`,
+            size: 0.8,
+          });
+          return;
+        }
+        const direction = event.direction || "long";
         const isEntry = event.type === "entry";
         markers.push({
           time: event.time as Time,
           position:
-            event.direction === "long"
+            direction === "long"
               ? (isEntry ? "belowBar" : "aboveBar")
               : (isEntry ? "aboveBar" : "belowBar"),
           shape: isEntry
-            ? (event.direction === "long" ? "arrowUp" : "arrowDown")
+            ? (direction === "long" ? "arrowUp" : "arrowDown")
             : "circle",
           color: isEntry
-            ? (event.direction === "long" ? "#22c55e" : "#ef4444")
+            ? (direction === "long" ? "#22c55e" : "#ef4444")
             : "#facc15",
           text: isEntry
-            ? (event.direction === "long" ? "LONG" : "SHORT")
+            ? (direction === "long" ? "LONG" : "SHORT")
             : `EXIT ${event.reason || ""} ${Number(event.pnl || 0).toFixed(1)}`,
           size: isEntry ? 1.8 : 1,
         });
@@ -1083,11 +1110,11 @@ export default function QMomentumLab() {
       });
     }
     const visibleMarkers = workspace === "extreme"
-      ? markers.filter((marker) => ["LONG", "SHORT"].includes(String(marker.text || "")) || String(marker.text || "").startsWith("EXIT"))
+      ? markers.filter((marker) => ["LONG", "SHORT"].includes(String(marker.text || "")) || String(marker.text || "").startsWith("EXIT") || (showStateDebug && /^(A|C|R|D) [LS]/.test(String(marker.text || ""))))
       : markers;
     visibleMarkers.sort((a, b) => Number(a.time) - Number(b.time));
     markersApiRef.current?.setMarkers(visibleMarkers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, extremeResult, showExtremeMarkers, workspace]);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, extremeResult, showExtremeMarkers, showStateDebug, workspace]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -1629,7 +1656,8 @@ export default function QMomentumLab() {
           <label>Exit HTF (Min.)<input type="number" min="5" step="5" value={exitHtfMinutes} onChange={(e) => setExitHtfMinutes(Number(e.target.value))} /></label>
           <label>RSI Untergrenze<input type="number" min="10" max="45" step="1" value={exitRsiLower} onChange={(e) => setExitRsiLower(Number(e.target.value))} /></label>
           <label>RSI Obergrenze<input type="number" min="55" max="90" step="1" value={exitRsiUpper} onChange={(e) => setExitRsiUpper(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY UNVERÄNDERT → PROTECT NUR IM VERLUST → HTF RSI ARMED → BASIS-RSI DREHUNG</span>
+          <span className="ex61-rule">ENTRY UNVERÄNDERT → STATE DEBUG A/C/R/D → PROTECT → HTF-RSI EXIT</span>
+          <button type="button" className={showStateDebug ? "ex61-debug-on" : ""} onClick={() => setShowStateDebug((value) => !value)}>STATE DEBUG {showStateDebug ? "ON" : "OFF"}</button>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
 
@@ -1675,15 +1703,19 @@ export default function QMomentumLab() {
               <dt>Exit Armed</dt><dd>{extremeBest?.metrics.final_state?.exit_armed ? "JA" : "NEIN"}</dd>
               <dt>LONG Extremphase</dt><dd>{extremeBest?.metrics.final_state?.long_extreme_active ? `AKTIV #${extremeBest?.metrics.final_state?.long_extreme_phase_id ?? "–"}` : "INAKTIV"}</dd>
               <dt>SHORT Extremphase</dt><dd>{extremeBest?.metrics.final_state?.short_extreme_active ? `AKTIV #${extremeBest?.metrics.final_state?.short_extreme_phase_id ?? "–"}` : "INAKTIV"}</dd>
+              <dt>LONG Consumed</dt><dd>{extremeBest?.metrics.final_state?.long_extreme_consumed ? "JA" : "NEIN"}</dd>
+              <dt>SHORT Consumed</dt><dd>{extremeBest?.metrics.final_state?.short_extreme_consumed ? "JA" : "NEIN"}</dd>
             </dl></div>
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : "red"}>{trade.direction.toUpperCase()}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
+
+            <div className="ex6-card"><h3>STATE DEBUG</h3><p><b>A</b> = Armed gesetzt</p><p><b>C</b> = Extrem durch Entry verbraucht</p><p><b>R</b> = Zone verlassen / Phase zurückgesetzt</p><p><b>D</b> = Armed an MACD-Nulllinie gelöscht</p></div>
 
             <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1a</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1b State Debug</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );

@@ -89,3 +89,5 @@ html,body,#root{min-height:100%;height:auto!important;overflow-y:auto!important;
 .ex6-side{position:sticky;top:10px;align-self:start}
 @media(max-width:1400px){.ex6-kpis{grid-template-columns:repeat(3,minmax(180px,1fr))}.ex6-grid{grid-template-columns:1fr}.ex6-side{position:static;display:grid;grid-template-columns:repeat(2,minmax(260px,1fr))}}
 @media(max-width:800px){.ex6-kpis{grid-template-columns:1fr 1fr}.ex6-side{grid-template-columns:1fr}.ex6-shell{padding:8px}}
+
+.ex61-debug-on { border-color:#38bdf8 !important; color:#38bdf8 !important; box-shadow:0 0 0 1px rgba(56,189,248,.2) inset; }
