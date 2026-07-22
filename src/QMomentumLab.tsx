@@ -330,8 +330,9 @@ type ExtremeParams = {
   macd_fast: number;
   macd_slow: number;
   macd_signal: number;
-  long_zone: number;
-  short_zone: number;
+  long_zone_sigma: number;
+  short_zone_sigma: number;
+  z_window: number;
   take_profit: number;
   stop_loss: number;
   use_be: boolean;
@@ -353,6 +354,8 @@ type ExtremeMetrics = {
   max_drawdown: number;
   recovery_factor: number;
   score: number;
+  z_window: number;
+  macd_distribution: { mean: number; std: number; q01: number; q05: number; q95: number; q99: number };
   events?: Array<{
     type: "entry" | "exit";
     direction: "long" | "short";
@@ -361,6 +364,7 @@ type ExtremeMetrics = {
     pnl?: number;
     reason?: string;
     macd?: number;
+    z_score?: number;
   }>;
 };
 
@@ -389,10 +393,10 @@ type ExtremeResult = {
     macd_fast_median: number;
     macd_slow_median: number;
     macd_signal: number;
-    long_zone_min: number;
-    long_zone_max: number;
-    short_zone_min: number;
-    short_zone_max: number;
+    long_sigma_min: number;
+    long_sigma_max: number;
+    short_sigma_min: number;
+    short_sigma_max: number;
     pf_min: number;
     pf_max: number;
     pf_median: number;
@@ -535,6 +539,28 @@ function indicators(candles: Candle[], config = { fast: 12, slow: 26, signal: 9 
   }));
 }
 
+function normalizeIndicatorPoints(points: IndicatorPoint[], window = 200): IndicatorPoint[] {
+  const size = Math.max(30, Math.floor(window));
+  let sum = 0;
+  let sumSq = 0;
+  return points.map((point, index) => {
+    sum += point.macd;
+    sumSq += point.macd * point.macd;
+    if (index >= size) {
+      const old = points[index - size].macd;
+      sum -= old;
+      sumSq -= old * old;
+    }
+    const count = Math.min(index + 1, size);
+    const mean = sum / Math.max(1, count);
+    const variance = Math.max(0, sumSq / Math.max(1, count) - mean * mean);
+    const std = Math.max(Math.sqrt(variance), 1e-9);
+    const macdZ = count >= Math.min(30, size) ? (point.macd - mean) / std : 0;
+    const signalZ = count >= Math.min(30, size) ? (point.signal - mean) / std : 0;
+    return { ...point, macd: macdZ, signal: signalZ, histogram: macdZ - signalZ };
+  });
+}
+
 function formatTime(time: number) {
   return new Date(time * 1000).toLocaleString("de-DE");
 }
@@ -584,6 +610,7 @@ export default function QMomentumLab() {
   const [extremeBeLock, setExtremeBeLock] = useState(0.8);
   const [extremeMinTrades, setExtremeMinTrades] = useState(30);
   const [extremeUseHeikin, setExtremeUseHeikin] = useState(true);
+  const [extremeZWindow, setExtremeZWindow] = useState(200);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [e1Running, setE1Running] = useState(false);
   const [e1Status, setE1Status] = useState("Bereit");
@@ -609,10 +636,12 @@ export default function QMomentumLab() {
       : { fast: 12, slow: 26, signal: 9 };
   }, [extremeResult]);
 
-  const values = useMemo(
-    () => indicators(candles, activeMacdConfig),
-    [candles, activeMacdConfig],
-  );
+  const values = useMemo(() => {
+    const raw = indicators(candles, activeMacdConfig);
+    return extremeResult?.best
+      ? normalizeIndicatorPoints(raw, extremeResult.best.params.z_window || 200)
+      : raw;
+  }, [candles, activeMacdConfig, extremeResult]);
   const selectedCandle = useMemo(
     () => candles.find((c) => c.time === selectedTime) || null,
     [candles, selectedTime],
@@ -769,20 +798,20 @@ export default function QMomentumLab() {
     const extremeParams = extremeResult?.best?.params;
     if (extremeParams) {
       macdSeries.createPriceLine({
-        price: extremeParams.long_zone,
+        price: extremeParams.long_zone_sigma,
         color: "#22c55e",
         lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
-        title: "LONG ZONE",
+        title: "LONG σ",
       });
       macdSeries.createPriceLine({
-        price: extremeParams.short_zone,
+        price: extremeParams.short_zone_sigma,
         color: "#ef4444",
         lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
-        title: "SHORT ZONE",
+        title: "SHORT σ",
       });
     }
 
@@ -1162,7 +1191,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage("Extreme-MACD-Suche startet: Fast/Slow und beide Zonen werden automatisch berechnet. Signal bleibt fest auf 9 …");
+    setMessage("Extreme-MACD-Suche V5 startet: Fast/Slow und asymmetrische Sigma-Zonen werden automatisch berechnet …");
 
     try {
       const startResponse = await fetch(
@@ -1185,6 +1214,7 @@ export default function QMomentumLab() {
             min_trades: extremeMinTrades,
             use_heikin: extremeUseHeikin,
             cancel_at_zero: true,
+            z_window: extremeZWindow,
           }),
         },
       );
@@ -1237,7 +1267,7 @@ export default function QMomentumLab() {
 
         done = Boolean(stepJson.done);
         setExtremeStatus(
-          `${stepJson.processed || 0} / ${stepJson.total || 0} MACD-Sätze · ` +
+          `${stepJson.processed || 0} / ${stepJson.total || 0} Fast/Slow-Sätze · ` +
           `${stepJson.tested_zone_pairs || 0} Zonenpaare · ${Number(stepJson.progress_pct || 0).toFixed(1)}%`,
         );
 
@@ -1258,8 +1288,8 @@ export default function QMomentumLab() {
         `${best.metrics.trades} Trades · ${finalResult.tested_zone_pairs} Zonenpaare`,
       );
       setMessage(
-        `Beste Extreme-Sicht: MACD ${best.params.macd_fast}/${best.params.macd_slow}/${best.params.macd_signal} · ` +
-        `LONG ${best.params.long_zone.toFixed(3)} · SHORT +${best.params.short_zone.toFixed(3)} · ` +
+        `Beste Sigma-Sicht: MACD ${best.params.macd_fast}/${best.params.macd_slow}/${best.params.macd_signal} · ` +
+        `LONG ${best.params.long_zone_sigma.toFixed(2)}σ · SHORT +${best.params.short_zone_sigma.toFixed(2)}σ · ` +
         `PF ${best.metrics.profit_factor.toFixed(2)}.`,
       );
     } catch (error: any) {
@@ -1498,6 +1528,7 @@ export default function QMomentumLab() {
         <label>BE ab <input type="number" min="0" step="0.1" value={extremeBeTrigger} onChange={(e) => setExtremeBeTrigger(Number(e.target.value))} /></label>
         <label>BE + <input type="number" min="0" step="0.1" value={extremeBeLock} onChange={(e) => setExtremeBeLock(Number(e.target.value))} /></label>
         <label>Min. Trades <input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
+        <label>Z-Fenster <input type="number" min="50" max="1000" step="10" value={extremeZWindow} onChange={(e) => setExtremeZWindow(Number(e.target.value))} /></label>
         <label className="qm-check"><input type="checkbox" checked={extremeUseHeikin} onChange={(e) => setExtremeUseHeikin(e.target.checked)} /> Heikin-Farbe</label>
         <label className="qm-check"><input type="checkbox" checked={showExtremeMarkers} onChange={(e) => setShowExtremeMarkers(e.target.checked)} /> Extreme Trades</label>
         <button type="button" onClick={() => { void optimizeFormula(); }} disabled={formulaOptimizing || loading}>
@@ -1549,10 +1580,10 @@ export default function QMomentumLab() {
       </div>}
 
       {extremeResult?.best && <div className="qm-training-result">
-        <strong>Extreme MACD · beste Sicht</strong>
+        <strong>Extreme MACD V5 · beste Sigma-Sicht</strong>
         <span>MACD <b>{extremeResult.best.params.macd_fast}/{extremeResult.best.params.macd_slow}/{extremeResult.best.params.macd_signal}</b></span>
-        <span>LONG-Zone <b>{extremeResult.best.params.long_zone.toFixed(4)}</b></span>
-        <span>SHORT-Zone <b>+{extremeResult.best.params.short_zone.toFixed(4)}</b></span>
+        <span>LONG-Zone <b>{extremeResult.best.params.long_zone_sigma.toFixed(2)}σ</b></span>
+        <span>SHORT-Zone <b>+{extremeResult.best.params.short_zone_sigma.toFixed(2)}σ</b></span>
         <span>PF <b>{extremeResult.best.metrics.profit_factor.toFixed(3)}</b></span>
         <span>Netto <b>{extremeResult.best.metrics.net.toFixed(2)}</b></span>
         <span>Trades <b>{extremeResult.best.metrics.trades}</b></span>
@@ -1560,6 +1591,10 @@ export default function QMomentumLab() {
         <span>Drawdown <b>{extremeResult.best.metrics.max_drawdown.toFixed(2)}</b></span>
         <span>Recovery <b>{extremeResult.best.metrics.recovery_factor.toFixed(2)}</b></span>
         <span>Signal-Länge <b>{extremeResult.best.params.macd_signal} fest · nicht optimiert</b></span>
+        <span>Z-Fenster <b>{extremeResult.best.params.z_window} Kerzen · rollend</b></span>
+        <span>MACD Ø / σ <b>{extremeResult.best.metrics.macd_distribution.mean.toFixed(3)} / {extremeResult.best.metrics.macd_distribution.std.toFixed(3)}</b></span>
+        <span>MACD 5% / 95% <b>{extremeResult.best.metrics.macd_distribution.q05.toFixed(3)} / {extremeResult.best.metrics.macd_distribution.q95.toFixed(3)}</b></span>
+        <span>MACD 1% / 99% <b>{extremeResult.best.metrics.macd_distribution.q01.toFixed(3)} / {extremeResult.best.metrics.macd_distribution.q99.toFixed(3)}</b></span>
         <span>Gefundene Inseln <b>{extremeResult.stable_islands?.length || 0}</b></span>
         <span>Geprüft <b>{extremeResult.tested_macd_sets} Fast/Slow-Sätze · {extremeResult.tested_zone_pairs} Zonenpaare</b></span>
       </div>}
@@ -1570,7 +1605,7 @@ export default function QMomentumLab() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr>
               <th style={{ textAlign: "left" }}>Insel</th><th>Treffer</th><th>Fast</th><th>Slow</th>
-              <th>LONG-Zone</th><th>SHORT-Zone</th><th>PF</th><th>Trades</th><th>DD</th>
+              <th>LONG σ</th><th>SHORT σ</th><th>PF</th><th>Trades</th><th>DD</th>
             </tr></thead>
             <tbody>
               {extremeResult.stable_islands.map((island) => <tr key={`island-${island.rank}`}>
@@ -1578,8 +1613,8 @@ export default function QMomentumLab() {
                 <td style={{ textAlign: "center" }}>{island.member_count}</td>
                 <td style={{ textAlign: "center" }}>{island.macd_fast_min === island.macd_fast_max ? island.macd_fast_min : `${island.macd_fast_min}–${island.macd_fast_max}`}</td>
                 <td style={{ textAlign: "center" }}>{island.macd_slow_min === island.macd_slow_max ? island.macd_slow_min : `${island.macd_slow_min}–${island.macd_slow_max}`}</td>
-                <td style={{ textAlign: "center" }}>{island.long_zone_min.toFixed(3)} bis {island.long_zone_max.toFixed(3)}</td>
-                <td style={{ textAlign: "center" }}>+{island.short_zone_min.toFixed(3)} bis +{island.short_zone_max.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>{island.long_sigma_min.toFixed(2)}σ bis {island.long_sigma_max.toFixed(2)}σ</td>
+                <td style={{ textAlign: "center" }}>+{island.short_sigma_min.toFixed(2)}σ bis +{island.short_sigma_max.toFixed(2)}σ</td>
                 <td style={{ textAlign: "center" }}>{island.pf_min.toFixed(2)}–{island.pf_max.toFixed(2)}</td>
                 <td style={{ textAlign: "center" }}>{island.trades_min === island.trades_max ? island.trades_min : `${island.trades_min}–${island.trades_max}`}</td>
                 <td style={{ textAlign: "center" }}>{island.dd_min.toFixed(1)}–{island.dd_max.toFixed(1)}</td>
@@ -1594,14 +1629,14 @@ export default function QMomentumLab() {
         <div style={{ width: "100%", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr>
-              <th style={{ textAlign: "left" }}>#</th><th>MACD</th><th>LONG</th><th>SHORT</th><th>PF</th><th>Netto</th><th>Trades</th><th>DD</th>
+              <th style={{ textAlign: "left" }}>#</th><th>MACD</th><th>LONG σ</th><th>SHORT σ</th><th>PF</th><th>Netto</th><th>Trades</th><th>DD</th>
             </tr></thead>
             <tbody>
-              {extremeResult.top.slice(0, 10).map((row, index) => <tr key={`${row.params.macd_fast}-${row.params.macd_slow}-${row.params.macd_signal}-${row.params.long_zone}-${row.params.short_zone}`}>
+              {extremeResult.top.slice(0, 10).map((row, index) => <tr key={`${row.params.macd_fast}-${row.params.macd_slow}-${row.params.macd_signal}-${row.params.long_zone_sigma}-${row.params.short_zone_sigma}`}>
                 <td>{index + 1}</td>
                 <td style={{ textAlign: "center" }}>{row.params.macd_fast}/{row.params.macd_slow}/{row.params.macd_signal}</td>
-                <td style={{ textAlign: "center" }}>{row.params.long_zone.toFixed(3)}</td>
-                <td style={{ textAlign: "center" }}>+{row.params.short_zone.toFixed(3)}</td>
+                <td style={{ textAlign: "center" }}>{`${row.params.long_zone_sigma.toFixed(2)}σ`}</td>
+                <td style={{ textAlign: "center" }}>+{row.params.short_zone_sigma.toFixed(2) + "σ"}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.profit_factor.toFixed(2)}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.net.toFixed(1)}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.trades}</td>
@@ -1630,7 +1665,7 @@ export default function QMomentumLab() {
       <main className="qm-main">
         <section className="qm-charts">
           <div className="qm-pane"><div className="qm-pane-title">KERZEN</div><div ref={priceEl} /></div>
-          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {activeMacdConfig.fast} / {activeMacdConfig.slow} / {activeMacdConfig.signal}{extremeResult?.best ? ` · Zonen ${extremeResult.best.params.long_zone.toFixed(3)} / +${extremeResult.best.params.short_zone.toFixed(3)}` : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
+          <div className="qm-pane"><div className="qm-pane-title"><span>MACD {activeMacdConfig.fast} / {activeMacdConfig.slow} / {activeMacdConfig.signal}{extremeResult?.best ? ` · Sigma ${extremeResult.best.params.long_zone_sigma.toFixed(2)}σ / +${extremeResult.best.params.short_zone_sigma.toFixed(2)}σ` : ""}</span><span className="legend"><i className="blue"/>MACD <i className="orange"/>Signal</span></div><div ref={macdEl} /></div>
           <div className="qm-pane"><div className="qm-pane-title"><span>RSI 14</span><span className="legend"><i className="violet"/>RSI <i className="yellow"/>RSI MA 9</span></div><div ref={rsiEl} /></div>
         </section>
 
