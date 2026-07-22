@@ -1218,7 +1218,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage("Extreme MACD Lab V6.1 startet: Sigma-Armed, MACD-Crossover und Zwei-Heikin-Exit werden vollständig neu berechnet …");
+    setMessage("Extreme MACD Lab V6.2 startet: MACD-Sigma-Armed, RSI-Crossover-Entries und RSI-/Gegen-Extrem-Exits werden vollständig neu berechnet …");
 
     try {
       const startResponse = await fetch(
@@ -1535,7 +1535,7 @@ export default function QMomentumLab() {
     return (
       <div className="ex6-shell">
         <header className="ex6-header">
-          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Lab V6.1</h1><p>Armed Crossover · Heikin Exit</p></div></div>
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Lab V6.2</h1><p>MACD Armed · RSI Entry/Exit</p></div></div>
           <div className="ex6-header-actions">
             <span className="ex6-live">● LIVE</span>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -1550,7 +1550,7 @@ export default function QMomentumLab() {
           </button>
           <label>Min. Trades<input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
           <label>Z-Fenster<input type="number" min="30" step="10" value={extremeZWindow} onChange={(e) => setExtremeZWindow(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY: SIGMA ARMED → MACD CROSS · EXIT: 2 HA-GEGENKERZEN</span>
+          <span className="ex61-rule">ENTRY: MACD-SIGMA ARMED → RSI CROSS · EXIT: RSI-MITTE ODER GEGEN-EXTREM</span>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
 
@@ -1593,11 +1593,11 @@ export default function QMomentumLab() {
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : "red"}>{trade.direction.toUpperCase()}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + Cross Down</p><p>ⓧ Exit nach 2 HA-Gegenkerzen</p><p>– – Sigma-Armed-Zonen</p></div>
+            <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit per RSI-Mittellinien-Cross oder Gegen-Extrem</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD Lab V6.1</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD Lab V6.2</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
@@ -1691,7 +1691,7 @@ export default function QMomentumLab() {
       </div>}
 
       {extremeResult?.best && <div className="qm-training-result">
-        <strong>Extreme MACD V6.1 · Armed/Crossover/HA-Exit</strong>
+        <strong>Extreme MACD V6.2 · MACD-Armed/RSI-Crossover-Exit</strong>
         <span>MACD <b>{extremeResult.best.params.macd_fast}/{extremeResult.best.params.macd_slow}/{extremeResult.best.params.macd_signal}</b></span>
         <span>LONG-Zone <b>{extremeResult.best.params.long_zone_sigma.toFixed(2)}σ</b></span>
         <span>SHORT-Zone <b>+{extremeResult.best.params.short_zone_sigma.toFixed(2)}σ</b></span>
