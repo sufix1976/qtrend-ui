@@ -436,6 +436,10 @@ type ExtremeMetrics = {
     macd?: number;
     signal?: number;
     z_score?: number;
+    z_prev?: number;
+    threshold?: number;
+    comparison?: string;
+    macd_value?: number;
   }>;
 };
 
@@ -1067,12 +1071,24 @@ export default function QMomentumLab() {
           const side = event.side || "long";
           const action = event.action || "STATE";
           const letter = action === "ARMED" ? "A" : action === "CONSUMED" ? "C" : action === "RESET" ? "R" : "D";
+          const phaseId = side === "long" ? event.long_phase_id ?? "–" : event.short_phase_id ?? "–";
+          const zNowText = Number.isFinite(event.z_score) ? Number(event.z_score).toFixed(2) : "–";
+          const zPrevText = Number.isFinite(event.z_prev) ? Number(event.z_prev).toFixed(2) : "–";
+          const thresholdText = Number.isFinite(event.threshold) ? Number(event.threshold).toFixed(2) : "–";
+          const macdText = Number.isFinite(event.macd_value) ? Number(event.macd_value).toFixed(3) : "–";
+          const reasonText = action === "ARMED"
+            ? `NEU ${zPrevText}→${zNowText} / G ${thresholdText}`
+            : action === "RESET"
+              ? `ZONE RAUS ${zPrevText}→${zNowText} / G ${thresholdText}`
+              : action === "DISARM"
+                ? `NULL MACD ${macdText}`
+                : "ENTRY";
           markers.push({
             time: event.time as Time,
             position: side === "long" ? "belowBar" : "aboveBar",
             shape: "circle",
             color: action === "ARMED" ? "#38bdf8" : action === "CONSUMED" ? "#a855f7" : action === "RESET" ? "#94a3b8" : "#f97316",
-            text: `${letter} ${side === "long" ? "L" : "S"} #${side === "long" ? event.long_phase_id ?? "–" : event.short_phase_id ?? "–"}`,
+            text: `${letter} ${side === "long" ? "L" : "S"} #${phaseId} · ${reasonText}`,
             size: 0.8,
           });
           return;
@@ -1656,7 +1672,7 @@ export default function QMomentumLab() {
           <label>Exit HTF (Min.)<input type="number" min="5" step="5" value={exitHtfMinutes} onChange={(e) => setExitHtfMinutes(Number(e.target.value))} /></label>
           <label>RSI Untergrenze<input type="number" min="10" max="45" step="1" value={exitRsiLower} onChange={(e) => setExitRsiLower(Number(e.target.value))} /></label>
           <label>RSI Obergrenze<input type="number" min="55" max="90" step="1" value={exitRsiUpper} onChange={(e) => setExitRsiUpper(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY UNVERÄNDERT → STATE DEBUG A/C/R/D → PROTECT → HTF-RSI EXIT</span>
+          <span className="ex61-rule">ENTRY UNVERÄNDERT → STATE DEBUG MIT AUSLÖSER A/C/R/D → PROTECT → HTF-RSI EXIT</span>
           <button type="button" className={showStateDebug ? "ex61-debug-on" : ""} onClick={() => setShowStateDebug((value) => !value)}>STATE DEBUG {showStateDebug ? "ON" : "OFF"}</button>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
@@ -1709,13 +1725,13 @@ export default function QMomentumLab() {
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : trade.direction === "short" ? "red" : ""}>{trade.direction?.toUpperCase() ?? "–"}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>STATE DEBUG</h3><p><b>A</b> = Armed gesetzt</p><p><b>C</b> = Extrem durch Entry verbraucht</p><p><b>R</b> = Zone verlassen / Phase zurückgesetzt</p><p><b>D</b> = Armed an MACD-Nulllinie gelöscht</p></div>
+            <div className="ex6-card"><h3>STATE DEBUG V7.1c</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Sigma-Zone verlassen; zeigt Z vorher → jetzt und Grenzwert</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p></div>
 
             <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1b State Debug</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1c State Debug</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
