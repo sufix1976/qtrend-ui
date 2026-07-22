@@ -371,6 +371,7 @@ type ExtremeParams = {
   profit_histogram_bars?: number;
   profit_ha_count?: number;
   profit_min_hold_bars?: number;
+  ad_length: number;
 };
 
 type ExtremeMetrics = {
