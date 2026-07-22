@@ -610,6 +610,7 @@ export default function QMomentumLab() {
   const [extremeBeLock, setExtremeBeLock] = useState(0.8);
   const [extremeMinTrades, setExtremeMinTrades] = useState(30);
   const [extremeUseHeikin, setExtremeUseHeikin] = useState(true);
+  const [workspace, setWorkspace] = useState<"extreme" | "legacy">("extreme");
   const [extremeZWindow, setExtremeZWindow] = useState(200);
   const [formulaOptimizing, setFormulaOptimizing] = useState(false);
   const [e1Running, setE1Running] = useState(false);
@@ -886,7 +887,7 @@ export default function QMomentumLab() {
       rsiChart.remove();
       chartsRef.current = [];
     };
-  }, [candles, values, showSma, extremeResult]);
+  }, [candles, values, showSma, extremeResult, workspace]);
 
   useEffect(() => {
     const markers: any[] = [];
@@ -986,9 +987,12 @@ export default function QMomentumLab() {
         size: 1.5,
       });
     }
-    markers.sort((a, b) => Number(a.time) - Number(b.time));
-    markersApiRef.current?.setMarkers(markers);
-  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, extremeResult, showExtremeMarkers]);
+    const visibleMarkers = workspace === "extreme"
+      ? markers.filter((marker) => String(marker.text || "").startsWith("EXT") || String(marker.text || "").startsWith("EXIT"))
+      : markers;
+    visibleMarkers.sort((a, b) => Number(a.time) - Number(b.time));
+    markersApiRef.current?.setMarkers(visibleMarkers);
+  }, [annotations, trendAnnotations, trendAiCandidates, confirmedTrendPoints, formulaTransitions, showFormulaTrend, e1Result, showE1Markers, showTrendAi, showTrendConfirmation, aiCandidates, previousAiCandidates, selectedTime, compareMode, showReviews, candles, extremeResult, showExtremeMarkers, workspace]);
 
   async function save(label: Label) {
     if (!selectedCandle) { setMessage("Bitte zuerst eine Kerze im Chart anklicken."); return; }
@@ -1487,10 +1491,98 @@ export default function QMomentumLab() {
     }
   }
 
+  const extremeBest = extremeResult?.best || null;
+  const currentIndicator = values.length ? values[values.length - 1] : null;
+  const currentCandle = candles.length ? candles[candles.length - 1] : null;
+  const currentSigma = currentIndicator?.macd ?? 0;
+  const currentHistSigma = currentIndicator?.histogram ?? 0;
+  const primaryIsland = extremeResult?.stable_islands?.[0] || null;
+  const recentExtremeTrades = (extremeBest?.metrics?.events || [])
+    .filter((event) => event.type === "exit")
+    .slice(-5)
+    .reverse();
+  const extremeStatusText = currentSigma <= (extremeBest?.params.long_zone_sigma ?? -999)
+    ? "LONG EXTREM"
+    : currentSigma >= (extremeBest?.params.short_zone_sigma ?? 999)
+      ? "SHORT EXTREM"
+      : currentSigma < 0 ? "NEGATIVE ZONE" : "POSITIVE ZONE";
+
+  if (workspace === "extreme") {
+    return (
+      <div className="ex6-shell">
+        <header className="ex6-header">
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Lab V6</h1><p>Sigma Extreme Dashboard</p></div></div>
+          <div className="ex6-header-actions">
+            <span className="ex6-live">● LIVE</span>
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
+            <select value={interval} onChange={(e) => setInterval(e.target.value)}>{INTERVALS.map((x) => <option key={x}>{x}</option>)}</select>
+            <button onClick={() => setWorkspace("legacy")}>Marker-Labor</button>
+          </div>
+        </header>
+
+        <section className="ex6-toolbar">
+          <button className="ex6-search" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
+            {extremeOptimizing ? "Extreme sucht …" : "Extreme MACD suchen"}
+          </button>
+          <label>TP<input type="number" min="0.1" step="0.1" value={extremeTp} onChange={(e) => setExtremeTp(Number(e.target.value))} /></label>
+          <label>SL<input type="number" min="0.1" step="0.1" value={extremeSl} onChange={(e) => setExtremeSl(Number(e.target.value))} /></label>
+          <label>BE ab<input type="number" min="0" step="0.1" value={extremeBeTrigger} onChange={(e) => setExtremeBeTrigger(Number(e.target.value))} /></label>
+          <label>BE +<input type="number" min="0" step="0.1" value={extremeBeLock} onChange={(e) => setExtremeBeLock(Number(e.target.value))} /></label>
+          <label>Min. Trades<input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
+          <label>Z-Fenster<input type="number" min="30" step="10" value={extremeZWindow} onChange={(e) => setExtremeZWindow(Number(e.target.value))} /></label>
+          <label className="ex6-check"><input type="checkbox" checked={extremeUseHeikin} onChange={(e) => setExtremeUseHeikin(e.target.checked)} /> Heikin-Farbe</label>
+          <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
+        </section>
+
+        <section className="ex6-kpis">
+          <div><small>BESTE KOMBINATION</small><strong>MACD {extremeBest ? `${extremeBest.params.macd_fast} / ${extremeBest.params.macd_slow} / ${extremeBest.params.macd_signal}` : "–"}</strong><em>Signal 9 fest</em></div>
+          <div><small>LONG ZONE</small><strong className="green">≤ {extremeBest ? extremeBest.params.long_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: ${primaryIsland.long_sigma_min.toFixed(2)} bis ${primaryIsland.long_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
+          <div><small>SHORT ZONE</small><strong className="red">≥ +{extremeBest ? extremeBest.params.short_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: +${primaryIsland.short_sigma_min.toFixed(2)} bis +${primaryIsland.short_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
+          <div><small>PF (BEST)</small><strong className="violet">{extremeBest ? extremeBest.metrics.profit_factor.toFixed(2) : "–"}</strong><em>Netto {extremeBest ? extremeBest.metrics.net.toFixed(2) : "–"}</em></div>
+          <div><small>TRADES (BEST)</small><strong>{extremeBest ? extremeBest.metrics.trades : "–"}</strong><em>Winrate {extremeBest ? `${extremeBest.metrics.win_rate_pct.toFixed(1)}%` : "–"}</em></div>
+          <div><small>DRAWDOWN (BEST)</small><strong>{extremeBest ? extremeBest.metrics.max_drawdown.toFixed(2) : "–"}</strong><em>Recovery {extremeBest ? extremeBest.metrics.recovery_factor.toFixed(2) : "–"}</em></div>
+          <div><small>STATUS</small><strong className={currentSigma < 0 ? "red" : "green"}>{extremeStatusText}</strong><em>Aktuell {currentSigma.toFixed(2)}σ</em></div>
+        </section>
+
+        <main className="ex6-grid">
+          <section className="ex6-charts">
+            <div className="ex6-pane ex6-price"><div className="ex6-pane-title"><b>{symbol} · {interval}</b><span>{currentCandle ? `O ${currentCandle.open.toFixed(2)}  H ${currentCandle.high.toFixed(2)}  L ${currentCandle.low.toFixed(2)}  C ${currentCandle.close.toFixed(2)}` : ""}</span></div><div ref={priceEl} /></div>
+            <div className="ex6-pane ex6-macd"><div className="ex6-pane-title"><b>MACD ({activeMacdConfig.fast}, {activeMacdConfig.slow}, {activeMacdConfig.signal}) · Sigma-normalisiert</b><span>MACD {currentSigma.toFixed(2)}σ · HIST {currentHistSigma.toFixed(2)}σ</span></div><div ref={macdEl} /></div>
+            <div className="ex6-pane ex6-rsi"><div className="ex6-pane-title"><b>RSI (14)</b><span>{currentIndicator?.rsi.toFixed(1) || "–"}</span></div><div ref={rsiEl} /></div>
+          </section>
+
+          <aside className="ex6-side">
+            <div className="ex6-card">
+              <h3>AKTUELLER STATUS</h3>
+              <div className={currentSigma < 0 ? "ex6-status red" : "ex6-status green"}>{extremeStatusText}</div>
+              <div className="ex6-big-sigma">{currentSigma >= 0 ? "+" : ""}{currentSigma.toFixed(2)}σ</div>
+              <div className="ex6-meter"><span className="long">LONG</span><div><i style={{ left: `${Math.max(0, Math.min(100, (currentSigma + 4) / 8 * 100))}%` }} /></div><span className="short">SHORT</span></div>
+            </div>
+
+            <div className="ex6-card"><h3>DETAILS ZU AKTUELL</h3><dl>
+              <dt>MACD (Roh)</dt><dd>{extremeBest?.metrics.macd_distribution.mean != null && currentIndicator ? "Sigma-Ansicht" : "–"}</dd>
+              <dt>Mittelwert</dt><dd>{extremeBest ? extremeBest.metrics.macd_distribution.mean.toFixed(3) : "–"}</dd>
+              <dt>Std. Abw.</dt><dd>{extremeBest ? extremeBest.metrics.macd_distribution.std.toFixed(3) : "–"}</dd>
+              <dt>Histogramm</dt><dd>{currentHistSigma.toFixed(2)}σ</dd>
+              <dt>Z-Fenster</dt><dd>{extremeBest?.params.z_window || extremeZWindow}</dd>
+            </dl></div>
+
+            <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : "red"}>{trade.direction.toUpperCase()}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
+
+            <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG Entry</p><p><span className="red">▼</span> SHORT Entry</p><p>ⓧ Exit</p><p>– – Sigma-Zonen</p></div>
+          </aside>
+        </main>
+
+        <footer className="ex6-footer"><span>Extreme MACD Lab V6</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        {message && <div className="ex6-message">{message}</div>}
+      </div>
+    );
+  }
+
   return (
     <div className="qm-shell">
       <header className="qm-header">
-        <div><h1>QMomentum Lab <span>Formula Lab V0.31</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div>
+        <div><h1>QMomentum Lab <span>Formula Lab V0.31</span></h1><p>Automatische Parametersuche gegen deine UT-/DT-Zielmarker · keine Trades</p></div><button type="button" onClick={() => setWorkspace("extreme")}>Extreme Dashboard</button>
         <div className="qm-stats">
           <span>Analysiert {chartPredictions.length}</span>
           <span className="ai">KI-Marker {aiCandidates.length}</span>
