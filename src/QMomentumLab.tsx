@@ -357,13 +357,20 @@ type ExtremeParams = {
   exit_mode?: string;
   heikin_source?: string;
   macd_entry_mode?: string;
-  exit_family?: string;
-  exit_label?: string;
-  ad_length?: number;
-  ad_peak_min?: number;
-  ad_retrace_ratio?: number;
-  histogram_bars?: number;
-  ha_count?: number;
+  protect_family?: string;
+  protect_label?: string;
+  protect_ad_length?: number;
+  protect_ad_threshold?: number;
+  protect_ha_count?: number;
+  protect_min_hold_bars?: number;
+  profit_family?: string;
+  profit_label?: string;
+  profit_ad_length?: number;
+  profit_ad_peak_min?: number;
+  profit_ad_retrace_ratio?: number;
+  profit_histogram_bars?: number;
+  profit_ha_count?: number;
+  profit_min_hold_bars?: number;
 };
 
 type ExtremeMetrics = {
@@ -380,7 +387,13 @@ type ExtremeMetrics = {
   score: number;
   z_window: number;
   avg_peak_capture_pct?: number;
+  largest_loss?: number;
+  avg_loss?: number;
+  avg_win?: number;
+  loss_outlier_ratio?: number;
   exit_counts?: Record<string, number>;
+  protect_exit_counts?: Record<string, number>;
+  profit_exit_counts?: Record<string, number>;
   macd_distribution: { mean: number; std: number; q01: number; q05: number; q95: number; q99: number };
   final_state?: {
     position: "flat" | "long" | "short";
@@ -399,6 +412,7 @@ type ExtremeMetrics = {
     price: number;
     pnl?: number;
     reason?: string;
+    exit_type?: "protect" | "profit" | "flip";
     macd?: number;
     signal?: number;
     z_score?: number;
@@ -417,8 +431,11 @@ type ExtremeResult = {
   candle_count: number;
   tested_macd_sets: number;
   tested_zone_pairs: number;
-  tested_exit_sets?: number;
+  tested_protect_sets?: number;
+  tested_profit_sets?: number;
   entry_best?: ExtremeRank | null;
+  protect_best?: ExtremeRank | null;
+  protect_top?: ExtremeRank[];
   entry_top?: ExtremeRank[];
   min_trades: number;
   best: ExtremeRank | null;
@@ -1231,7 +1248,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage("Extreme MACD Lab V6.4 startet: zuerst Entry-Suche, danach separater Exit-Optimizer …");
+    setMessage("Extreme MACD Dual Exit Lab V7 startet: Entry, Protect und Profit werden nacheinander optimiert …");
 
     try {
       const startResponse = await fetch(
@@ -1300,10 +1317,10 @@ export default function QMomentumLab() {
         }
 
         done = Boolean(stepJson.done);
-        const phaseLabel = stepJson.phase === "exit" ? "EXIT" : "ENTRY";
+        const phaseLabel = stepJson.phase === "protect" ? "PROTECT" : stepJson.phase === "profit" ? "PROFIT" : "ENTRY";
         setExtremeStatus(
           `${phaseLabel} · ${stepJson.processed || 0} / ${stepJson.total || 0} · ` +
-          `${stepJson.tested_zone_pairs || 0} Zonenpaare · ${stepJson.tested_exit_sets || 0} Exit-Sätze · ${Number(stepJson.progress_pct || 0).toFixed(1)}%`,
+          `${stepJson.tested_zone_pairs || 0} Zonen · ${stepJson.tested_protect_sets || 0} Protect · ${stepJson.tested_profit_sets || 0} Profit · ${Number(stepJson.progress_pct || 0).toFixed(1)}%`,
         );
 
         if (done) finalResult = stepJson.result as ExtremeResult;
@@ -1325,7 +1342,7 @@ export default function QMomentumLab() {
       setMessage(
         `Beste Sigma-Sicht: MACD ${best.params.macd_fast}/${best.params.macd_slow}/${best.params.macd_signal} · ` +
         `LONG ${best.params.long_zone_sigma.toFixed(2)}σ · SHORT +${best.params.short_zone_sigma.toFixed(2)}σ · ` +
-        `EXIT ${best.params.exit_label || best.params.exit_family || "–"} · PF ${best.metrics.profit_factor.toFixed(2)}.`,
+        `PROTECT ${best.params.protect_label || best.params.protect_family || "–"} · PROFIT ${best.params.profit_label || best.params.profit_family || "–"} · PF ${best.metrics.profit_factor.toFixed(2)}.`,
       );
     } catch (error: any) {
       const errorText = error?.message || String(error);
@@ -1549,7 +1566,7 @@ export default function QMomentumLab() {
     return (
       <div className="ex6-shell">
         <header className="ex6-header">
-          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Lab V6.4</h1><p>MACD Armed · RSI Entry · separater Exit-Optimizer</p></div></div>
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD Dual Exit Lab V7</h1><p>MACD Armed · RSI Entry · Protect + Profit Optimizer</p></div></div>
           <div className="ex6-header-actions">
             <span className="ex6-live">● LIVE</span>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -1560,11 +1577,11 @@ export default function QMomentumLab() {
 
         <section className="ex6-toolbar">
           <button className="ex6-search" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
-            {extremeOptimizing ? "Optimizer läuft …" : "Entry + Exit optimieren"}
+            {extremeOptimizing ? "Optimizer läuft …" : "Entry + Dual Exit optimieren"}
           </button>
           <label>Min. Trades<input type="number" min="5" step="1" value={extremeMinTrades} onChange={(e) => setExtremeMinTrades(Number(e.target.value))} /></label>
           <label>Z-Fenster<input type="number" min="30" step="10" value={extremeZWindow} onChange={(e) => setExtremeZWindow(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY FEST: MACD-SIGMA ARMED → RSI CROSS · DANACH EXIT SEPARAT OPTIMIEREN</span>
+          <span className="ex61-rule">ENTRY FEST → PROTECT GEGEN FEHLTRADES → PROFIT-EXIT FÜR MOMENTUM-ENDE</span>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
 
@@ -1572,7 +1589,8 @@ export default function QMomentumLab() {
           <div><small>BESTE KOMBINATION</small><strong>MACD {extremeBest ? `${extremeBest.params.macd_fast} / ${extremeBest.params.macd_slow} / ${extremeBest.params.macd_signal}` : "–"}</strong><em>Signal 9 fest</em></div>
           <div><small>LONG ZONE</small><strong className="green">≤ {extremeBest ? extremeBest.params.long_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: ${primaryIsland.long_sigma_min.toFixed(2)} bis ${primaryIsland.long_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
           <div><small>SHORT ZONE</small><strong className="red">≥ +{extremeBest ? extremeBest.params.short_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: +${primaryIsland.short_sigma_min.toFixed(2)} bis +${primaryIsland.short_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
-          <div><small>EXIT-MODELL</small><strong className="violet">{extremeBest?.params.exit_label || extremeBest?.params.exit_family || "–"}</strong><em>Peak Capture {extremeBest?.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</em></div>
+          <div><small>PROTECT-MODELL</small><strong className="red">{extremeBest?.params.protect_label || extremeBest?.params.protect_family || "–"}</strong><em>Größter Verlust {extremeBest?.metrics.largest_loss?.toFixed(1) ?? "–"}</em></div>
+          <div><small>PROFIT-MODELL</small><strong className="violet">{extremeBest?.params.profit_label || extremeBest?.params.profit_family || "–"}</strong><em>Peak Capture {extremeBest?.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</em></div>
           <div><small>PF (BEST)</small><strong className="violet">{extremeBest ? extremeBest.metrics.profit_factor.toFixed(2) : "–"}</strong><em>Netto {extremeBest ? extremeBest.metrics.net.toFixed(2) : "–"}</em></div>
           <div><small>TRADES (BEST)</small><strong>{extremeBest ? extremeBest.metrics.trades : "–"}</strong><em>Winrate {extremeBest ? `${extremeBest.metrics.win_rate_pct.toFixed(1)}%` : "–"}</em></div>
           <div><small>DRAWDOWN (BEST)</small><strong>{extremeBest ? extremeBest.metrics.max_drawdown.toFixed(2) : "–"}</strong><em>Recovery {extremeBest ? extremeBest.metrics.recovery_factor.toFixed(2) : "–"}</em></div>
@@ -1602,7 +1620,8 @@ export default function QMomentumLab() {
               <dt>Histogramm</dt><dd>{currentHistSigma.toFixed(2)}σ</dd>
               <dt>Z-Fenster</dt><dd>{extremeBest?.params.z_window || extremeZWindow}</dd>
               <dt>Position</dt><dd>{positionNow.toUpperCase()}</dd>
-              <dt>Exit-Modell</dt><dd>{extremeBest?.params.exit_label || extremeBest?.params.exit_family || "–"}</dd>
+              <dt>Protect</dt><dd>{extremeBest?.params.protect_label || extremeBest?.params.protect_family || "–"}</dd>
+              <dt>Profit</dt><dd>{extremeBest?.params.profit_label || extremeBest?.params.profit_family || "–"}</dd>
               <dt>AD-Länge</dt><dd>{extremeBest?.params.ad_length ?? "–"}</dd>
               <dt>Peak Capture</dt><dd>{extremeBest?.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</dd>
             </dl></div>
@@ -1613,7 +1632,7 @@ export default function QMomentumLab() {
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD Lab V6.4</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD Dual Exit Lab V7</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
@@ -1650,7 +1669,7 @@ export default function QMomentumLab() {
         </div>
         <label className="qm-check"><input type="checkbox" checked={showE1Markers} onChange={(e) => setShowE1Markers(e.target.checked)} /> E1-Marker</label>
         <button type="button" className="qm-analyze" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
-          {extremeOptimizing ? "Optimizer läuft …" : "Entry + Exit optimieren"}
+          {extremeOptimizing ? "Optimizer läuft …" : "Entry + Dual Exit optimieren"}
         </button>
         <div className={`qm-analysis-status ${extremeStatus.startsWith("Fehler") ? "error" : extremeOptimizing ? "working" : ""}`}>
           <b>Extreme-Optimizer</b><span>{extremeStatus}</span>
@@ -1707,7 +1726,7 @@ export default function QMomentumLab() {
       </div>}
 
       {extremeResult?.best && <div className="qm-training-result">
-        <strong>Extreme MACD V6.4 · Entry eingefroren / Exit separat optimiert</strong>
+        <strong>Extreme MACD V7 · Entry / Protect / Profit getrennt optimiert</strong>
         <span>MACD <b>{extremeResult.best.params.macd_fast}/{extremeResult.best.params.macd_slow}/{extremeResult.best.params.macd_signal}</b></span>
         <span>LONG-Zone <b>{extremeResult.best.params.long_zone_sigma.toFixed(2)}σ</b></span>
         <span>SHORT-Zone <b>+{extremeResult.best.params.short_zone_sigma.toFixed(2)}σ</b></span>
@@ -1717,7 +1736,9 @@ export default function QMomentumLab() {
         <span>Winrate <b>{extremeResult.best.metrics.win_rate_pct.toFixed(1)}%</b></span>
         <span>Drawdown <b>{extremeResult.best.metrics.max_drawdown.toFixed(2)}</b></span>
         <span>Recovery <b>{extremeResult.best.metrics.recovery_factor.toFixed(2)}</b></span>
-        <span>Exit-Modell <b>{extremeResult.best.params.exit_label || extremeResult.best.params.exit_family || "–"}</b></span>
+        <span>Protect <b>{extremeResult.best.params.protect_label || extremeResult.best.params.protect_family || "–"}</b></span>
+        <span>Profit <b>{extremeResult.best.params.profit_label || extremeResult.best.params.profit_family || "–"}</b></span>
+        <span>Größter Verlust <b>{extremeResult.best.metrics.largest_loss?.toFixed(2) ?? "–"}</b></span>
         <span>Peak Capture <b>{extremeResult.best.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</b></span>
         <span>Signal-Länge <b>{extremeResult.best.params.macd_signal} fest · nicht optimiert</b></span>
         <span>Z-Fenster <b>{extremeResult.best.params.z_window} Kerzen · rollend</b></span>
@@ -1725,7 +1746,7 @@ export default function QMomentumLab() {
         <span>MACD 5% / 95% <b>{extremeResult.best.metrics.macd_distribution.q05.toFixed(3)} / {extremeResult.best.metrics.macd_distribution.q95.toFixed(3)}</b></span>
         <span>MACD 1% / 99% <b>{extremeResult.best.metrics.macd_distribution.q01.toFixed(3)} / {extremeResult.best.metrics.macd_distribution.q99.toFixed(3)}</b></span>
         <span>Gefundene Inseln <b>{extremeResult.stable_islands?.length || 0}</b></span>
-        <span>Geprüft <b>{extremeResult.tested_macd_sets} Fast/Slow-Sätze · {extremeResult.tested_zone_pairs} Zonenpaare · {extremeResult.tested_exit_sets || 0} Exit-Sätze</b></span>
+        <span>Geprüft <b>{extremeResult.tested_macd_sets} Fast/Slow · {extremeResult.tested_zone_pairs} Zonen · {extremeResult.tested_protect_sets || 0} Protect · {extremeResult.tested_profit_sets || 0} Profit</b></span>
       </div>}
 
       {extremeResult?.stable_islands?.length ? <div className="qm-training-result" style={{ alignItems: "stretch" }}>
@@ -1754,22 +1775,22 @@ export default function QMomentumLab() {
       </div> : null}
 
       {extremeResult?.top?.length ? <div className="qm-training-result" style={{ alignItems: "stretch" }}>
-        <strong>Top 10 Exit-Modelle bei eingefrorenem Entry</strong>
+        <strong>Top 10 Profit-Modelle bei eingefrorenem Entry + Protect</strong>
         <div style={{ width: "100%", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr>
-              <th style={{ textAlign: "left" }}>#</th><th>Exit-Modell</th><th>Parameter</th><th>PF</th><th>Netto</th><th>Trades</th><th>DD</th><th>Capture</th>
+              <th style={{ textAlign: "left" }}>#</th><th>Profit-Modell</th><th>Parameter</th><th>PF</th><th>Netto</th><th>Trades</th><th>DD</th><th>Max Loss</th>
             </tr></thead>
             <tbody>
               {extremeResult.top.slice(0, 10).map((row, index) => <tr key={`${row.params.macd_fast}-${row.params.macd_slow}-${row.params.macd_signal}-${row.params.long_zone_sigma}-${row.params.short_zone_sigma}`}>
                 <td>{index + 1}</td>
-                <td style={{ textAlign: "center" }}>{row.params.exit_label || row.params.exit_family || "–"}</td>
-                <td style={{ textAlign: "center" }}>{row.params.ad_length ? `AD ${row.params.ad_length}${row.params.ad_peak_min ? ` · Peak ${row.params.ad_peak_min} · Rest ${(row.params.ad_retrace_ratio || 0) * 100}%` : ""}` : row.params.histogram_bars ? `${row.params.histogram_bars} Kerzen` : row.params.ha_count ? `${row.params.ha_count} Kerzen` : "–"}</td>
+                <td style={{ textAlign: "center" }}>{row.params.profit_label || row.params.profit_family || "–"}</td>
+                <td style={{ textAlign: "center" }}>{row.params.profit_ad_length ? `AD ${row.params.profit_ad_length}${row.params.profit_ad_peak_min ? ` · Peak ${row.params.profit_ad_peak_min} · Rest ${(row.params.profit_ad_retrace_ratio || 0) * 100}%` : ""}` : row.params.profit_histogram_bars ? `${row.params.profit_histogram_bars} Kerzen` : row.params.profit_ha_count ? `${row.params.profit_ha_count} Kerzen` : "–"}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.profit_factor.toFixed(2)}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.net.toFixed(1)}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.trades}</td>
                 <td style={{ textAlign: "center" }}>{row.metrics.max_drawdown.toFixed(1)}</td>
-                <td style={{ textAlign: "center" }}>{row.metrics.avg_peak_capture_pct?.toFixed(1) ?? "–"}%</td>
+                <td style={{ textAlign: "center" }}>{row.metrics.largest_loss?.toFixed(1) ?? "–"}</td>
               </tr>)}
             </tbody>
           </table>
