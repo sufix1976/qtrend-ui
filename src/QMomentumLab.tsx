@@ -11,7 +11,7 @@ import {
 import "./QMomentumLab.css";
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
-const SYMBOLS = ["US30", "US100", "DE40", "UK100", "J225", "CN50", "BTCUSD", "ETHUSD", "GOLD"];
+const SYMBOLS = ["US30", "US100", "DE40", "UK100", "J225", "CN50", "BTCUSD", "ETHUSD", "GOLD", "SILVER", "OIL_CRUDE", "CORN"];
 const INTERVALS = ["1m", "5m", "10m", "15m", "30m", "1h"];
 
 type Candle = { time: number; open: number; high: number; low: number; close: number };
@@ -1430,6 +1430,32 @@ export default function QMomentumLab() {
       setShowExtremeMarkers(true);
 
       const best = finalResult.best;
+      const sharedProfile = {
+        macd_fast: best.params.macd_fast,
+        macd_slow: best.params.macd_slow,
+        macd_signal: 9,
+        rsi_length: best.params.rsi_length ?? 14,
+        rsi_signal: 9,
+        long_zone_sigma: best.params.long_zone_sigma,
+        short_zone_sigma: best.params.short_zone_sigma,
+        z_window: best.params.z_window || extremeZWindow,
+        protect_min_hold_bars: best.params.protect_min_hold_bars ?? 3,
+        exit_htf_minutes: best.params.exit_htf_minutes ?? exitHtfMinutes,
+        exit_rsi_lower: best.params.exit_rsi_lower ?? exitRsiLower,
+        exit_rsi_upper: best.params.exit_rsi_upper ?? exitRsiUpper,
+      };
+      const profileResponse = await fetch(`${BACKEND_BASE}/qmomentum/extreme-live/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ symbol, interval, params: sharedProfile }),
+      });
+      const profileRaw = await profileResponse.text();
+      let profileJson: any = {};
+      try { profileJson = profileRaw ? JSON.parse(profileRaw) : {}; } catch { /* status below */ }
+      if (!profileResponse.ok || !profileJson?.ok) {
+        throw new Error(profileJson?.error || `Profil-Sync HTTP ${profileResponse.status}: ${profileRaw.slice(0, 140)}`);
+      }
+
       setExtremeStatus(
         `Fertig · PF ${best.metrics.profit_factor.toFixed(2)} · ` +
         `${best.metrics.trades} Trades · ${finalResult.tested_zone_pairs} Zonenpaare`,
@@ -1437,7 +1463,7 @@ export default function QMomentumLab() {
       setMessage(
         `Beste Sigma-Sicht: MACD ${best.params.macd_fast}/${best.params.macd_slow}/${best.params.macd_signal} · ` +
         `LONG ${best.params.long_zone_sigma.toFixed(2)}σ · SHORT +${best.params.short_zone_sigma.toFixed(2)}σ · ` +
-        `PROTECT ${best.params.protect_label || best.params.protect_family || "–"} · PROFIT ${best.params.profit_label || best.params.profit_family || "–"} · PF ${best.metrics.profit_factor.toFixed(2)}.`,
+        `PROTECT ${best.params.protect_label || best.params.protect_family || "–"} · PROFIT ${best.params.profit_label || best.params.profit_family || "–"} · PF ${best.metrics.profit_factor.toFixed(2)} · Profil automatisch für Cockpit/Engine gespeichert.`,
       );
     } catch (error: any) {
       const errorText = error?.message || String(error);
