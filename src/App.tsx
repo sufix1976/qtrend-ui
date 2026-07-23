@@ -1,52 +1,54 @@
 import { useEffect, useState } from "react";
-import Cockpit from "./ExtremeLiveCockpit";
-import "./App.css";
-import Trainer from "./Trainer";
+import ExtremeLiveCockpit from "./ExtremeLiveCockpit";
 import QMomentumLab from "./QMomentumLab";
+import Trainer from "./Trainer";
+import "./App.css";
 
-type ViewMode = "cockpit" | "trainer" | "momentum";
+type View = "chart" | "lab" | "cockpit" | "trainer" | "momentum" | "settings";
 
-function readView(): ViewMode {
-  const view = new URLSearchParams(window.location.search).get("view");
+function readView(): View {
+  const raw = new URLSearchParams(window.location.search).get("view");
+  if (raw === "lab" || raw === "cockpit" || raw === "trainer" || raw === "momentum" || raw === "settings") return raw;
+  return "chart";
+}
 
-  if (view === "trainer") return "trainer";
-  if (view === "momentum") return "momentum";
-
-  return "cockpit";
+function navigate(view: View) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("view", view);
+  window.history.pushState({}, "", url);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export default function App() {
-  const [view, setView] = useState<ViewMode>(() => readView());
-
+  const [view, setView] = useState<View>(() => readView());
   useEffect(() => {
-    const handleNavigation = () => setView(readView());
-
-    window.addEventListener("popstate", handleNavigation);
-
-    return () => {
-      window.removeEventListener("popstate", handleNavigation);
-    };
+    const sync = () => setView(readView());
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
   }, []);
 
-  if (view === "trainer") {
-    return <Trainer />;
-  }
-
-  if (view === "momentum") {
-    return <QMomentumLab />;
-  }
-
   return (
-    <>
-      <Cockpit />
-
-      <a className="trainer-fab" href="/?view=trainer">
-        TRAINER
-      </a>
-
-      <a className="momentum-fab" href="/?view=momentum">
-        MOMENTUM LAB
-      </a>
-    </>
+    <div className="v8-shell">
+      <nav className="v8-nav">
+        <div className="v8-brand"><b>QTrend V8.0</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
+        <div className="v8-tabs">
+          {(["chart","lab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
+            <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item.toUpperCase()}</button>
+          ))}
+        </div>
+      </nav>
+      <section className="v8-content">
+        {view === "chart" && <ExtremeLiveCockpit chartOnly />}
+        {view === "lab" && <QMomentumLab />}
+        {view === "cockpit" && <ExtremeLiveCockpit />}
+        {view === "trainer" && <Trainer />}
+        {view === "momentum" && <Placeholder title="MOMENTUM" text="Momentum AI bleibt als eigenes Forschungsmodul erhalten. V8.0 verbindet zunächst LAB und COCKPIT." />}
+        {view === "settings" && <Placeholder title="SETTINGS" text="Zentrale Profile, Broker, Telegram und Layout folgen in V8.1. Die Markt-/TF-Auswahl wird bereits zwischen CHART, LAB und COCKPIT geteilt." />}
+      </section>
+    </div>
   );
+}
+
+function Placeholder({ title, text }: { title: string; text: string }) {
+  return <div className="v8-placeholder"><h1>{title}</h1><p>{text}</p></div>;
 }

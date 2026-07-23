@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useSharedMarket } from "./useSharedMarket";
 import {
   CandlestickSeries,
   CrosshairMode,
@@ -66,8 +67,8 @@ function ha(candles:Candle[]) {
 function color(side?:string){ const s=String(side||"").toLowerCase(); return s==="long"?"#22c55e":s==="short"?"#ef4444":"#cbd5e1"; }
 function badge(active:boolean, activeColor="#22c55e"):CSSProperties { return {padding:"7px 10px",borderRadius:8,border:`1px solid ${active?activeColor:"#334155"}`,background:active?`${activeColor}22`:"#0d1423",color:active?activeColor:"#94a3b8",fontWeight:800,fontSize:12}; }
 
-export default function ExtremeLiveCockpit(){
-  const [symbol,setSymbol]=useState("BTCUSD"); const [interval,setInterval]=useState("15m");
+export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: boolean }){
+  const { symbol, interval, setSymbol, setInterval } = useSharedMarket();
   const [chartMode,setChartMode]=useState<"heikin"|"candles">("heikin");
   const [candles,setCandles]=useState<Candle[]>([]); const [live,setLive]=useState<LiveState|null>(null);
   const [profile,setProfile]=useState<Profile>(DEFAULT_PROFILE); const [snapshot,setSnapshot]=useState<any>(null);
@@ -138,18 +139,18 @@ export default function ExtremeLiveCockpit(){
       <span style={{...badge(true,color(strategy)),color:color(strategy)}}>POSITION {strategy}</span><span style={{...badge(true,color(broker)),color:color(broker)}}>BROKER {broker}</span>
       <span style={{fontSize:12,color:"#f59e0b",fontWeight:800}}>SIGNAL MIRROR · KEINE AUTO-ORDERS AUS V7.4</span>
     </header>
-    <main style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 330px",gap:10,minHeight:"calc(100vh - 80px)"}}>
+    <main style={{display:"grid",gridTemplateColumns:chartOnly?"minmax(0,1fr)":"minmax(0,1fr) 330px",gap:10,minHeight:"calc(100vh - 80px)"}}>
       <section style={{display:"grid",gridTemplateRows:"minmax(430px,58vh) 210px 210px",gap:8,minWidth:0}}>
         <div ref={priceHost} style={chartBox}/><div ref={macdHost} style={chartBox}/><div ref={rsiHost} style={chartBox}/>
       </section>
-      <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
+      {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
         <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} onChange={e=>setSize(Number(e.target.value))} style={input}/><button style={button()} onClick={()=>void saveExecution()}>Save</button></div><button style={auto?onButton:offButton} onClick={()=>{const n=!auto;setAuto(n);void saveExecution(n);}}>AUTO {auto?"ON":"OFF"}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button style={flatButton} onClick={()=>void manual("flat")}>FLAT</button><button style={longButton} onClick={()=>void manual("long")}>LONG</button><button style={shortButton} onClick={()=>void manual("short")}>SHORT</button></div></Card>
         <Card title="ENTRY"><Row k="LONG Armed" v={fs?.long_armed?"JA":"NEIN"}/><Row k="SHORT Armed" v={fs?.short_armed?"JA":"NEIN"}/><Row k="LONG Extrem" v={fs?.long_extreme_active?"AKTIV":"INAKTIV"}/><Row k="SHORT Extrem" v={fs?.short_extreme_active?"AKTIV":"INAKTIV"}/></Card>
         <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Exit TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
         <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="PF Replay" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/></Card>
         <Card title="V7.4 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit HTF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
         <div style={{fontSize:11,color:"#94a3b8",padding:6}}>{status}</div>
-      </aside>
+      </aside>}
     </main>
   </div>;
 }

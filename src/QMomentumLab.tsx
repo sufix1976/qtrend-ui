@@ -9,6 +9,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import "./QMomentumLab.css";
+import { useSharedMarket } from "./useSharedMarket";
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const SYMBOLS = ["US30", "US100", "DE40", "UK100", "J225", "CN50", "BTCUSD", "ETHUSD", "GOLD", "SILVER", "OIL_CRUDE", "CORN"];
@@ -680,8 +681,7 @@ function labelText(label: Label) {
 }
 
 export default function QMomentumLab() {
-  const [symbol, setSymbol] = useState("US30");
-  const [interval, setInterval] = useState("15m");
+  const { symbol, interval, setSymbol, setInterval } = useSharedMarket();
   const [candles, setCandles] = useState<Candle[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [trendAnnotations, setTrendAnnotations] = useState<TrendAnnotation[]>([]);
