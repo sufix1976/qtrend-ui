@@ -21,7 +21,8 @@ type Trade = { side:Side; entryTime:number; entryPrice:number; exitTime:number; 
 type Marker = { time:number; side:Side; kind:"entry"|"exit"; text:string; color:string };
 type Metrics = { trades:number; wins:number; losses:number; net:number; grossWin:number; grossLoss:number; profitFactor:number; winRate:number; maxDrawdown:number };
 type Simulation = { trades:Trade[]; markers:Marker[]; metrics:Metrics };
-
+type CandleSource = "heikin" | "normal";
+type View = "a" | "b" | "c";
 type LiveReplay = { events?:SourceEvent[] };
 
 async function fetchJson(url:string) {
@@ -62,6 +63,17 @@ function rsi(values:number[], length:number):number[] {
   return out;
 }
 
+function heikinAshi(candles:Candle[]):Candle[] {
+  const out:Candle[]=[];
+  for(let i=0;i<candles.length;i+=1){
+    const c=candles[i];
+    const close=(c.open+c.high+c.low+c.close)/4;
+    const open=i===0?(c.open+c.close)/2:(out[i-1].open+out[i-1].close)/2;
+    out.push({time:c.time,open,high:Math.max(c.high,open,close),low:Math.min(c.low,open,close),close});
+  }
+  return out;
+}
+
 function adRatio(candles:Candle[], length:number):number[] {
   const n=Math.max(1,Math.round(length));
   const out=new Array<number>(candles.length).fill(1);
@@ -98,7 +110,7 @@ function simulateExtremeFilter(candles:Candle[], ad:number[], sourceEvents:Sourc
   const trades:Trade[]=[]; const markers:Marker[]=[];
   let position:null|{side:Side;entryTime:number;entryPrice:number;entryReason:string}=null;
   for(let i=1;i<candles.length;i+=1){
-    const c=candles[i]; const prev=ad[i-1]; const now=ad[i];
+    const c=candles[i]; const now=ad[i];
     if(position){
       const exitLong=position.side==="long"&&now<=1;
       const exitShort=position.side==="short"&&now>=1;
@@ -118,7 +130,6 @@ function simulateExtremeFilter(candles:Candle[], ad:number[], sourceEvents:Sourc
         break;
       }
     }
-    void prev;
   }
   if(position&&candles.length){const c=candles[candles.length-1];trades.push(closeTrade(position,c,"Datenende"));}
   return {trades,markers,metrics:computeMetrics(trades)};
@@ -154,6 +165,27 @@ function simulateRegimePullback(candles:Candle[], ad:number[], rsiValues:number[
   return {trades,markers,metrics:computeMetrics(trades)};
 }
 
+function simulateRegimeCross(candles:Candle[], ad:number[]):Simulation {
+  const trades:Trade[]=[]; const markers:Marker[]=[];
+  let position:null|{side:Side;entryTime:number;entryPrice:number;entryReason:string}=null;
+  for(let i=1;i<candles.length;i+=1){
+    const c=candles[i]; const prev=ad[i-1]; const now=ad[i];
+    const crossUp=prev<=1&&now>1;
+    const crossDown=prev>=1&&now<1;
+    if(!crossUp&&!crossDown)continue;
+    const nextSide:Side=crossUp?"long":"short";
+    if(position){
+      trades.push(closeTrade(position,c,"AD Regimewechsel"));
+      markers.push({time:c.time,side:position.side,kind:"exit",text:"EXIT / FLIP AD",color:"#facc15"});
+      position=null;
+    }
+    position={side:nextSide,entryTime:c.time,entryPrice:c.close,entryReason:"AD Cross 1"};
+    markers.push({time:c.time,side:nextSide,kind:"entry",text:nextSide==="long"?"LONG AD>1":"SHORT AD<1",color:nextSide==="long"?"#22c55e":"#ef4444"});
+  }
+  if(position&&candles.length){const c=candles[candles.length-1];trades.push(closeTrade(position,c,"Datenende"));}
+  return {trades,markers,metrics:computeMetrics(trades)};
+}
+
 export default function ADTrendLab(){
   const {symbol,interval,setSymbol,setInterval}=useSharedMarket();
   const [candles,setCandles]=useState<Candle[]>([]);
@@ -161,7 +193,8 @@ export default function ADTrendLab(){
   const [adLength,setAdLength]=useState(11);
   const [rsiLength,setRsiLength]=useState(14);
   const [rsiSignalLength,setRsiSignalLength]=useState(9);
-  const [view,setView]=useState<"a"|"b">("a");
+  const [candleSource,setCandleSource]=useState<CandleSource>("heikin");
+  const [view,setView]=useState<View>("c");
   const [status,setStatus]=useState("Lade …");
   const priceHost=useRef<HTMLDivElement>(null);const adHost=useRef<HTMLDivElement>(null);const rsiHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null);const adChart=useRef<IChartApi|null>(null);const rsiChart=useRef<IChartApi|null>(null);
@@ -169,13 +202,18 @@ export default function ADTrendLab(){
   const adLine=useRef<ISeriesApi<"Line">|null>(null);const oneLine=useRef<ISeriesApi<"Line">|null>(null);
   const rsiLine=useRef<ISeriesApi<"Line">|null>(null);const signalLine=useRef<ISeriesApi<"Line">|null>(null);
 
+  const haCandles=useMemo(()=>heikinAshi(candles),[candles]);
+  const trendCandles=candleSource==="heikin"?haCandles:candles;
   const closes=useMemo(()=>candles.map(c=>c.close),[candles]);
-  const ad=useMemo(()=>adRatio(candles,adLength),[candles,adLength]);
+  const ad=useMemo(()=>adRatio(trendCandles,adLength),[trendCandles,adLength]);
   const rsiValues=useMemo(()=>rsi(closes,rsiLength),[closes,rsiLength]);
   const rsiSignal=useMemo(()=>ema(rsiValues,rsiSignalLength),[rsiValues,rsiSignalLength]);
   const modeA=useMemo(()=>simulateExtremeFilter(candles,ad,sourceEvents),[candles,ad,sourceEvents]);
   const modeB=useMemo(()=>simulateRegimePullback(candles,ad,rsiValues,rsiSignal),[candles,ad,rsiValues,rsiSignal]);
-  const active=view==="a"?modeA:modeB;
+  const modeC=useMemo(()=>simulateRegimeCross(candles,ad),[candles,ad]);
+  const active=view==="a"?modeA:view==="b"?modeB:modeC;
+  const currentAd=ad.length?ad[ad.length-1]:1;
+  const currentRegime=currentAd>1?"LONG":currentAd<1?"SHORT":"NEUTRAL";
 
   useEffect(()=>{
     if(!priceHost.current||!adHost.current||!rsiHost.current)return;
@@ -191,13 +229,14 @@ export default function ADTrendLab(){
   },[]);
 
   useEffect(()=>{
-    candleSeries.current?.setData(candles.map(c=>({...c,time:c.time as Time})));
+    const displayCandles=candleSource==="heikin"?haCandles:candles;
+    candleSeries.current?.setData(displayCandles.map(c=>({...c,time:c.time as Time})));
     adLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:ad[i]})));
     oneLine.current?.setData(candles.map(c=>({time:c.time as Time,value:1})));
     rsiLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:rsiValues[i]})));
     signalLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:rsiSignal[i]})));
     markerApi.current?.setMarkers(active.markers.map(m=>({time:m.time as Time,position:m.kind==="entry"?(m.side==="long"?"belowBar":"aboveBar"):"aboveBar",shape:m.kind==="entry"?(m.side==="long"?"arrowUp":"arrowDown"):"circle",color:m.color,text:m.text,size:m.kind==="entry"?1.2:.8})).sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
-  },[candles,ad,rsiValues,rsiSignal,active]);
+  },[candles,haCandles,candleSource,ad,rsiValues,rsiSignal,active]);
 
   async function load(){
     setStatus("Lade Kerzen und V8.5-Entries …");
@@ -215,26 +254,32 @@ export default function ADTrendLab(){
 
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",padding:10,fontFamily:"Inter,Arial,sans-serif",boxSizing:"border-box"}}>
     <header style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",padding:"6px 8px 12px"}}>
-      <div><b style={{fontSize:20}}>AD Trend Lab V1</b><div style={{fontSize:11,color:"#94a3b8"}}>AD-Regime über/unter 1 · Länge 11 · ohne Puffer</div></div>
+      <div><b style={{fontSize:20}}>AD Trend Lab V1.1</b><div style={{fontSize:11,color:"#94a3b8"}}>HA-AD über/unter 1 · kein Puffer · drei Strategiemodi</div></div>
       <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={input}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
       <select value={interval} onChange={e=>setInterval(e.target.value)} style={input}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
       <label style={label}>AD Länge<input type="number" min="2" max="50" value={adLength} onChange={e=>setAdLength(Math.max(2,Number(e.target.value)||11))} style={smallInput}/></label>
       <label style={label}>RSI<input type="number" min="2" max="50" value={rsiLength} onChange={e=>setRsiLength(Math.max(2,Number(e.target.value)||14))} style={smallInput}/></label>
       <label style={label}>Signal<input type="number" min="1" max="30" value={rsiSignalLength} onChange={e=>setRsiSignalLength(Math.max(1,Number(e.target.value)||9))} style={smallInput}/></label>
+      <button onClick={()=>setCandleSource("heikin")} style={sourceButton(candleSource==="heikin")}>HEIKIN AD</button>
+      <button onClick={()=>setCandleSource("normal")} style={sourceButton(candleSource==="normal")}>NORMAL AD</button>
       <button onClick={()=>setView("a")} style={tab(view==="a")}>A · EXTREM + AD</button>
       <button onClick={()=>setView("b")} style={tab(view==="b")}>B · AD + PULLBACK</button>
+      <button onClick={()=>setView("c")} style={tab(view==="c")}>C · AD CROSS 1</button>
+      <span style={{fontSize:12,color:currentRegime==="LONG"?"#22c55e":currentRegime==="SHORT"?"#ef4444":"#facc15",fontWeight:800}}>REGIME {currentRegime} · AD {currentAd.toFixed(2)}</span>
       <span style={{fontSize:12,color:"#22c55e",marginLeft:"auto"}}>{status}</span>
     </header>
-    <section style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(260px,1fr))",gap:8,marginBottom:8}}>
-      <MetricsCard title="MODUS A · EXTREME-ENTRY + AD-FILTER" metrics={modeA.metrics} active={view==="a"} onClick={()=>setView("a")}/>
-      <MetricsCard title="MODUS B · AD-REGIME + RSI-KNICK" metrics={modeB.metrics} active={view==="b"} onClick={()=>setView("b")}/>
+    <section style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(260px,1fr))",gap:8,marginBottom:8}}>
+      <MetricsCard title="MODUS A · EXTREME + AD-FILTER" metrics={modeA.metrics} active={view==="a"} onClick={()=>setView("a")}/>
+      <MetricsCard title="MODUS B · AD + RSI-PULLBACK" metrics={modeB.metrics} active={view==="b"} onClick={()=>setView("b")}/>
+      <MetricsCard title="MODUS C · DIREKTER AD-REGIME-CROSS" metrics={modeC.metrics} active={view==="c"} onClick={()=>setView("c")}/>
     </section>
     <section style={{display:"grid",gridTemplateRows:"minmax(430px,55vh) 190px 190px",gap:8}}>
       <div ref={priceHost} style={chartBox}/><div ref={adHost} style={chartBox}/><div ref={rsiHost} style={chartBox}/>
     </section>
-    <section style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
-      <Info title="REGELN MODUS A"><p>Bestehender V8.5-Extreme-Entry wird nur akzeptiert, wenn AD die Richtung bestätigt.</p><code>AD &gt; 1 → nur LONG · AD &lt; 1 → nur SHORT · Exit bei Rückkehr an 1</code></Info>
-      <Info title="REGELN MODUS B"><p>AD bestimmt das Regime. Der nächste RSI/Signal-Cross in Trendrichtung dient als Pullback-/Knick-Entry.</p><code>AD &gt; 1 + RSI Cross Up → LONG · AD &lt; 1 + RSI Cross Down → SHORT · Exit bei 1</code></Info>
+    <section style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:8}}>
+      <Info title="REGELN MODUS A"><p>Bestehender V8.5-Extreme-Entry wird nur akzeptiert, wenn HA-AD die Richtung bestätigt.</p><code>AD &gt; 1 → nur LONG · AD &lt; 1 → nur SHORT · Exit bei Rückkehr an 1</code></Info>
+      <Info title="REGELN MODUS B"><p>HA-AD bestimmt das Regime. Der nächste RSI/Signal-Cross in Trendrichtung dient als Pullback-/Knick-Entry.</p><code>AD &gt; 1 + RSI Cross Up → LONG · AD &lt; 1 + RSI Cross Down → SHORT · Exit bei 1</code></Info>
+      <Info title="REGELN MODUS C"><p>Nur der Wechsel der HA-AD-Linie über oder unter 1 wird gehandelt. Bei jedem Gegencross erfolgt der direkte Flip.</p><code>Cross über 1 → LONG · Cross unter 1 → SHORT · Position bis zum Gegencross</code></Info>
     </section>
   </div>;
 }
@@ -248,4 +293,5 @@ const input:CSSProperties={background:"#0b1322",border:"1px solid #334155",borde
 const smallInput:CSSProperties={...input,width:66,padding:"6px 8px"};
 const label:CSSProperties={display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#94a3b8"};
 const tab=(active:boolean):CSSProperties=>({background:active?"#6d28d9":"#111827",border:`1px solid ${active?"#a855f7":"#334155"}`,borderRadius:8,color:"#fff",padding:"8px 11px",fontWeight:800,cursor:"pointer"});
+const sourceButton=(active:boolean):CSSProperties=>({background:active?"#0f766e":"#111827",border:`1px solid ${active?"#2dd4bf":"#334155"}`,borderRadius:8,color:"#fff",padding:"8px 11px",fontWeight:800,cursor:"pointer"});
 const chartBox:CSSProperties={background:"#070b16",border:"1px solid #26344d",borderRadius:9,minHeight:0,overflow:"hidden"};
