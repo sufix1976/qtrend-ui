@@ -856,7 +856,7 @@ export default function QMomentumLab() {
     if (!params || !extremeResult?.best) { setProfileStatus("Zuerst Optimierung starten"); return; }
     const defaultName = `${symbol} ${interval} · PF ${extremeResult.best.metrics.profit_factor.toFixed(2)}`;
     const name = `${profileName.trim() || defaultName}${copySuffix}`;
-    const response = await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name,params,result:extremeResult,activate:true}) });
+    const response = await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name,params,result:{...extremeResult,mirror_meta:{start_time:Number(candles[0]?.time||0),end_time:Number(candles[candles.length-1]?.time||0),candle_count:candles.length}},activate:true}) });
     const json = await response.json(); if(!response.ok || !json?.ok) throw new Error(json?.error || `HTTP ${response.status}`);
     setProfileName(""); setSelectedProfileId(json.id); setProfileStatus(`Gespeichert und aktiv: ${name}`); await loadProfiles();
   }
@@ -1517,7 +1517,7 @@ export default function QMomentumLab() {
         throw new Error(profileJson?.error || `Profil-Sync HTTP ${profileResponse.status}: ${profileRaw.slice(0, 140)}`);
       }
       const autoName = `${symbol} ${interval} · PF ${best.metrics.profit_factor.toFixed(2)} · ${new Date().toLocaleString("de-DE")}`;
-      await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name:autoName,params:sharedProfile,result:finalResult,activate:true}) });
+      await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name:autoName,params:sharedProfile,result:{...finalResult,mirror_meta:{start_time:Number(candles[0]?.time||0),end_time:Number(candles[candles.length-1]?.time||0),candle_count:candles.length}},activate:true}) });
       await loadProfiles();
 
       setExtremeStatus(
