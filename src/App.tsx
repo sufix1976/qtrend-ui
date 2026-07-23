@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import ExtremeLiveCockpit from "./ExtremeLiveCockpit";
 import QMomentumLab from "./QMomentumLab";
+import ADTrendLab from "./ADTrendLab";
 import Trainer from "./Trainer";
 import "./App.css";
 
-type View = "chart" | "lab" | "cockpit" | "trainer" | "momentum" | "settings";
+type View = "chart" | "lab" | "adlab" | "cockpit" | "trainer" | "momentum" | "settings";
 
 function readView(): View {
   const raw = new URLSearchParams(window.location.search).get("view");
-  if (raw === "lab" || raw === "cockpit" || raw === "trainer" || raw === "momentum" || raw === "settings") return raw;
+  if (raw === "lab" || raw === "adlab" || raw === "cockpit" || raw === "trainer" || raw === "momentum" || raw === "settings") return raw;
   return "chart";
 }
 
@@ -30,16 +31,17 @@ export default function App() {
   return (
     <div className="v8-shell">
       <nav className="v8-nav">
-        <div className="v8-brand"><b>QTrend V8.1</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
+        <div className="v8-brand"><b>QTrend V8.5</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
         <div className="v8-tabs">
-          {(["chart","lab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
-            <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item.toUpperCase()}</button>
+          {(["chart","lab","adlab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
+            <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item === "adlab" ? "AD LAB" : item.toUpperCase()}</button>
           ))}
         </div>
       </nav>
       <section className="v8-content">
         {view === "chart" && <ExtremeLiveCockpit chartOnly />}
         {view === "lab" && <QMomentumLab />}
+        {view === "adlab" && <ADTrendLab />}
         {view === "cockpit" && <ExtremeLiveCockpit />}
         {view === "trainer" && <Trainer />}
         {view === "momentum" && <Placeholder title="MOMENTUM" text="Momentum AI bleibt als eigenes Forschungsmodul erhalten. V8.0 verbindet zunächst LAB und COCKPIT." />}
