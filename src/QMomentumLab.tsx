@@ -1333,7 +1333,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage(`V7.1 startet: Entry bleibt unverändert. Protect fest, Exit über ${exitHtfMinutes}m-RSI ${exitRsiLower}/${exitRsiUpper} und Basis-RSI-Drehung …`);
+    setMessage(`V7.3 startet: Entry bleibt unverändert. Protect fest, Exit über ${exitHtfMinutes}m-RSI ${exitRsiLower}/${exitRsiUpper} und Basis-RSI-Drehung …`);
 
     try {
       const startResponse = await fetch(
@@ -1654,7 +1654,7 @@ export default function QMomentumLab() {
     return (
       <div className="ex6-shell">
         <header className="ex6-header">
-          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD HTF RSI Exit Lab V7.1</h1><p>MACD Armed · RSI Entry · fester Protect · HTF-RSI Exit Armed</p></div></div>
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD HTF RSI Exit Lab V7.3</h1><p>MACD Armed · RSI Entry · fester Protect · HTF-RSI Exit Armed</p></div></div>
           <div className="ex6-header-actions">
             <span className="ex6-live">● LIVE</span>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -1672,7 +1672,7 @@ export default function QMomentumLab() {
           <label>Exit HTF (Min.)<input type="number" min="5" step="5" value={exitHtfMinutes} onChange={(e) => setExitHtfMinutes(Number(e.target.value))} /></label>
           <label>RSI Untergrenze<input type="number" min="10" max="45" step="1" value={exitRsiLower} onChange={(e) => setExitRsiLower(Number(e.target.value))} /></label>
           <label>RSI Obergrenze<input type="number" min="55" max="90" step="1" value={exitRsiUpper} onChange={(e) => setExitRsiUpper(Number(e.target.value))} /></label>
-          <span className="ex61-rule">ENTRY UNVERÄNDERT → STATE DEBUG MIT AUSLÖSER A/C/R/D → PROTECT → HTF-RSI EXIT</span>
+          <span className="ex61-rule">ENTRY UNVERÄNDERT → PROTECT OHNE NULLRESET FLIPPT GEGENRICHTUNG → HTF-RSI EXIT</span>
           <button type="button" className={showStateDebug ? "ex61-debug-on" : ""} onClick={() => setShowStateDebug((value) => !value)}>STATE DEBUG {showStateDebug ? "ON" : "OFF"}</button>
           <span className={extremeStatus.startsWith("Fehler") ? "ex6-run error" : "ex6-run"}>{extremeStatus}</span>
         </section>
@@ -1725,13 +1725,13 @@ export default function QMomentumLab() {
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : trade.direction === "short" ? "red" : ""}>{trade.direction?.toUpperCase() ?? "–"}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>STATE DEBUG V7.2</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Extremphase erst an der MACD-Nulllinie zurückgesetzt</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p></div>
+            <div className="ex6-card"><h3>STATE DEBUG V7.3</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Extremphase erst an der MACD-Nulllinie zurückgesetzt</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p><p><b>F</b> = Protect-Exit ohne Nullreset seit Entry erzeugt sofort einen Gegen-Trade</p></div>
 
             <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.2 Null-Line Reset</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.3 Protect-Failure Flip</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
