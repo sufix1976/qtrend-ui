@@ -30,7 +30,7 @@ export default function App() {
   return (
     <div className="v8-shell">
       <nav className="v8-nav">
-        <div className="v8-brand"><b>QTrend V8.0</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
+        <div className="v8-brand"><b>QTrend V8.1</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
         <div className="v8-tabs">
           {(["chart","lab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
             <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item.toUpperCase()}</button>
@@ -43,7 +43,7 @@ export default function App() {
         {view === "cockpit" && <ExtremeLiveCockpit />}
         {view === "trainer" && <Trainer />}
         {view === "momentum" && <Placeholder title="MOMENTUM" text="Momentum AI bleibt als eigenes Forschungsmodul erhalten. V8.0 verbindet zunächst LAB und COCKPIT." />}
-        {view === "settings" && <Placeholder title="SETTINGS" text="Zentrale Profile, Broker, Telegram und Layout folgen in V8.1. Die Markt-/TF-Auswahl wird bereits zwischen CHART, LAB und COCKPIT geteilt." />}
+        {view === "settings" && <Placeholder title="SETTINGS" text="Profile werden jetzt persistent gespeichert und zwischen LAB, COCKPIT und Engine geteilt. Broker, Telegram und Layout folgen schrittweise." />}
       </section>
     </div>
   );

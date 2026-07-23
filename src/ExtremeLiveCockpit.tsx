@@ -72,6 +72,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const [chartMode,setChartMode]=useState<"heikin"|"candles">("heikin");
   const [candles,setCandles]=useState<Candle[]>([]); const [live,setLive]=useState<LiveState|null>(null);
   const [profile,setProfile]=useState<Profile>(DEFAULT_PROFILE); const [snapshot,setSnapshot]=useState<any>(null);
+  const [profiles,setProfiles]=useState<any[]>([]); const [activeProfileId,setActiveProfileId]=useState("");
   const [size,setSize]=useState(1); const [auto,setAuto]=useState(false); const [status,setStatus]=useState("Verbinden …");
   const priceHost=useRef<HTMLDivElement>(null); const macdHost=useRef<HTMLDivElement>(null); const rsiHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null); const macdChart=useRef<IChartApi|null>(null); const rsiChart=useRef<IChartApi|null>(null);
@@ -108,20 +109,22 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
 
   async function load(){
     try{
-      const [c,s,p,l,cfg]=await Promise.all([
+      const [c,s,p,l,cfg,profileList]=await Promise.all([
         fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${symbol}&interval=${interval}&limit=1500&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/v5/state?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/state?symbol=${symbol}&interval=${interval}&limit=1500&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/v5/config?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
+        fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
       ]);
-      setCandles(Array.isArray(c.candles)?c.candles:[]);setSnapshot(s.state||null);setProfile({...DEFAULT_PROFILE,...p.params});setLive(l);
+      setCandles(Array.isArray(c.candles)?c.candles:[]);setSnapshot(s.state||null);setProfile({...DEFAULT_PROFILE,...p.params});setLive(l);setProfiles(Array.isArray(profileList.profiles)?profileList.profiles:[]);
       if(cfg?.row){setSize(Number(cfg.row.size||1));setAuto(Boolean(cfg.row.auto_enabled));}
       setStatus("SIGNAL MIRROR verbunden · Auto-Orders noch gesperrt");
     }catch(e){setStatus(`Fehler: ${e instanceof Error?e.message:String(e)}`);}
   }
   useEffect(()=>{void load();const t=window.setInterval(()=>void load(),30000);return()=>window.clearInterval(t);},[symbol,interval]);
 
+  async function activateProfile(id:string){try{const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles/activate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});setActiveProfileId(id);setProfile({...DEFAULT_PROFILE,...x.profile.params});setStatus(`Aktives Profil: ${x.profile.name}`);await load();}catch(e){setStatus(`Profil laden fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
   async function saveProfile(){try{await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,params:profile})});setStatus("V7.4 Profil gespeichert");await load();}catch(e){setStatus(`Profilfehler: ${e instanceof Error?e.message:String(e)}`);}}
   async function saveExecution(nextAuto=auto){try{await fetchJson(`${BACKEND_BASE}/v5/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,size,auto_enabled:nextAuto})});setStatus("Ausführungskonfiguration gespeichert");}catch(e){setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
   async function manual(side:"long"|"short"|"flat"){try{await fetchJson(`${BACKEND_BASE}/v5/manual`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,side})});setStatus(`${side.toUpperCase()} gesendet`);await load();}catch(e){setStatus(`Manuell fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
@@ -148,6 +151,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         <Card title="ENTRY"><Row k="LONG Armed" v={fs?.long_armed?"JA":"NEIN"}/><Row k="SHORT Armed" v={fs?.short_armed?"JA":"NEIN"}/><Row k="LONG Extrem" v={fs?.long_extreme_active?"AKTIV":"INAKTIV"}/><Row k="SHORT Extrem" v={fs?.short_extreme_active?"AKTIV":"INAKTIV"}/></Card>
         <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Exit TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
         <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="PF Replay" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/></Card>
+        <Card title="AKTIVES PROFIL"><select value={activeProfileId} onChange={e=>{setActiveProfileId(e.target.value);if(e.target.value)void activateProfile(e.target.value);}} style={{...input,width:"100%"}}><option value="">Aktives Engine-Profil</option>{profiles.map((row:any)=><option key={row.id} value={row.id}>{row.name}</option>)}</select><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>{profiles.length} gespeicherte Profile für {symbol} {interval}</div></Card>
         <Card title="V7.4 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit HTF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
         <div style={{fontSize:11,color:"#94a3b8",padding:6}}>{status}</div>
       </aside>}

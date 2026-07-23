@@ -451,6 +451,12 @@ type ExtremeRank = {
   metrics: ExtremeMetrics;
 };
 
+type SavedExtremeProfile = {
+  id: string; symbol: string; interval: string; name: string;
+  params: ExtremeParams; result: ExtremeResult | null; note?: string | null;
+  created_at: string; updated_at: string;
+};
+
 type ExtremeResult = {
   mode: string;
   symbol: string;
@@ -730,6 +736,10 @@ export default function QMomentumLab() {
   const [formulaResult, setFormulaResult] = useState<FormulaResult | null>(null);
   const [showFormulaTrend, setShowFormulaTrend] = useState(true);
   const [message, setMessage] = useState("");
+  const [savedProfiles, setSavedProfiles] = useState<SavedExtremeProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileStatus, setProfileStatus] = useState("Profile laden …");
 
   const priceEl = useRef<HTMLDivElement>(null);
   const macdEl = useRef<HTMLDivElement>(null);
@@ -818,6 +828,56 @@ export default function QMomentumLab() {
     return "neutral" as const;
   }, [formulaResult]);
 
+  async function loadProfiles() {
+    try {
+      const response = await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&_ts=${Date.now()}`, { cache:"no-store" });
+      const json = await response.json();
+      if (!response.ok || !json?.ok) throw new Error(json?.error || `HTTP ${response.status}`);
+      setSavedProfiles(Array.isArray(json.profiles) ? json.profiles : []);
+      setProfileStatus(`${Array.isArray(json.profiles) ? json.profiles.length : 0} Profile gespeichert`);
+    } catch (error:any) { setProfileStatus(`Profilfehler: ${error?.message || error}`); }
+  }
+
+  function bestParamsForProfile() {
+    const best = extremeResult?.best;
+    if (!best) return null;
+    return {
+      macd_fast:best.params.macd_fast, macd_slow:best.params.macd_slow, macd_signal:9,
+      rsi_length:best.params.rsi_length ?? 14, rsi_signal:9,
+      long_zone_sigma:best.params.long_zone_sigma, short_zone_sigma:best.params.short_zone_sigma,
+      z_window:best.params.z_window || extremeZWindow, protect_min_hold_bars:best.params.protect_min_hold_bars ?? 3,
+      exit_htf_minutes:best.params.exit_htf_minutes ?? exitHtfMinutes,
+      exit_rsi_lower:best.params.exit_rsi_lower ?? exitRsiLower, exit_rsi_upper:best.params.exit_rsi_upper ?? exitRsiUpper,
+    };
+  }
+
+  async function saveNamedProfile(copySuffix = "") {
+    const params = bestParamsForProfile();
+    if (!params || !extremeResult?.best) { setProfileStatus("Zuerst Optimierung starten"); return; }
+    const defaultName = `${symbol} ${interval} · PF ${extremeResult.best.metrics.profit_factor.toFixed(2)}`;
+    const name = `${profileName.trim() || defaultName}${copySuffix}`;
+    const response = await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name,params,result:extremeResult,activate:true}) });
+    const json = await response.json(); if(!response.ok || !json?.ok) throw new Error(json?.error || `HTTP ${response.status}`);
+    setProfileName(""); setSelectedProfileId(json.id); setProfileStatus(`Gespeichert und aktiv: ${name}`); await loadProfiles();
+  }
+
+  async function loadSelectedProfile() {
+    const selected = savedProfiles.find(row => row.id === selectedProfileId); if(!selected) return;
+    const response=await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles/activate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selected.id})});
+    const json=await response.json(); if(!response.ok||!json?.ok) throw new Error(json?.error||`HTTP ${response.status}`);
+    if(selected.result?.best){ setExtremeResult(selected.result); setShowExtremeMarkers(true); }
+    setExtremeZWindow(Number(selected.params.z_window || 200)); setExitHtfMinutes(Number(selected.params.exit_htf_minutes || 30));
+    setExitRsiLower(Number(selected.params.exit_rsi_lower || 30)); setExitRsiUpper(Number(selected.params.exit_rsi_upper || 70));
+    setProfileStatus(`Aktiv: ${selected.name}`);
+  }
+
+  async function deleteSelectedProfile() {
+    if(!selectedProfileId) return;
+    const response=await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles/delete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:selectedProfileId})});
+    const json=await response.json(); if(!response.ok||!json?.ok) throw new Error(json?.error||`HTTP ${response.status}`);
+    setSelectedProfileId(""); setProfileStatus("Profil gelöscht"); await loadProfiles();
+  }
+
   async function load(resetSelection = true) {
     setLoading(true);
     setMessage("");
@@ -860,6 +920,7 @@ export default function QMomentumLab() {
     setExtremeResult(null);
     setExtremeStatus("Bereit");
     load();
+    void loadProfiles();
   }, [symbol, interval]);
 
   useEffect(() => {
@@ -1455,6 +1516,9 @@ export default function QMomentumLab() {
       if (!profileResponse.ok || !profileJson?.ok) {
         throw new Error(profileJson?.error || `Profil-Sync HTTP ${profileResponse.status}: ${profileRaw.slice(0, 140)}`);
       }
+      const autoName = `${symbol} ${interval} · PF ${best.metrics.profit_factor.toFixed(2)} · ${new Date().toLocaleString("de-DE")}`;
+      await fetch(`${BACKEND_BASE}/qmomentum/extreme-profiles`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symbol,interval,name:autoName,params:sharedProfile,result:finalResult,activate:true}) });
+      await loadProfiles();
 
       setExtremeStatus(
         `Fertig · PF ${best.metrics.profit_factor.toFixed(2)} · ` +
@@ -1695,6 +1759,22 @@ export default function QMomentumLab() {
             <button onClick={() => setWorkspace("legacy")}>Marker-Labor</button>
           </div>
         </header>
+
+        <section style={{display:"grid",gridTemplateColumns:"minmax(220px,1fr) minmax(180px,1fr) auto auto auto auto",gap:8,alignItems:"end",padding:"10px 14px",background:"#0b1220",borderBottom:"1px solid #26344d"}}>
+          <label style={{display:"grid",gap:4,fontSize:11,color:"#94a3b8"}}>GESPEICHERTE PROFILE
+            <select value={selectedProfileId} onChange={(e)=>setSelectedProfileId(e.target.value)} style={{background:"#08101d",color:"#eef2ff",border:"1px solid #334155",borderRadius:7,padding:8}}>
+              <option value="">Profil auswählen …</option>{savedProfiles.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}
+            </select>
+          </label>
+          <label style={{display:"grid",gap:4,fontSize:11,color:"#94a3b8"}}>NEUER PROFILNAME
+            <input value={profileName} onChange={(e)=>setProfileName(e.target.value)} placeholder="z. B. Demo Juli" style={{background:"#08101d",color:"#eef2ff",border:"1px solid #334155",borderRadius:7,padding:8}}/>
+          </label>
+          <button onClick={()=>void loadSelectedProfile()} disabled={!selectedProfileId}>LADEN + AKTIVIEREN</button>
+          <button onClick={()=>void saveNamedProfile() } disabled={!extremeResult?.best}>SPEICHERN</button>
+          <button onClick={()=>void saveNamedProfile(" · Kopie")} disabled={!extremeResult?.best}>KOPIEREN</button>
+          <button onClick={()=>void deleteSelectedProfile()} disabled={!selectedProfileId}>LÖSCHEN</button>
+          <span style={{gridColumn:"1/-1",fontSize:11,color:"#94a3b8"}}>{profileStatus}</span>
+        </section>
 
         <section className="ex6-toolbar">
           <button className="ex6-search" onClick={() => { void optimizeExtremeMacd(); }} disabled={extremeOptimizing || loading || candles.length === 0}>
