@@ -17,6 +17,19 @@ const INTERVALS = ["1m", "5m", "10m", "15m", "30m", "1h"];
 
 type Candle = { time: number; open: number; high: number; low: number; close: number };
 
+function intervalToMinutes(interval: string): number {
+  const value = String(interval || "").trim().toLowerCase();
+  const match = value.match(/^(\d+)(m|h|d)$/);
+  if (!match) return 15;
+
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return 15;
+
+  if (match[2] === "h") return amount * 60;
+  if (match[2] === "d") return amount * 1440;
+  return amount;
+}
+
 function heikinAshiCandles(candles: Candle[]): Candle[] {
   let previousHaOpen = 0;
   let previousHaClose = 0;
