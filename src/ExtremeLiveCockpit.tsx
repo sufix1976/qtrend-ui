@@ -21,14 +21,14 @@ type Profile = {
   macd_fast:number; macd_slow:number; macd_signal:number;
   rsi_length:number; rsi_signal:number;
   long_zone_sigma:number; short_zone_sigma:number; z_window:number;
-  protect_min_hold_bars:number; exit_htf_minutes:number;
+  protect_min_hold_bars:number; exit_htf_minutes:number; exit_timing_minutes:number;
   exit_rsi_lower:number; exit_rsi_upper:number;
 };
 type LiveEvent = { type:"entry"|"exit"; direction?:"long"|"short"; time:number; price:number; reason?:string; exit_type?:string };
 type LiveState = {
   mode:string; params:Profile; events:LiveEvent[];
-  indicators:Array<{time:number;macd:number;signal:number;histogram:number;rsi:number;rsi_signal:number;htf_rsi:number;z_score:number}>;
-  current?:{macd:number;signal:number;histogram:number;rsi:number;rsi_signal:number;htf_rsi:number;z_score:number};
+  indicators:Array<{time:number;macd:number;signal:number;histogram:number;rsi:number;rsi_signal:number;htf_rsi:number;exit_timing_rsi:number;z_score:number}>;
+  current?:{macd:number;signal:number;histogram:number;rsi:number;rsi_signal:number;htf_rsi:number;exit_timing_rsi:number;z_score:number};
   final_state?:{position:string;long_armed:boolean;short_armed:boolean;exit_armed:boolean;long_extreme_active:boolean;short_extreme_active:boolean};
   metrics?:{trades:number;profit_factor:number;net:number;max_drawdown:number};
 };
@@ -37,7 +37,7 @@ const DEFAULT_PROFILE: Profile = {
   macd_fast:10, macd_slow:20, macd_signal:9,
   rsi_length:14, rsi_signal:9,
   long_zone_sigma:-1.5, short_zone_sigma:1.5, z_window:200,
-  protect_min_hold_bars:3, exit_htf_minutes:60,
+  protect_min_hold_bars:3, exit_htf_minutes:60, exit_timing_minutes:15,
   exit_rsi_lower:30, exit_rsi_upper:70,
 };
 
@@ -85,7 +85,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const priceChart=useRef<IChartApi|null>(null); const macdChart=useRef<IChartApi|null>(null); const rsiChart=useRef<IChartApi|null>(null);
   const candleSeries=useRef<ISeriesApi<"Candlestick">|null>(null); const markerApi=useRef<any>(null);
   const macdLine=useRef<ISeriesApi<"Line">|null>(null); const signalLine=useRef<ISeriesApi<"Line">|null>(null); const hist=useRef<ISeriesApi<"Histogram">|null>(null);
-  const rsiLine=useRef<ISeriesApi<"Line">|null>(null); const rsiSignalLine=useRef<ISeriesApi<"Line">|null>(null); const htfLine=useRef<ISeriesApi<"Line">|null>(null);
+  const rsiLine=useRef<ISeriesApi<"Line">|null>(null); const rsiSignalLine=useRef<ISeriesApi<"Line">|null>(null); const htfLine=useRef<ISeriesApi<"Line">|null>(null); const timingLine=useRef<ISeriesApi<"Line">|null>(null);
   const shownCandles=useMemo(()=>chartMode==="heikin"?ha(candles):candles,[candles,chartMode]);
 
   useEffect(()=>{
@@ -94,8 +94,8 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
     const pc=createChart(priceHost.current,common); const mc=createChart(macdHost.current,common); const rc=createChart(rsiHost.current,common);
     const cs=pc.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});
     const ml=mc.addSeries(LineSeries,{color:"#60a5fa",lineWidth:2}); const sl=mc.addSeries(LineSeries,{color:"#facc15",lineWidth:2}); const hg=mc.addSeries(HistogramSeries,{});
-    const rl=rc.addSeries(LineSeries,{color:"#a855f7",lineWidth:2}); const rsl=rc.addSeries(LineSeries,{color:"#facc15",lineWidth:2}); const hl=rc.addSeries(LineSeries,{color:"#38bdf8",lineWidth:3});
-    markerApi.current=createSeriesMarkers(cs,[]); priceChart.current=pc;macdChart.current=mc;rsiChart.current=rc;candleSeries.current=cs;macdLine.current=ml;signalLine.current=sl;hist.current=hg;rsiLine.current=rl;rsiSignalLine.current=rsl;htfLine.current=hl;
+    const rl=rc.addSeries(LineSeries,{color:"#a855f7",lineWidth:2}); const rsl=rc.addSeries(LineSeries,{color:"#facc15",lineWidth:2}); const hl=rc.addSeries(LineSeries,{color:"#38bdf8",lineWidth:3}); const tl=rc.addSeries(LineSeries,{color:"#e879f9",lineWidth:2});
+    markerApi.current=createSeriesMarkers(cs,[]); priceChart.current=pc;macdChart.current=mc;rsiChart.current=rc;candleSeries.current=cs;macdLine.current=ml;signalLine.current=sl;hist.current=hg;rsiLine.current=rl;rsiSignalLine.current=rsl;htfLine.current=hl;timingLine.current=tl;
     let syncing=false; const sync=(source:IChartApi, a:IChartApi,b:IChartApi)=>source.timeScale().subscribeVisibleLogicalRangeChange(range=>{if(!range||syncing)return;syncing=true;a.timeScale().setVisibleLogicalRange(range);b.timeScale().setVisibleLogicalRange(range);syncing=false;});
     sync(pc,mc,rc);sync(mc,pc,rc);sync(rc,pc,mc);
     return()=>{pc.remove();mc.remove();rc.remove();};
@@ -111,6 +111,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
     rsiLine.current?.setData(rows.map(x=>({time:x.time as Time,value:x.rsi})));
     rsiSignalLine.current?.setData(rows.map(x=>({time:x.time as Time,value:x.rsi_signal})));
     htfLine.current?.setData(rows.map(x=>({time:x.time as Time,value:x.htf_rsi})));
+    timingLine.current?.setData(rows.map(x=>({time:x.time as Time,value:x.exit_timing_rsi})));
     markerApi.current?.setMarkers((live.events||[]).map(e=>e.type==="entry"?{time:e.time as Time,position:e.direction==="long"?"belowBar":"aboveBar",color:color(e.direction),shape:e.direction==="long"?"arrowUp":"arrowDown",text:e.direction?.toUpperCase()||"ENTRY",size:1.2}:{time:e.time as Time,position:"aboveBar",color:"#facc15",shape:"circle",text:"EXIT",size:0.9}).sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
   },[shownCandles,live]);
 
@@ -168,14 +169,14 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
 
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",fontFamily:"Inter,Arial,sans-serif",padding:10,boxSizing:"border-box"}}>
     <header style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",padding:"6px 8px 12px"}}>
-      <b style={{fontSize:20}}>Extreme MACD V7.4 · Demo Candidate</b>
+      <b style={{fontSize:20}}>Extreme MACD V8.5 · Demo Candidate</b>
       <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={input}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
       <select value={interval} onChange={e=>setInterval(e.target.value)} style={input}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
       <button style={button(chartMode==="heikin")} onClick={()=>setChartMode("heikin")}>Heikin</button><button style={button(chartMode==="candles")} onClick={()=>setChartMode("candles")}>Kerzen</button>
       <span style={badge(Boolean(fs?.long_armed))}>LONG ARMED</span><span style={badge(Boolean(fs?.short_armed),"#ef4444")}>SHORT ARMED</span>
       <span style={badge(strategy!=="FLAT","#f59e0b")}>PROTECT {strategy!=="FLAT"?"AKTIV":"AUS"}</span><span style={badge(Boolean(fs?.exit_armed),"#a855f7")}>HTF EXIT</span>
       <span style={{...badge(true,color(strategy)),color:color(strategy)}}>POSITION {strategy}</span><span style={{...badge(true,color(broker)),color:color(broker)}}>BROKER {broker}</span>
-      <span style={{fontSize:12,color:"#f59e0b",fontWeight:800}}>SIGNAL MIRROR · KEINE AUTO-ORDERS AUS V7.4</span>
+      <span style={{fontSize:12,color:"#f59e0b",fontWeight:800}}>SIGNAL MIRROR · KEINE AUTO-ORDERS AUS V8.5</span>
     </header>
     <main style={{display:"grid",gridTemplateColumns:chartOnly?"minmax(0,1fr)":"minmax(0,1fr) 330px",gap:10,minHeight:"calc(100vh - 80px)"}}>
       <section style={{display:"grid",gridTemplateRows:"minmax(430px,58vh) 210px 210px",gap:8,minWidth:0}}>
@@ -186,12 +187,12 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         <Card title="BROKER INFO">{brokerLog.length?<>{brokerLog.map((row:any,index:number)=><div key={`${row.exec_id||index}`} style={{padding:index?"8px 0 0":"0",marginTop:index?8:0,borderTop:index?"1px solid #26344d":"none"}}><Row k={index===0?"Letzte Aktion":"Aktion"} v={String(row.action||"–").toUpperCase()}/><Row k="Zeit" v={fmtTime(row.executed_at)}/><Row k="Grund" v={String(row.reason||"–").toUpperCase()}/><Row k="Signal" v={String(row.signal_id||"–").slice(0,24)}/><Row k="Status" v={String(row.status??"–")}/></div>)}</>:<div style={{fontSize:12,color:"#94a3b8"}}>Noch keine Brokeraktion für {symbol} gefunden.</div>}</Card>
         <Card title="BROKER RISK"><Row k="Max. Positionsverlust" v={risk?.enabled?`${Number(risk.max_position_loss_eur).toFixed(2)} € · AKTIV`:"DEAKTIVIERT"}/><Row k="Prüfung" v={risk?.poll_ms?`${Math.round(Number(risk.poll_ms)/1000)} Sek.`:"–"}/><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginTop:9}}><input type="number" min="0" step="1" value={riskInput} onChange={e=>setRiskInput(e.target.value)} style={input}/><button style={onButton} onClick={()=>void saveMaxLoss(Math.max(0,Number(riskInput)||0))}>SPEICHERN</button></div><button style={{...offButton,background:"#7f1d1d"}} onClick={()=>void saveMaxLoss(0)}>DEAKTIVIEREN</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>Dieser alte Engine-Guard schließt jede Brokerposition automatisch, sobald ihr offener Verlust den eingestellten Eurobetrag erreicht.</div></Card>
         <Card title="ENTRY"><Row k="LONG Armed" v={fs?.long_armed?"JA":"NEIN"}/><Row k="SHORT Armed" v={fs?.short_armed?"JA":"NEIN"}/><Row k="LONG Extrem" v={fs?.long_extreme_active?"AKTIV":"INAKTIV"}/><Row k="SHORT Extrem" v={fs?.short_extreme_active?"AKTIV":"INAKTIV"}/></Card>
-        <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Exit TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
-        <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="Replay PF (aktuell)" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/><Row k="Replay Trades" v={String(live?.metrics?.trades??"–")}/><Row k="Replay Zeitraum" v={candles.length?`${fmtTime(candles[0]?.time)} – ${fmtTime(candles[candles.length-1]?.time)}`:"–"}/></Card>
+        <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Armed TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Timing TF" v={`${profile.exit_timing_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
+        <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k={`Timing RSI ${profile.exit_timing_minutes}m`} v={cur?.exit_timing_rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="Replay PF (aktuell)" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/><Row k="Replay Trades" v={String(live?.metrics?.trades??"–")}/><Row k="Replay Zeitraum" v={candles.length?`${fmtTime(candles[0]?.time)} – ${fmtTime(candles[candles.length-1]?.time)}`:"–"}/></Card>
         <Card title="AKTIVES PROFIL"><select value={activeProfileId} onChange={e=>{setActiveProfileId(e.target.value);setMirror(null);if(e.target.value)void activateProfile(e.target.value);}} style={{...input,width:"100%"}}><option value="">Aktives Engine-Profil</option>{profiles.map((row:any)=><option key={row.id} value={row.id}>{row.name}</option>)}</select>{(()=>{const p=profiles.find((row:any)=>row.id===activeProfileId);const m=p?.result?.best?.metrics;const meta=p?.result?.mirror_meta;return p?<div style={{marginTop:8}}><Row k="Profil PF" v={m?.profit_factor?.toFixed?.(2)??"–"}/><Row k="Profil Trades" v={String(m?.trades??"–")}/><Row k="Profil Zeitraum" v={meta?`${fmtTime(meta.start_time)} – ${fmtTime(meta.end_time)}`:"älteres Profil ohne Zeitraum"}/></div>:null;})()}<button style={{...onButton,width:"100%",marginTop:9}} disabled={!activeProfileId||mirrorBusy} onClick={()=>void runMirror()}>{mirrorBusy?"MIRROR LÄUFT …":"MIRROR TEST"}</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>{profiles.length} gespeicherte Profile für {symbol} {interval}</div></Card>
         {mirror&&<Card title="MIRROR VALIDATION"><Row k="Gesamt" v={mirror.compare?.identical?"IDENTISCH":"DIFFERENZ"}/><Row k="Kerzen" v={yes(mirror.compare?.candles_match)}/><Row k="PF" v={`${mirror.profile?.metrics?.profit_factor?.toFixed?.(2)??"–"} / ${mirror.replay?.metrics?.profit_factor?.toFixed?.(2)??"–"} · ${yes(mirror.compare?.pf_match)}`}/><Row k="Trades" v={`${mirror.profile?.metrics?.trades??"–"} / ${mirror.replay?.metrics?.trades??"–"} · ${yes(mirror.compare?.trades_match)}`}/><Row k="Netto" v={yes(mirror.compare?.net_match)}/><Row k="Drawdown" v={yes(mirror.compare?.drawdown_match)}/><Row k="Entries" v={`${mirror.compare?.profile_entry_count??0} / ${mirror.compare?.replay_entry_count??0}`}/><Row k="Exits" v={`${mirror.compare?.profile_exit_count??0} / ${mirror.compare?.replay_exit_count??0}`}/><Row k="Marker" v={yes(mirror.compare?.markers_match)}/><Row k="Profilzeitraum" v={`${fmtTime(mirror.profile?.range?.start_time)} – ${fmtTime(mirror.profile?.range?.end_time)}`}/><Row k="Replayzeitraum" v={`${fmtTime(mirror.replay?.range?.start_time)} – ${fmtTime(mirror.replay?.range?.end_time)}`}/></Card>}
         <Card title="SYSTEM / DATENBANK"><Row k="Datenbank" v={dbInfo?.db_exists?"OK":"NICHT GEFUNDEN"}/><Row k="Pfad" v={String(dbInfo?.db_path||"–")}/><Row k="Größe" v={dbInfo?.db_size_bytes!=null?`${(Number(dbInfo.db_size_bytes)/1024/1024).toFixed(1)} MB`:"–"}/><Row k="Profile" v={String(dbInfo?.counts?.extreme_profile_snapshots??"–")}/><Row k="Aktive Profile" v={String(dbInfo?.counts?.extreme_live_profiles??"–")}/><Row k="Kerzen" v={String(dbInfo?.counts?.candles??"–")}/><Row k="Trades" v={String(dbInfo?.counts?.trades??"–")}/><Row k="Speicherort" v={String(dbInfo?.db_path||"").startsWith("/var/data/")?"RENDER /var/data":"PRÜFEN"}/></Card>
-        <Card title="V7.4 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit HTF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
+        <Card title="V8.5 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit Armed TF")}{field("exit_timing_minutes","Exit Timing TF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
         <div style={{fontSize:11,color:"#94a3b8",padding:6}}>{status}</div>
       </aside>}
     </main>
