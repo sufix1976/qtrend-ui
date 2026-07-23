@@ -1079,7 +1079,7 @@ export default function QMomentumLab() {
           const reasonText = action === "ARMED"
             ? `NEU ${zPrevText}→${zNowText} / G ${thresholdText}`
             : action === "RESET"
-              ? `ZONE RAUS ${zPrevText}→${zNowText} / G ${thresholdText}`
+              ? `NULL-RESET MACD ${macdText}`
               : action === "DISARM"
                 ? `NULL MACD ${macdText}`
                 : "ENTRY";
@@ -1725,13 +1725,13 @@ export default function QMomentumLab() {
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : trade.direction === "short" ? "red" : ""}>{trade.direction?.toUpperCase() ?? "–"}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>STATE DEBUG V7.1c</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Sigma-Zone verlassen; zeigt Z vorher → jetzt und Grenzwert</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p></div>
+            <div className="ex6-card"><h3>STATE DEBUG V7.2</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Extremphase erst an der MACD-Nulllinie zurückgesetzt</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p></div>
 
             <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.1c State Debug</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.2 Null-Line Reset</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
