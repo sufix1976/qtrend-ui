@@ -351,6 +351,8 @@ type ExtremeParams = {
   macd_fast: number;
   macd_slow: number;
   macd_signal: number;
+  rsi_length?: number;
+  rsi_signal?: number;
   long_zone_sigma: number;
   short_zone_sigma: number;
   z_window: number;
@@ -474,6 +476,10 @@ type ExtremeResult = {
     macd_fast_median: number;
     macd_slow_median: number;
     macd_signal: number;
+    rsi_length_min: number;
+    rsi_length_max: number;
+    rsi_length_median: number;
+    rsi_signal: number;
     long_sigma_min: number;
     long_sigma_max: number;
     short_sigma_min: number;
@@ -625,14 +631,14 @@ function sma(values: number[], length: number): number[] {
   return out;
 }
 
-function indicators(candles: Candle[], config = { fast: 12, slow: 26, signal: 9 }): IndicatorPoint[] {
+function indicators(candles: Candle[], config = { fast: 12, slow: 26, signal: 9, rsiLength: 14, rsiSignal: 9 }): IndicatorPoint[] {
   const closes = candles.map((c) => c.close);
   const fast = ema(closes, config.fast);
   const slow = ema(closes, config.slow);
   const macd = closes.map((_, i) => fast[i] - slow[i]);
   const signal = ema(macd, config.signal);
-  const rsiValues = rsi(closes, 14);
-  const rsiMa = sma(rsiValues, 9);
+  const rsiValues = rsi(closes, config.rsiLength);
+  const rsiMa = sma(rsiValues, config.rsiSignal);
   return candles.map((c, i) => ({
     time: c.time as Time,
     macd: macd[i],
@@ -736,8 +742,8 @@ export default function QMomentumLab() {
   const activeMacdConfig = useMemo(() => {
     const params = extremeResult?.best?.params;
     return params
-      ? { fast: params.macd_fast, slow: params.macd_slow, signal: params.macd_signal }
-      : { fast: 12, slow: 26, signal: 9 };
+      ? { fast: params.macd_fast, slow: params.macd_slow, signal: params.macd_signal, rsiLength: params.rsi_length || 14, rsiSignal: params.rsi_signal || 9 }
+      : { fast: 12, slow: 26, signal: 9, rsiLength: 14, rsiSignal: 9 };
   }, [extremeResult]);
 
   const values = useMemo(() => {
@@ -1333,7 +1339,7 @@ export default function QMomentumLab() {
     setExtremeOptimizing(true);
     setExtremeResult(null);
     setExtremeStatus("Job wird vorbereitet …");
-    setMessage(`V7.3 startet: Entry bleibt unverändert. Protect fest, Exit über ${exitHtfMinutes}m-RSI ${exitRsiLower}/${exitRsiUpper} und Basis-RSI-Drehung …`);
+    setMessage(`V7.4 startet: Entry bleibt unverändert. Protect fest, Exit über ${exitHtfMinutes}m-RSI ${exitRsiLower}/${exitRsiUpper} und Basis-RSI-Drehung …`);
 
     try {
       const startResponse = await fetch(
@@ -1350,6 +1356,7 @@ export default function QMomentumLab() {
             limit: 5000,
             min_trades: extremeMinTrades,
             macd_signal: 9,
+            rsi_length_values: [6, 8, 10, 12, 14, 16, 18, 21, 24, 28],
             z_window: extremeZWindow,
             exit_rsi_lower: exitRsiLower,
             exit_rsi_upper: exitRsiUpper,
@@ -1654,7 +1661,7 @@ export default function QMomentumLab() {
     return (
       <div className="ex6-shell">
         <header className="ex6-header">
-          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD HTF RSI Exit Lab V7.3</h1><p>MACD Armed · RSI Entry · fester Protect · HTF-RSI Exit Armed</p></div></div>
+          <div className="ex6-brand"><span className="ex6-logo">▥</span><div><h1>Extreme MACD HTF RSI Exit Lab V7.4</h1><p>MACD Armed · RSI Entry · fester Protect · HTF-RSI Exit Armed</p></div></div>
           <div className="ex6-header-actions">
             <span className="ex6-live">● LIVE</span>
             <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>{SYMBOLS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -1678,7 +1685,7 @@ export default function QMomentumLab() {
         </section>
 
         <section className="ex6-kpis">
-          <div><small>BESTE KOMBINATION</small><strong>MACD {extremeBest ? `${extremeBest.params.macd_fast} / ${extremeBest.params.macd_slow} / ${extremeBest.params.macd_signal}` : "–"}</strong><em>Signal 9 fest</em></div>
+          <div><small>BESTE KOMBINATION</small><strong>MACD {extremeBest ? `${extremeBest.params.macd_fast} / ${extremeBest.params.macd_slow} / ${extremeBest.params.macd_signal}` : "–"}</strong><em>RSI {extremeBest?.params.rsi_length ?? 14} / Signal {extremeBest?.params.rsi_signal ?? 9}</em></div>
           <div><small>LONG ZONE</small><strong className="green">≤ {extremeBest ? extremeBest.params.long_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: ${primaryIsland.long_sigma_min.toFixed(2)} bis ${primaryIsland.long_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
           <div><small>SHORT ZONE</small><strong className="red">≥ +{extremeBest ? extremeBest.params.short_zone_sigma.toFixed(2) : "–"}σ</strong><em>{primaryIsland ? `Optimal: +${primaryIsland.short_sigma_min.toFixed(2)} bis +${primaryIsland.short_sigma_max.toFixed(2)}σ` : "Noch kein Lauf"}</em></div>
           <div><small>PROTECT FEST</small><strong className="red">{extremeBest?.params.protect_label || "3 Bars · Verlust · Invalidierung"}</strong><em>Größter Verlust {extremeBest?.metrics.largest_loss?.toFixed(1) ?? "–"}</em></div>
@@ -1693,7 +1700,7 @@ export default function QMomentumLab() {
           <section className="ex6-charts">
             <div className="ex6-pane ex6-price"><div className="ex6-pane-title"><b>{symbol} · {interval}</b><span>{currentCandle ? `O ${currentCandle.open.toFixed(2)}  H ${currentCandle.high.toFixed(2)}  L ${currentCandle.low.toFixed(2)}  C ${currentCandle.close.toFixed(2)}` : ""}</span></div><div ref={priceEl} /></div>
             <div className="ex6-pane ex6-macd"><div className="ex6-pane-title"><b>MACD ({activeMacdConfig.fast}, {activeMacdConfig.slow}, {activeMacdConfig.signal}) · Sigma-normalisiert</b><span>MACD {currentSigma.toFixed(2)}σ · HIST {currentHistSigma.toFixed(2)}σ</span></div><div ref={macdEl} /></div>
-            <div className="ex6-pane ex6-rsi"><div className="ex6-pane-title"><b>Basis-RSI (14) · Exit-Timing</b><span>Basis {currentIndicator?.rsi.toFixed(1) || "–"} · HTF {extremeBest?.metrics.final_state?.htf_rsi?.toFixed(1) ?? "–"}</span></div><div ref={rsiEl} /></div>
+            <div className="ex6-pane ex6-rsi"><div className="ex6-pane-title"><b>Basis-RSI ({extremeBest?.params.rsi_length ?? 14}) · Signal {extremeBest?.params.rsi_signal ?? 9} · Exit-Timing</b><span>Basis {currentIndicator?.rsi.toFixed(1) || "–"} · HTF {extremeBest?.metrics.final_state?.htf_rsi?.toFixed(1) ?? "–"}</span></div><div ref={rsiEl} /></div>
           </section>
 
           <aside className="ex6-side">
@@ -1711,6 +1718,8 @@ export default function QMomentumLab() {
               <dt>Std. Abw.</dt><dd>{extremeBest ? extremeBest.metrics.macd_distribution.std.toFixed(3) : "–"}</dd>
               <dt>Histogramm</dt><dd>{currentHistSigma.toFixed(2)}σ</dd>
               <dt>Z-Fenster</dt><dd>{extremeBest?.params.z_window || extremeZWindow}</dd>
+              <dt>RSI Länge</dt><dd>{extremeBest?.params.rsi_length ?? 14}</dd>
+              <dt>RSI Signal</dt><dd>{extremeBest?.params.rsi_signal ?? 9}</dd>
               <dt>Position</dt><dd>{positionNow.toUpperCase()}</dd>
               <dt>Protect</dt><dd>{extremeBest?.params.protect_label || "Fest"}</dd>
               <dt>Exit HTF</dt><dd>{extremeBest?.params.exit_htf_minutes ?? exitHtfMinutes}m</dd>
@@ -1725,13 +1734,13 @@ export default function QMomentumLab() {
 
             <div className="ex6-card"><h3>LETZTE TRADES</h3>{recentExtremeTrades.length ? <table><thead><tr><th>Zeit</th><th>Typ</th><th>Ergebnis</th></tr></thead><tbody>{recentExtremeTrades.map((trade, index) => <tr key={`${trade.time}-${index}`}><td>{new Date(trade.time * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td className={trade.direction === "long" ? "green" : trade.direction === "short" ? "red" : ""}>{trade.direction?.toUpperCase() ?? "–"}</td><td className={(trade.pnl || 0) >= 0 ? "green" : "red"}>{(trade.pnl || 0) >= 0 ? "+" : ""}{Number(trade.pnl || 0).toFixed(2)}</td></tr>)}</tbody></table> : <p className="ex6-muted">Nach der Optimierung erscheinen hier die letzten abgeschlossenen Trades.</p>}</div>
 
-            <div className="ex6-card"><h3>STATE DEBUG V7.3</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Extremphase erst an der MACD-Nulllinie zurückgesetzt</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p><p><b>F</b> = Protect-Exit ohne Nullreset seit Entry erzeugt sofort einen Gegen-Trade</p></div>
+            <div className="ex6-card"><h3>STATE DEBUG V7.4</h3><p><b>A</b> = neuer Eintritt in die Sigma-Zone; zeigt Z vorher → jetzt und Grenzwert</p><p><b>C</b> = Extremphase durch Entry verbraucht</p><p><b>R</b> = Extremphase erst an der MACD-Nulllinie zurückgesetzt</p><p><b>D</b> = Armed an der MACD-Nulllinie gelöscht; zeigt MACD-Wert</p><p><b>F</b> = Protect-Exit ohne Nullreset seit Entry erzeugt sofort einen Gegen-Trade</p></div>
 
             <div className="ex6-card"><h3>LEGENDE</h3><p><span className="green">▲</span> LONG nach Armed + RSI Cross Up</p><p><span className="red">▼</span> SHORT nach Armed + RSI Cross Down</p><p>ⓧ Exit: HTF-RSI armed, danach erste Basis-RSI-Drehung</p><p>– – Sigma-Armed-Zonen</p></div>
           </aside>
         </main>
 
-        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.3 Protect-Failure Flip</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
+        <footer className="ex6-footer"><span>Extreme MACD HTF RSI Exit Lab V7.4 Protect-Failure Flip</span><span>Sigma-Normalisierung (Z-Score)</span><span>Z-Fenster: {extremeBest?.params.z_window || extremeZWindow} Kerzen (rollend)</span><span>Status: LIVE</span></footer>
         {message && <div className="ex6-message">{message}</div>}
       </div>
     );
