@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Cockpit from "./App.test.v6";
+import Cockpit from "./ExtremeLiveCockpit";
 import "./App.css";
 import Trainer from "./Trainer";
 import QMomentumLab from "./QMomentumLab";
