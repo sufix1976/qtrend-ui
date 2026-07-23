@@ -50,6 +50,10 @@ async function fetchJson(url:string, init?:RequestInit) {
   return json;
 }
 
+async function fetchOptional(url:string) {
+  try { return await fetchJson(url); } catch { return null; }
+}
+
 function ha(candles:Candle[]) {
   if (!candles.length) return [];
   const out:Candle[]=[];
@@ -74,6 +78,8 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const [profile,setProfile]=useState<Profile>(DEFAULT_PROFILE); const [snapshot,setSnapshot]=useState<any>(null);
   const [profiles,setProfiles]=useState<any[]>([]); const [activeProfileId,setActiveProfileId]=useState("");
   const [mirror,setMirror]=useState<any>(null); const [mirrorBusy,setMirrorBusy]=useState(false);
+  const [risk,setRisk]=useState<any>(null); const [riskInput,setRiskInput]=useState("0");
+  const [dbInfo,setDbInfo]=useState<any>(null); const [brokerLog,setBrokerLog]=useState<any[]>([]);
   const [size,setSize]=useState(1); const [auto,setAuto]=useState(false); const [status,setStatus]=useState("Verbinden …");
   const priceHost=useRef<HTMLDivElement>(null); const macdHost=useRef<HTMLDivElement>(null); const rsiHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null); const macdChart=useRef<IChartApi|null>(null); const rsiChart=useRef<IChartApi|null>(null);
@@ -110,15 +116,30 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
 
   async function load(){
     try{
-      const [c,s,p,l,cfg,profileList]=await Promise.all([
+      const [c,s,p,l,cfg,profileList,riskInfo,dbStatus,execInfo,signalInfo]=await Promise.all([
         fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${symbol}&interval=${interval}&limit=1500&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/v5/state?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/state?symbol=${symbol}&interval=${interval}&limit=1500&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/v5/config?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
+        fetchOptional(`${BACKEND_BASE}/risk/position-loss?_ts=${Date.now()}`),
+        fetchOptional(`${BACKEND_BASE}/debug/db?_ts=${Date.now()}`),
+        fetchOptional(`${BACKEND_BASE}/db/executions?_ts=${Date.now()}`),
+        fetchOptional(`${BACKEND_BASE}/db/signals?_ts=${Date.now()}`),
       ]);
       setCandles(Array.isArray(c.candles)?c.candles:[]);setSnapshot(s.state||null);setProfile({...DEFAULT_PROFILE,...p.params});setLive(l);setProfiles(Array.isArray(profileList.profiles)?profileList.profiles:[]);
+      if(riskInfo){setRisk(riskInfo);setRiskInput(String(riskInfo.max_position_loss_eur??0));}
+      if(dbStatus)setDbInfo(dbStatus);
+      const signals=new Map((Array.isArray(signalInfo?.rows)?signalInfo.rows:[]).map((row:any)=>[row.signal_id,row]));
+      const recent=(Array.isArray(execInfo?.rows)?execInfo.rows:[]).filter((row:any)=>String(row.epic||"").toUpperCase()===symbol.toUpperCase()).slice(0,5).map((row:any)=>{
+        const sig:any=signals.get(row.signal_id)||null; let payload:any={}; let response:any={};
+        try{payload=JSON.parse(sig?.raw_payload||"{}");}catch{} try{response=JSON.parse(row.raw_response||"{}");}catch{}
+        const sid=String(row.signal_id||"");
+        const reason=sid.startsWith("maxloss_")||payload?.strategy==="max_position_loss"?"MAX LOSS GUARD":sid.startsWith("strategy_sync_")||payload?.source==="strategy-sync"?"POSITION SYNC":payload?.reason||payload?.source||response?.reason||"BROKER ORDER";
+        return {...row,reason,signal_time:sig?.received_at||payload?.time_close||payload?.ts||null};
+      });
+      setBrokerLog(recent);
       const matching=(Array.isArray(profileList.profiles)?profileList.profiles:[]).find((row:any)=>JSON.stringify(row.params)===JSON.stringify(p.params)); if(matching) setActiveProfileId(matching.id);
       if(cfg?.row){setSize(Number(cfg.row.size||1));setAuto(Boolean(cfg.row.auto_enabled));}
       setStatus("SIGNAL MIRROR verbunden · Auto-Orders noch gesperrt");
@@ -134,6 +155,12 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   async function saveProfile(){try{await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,params:profile})});setStatus("V7.4 Profil gespeichert");await load();}catch(e){setStatus(`Profilfehler: ${e instanceof Error?e.message:String(e)}`);}}
   async function saveExecution(nextAuto=auto){try{await fetchJson(`${BACKEND_BASE}/v5/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,size,auto_enabled:nextAuto})});setStatus("Ausführungskonfiguration gespeichert");}catch(e){setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
   async function manual(side:"long"|"short"|"flat"){try{await fetchJson(`${BACKEND_BASE}/v5/manual`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,side})});setStatus(`${side.toUpperCase()} gesendet`);await load();}catch(e){setStatus(`Manuell fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
+  async function saveMaxLoss(value:number){
+    try{
+      const x=await fetchJson(`${BACKEND_BASE}/risk/position-loss`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_position_loss_eur:value})});
+      setRisk(x);setRiskInput(String(x.max_position_loss_eur??0));setStatus(value>0?`Maximalverlust auf ${value.toFixed(2)} € gesetzt`:"Maximalverlust deaktiviert");
+    }catch(e){setStatus(`Maximalverlust konnte nicht gespeichert werden: ${e instanceof Error?e.message:String(e)}`);}
+  }
   const fmtTime=(value:any)=>{const n=Number(value||0);if(!n)return "–";const ms=n>1e12?n:n*1000;return new Date(ms).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});};
   const yes=(v:any)=>v?"OK":"DIFFERENZ";
   const fs=live?.final_state; const cur=live?.current; const strategy=String(fs?.position||"flat").toUpperCase(); const broker=String(snapshot?.broker_side||"flat").toUpperCase();
@@ -156,11 +183,14 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       </section>
       {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
         <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} onChange={e=>setSize(Number(e.target.value))} style={input}/><button style={button()} onClick={()=>void saveExecution()}>Save</button></div><button style={auto?onButton:offButton} onClick={()=>{const n=!auto;setAuto(n);void saveExecution(n);}}>AUTO {auto?"ON":"OFF"}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button style={flatButton} onClick={()=>void manual("flat")}>FLAT</button><button style={longButton} onClick={()=>void manual("long")}>LONG</button><button style={shortButton} onClick={()=>void manual("short")}>SHORT</button></div></Card>
+        <Card title="BROKER INFO">{brokerLog.length?<>{brokerLog.map((row:any,index:number)=><div key={`${row.exec_id||index}`} style={{padding:index?"8px 0 0":"0",marginTop:index?8:0,borderTop:index?"1px solid #26344d":"none"}}><Row k={index===0?"Letzte Aktion":"Aktion"} v={String(row.action||"–").toUpperCase()}/><Row k="Zeit" v={fmtTime(row.executed_at)}/><Row k="Grund" v={String(row.reason||"–").toUpperCase()}/><Row k="Signal" v={String(row.signal_id||"–").slice(0,24)}/><Row k="Status" v={String(row.status??"–")}/></div>)}</>:<div style={{fontSize:12,color:"#94a3b8"}}>Noch keine Brokeraktion für {symbol} gefunden.</div>}</Card>
+        <Card title="BROKER RISK"><Row k="Max. Positionsverlust" v={risk?.enabled?`${Number(risk.max_position_loss_eur).toFixed(2)} € · AKTIV`:"DEAKTIVIERT"}/><Row k="Prüfung" v={risk?.poll_ms?`${Math.round(Number(risk.poll_ms)/1000)} Sek.`:"–"}/><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginTop:9}}><input type="number" min="0" step="1" value={riskInput} onChange={e=>setRiskInput(e.target.value)} style={input}/><button style={onButton} onClick={()=>void saveMaxLoss(Math.max(0,Number(riskInput)||0))}>SPEICHERN</button></div><button style={{...offButton,background:"#7f1d1d"}} onClick={()=>void saveMaxLoss(0)}>DEAKTIVIEREN</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>Dieser alte Engine-Guard schließt jede Brokerposition automatisch, sobald ihr offener Verlust den eingestellten Eurobetrag erreicht.</div></Card>
         <Card title="ENTRY"><Row k="LONG Armed" v={fs?.long_armed?"JA":"NEIN"}/><Row k="SHORT Armed" v={fs?.short_armed?"JA":"NEIN"}/><Row k="LONG Extrem" v={fs?.long_extreme_active?"AKTIV":"INAKTIV"}/><Row k="SHORT Extrem" v={fs?.short_extreme_active?"AKTIV":"INAKTIV"}/></Card>
         <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Exit TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
         <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="Replay PF (aktuell)" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/><Row k="Replay Trades" v={String(live?.metrics?.trades??"–")}/><Row k="Replay Zeitraum" v={candles.length?`${fmtTime(candles[0]?.time)} – ${fmtTime(candles[candles.length-1]?.time)}`:"–"}/></Card>
         <Card title="AKTIVES PROFIL"><select value={activeProfileId} onChange={e=>{setActiveProfileId(e.target.value);setMirror(null);if(e.target.value)void activateProfile(e.target.value);}} style={{...input,width:"100%"}}><option value="">Aktives Engine-Profil</option>{profiles.map((row:any)=><option key={row.id} value={row.id}>{row.name}</option>)}</select>{(()=>{const p=profiles.find((row:any)=>row.id===activeProfileId);const m=p?.result?.best?.metrics;const meta=p?.result?.mirror_meta;return p?<div style={{marginTop:8}}><Row k="Profil PF" v={m?.profit_factor?.toFixed?.(2)??"–"}/><Row k="Profil Trades" v={String(m?.trades??"–")}/><Row k="Profil Zeitraum" v={meta?`${fmtTime(meta.start_time)} – ${fmtTime(meta.end_time)}`:"älteres Profil ohne Zeitraum"}/></div>:null;})()}<button style={{...onButton,width:"100%",marginTop:9}} disabled={!activeProfileId||mirrorBusy} onClick={()=>void runMirror()}>{mirrorBusy?"MIRROR LÄUFT …":"MIRROR TEST"}</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>{profiles.length} gespeicherte Profile für {symbol} {interval}</div></Card>
         {mirror&&<Card title="MIRROR VALIDATION"><Row k="Gesamt" v={mirror.compare?.identical?"IDENTISCH":"DIFFERENZ"}/><Row k="Kerzen" v={yes(mirror.compare?.candles_match)}/><Row k="PF" v={`${mirror.profile?.metrics?.profit_factor?.toFixed?.(2)??"–"} / ${mirror.replay?.metrics?.profit_factor?.toFixed?.(2)??"–"} · ${yes(mirror.compare?.pf_match)}`}/><Row k="Trades" v={`${mirror.profile?.metrics?.trades??"–"} / ${mirror.replay?.metrics?.trades??"–"} · ${yes(mirror.compare?.trades_match)}`}/><Row k="Netto" v={yes(mirror.compare?.net_match)}/><Row k="Drawdown" v={yes(mirror.compare?.drawdown_match)}/><Row k="Entries" v={`${mirror.compare?.profile_entry_count??0} / ${mirror.compare?.replay_entry_count??0}`}/><Row k="Exits" v={`${mirror.compare?.profile_exit_count??0} / ${mirror.compare?.replay_exit_count??0}`}/><Row k="Marker" v={yes(mirror.compare?.markers_match)}/><Row k="Profilzeitraum" v={`${fmtTime(mirror.profile?.range?.start_time)} – ${fmtTime(mirror.profile?.range?.end_time)}`}/><Row k="Replayzeitraum" v={`${fmtTime(mirror.replay?.range?.start_time)} – ${fmtTime(mirror.replay?.range?.end_time)}`}/></Card>}
+        <Card title="SYSTEM / DATENBANK"><Row k="Datenbank" v={dbInfo?.db_exists?"OK":"NICHT GEFUNDEN"}/><Row k="Pfad" v={String(dbInfo?.db_path||"–")}/><Row k="Größe" v={dbInfo?.db_size_bytes!=null?`${(Number(dbInfo.db_size_bytes)/1024/1024).toFixed(1)} MB`:"–"}/><Row k="Profile" v={String(dbInfo?.counts?.extreme_profile_snapshots??"–")}/><Row k="Aktive Profile" v={String(dbInfo?.counts?.extreme_live_profiles??"–")}/><Row k="Kerzen" v={String(dbInfo?.counts?.candles??"–")}/><Row k="Trades" v={String(dbInfo?.counts?.trades??"–")}/><Row k="Speicherort" v={String(dbInfo?.db_path||"").startsWith("/var/data/")?"RENDER /var/data":"PRÜFEN"}/></Card>
         <Card title="V7.4 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit HTF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
         <div style={{fontSize:11,color:"#94a3b8",padding:6}}>{status}</div>
       </aside>}
