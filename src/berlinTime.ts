@@ -37,7 +37,6 @@ export function berlinLocalInputToIso(value: string): string {
   let guess = Date.UTC(y,m-1,d,hh,mm,0);
   const getParts=(ms:number)=>Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:QTREND_TIME_ZONE,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(ms)).map(p=>[p.type,p.value]));
   for(let i=0;i<3;i++){const p=getParts(guess);const localAsUtc=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),Number(p.hour),Number(p.minute));guess-=localAsUtc-Date.UTC(y,m-1,d,hh,mm);}
-  const instant=new Date(guess);
   const offsetParts=getParts(guess); const localAsUtc=Date.UTC(Number(offsetParts.year),Number(offsetParts.month)-1,Number(offsetParts.day),Number(offsetParts.hour),Number(offsetParts.minute));
   const offsetMin=Math.round((localAsUtc-guess)/60000); const sign=offsetMin>=0?"+":"-"; const abs=Math.abs(offsetMin);
   return `${datePart}T${timePart}:00${sign}${String(Math.floor(abs/60)).padStart(2,"0")}:${String(abs%60).padStart(2,"0")}`;

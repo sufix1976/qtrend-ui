@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSharedMarket } from "./useSharedMarket";
-import { chartBerlinTime, formatBerlinDateTime } from "./berlinTime";
+import { chartBerlinTime } from "./berlinTime";
 import {
   CandlestickSeries,
   CrosshairMode,
