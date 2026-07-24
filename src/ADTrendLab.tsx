@@ -98,6 +98,7 @@ export default function ADTrendLab(){
   const [activeMode,setActiveMode]=useState<Mode>("ad");
   const [runs,setRuns]=useState<Record<Mode,RunState>>({none:emptyRun(),ad:emptyRun(),chaikin:emptyRun()});
   const [status,setStatus]=useState("Lade Kerzen …");
+  const [saveBusy,setSaveBusy]=useState(false);
 
   const priceHost=useRef<HTMLDivElement>(null), sensorHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null), sensorChart=useRef<IChartApi|null>(null);
@@ -230,6 +231,29 @@ export default function ADTrendLab(){
     await Promise.all([runMode("none"),runMode("ad"),runMode("chaikin")]);
   }
 
+  async function saveAndActivate(){
+    const best=runs[activeMode].best;
+    if(!best){setStatus("Zuerst die gewünschte Variante optimieren und auswählen");return;}
+    try{
+      setSaveBusy(true);
+      const modeLabel=activeMode==="chaikin"?"BASIS + CHAIKIN":activeMode==="ad"?"BASIS + HA-AD":"BASIS V8.5";
+      const params={
+        ...best.params,
+        strategy_mode:activeMode==="chaikin"?"basis_chaikin":activeMode==="ad"?"basis_ad":"basis",
+        trend_filter_mode:activeMode,
+        ad_length:adLength,chaikin_fast:chaikinFast,chaikin_slow:chaikinSlow,
+        exit_htf_minutes:exitHtf,exit_timing_minutes:exitTiming,exit_rsi_lower:lower,exit_rsi_upper:upper,
+        activation_time_ms:Date.now(),
+      };
+      const now=new Date();
+      const name=`${symbol} ${interval} · ${modeLabel} · PF ${best.metrics.profit_factor.toFixed(2)} · ${now.toLocaleString("de-DE")}`;
+      const mirrorMeta=candles.length?{start_time:candles[0].time,end_time:candles[candles.length-1].time,candle_count:candles.length}:undefined;
+      const result={best:{params,metrics:best.metrics},mirror_meta:mirrorMeta,source:"AD_CHAIKIN_LAB_V1_2",selected_mode:activeMode};
+      const saved=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,name,params,result,activate:true,note:"V8.6 Speichern + Aktivieren"})});
+      setStatus(`AKTIV: ${name} · Profil ${saved.id}`);
+    }catch(error){setStatus(`Speichern fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`);}finally{setSaveBusy(false);}
+  }
+
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",padding:10,fontFamily:"Inter,Arial,sans-serif",boxSizing:"border-box"}}>
     <header style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"6px 8px 12px"}}>
       <div><b style={{fontSize:20}}>AD / Chaikin Trend Lab V1.2</b><div style={{fontSize:11,color:"#94a3b8"}}>V8.5-Basis bleibt unverändert · Extreme ignorieren Trendfilter · zusätzlicher Trendpfad wird optimiert</div></div>
@@ -242,6 +266,7 @@ export default function ADTrendLab(){
       <label style={label}>RSI<input type="number" value={lower} onChange={e=>setLower(Number(e.target.value)||30)} style={miniInput}/>/<input type="number" value={upper} onChange={e=>setUpper(Number(e.target.value)||70)} style={miniInput}/></label>
       <label style={label}>Min Trades<input type="number" value={minTrades} onChange={e=>setMinTrades(Math.max(5,Number(e.target.value)||20))} style={smallInput}/></label>
       <button onClick={()=>void runAll()} style={primary}>ALLE 3 OPTIMIEREN</button>
+      <button disabled={saveBusy||!runs[activeMode].best} onClick={()=>void saveAndActivate()} style={{...activateButton,opacity:(saveBusy||!runs[activeMode].best)?0.6:1}}>{saveBusy?"SPEICHERT …":"SPEICHERN + AKTIVIEREN"}</button>
       <span style={{fontSize:12,color:"#22c55e",marginLeft:"auto"}}>{status}</span>
     </header>
 
@@ -250,6 +275,7 @@ export default function ADTrendLab(){
       <ResultCard title="BASIS + HA-AD TRENDPFAD" mode="ad" run={runs.ad} active={activeMode==="ad"} onSelect={()=>setActiveMode("ad")} onRun={()=>void runMode("ad")}/>
       <ResultCard title="BASIS + CHAIKIN TRENDPFAD" mode="chaikin" run={runs.chaikin} active={activeMode==="chaikin"} onSelect={()=>setActiveMode("chaikin")} onRun={()=>void runMode("chaikin")}/>
     </section>
+    <div style={{fontSize:12,color:"#c4b5fd",margin:"-2px 2px 8px"}}>Ausgewählt: <b>{activeMode==="chaikin"?"BASIS + CHAIKIN TRENDPFAD":activeMode==="ad"?"BASIS + HA-AD TRENDPFAD":"BASIS V8.5"}</b> · Speichern aktiviert nur neue Signale ab dem Klickzeitpunkt.</div>
 
     <section style={{display:"grid",gridTemplateRows:"minmax(500px,62vh) 220px",gap:8}}>
       <div ref={priceHost} style={chartBox}/><div ref={sensorHost} style={chartBox}/>
@@ -268,7 +294,7 @@ function ResultCard({title,mode,run,active,onSelect,onRun}:{title:string;mode:Mo
   return <div onClick={onSelect} style={{background:active?"#17213a":"#0c1322",border:`1px solid ${active?"#a855f7":"#26344d"}`,borderRadius:10,padding:13,cursor:"pointer"}}>
     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><b>{title}</b><button onClick={e=>{e.stopPropagation();onRun();}} style={secondary}>{run.status==="running"?`${run.progress.toFixed(0)}%`:"START"}</button></div>
     {run.status==="running"&&<div style={{height:5,background:"#111827",borderRadius:5,margin:"9px 0"}}><div style={{height:"100%",width:`${run.progress}%`,background:"#8b5cf6",borderRadius:5}}/></div>}
-    {m?<><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,marginTop:10}}><Stat k="PF" v={m.profit_factor.toFixed(2)}/><Stat k="Trades" v={String(m.trades)}/><Stat k="Netto" v={m.net.toFixed(1)}/><Stat k="Winrate" v={`${m.win_rate_pct.toFixed(1)}%`}/><Stat k="DD" v={m.max_drawdown.toFixed(1)}/></div><div style={{fontSize:11,color:"#94a3b8",marginTop:9}}>Extreme {m.extreme_entry_count??"–"} · Trend {m.trend_entry_count??0} · Trend-σ {Number(p?.trend_sigma_abs||0).toFixed(2)}{mode==="chaikin"?` · Volumen ${Number(m.chaikin_volume_coverage_pct||0).toFixed(1)}%`:""}</div></>:<div style={{fontSize:12,color:run.status==="error"?"#f87171":"#94a3b8",marginTop:12}}>{run.error||run.message}</div>}
+    {m?<><div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6,marginTop:10}}><Stat k="PF" v={m.profit_factor.toFixed(2)}/><Stat k="Trades" v={String(m.trades)}/><Stat k="Netto" v={m.net.toFixed(1)}/><Stat k="Winrate" v={`${m.win_rate_pct.toFixed(1)}%`}/><Stat k="DD" v={m.max_drawdown.toFixed(1)}/><Stat k="Effizienz" v={(m.max_drawdown>0?m.net/m.max_drawdown:0).toFixed(2)}/></div><div style={{fontSize:11,color:"#94a3b8",marginTop:9}}>Extreme {m.extreme_entry_count??"–"} · Trend {m.trend_entry_count??0} · Trend-σ {Number(p?.trend_sigma_abs||0).toFixed(2)}{mode==="chaikin"?` · Volumen ${Number(m.chaikin_volume_coverage_pct||0).toFixed(1)}%`:""}</div></>:<div style={{fontSize:12,color:run.status==="error"?"#f87171":"#94a3b8",marginTop:12}}>{run.error||run.message}</div>}
   </div>;
 }
 function Stat({k,v}:{k:string;v:string}){return <div><div style={{fontSize:9,color:"#94a3b8"}}>{k}</div><b style={{fontSize:17}}>{v}</b></div>}
@@ -279,4 +305,6 @@ const miniInput:CSSProperties={...input,width:46,padding:"6px 6px"};
 const label:CSSProperties={display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#94a3b8"};
 const primary:CSSProperties={background:"#6d28d9",border:"1px solid #a855f7",borderRadius:8,color:"#fff",padding:"9px 13px",fontWeight:900,cursor:"pointer"};
 const secondary:CSSProperties={background:"#111827",border:"1px solid #475569",borderRadius:7,color:"#fff",padding:"6px 9px",fontWeight:800,cursor:"pointer"};
+const activateButton:CSSProperties={background:"#047857",border:"1px solid #34d399",borderRadius:8,color:"#fff",padding:"9px 13px",fontWeight:900,cursor:"pointer"};
 const chartBox:CSSProperties={background:"#070b16",border:"1px solid #26344d",borderRadius:9,minHeight:0,overflow:"hidden"};
+
