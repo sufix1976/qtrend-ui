@@ -80,7 +80,10 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const [chartMode,setChartMode]=useState<"heikin"|"candles">("heikin");
   const [candles,setCandles]=useState<Candle[]>([]); const [live,setLive]=useState<LiveState|null>(null);
   const [profile,setProfile]=useState<Profile>(DEFAULT_PROFILE); const [snapshot,setSnapshot]=useState<any>(null);
-  const [profiles,setProfiles]=useState<any[]>([]); const [activeProfileId,setActiveProfileId]=useState("");
+  const [profiles,setProfiles]=useState<any[]>([]);
+  const [activeProfileId,setActiveProfileId]=useState("");
+  const [selectedProfileId,setSelectedProfileId]=useState("");
+  const [activeEngineProfile,setActiveEngineProfile]=useState<any>(null);
   const [mirror,setMirror]=useState<any>(null); const [mirrorBusy,setMirrorBusy]=useState(false);
   const [risk,setRisk]=useState<any>(null); const [riskInput,setRiskInput]=useState("0");
   const [dbInfo,setDbInfo]=useState<any>(null); const [brokerLog,setBrokerLog]=useState<any[]>([]);
@@ -128,6 +131,33 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
     markerApi.current?.setMarkers((live.events||[]).map(e=>e.type==="entry"?{time:e.time as Time,position:e.direction==="long"?"belowBar":"aboveBar",color:color(e.direction),shape:e.direction==="long"?"arrowUp":"arrowDown",text:String(e.reason||"").startsWith("TREND ")?`${e.direction?.toUpperCase()} ${profile.trend_filter_mode==="chaikin"?"CHK":"AD"}`:`${e.direction?.toUpperCase()} EXT`,size:1.2}:{time:e.time as Time,position:"aboveBar",color:"#facc15",shape:"circle",text:"EXIT",size:0.9}).sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
   },[shownCandles,live]);
 
+  useEffect(()=>{
+    let cancelled=false;
+    async function syncActiveProfileForSymbol(){
+      try{
+        const x=await fetchJson(`${BACKEND_BASE}/ui/active-profile?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`);
+        if(cancelled)return;
+        const next=x?.profile||null;
+        setActiveEngineProfile(next);
+        setActiveProfileId(String(next?.id||""));
+        setSelectedProfileId(String(next?.id||""));
+        const savedTf=String(next?.interval||"");
+        if(savedTf&&savedTf!==interval){
+          setStatus(`Aktives Profil gefunden: ${next?.name||symbol} · Chart wird auf ${savedTf} gestellt`);
+          setInterval(savedTf);
+        }
+      }catch(e){
+        if(cancelled)return;
+        setActiveEngineProfile(null);
+        setActiveProfileId("");
+        setSelectedProfileId("");
+        setStatus(`Aktives Profil konnte nicht geladen werden: ${e instanceof Error?e.message:String(e)}`);
+      }
+    }
+    void syncActiveProfileForSymbol();
+    return()=>{cancelled=true;};
+  },[symbol]);
+
   async function load(){
     try{
       const [c,s,p,l,cfg,profileList,riskInfo,dbStatus,execInfo,signalInfo]=await Promise.all([
@@ -154,17 +184,40 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         return {...row,reason,signal_time:sig?.received_at||payload?.time_close||payload?.ts||null};
       });
       setBrokerLog(recent);
-      const matching=(Array.isArray(profileList.profiles)?profileList.profiles:[]).find((row:any)=>JSON.stringify(row.params)===JSON.stringify(p.params)); if(matching) setActiveProfileId(matching.id);
+      const rows=Array.isArray(profileList.profiles)?profileList.profiles:[];
+      const matching=rows.find((row:any)=>JSON.stringify(row.params)===JSON.stringify(p.params));
+      if(!activeEngineProfile?.id&&matching){
+        setActiveProfileId(String(matching.id));
+        setSelectedProfileId(current=>current||String(matching.id));
+      }
       if(cfg?.row){setSize(Number(cfg.row.size||1));setAuto(Boolean(cfg.row.auto_enabled));}
       setStatus("SIGNAL MIRROR verbunden · Auto-Orders noch gesperrt");
     }catch(e){setStatus(`Fehler: ${e instanceof Error?e.message:String(e)}`);}
   }
   useEffect(()=>{void load();const t=window.setInterval(()=>void load(),30000);return()=>window.clearInterval(t);},[symbol,interval]);
 
-  async function activateProfile(id:string){try{const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles/activate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});setActiveProfileId(id);setProfile({...DEFAULT_PROFILE,...x.profile.params});setStatus(`Aktives Profil: ${x.profile.name}`);await load();}catch(e){setStatus(`Profil laden fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
-  async function runMirror(){
-    if(!activeProfileId){setStatus("Bitte gespeichertes Profil auswählen");return;}
-    try{setMirrorBusy(true);setStatus("Mirror-Test läuft …");const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/mirror?id=${encodeURIComponent(activeProfileId)}&_ts=${Date.now()}`);setMirror(x);setStatus(x.compare?.identical?"Mirror-Test: IDENTISCH":"Mirror-Test: DIFFERENZ gefunden");}catch(e){setStatus(`Mirror-Test fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}finally{setMirrorBusy(false);}
+  async function activateProfile(id:string){
+    try{
+      const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-profiles/activate`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id})
+      });
+      const next=x.profile||null;
+      setActiveProfileId(String(next?.id||id));
+      setSelectedProfileId(String(next?.id||id));
+      setActiveEngineProfile(next);
+      setProfile({...DEFAULT_PROFILE,...next?.params});
+      if(next?.interval&&next.interval!==interval)setInterval(next.interval);
+      setStatus(`Aktives Profil: ${next?.name||id} · ${next?.interval||interval}`);
+      await load();
+    }catch(e){
+      setStatus(`Profil laden fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);
+    }
+  }
+  async function runMirror(profileId=selectedProfileId||activeProfileId){
+    if(!profileId){setStatus("Bitte gespeichertes Profil auswählen");return;}
+    try{setMirrorBusy(true);setStatus("Mirror-Test läuft …");const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/mirror?id=${encodeURIComponent(profileId)}&_ts=${Date.now()}`);setMirror(x);setStatus(x.compare?.identical?"Mirror-Test: IDENTISCH":"Mirror-Test: DIFFERENZ gefunden");}catch(e){setStatus(`Mirror-Test fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}finally{setMirrorBusy(false);}
   }
   async function saveProfile(){try{await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,params:profile})});setStatus("V7.4 Profil gespeichert");await load();}catch(e){setStatus(`Profilfehler: ${e instanceof Error?e.message:String(e)}`);}}
   async function saveExecution(nextAuto=auto){try{await fetchJson(`${BACKEND_BASE}/v5/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,size,auto_enabled:nextAuto})});setStatus("Ausführungskonfiguration gespeichert");}catch(e){setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
@@ -233,6 +286,15 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       <b style={{fontSize:20}}>Extreme MACD V8.5 · Demo Candidate</b>
       <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={input}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
       <select value={interval} onChange={e=>setInterval(e.target.value)} style={input}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
+      <span style={{
+        ...badge(Boolean(activeEngineProfile),activeEngineProfile?.interval===interval?"#22c55e":"#f59e0b"),
+        color:activeEngineProfile?.interval===interval?"#22c55e":activeEngineProfile?"#f59e0b":"#ef4444",
+        borderColor:activeEngineProfile?.interval===interval?"#22c55e":activeEngineProfile?"#f59e0b":"#ef4444"
+      }}>
+        {activeEngineProfile
+          ? `AKTIV: ${activeEngineProfile.name} · ${activeEngineProfile.interval}`
+          : `KEIN AKTIVES PROFIL FÜR ${symbol}`}
+      </span>
       <button style={button(chartMode==="heikin")} onClick={()=>setChartMode("heikin")}>Heikin</button><button style={button(chartMode==="candles")} onClick={()=>setChartMode("candles")}>Kerzen</button>
       <span style={badge(Boolean(fs?.long_armed))}>LONG ARMED</span><span style={badge(Boolean(fs?.short_armed),"#ef4444")}>SHORT ARMED</span>
       <span style={badge(strategy!=="FLAT","#f59e0b")}>PROTECT {strategy!=="FLAT"?"AKTIV":"AUS"}</span><span style={badge(Boolean(fs?.exit_armed),"#a855f7")}>HTF EXIT</span>
@@ -252,7 +314,38 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         <Card title="ENTRY"><Row k="LONG Armed" v={fs?.long_armed?"JA":"NEIN"}/><Row k="SHORT Armed" v={fs?.short_armed?"JA":"NEIN"}/><Row k="LONG Extrem" v={fs?.long_extreme_active?"AKTIV":"INAKTIV"}/><Row k="SHORT Extrem" v={fs?.short_extreme_active?"AKTIV":"INAKTIV"}/></Card>
         <Card title="PROTECT / EXIT"><Row k="Protect" v={strategy!=="FLAT"?`AKTIV ab ${profile.protect_min_hold_bars} Bars`:"INAKTIV"}/><Row k="HTF Exit" v={fs?.exit_armed?"ARMED":"WAIT"}/><Row k="Armed TF" v={`${profile.exit_htf_minutes}m`}/><Row k="Timing TF" v={`${profile.exit_timing_minutes}m`}/><Row k="Zonen" v={`${profile.exit_rsi_lower} / ${profile.exit_rsi_upper}`}/></Card>
         <Card title="LIVE"><Row k="MACD" v={cur?.macd?.toFixed(3)??"–"}/><Row k="Sigma" v={cur?.z_score?.toFixed(2)??"–"}/><Row k={`RSI ${profile.rsi_length}`} v={cur?.rsi?.toFixed(1)??"–"}/><Row k={`Timing RSI ${profile.exit_timing_minutes}m`} v={cur?.exit_timing_rsi?.toFixed(1)??"–"}/><Row k="HTF RSI" v={cur?.htf_rsi?.toFixed(1)??"–"}/><Row k="Replay PF (aktuell)" v={live?.metrics?.profit_factor?.toFixed(2)??"–"}/><Row k="Replay Trades" v={String(live?.metrics?.trades??"–")}/><Row k="Extreme / Trend" v={`${live?.metrics?.extreme_entry_count??0} / ${live?.metrics?.trend_entry_count??0}`}/><Row k="Replay Zeitraum" v={candles.length?`${fmtTime(candles[0]?.time)} – ${fmtTime(candles[candles.length-1]?.time)}`:"–"}/></Card>
-        <Card title="AKTIVES PROFIL"><select value={activeProfileId} onChange={e=>{setActiveProfileId(e.target.value);setMirror(null);if(e.target.value)void activateProfile(e.target.value);}} style={{...input,width:"100%"}}><option value="">Aktives Engine-Profil</option>{profiles.map((row:any)=><option key={row.id} value={row.id}>{row.name}</option>)}</select>{(()=>{const p=profiles.find((row:any)=>row.id===activeProfileId);const m=p?.result?.best?.metrics;const meta=p?.result?.mirror_meta;return p?<div style={{marginTop:8}}><Row k="Profil PF" v={m?.profit_factor?.toFixed?.(2)??"–"}/><Row k="Profil Trades" v={String(m?.trades??"–")}/><Row k="Strategie" v={p.params?.strategy_mode==="basis_chaikin"?"BASIS + CHAIKIN":p.params?.strategy_mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5"}/><Row k="Extreme / Trend" v={`${m?.extreme_entry_count??0} / ${m?.trend_entry_count??0}`}/><Row k="Profil Zeitraum" v={meta?`${fmtTime(meta.start_time)} – ${fmtTime(meta.end_time)}`:"älteres Profil ohne Zeitraum"}/></div>:null;})()}<button style={{...onButton,width:"100%",marginTop:9}} disabled={!activeProfileId||mirrorBusy} onClick={()=>void runMirror()}>{mirrorBusy?"MIRROR LÄUFT …":"MIRROR TEST"}</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>{profiles.length} gespeicherte Profile für {symbol} {interval}</div></Card>
+        <Card title="TATSÄCHLICH GEHANDELT">
+          {activeEngineProfile?<>
+            <Row k="Profil" v={String(activeEngineProfile.name||"–")}/>
+            <Row k="Profil-TF" v={String(activeEngineProfile.interval||"–")}/>
+            <Row k="Chart-TF" v={interval}/>
+            <Row k="Status" v={activeEngineProfile.interval===interval?"SYNCHRON":"NICHT SYNCHRON"}/>
+            <Row k="Strategie" v={activeEngineProfile.params?.strategy_mode==="basis_chaikin"?"BASIS + CHAIKIN":activeEngineProfile.params?.strategy_mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5"}/>
+            <Row k="Trendpfad" v={activeEngineProfile.params?.trend_filter_mode==="chaikin"?`CHAIKIN ${activeEngineProfile.params?.chaikin_fast??3}/${activeEngineProfile.params?.chaikin_slow??10}`:activeEngineProfile.params?.trend_filter_mode==="ad"?`HA-AD ${activeEngineProfile.params?.ad_length??11}`:"AUS"}/>
+            <Row k="Aktiv seit" v={activeEngineProfile.activated_at?String(activeEngineProfile.activated_at):activeEngineProfile.params?.activation_time_ms?fmtTime(activeEngineProfile.params.activation_time_ms):"–"}/>
+          </>:<div style={{fontSize:12,color:"#f87171",fontWeight:800}}>Für {symbol} ist kein aktives Engine-Profil hinterlegt.</div>}
+        </Card>
+        <Card title="PROFIL WECHSELN">
+          <select value={selectedProfileId} onChange={e=>{setSelectedProfileId(e.target.value);setMirror(null);}} style={{...input,width:"100%"}}>
+            <option value="">Profil auswählen</option>
+            {profiles.map((row:any)=><option key={row.id} value={row.id}>{row.name}</option>)}
+          </select>
+          {(()=>{const p=profiles.find((row:any)=>String(row.id)===selectedProfileId);const m=p?.result?.best?.metrics;const meta=p?.result?.mirror_meta;return p?<div style={{marginTop:8}}>
+            <Row k="Profil-TF" v={String(p.interval||interval)}/>
+            <Row k="Profil PF" v={m?.profit_factor?.toFixed?.(2)??"–"}/>
+            <Row k="Profil Trades" v={String(m?.trades??"–")}/>
+            <Row k="Strategie" v={p.params?.strategy_mode==="basis_chaikin"?"BASIS + CHAIKIN":p.params?.strategy_mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5"}/>
+            <Row k="Extreme / Trend" v={`${m?.extreme_entry_count??0} / ${m?.trend_entry_count??0}`}/>
+            <Row k="Profil Zeitraum" v={meta?`${fmtTime(meta.start_time)} – ${fmtTime(meta.end_time)}`:"älteres Profil ohne Zeitraum"}/>
+          </div>:null;})()}
+          <button style={{...onButton,width:"100%",marginTop:9}} disabled={!selectedProfileId||selectedProfileId===activeProfileId} onClick={()=>void activateProfile(selectedProfileId)}>
+            {selectedProfileId===activeProfileId?"BEREITS AKTIV":"DIESES PROFIL AKTIVIEREN"}
+          </button>
+          <button style={{...button(),width:"100%",marginTop:7}} disabled={!selectedProfileId||mirrorBusy} onClick={()=>void runMirror(selectedProfileId)}>
+            {mirrorBusy?"MIRROR LÄUFT …":"AUSWAHL MIRROR TESTEN"}
+          </button>
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>{profiles.length} gespeicherte Profile für {symbol} {interval}</div>
+        </Card>
         {mirror&&<Card title="MIRROR VALIDATION"><Row k="Gesamt" v={mirror.compare?.identical?"IDENTISCH":"DIFFERENZ"}/><Row k="Kerzen" v={yes(mirror.compare?.candles_match)}/><Row k="PF" v={`${mirror.profile?.metrics?.profit_factor?.toFixed?.(2)??"–"} / ${mirror.replay?.metrics?.profit_factor?.toFixed?.(2)??"–"} · ${yes(mirror.compare?.pf_match)}`}/><Row k="Trades" v={`${mirror.profile?.metrics?.trades??"–"} / ${mirror.replay?.metrics?.trades??"–"} · ${yes(mirror.compare?.trades_match)}`}/><Row k="Netto" v={yes(mirror.compare?.net_match)}/><Row k="Drawdown" v={yes(mirror.compare?.drawdown_match)}/><Row k="Entries" v={`${mirror.compare?.profile_entry_count??0} / ${mirror.compare?.replay_entry_count??0}`}/><Row k="Exits" v={`${mirror.compare?.profile_exit_count??0} / ${mirror.compare?.replay_exit_count??0}`}/><Row k="Marker" v={yes(mirror.compare?.markers_match)}/><Row k="Strategie" v={mirror.profile?.params?.strategy_mode==="basis_chaikin"?"BASIS + CHAIKIN":mirror.profile?.params?.strategy_mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5"}/><Row k="Trendfilter" v={String(mirror.profile?.params?.trend_filter_mode||"none").toUpperCase()}/><Row k="Profilzeitraum" v={`${fmtTime(mirror.profile?.range?.start_time)} – ${fmtTime(mirror.profile?.range?.end_time)}`}/><Row k="Replayzeitraum" v={`${fmtTime(mirror.replay?.range?.start_time)} – ${fmtTime(mirror.replay?.range?.end_time)}`}/></Card>}
         <Card title="SYSTEM / DATENBANK"><Row k="Datenbank" v={dbInfo?.db_exists?"OK":"NICHT GEFUNDEN"}/><Row k="Pfad" v={String(dbInfo?.db_path||"–")}/><Row k="Größe" v={dbInfo?.db_size_bytes!=null?`${(Number(dbInfo.db_size_bytes)/1024/1024).toFixed(1)} MB`:"–"}/><Row k="Profile" v={String(dbInfo?.counts?.extreme_profile_snapshots??"–")}/><Row k="Aktive Profile" v={String(dbInfo?.counts?.extreme_live_profiles??"–")}/><Row k="Kerzen" v={String(dbInfo?.counts?.candles??"–")}/><Row k="Trades" v={String(dbInfo?.counts?.trades??"–")}/><Row k="Speicherort" v={String(dbInfo?.db_path||"").startsWith("/var/data/")?"RENDER /var/data":"PRÜFEN"}/></Card>
         <Card title="V8.5 PROFIL"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{field("macd_fast","MACD Fast")}{field("macd_slow","MACD Slow")}{field("rsi_length","RSI Länge")}{field("long_zone_sigma","LONG Sigma","0.25")}{field("short_zone_sigma","SHORT Sigma","0.25")}{field("exit_htf_minutes","Exit Armed TF")}{field("exit_timing_minutes","Exit Timing TF")}{field("exit_rsi_lower","RSI unten")}{field("exit_rsi_upper","RSI oben")}</div><button style={{...onButton,width:"100%",marginTop:9}} onClick={()=>void saveProfile()}>PROFIL SPEICHERN</button></Card>
