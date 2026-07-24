@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ExtremeLiveCockpit from "./ExtremeLiveCockpit";
 import QMomentumLab from "./QMomentumLab";
 import ADTrendLab from "./ADTrendLab";
+import OptimizerSettings from "./OptimizerSettings";
 import Trainer from "./Trainer";
 import "./App.css";
 
@@ -31,7 +32,7 @@ export default function App() {
   return (
     <div className="v8-shell">
       <nav className="v8-nav">
-        <div className="v8-brand"><b>QTrend V8.5</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
+        <div className="v8-brand"><b>QTrend V9.0a</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
         <div className="v8-tabs">
           {(["chart","lab","adlab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
             <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item === "adlab" ? "AD LAB" : item.toUpperCase()}</button>
@@ -45,7 +46,7 @@ export default function App() {
         {view === "cockpit" && <ExtremeLiveCockpit />}
         {view === "trainer" && <Trainer />}
         {view === "momentum" && <Placeholder title="MOMENTUM" text="Momentum AI bleibt als eigenes Forschungsmodul erhalten. V8.0 verbindet zunächst LAB und COCKPIT." />}
-        {view === "settings" && <Placeholder title="SETTINGS" text="Profile werden jetzt persistent gespeichert und zwischen LAB, COCKPIT und Engine geteilt. Broker, Telegram und Layout folgen schrittweise." />}
+        {view === "settings" && <OptimizerSettings />}
       </section>
     </div>
   );
