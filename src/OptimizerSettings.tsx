@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { berlinInputCurrent, berlinInputNow, berlinLocalInputToIso, formatBerlinDateTime } from "./berlinTime";
 
 const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const SYMBOLS = ["US30","US100","DE40","UK100","J225","CN50","BTCUSD","ETHUSD","GOLD","SILVER","OIL_CRUDE","CORN"];
@@ -17,7 +18,7 @@ async function api(path:string, init?:RequestInit){
   if(!r.ok||j?.ok===false)throw new Error(j?.error||`HTTP ${r.status}`); return j;
 }
 const post=(path:string,body:any={})=>api(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-const fmt=(v?:string)=>v?new Date(v).toLocaleString("de-DE"):"–";
+const fmt=(v?:string)=>formatBerlinDateTime(v);
 const strategyLabel=(id:string)=>STRATEGIES.find(x=>x.id===id)?.label||id;
 
 export default function OptimizerSettings(){
@@ -25,7 +26,7 @@ export default function OptimizerSettings(){
   const [intervals,setIntervals]=useState<string[]>(["5m","15m","30m"]);
   const [strategies,setStrategies]=useState<string[]>(["basis_chaikin"]);
   const [startMode,setStartMode]=useState<"now"|"time">("time");
-  const defaultStart=useMemo(()=>{const d=new Date();d.setHours(22,0,0,0);if(d.getTime()<Date.now())d.setDate(d.getDate()+1);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)},[]);
+  const defaultStart=useMemo(()=>berlinInputNow(22),[]);
   const [startAt,setStartAt]=useState(defaultStart);
   const [jobs,setJobs]=useState<Job[]>([]); const [current,setCurrent]=useState<Job|null>(null);
   const [history,setHistory]=useState<any[]>([]); const [message,setMessage]=useState("Bereit"); const [busy,setBusy]=useState(false);
@@ -43,7 +44,7 @@ export default function OptimizerSettings(){
     if(!symbols.length||!intervals.length||!strategies.length){setMessage("Bitte Markt, TF und Strategie auswählen");return}
     setBusy(true);
     try{
-      const scheduled_at=startMode==="now"?new Date().toISOString():new Date(startAt).toISOString();
+      const scheduled_at=startMode==="now"?berlinLocalInputToIso(berlinInputCurrent()):berlinLocalInputToIso(startAt);
       const r=await post("/optimizer/enqueue",{symbols,intervals,strategies,scheduled_at,limit:5000,min_trades:20,exit_htf_minutes:240,exit_timing_minutes:15,exit_rsi_lower:30,exit_rsi_upper:70,ad_length:11,chaikin_fast:3,chaikin_slow:10});
       setMessage(`${r.created} Jobs eingeplant · Start ${fmt(r.scheduled_at)}`);await load();
     }catch(e:any){setMessage(`Startfehler: ${e.message}`)}finally{setBusy(false)}
@@ -52,7 +53,7 @@ export default function OptimizerSettings(){
   const counts=jobs.reduce<Record<string,number>>((a,j)=>(a[j.status]=(a[j.status]||0)+1,a),{});
 
   return <div style={{minHeight:"100vh",background:"#070b16",color:"#e5edff",padding:18,fontFamily:"system-ui"}}>
-    <h1 style={{margin:"0 0 4px"}}>QOptimizer V2</h1><div style={{color:"#94a3b8",marginBottom:18}}>Serverseitige Queue · Browser kann geschlossen werden · immer nur ein Job gleichzeitig</div>
+    <h1 style={{margin:"0 0 4px"}}>QOptimizer V2</h1><div style={{color:"#94a3b8",marginBottom:18}}>Serverseitige Queue · Zeitzone Europe/Berlin · Browser kann geschlossen werden · immer nur ein Job gleichzeitig</div>
     <div style={grid}>
       <section style={card}><h3>Märkte</h3><div style={checks}>{SYMBOLS.map(x=><label key={x} style={check}><input type="checkbox" checked={symbols.includes(x)} onChange={()=>toggle(x,symbols,setSymbols)}/>{x}</label>)}</div></section>
       <section style={card}><h3>Timeframes</h3><div style={checks}>{INTERVALS.map(x=><label key={x} style={check}><input type="checkbox" checked={intervals.includes(x)} onChange={()=>toggle(x,intervals,setIntervals)}/>{x}</label>)}</div><h3>Strategien</h3><div style={{display:"grid",gap:8}}>{STRATEGIES.map(x=><label key={x.id} style={check}><input type="checkbox" checked={strategies.includes(x.id)} onChange={()=>toggle(x.id,strategies,setStrategies)}/>{x.label}</label>)}</div></section>

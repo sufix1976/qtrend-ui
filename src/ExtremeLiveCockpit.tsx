@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSharedMarket } from "./useSharedMarket";
+import { chartBerlinTime, formatBerlinDateTime } from "./berlinTime";
 import {
   CandlestickSeries,
   CrosshairMode,
@@ -95,7 +96,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
 
   useEffect(()=>{
     if(!priceHost.current||!macdHost.current||!rsiHost.current) return;
-    const common={layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:72},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true} as const;
+    const common={layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:72},timeScale:{borderColor:"#334155",timeVisible:true,tickMarkFormatter:(time:any)=>chartBerlinTime(Number(time))},localization:{timeFormatter:(time:any)=>chartBerlinTime(Number(time))},autoSize:true} as const;
     const pc=createChart(priceHost.current,common); const mc=createChart(macdHost.current,common); const rc=createChart(rsiHost.current,common);
     const cs=pc.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});
     const ml=mc.addSeries(LineSeries,{color:"#60a5fa",lineWidth:2}); const sl=mc.addSeries(LineSeries,{color:"#facc15",lineWidth:2}); const hg=mc.addSeries(HistogramSeries,{});
