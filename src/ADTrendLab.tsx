@@ -24,13 +24,23 @@ type Metrics = {
 type Best = { params:any; metrics:Metrics };
 type RunState = { status:"idle"|"running"|"done"|"error"; progress:number; message:string; best?:Best; error?:string };
 
-async function fetchJson(url:string, init?:RequestInit) {
-  const response = await fetch(url, { cache:"no-store", ...init });
-  const text = await response.text();
-  let json:any;
-  try { json = JSON.parse(text); } catch { throw new Error(`Non-JSON: ${text.slice(0,180)}`); }
-  if (!response.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${response.status}`);
-  return json;
+async function fetchJson(url:string, init?:RequestInit, retries=3) {
+  let lastError:unknown;
+  for(let attempt=1;attempt<=retries;attempt+=1){
+    try{
+      const response = await fetch(url, { cache:"no-store", ...init });
+      const text = await response.text();
+      let json:any;
+      try { json = JSON.parse(text); } catch { throw new Error(`Non-JSON: ${text.slice(0,180)}`); }
+      if (!response.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${response.status}`);
+      return json;
+    }catch(error){
+      lastError=error;
+      if(attempt>=retries)break;
+      await new Promise(resolve=>setTimeout(resolve,1000*attempt));
+    }
+  }
+  throw lastError instanceof Error?lastError:new Error(String(lastError));
 }
 
 function ema(values:number[], length:number):number[] {
@@ -99,6 +109,7 @@ export default function ADTrendLab(){
   const [runs,setRuns]=useState<Record<Mode,RunState>>({none:emptyRun(),ad:emptyRun(),chaikin:emptyRun()});
   const [status,setStatus]=useState("Lade Kerzen …");
   const [saveBusy,setSaveBusy]=useState(false);
+  const [optimizerBusy,setOptimizerBusy]=useState(false);
 
   const priceHost=useRef<HTMLDivElement>(null), sensorHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null), sensorChart=useRef<IChartApi|null>(null);
@@ -214,7 +225,7 @@ export default function ADTrendLab(){
       })});
       const jobId=String(start.job_id);
       while(true){
-        const step=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_id:jobId,batch_size:8})});
+        const step=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_id:jobId,batch_size:2})});
         setRun(mode,{status:"running",progress:Number(step.progress_pct||0),message:`${step.processed}/${step.total} · ${Number(step.progress_pct||0).toFixed(1)}%`});
         if(step.done){
           const best=step.result?.best as Best|undefined;
@@ -222,13 +233,23 @@ export default function ADTrendLab(){
           setRun(mode,{status:"done",progress:100,message:"Fertig",best});
           return;
         }
-        await new Promise(r=>setTimeout(r,40));
+        await new Promise(r=>setTimeout(r,250));
       }
     }catch(error){setRun(mode,{status:"error",message:"Fehler",error:error instanceof Error?error.message:String(error)});}
   }
 
   async function runAll(){
-    await Promise.all([runMode("none"),runMode("ad"),runMode("chaikin")]);
+    if(optimizerBusy)return;
+    setOptimizerBusy(true);
+    try{
+      await runMode("none");
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      await runMode("ad");
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      await runMode("chaikin");
+    }finally{
+      setOptimizerBusy(false);
+    }
   }
 
   async function saveAndActivate(){
@@ -265,15 +286,15 @@ export default function ADTrendLab(){
       <label style={label}>Timing TF<input type="number" value={exitTiming} onChange={e=>setExitTiming(Math.max(1,Number(e.target.value)||15))} style={smallInput}/></label>
       <label style={label}>RSI<input type="number" value={lower} onChange={e=>setLower(Number(e.target.value)||30)} style={miniInput}/>/<input type="number" value={upper} onChange={e=>setUpper(Number(e.target.value)||70)} style={miniInput}/></label>
       <label style={label}>Min Trades<input type="number" value={minTrades} onChange={e=>setMinTrades(Math.max(5,Number(e.target.value)||20))} style={smallInput}/></label>
-      <button onClick={()=>void runAll()} style={primary}>ALLE 3 OPTIMIEREN</button>
+      <button disabled={optimizerBusy} onClick={()=>void runAll()} style={{...primary,opacity:optimizerBusy?0.6:1}}>{optimizerBusy?"OPTIMIERUNG LÄUFT …":"ALLE 3 NACHEINANDER"}</button>
       <button disabled={saveBusy||!runs[activeMode].best} onClick={()=>void saveAndActivate()} style={{...activateButton,opacity:(saveBusy||!runs[activeMode].best)?0.6:1}}>{saveBusy?"SPEICHERT …":"SPEICHERN + AKTIVIEREN"}</button>
       <span style={{fontSize:12,color:"#22c55e",marginLeft:"auto"}}>{status}</span>
     </header>
 
     <section style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(300px,1fr))",gap:8,marginBottom:8}}>
-      <ResultCard title="BASIS V8.5" mode="none" run={runs.none} active={activeMode==="none"} onSelect={()=>setActiveMode("none")} onRun={()=>void runMode("none")}/>
-      <ResultCard title="BASIS + HA-AD TRENDPFAD" mode="ad" run={runs.ad} active={activeMode==="ad"} onSelect={()=>setActiveMode("ad")} onRun={()=>void runMode("ad")}/>
-      <ResultCard title="BASIS + CHAIKIN TRENDPFAD" mode="chaikin" run={runs.chaikin} active={activeMode==="chaikin"} onSelect={()=>setActiveMode("chaikin")} onRun={()=>void runMode("chaikin")}/>
+      <ResultCard title="BASIS V8.5" mode="none" run={runs.none} active={activeMode==="none"} onSelect={()=>setActiveMode("none")} onRun={()=>{if(!optimizerBusy)void runMode("none")}}/>
+      <ResultCard title="BASIS + HA-AD TRENDPFAD" mode="ad" run={runs.ad} active={activeMode==="ad"} onSelect={()=>setActiveMode("ad")} onRun={()=>{if(!optimizerBusy)void runMode("ad")}}/>
+      <ResultCard title="BASIS + CHAIKIN TRENDPFAD" mode="chaikin" run={runs.chaikin} active={activeMode==="chaikin"} onSelect={()=>setActiveMode("chaikin")} onRun={()=>{if(!optimizerBusy)void runMode("chaikin")}}/>
     </section>
     <div style={{fontSize:12,color:"#c4b5fd",margin:"-2px 2px 8px"}}>Ausgewählt: <b>{activeMode==="chaikin"?"BASIS + CHAIKIN TRENDPFAD":activeMode==="ad"?"BASIS + HA-AD TRENDPFAD":"BASIS V8.5"}</b> · Speichern aktiviert nur neue Signale ab dem Klickzeitpunkt.</div>
 
