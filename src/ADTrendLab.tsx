@@ -14,52 +14,31 @@ const BACKEND_BASE = "https://qtrend-trading-engine.onrender.com";
 const SYMBOLS = ["BTCUSD","ETHUSD","DE40","US100","US30","J225","UK100","GOLD","SILVER","OIL_CRUDE","CORN"];
 const INTERVALS = ["1m","5m","10m","15m","30m","1h"];
 
-type Candle = { time:number; open:number; high:number; low:number; close:number };
-type Side = "long" | "short";
-type SourceEvent = { type:"entry"|"exit"; direction?:Side; time:number; price:number; reason?:string };
-type Trade = { side:Side; entryTime:number; entryPrice:number; exitTime:number; exitPrice:number; pnl:number; entryReason:string; exitReason:string };
-type Marker = { time:number; side:Side; kind:"entry"|"exit"; text:string; color:string };
-type Metrics = { trades:number; wins:number; losses:number; net:number; grossWin:number; grossLoss:number; profitFactor:number; winRate:number; maxDrawdown:number };
-type Simulation = { trades:Trade[]; markers:Marker[]; metrics:Metrics };
-type CandleSource = "heikin" | "normal";
-type View = "a" | "b" | "c";
-type LiveReplay = { events?:SourceEvent[] };
+type Candle = { time:number; open:number; high:number; low:number; close:number; volume?:number };
+type Mode = "none" | "ad" | "chaikin";
+type EventRow = { type:string; direction?:"long"|"short"; time:number; price:number; reason?:string; exit_type?:string };
+type Metrics = {
+  trades:number; profit_factor:number; net:number; win_rate_pct:number; max_drawdown:number;
+  extreme_entry_count?:number; trend_entry_count?:number; chaikin_volume_coverage_pct?:number; events?:EventRow[];
+};
+type Best = { params:any; metrics:Metrics };
+type RunState = { status:"idle"|"running"|"done"|"error"; progress:number; message:string; best?:Best; error?:string };
 
-async function fetchJson(url:string) {
-  const response = await fetch(url, { cache:"no-store" });
+async function fetchJson(url:string, init?:RequestInit) {
+  const response = await fetch(url, { cache:"no-store", ...init });
   const text = await response.text();
   let json:any;
-  try { json = JSON.parse(text); } catch { throw new Error(`Non-JSON: ${text.slice(0,160)}`); }
+  try { json = JSON.parse(text); } catch { throw new Error(`Non-JSON: ${text.slice(0,180)}`); }
   if (!response.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${response.status}`);
   return json;
 }
 
 function ema(values:number[], length:number):number[] {
   if (!values.length) return [];
-  const alpha = 2 / (Math.max(1,length) + 1);
+  const alpha = 2/(Math.max(1,length)+1);
   const out = new Array<number>(values.length);
-  out[0] = values[0];
-  for (let i=1;i<values.length;i+=1) out[i] = alpha * values[i] + (1-alpha) * out[i-1];
-  return out;
-}
-
-function rsi(values:number[], length:number):number[] {
-  const out = new Array<number>(values.length).fill(50);
-  if (values.length < 2) return out;
-  const n = Math.max(1,length);
-  let avgGain = 0; let avgLoss = 0;
-  for (let i=1;i<=Math.min(n,values.length-1);i+=1) {
-    const d = values[i]-values[i-1]; avgGain += Math.max(0,d); avgLoss += Math.max(0,-d);
-  }
-  avgGain /= n; avgLoss /= n;
-  for (let i=1;i<values.length;i+=1) {
-    if (i>n) {
-      const d=values[i]-values[i-1];
-      avgGain=((avgGain*(n-1))+Math.max(0,d))/n;
-      avgLoss=((avgLoss*(n-1))+Math.max(0,-d))/n;
-    }
-    out[i]=avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
-  }
+  out[0]=values[0];
+  for(let i=1;i<values.length;i+=1) out[i]=alpha*values[i]+(1-alpha)*out[i-1];
   return out;
 }
 
@@ -68,18 +47,19 @@ function heikinAshi(candles:Candle[]):Candle[] {
   for(let i=0;i<candles.length;i+=1){
     const c=candles[i];
     const close=(c.open+c.high+c.low+c.close)/4;
-    const open=i===0?(c.open+c.close)/2:(out[i-1].open+out[i-1].close)/2;
-    out.push({time:c.time,open,high:Math.max(c.high,open,close),low:Math.min(c.low,open,close),close});
+    const open=i===0?(c.open+c.close)/2:((out[i-1].open+out[i-1].close)/2);
+    out.push({time:c.time,open,high:Math.max(c.high,open,close),low:Math.min(c.low,open,close),close,volume:c.volume||0});
   }
   return out;
 }
 
 function adRatio(candles:Candle[], length:number):number[] {
-  const n=Math.max(1,Math.round(length));
+  const ha=heikinAshi(candles);
+  const n=Math.max(2,Math.floor(length));
   const out=new Array<number>(candles.length).fill(1);
-  let up=0; let down=0;
-  const flags=candles.map(c=>c.close-c.open>=0?1:-1);
-  for(let i=0;i<candles.length;i+=1){
+  const flags=ha.map(c=>c.close>=c.open?1:-1);
+  let up=0,down=0;
+  for(let i=0;i<flags.length;i+=1){
     if(flags[i]>0)up+=1;else down+=1;
     if(i>=n){if(flags[i-n]>0)up-=1;else down-=1;}
     out[i]=down===0?up:up/down;
@@ -87,211 +67,216 @@ function adRatio(candles:Candle[], length:number):number[] {
   return out;
 }
 
-function computeMetrics(trades:Trade[]):Metrics {
-  let grossWin=0,grossLoss=0,net=0,equity=0,peak=0,maxDrawdown=0,wins=0;
-  for(const t of trades){
-    net+=t.pnl; equity+=t.pnl; peak=Math.max(peak,equity); maxDrawdown=Math.max(maxDrawdown,peak-equity);
-    if(t.pnl>0){grossWin+=t.pnl;wins+=1;}else grossLoss+=Math.abs(t.pnl);
+function chaikinOscillator(candles:Candle[], fastLength:number, slowLength:number){
+  const adl:number[]=[];
+  let cumulative=0,realVolume=0;
+  for(const c of candles){
+    const range=c.high-c.low;
+    const multiplier=range===0?0:(((c.close-c.low)-(c.high-c.close))/range);
+    const raw=Number(c.volume||0);
+    if(raw>0)realVolume+=1;
+    cumulative += multiplier*(raw>0?raw:1);
+    adl.push(cumulative);
   }
-  return {trades:trades.length,wins,losses:trades.length-wins,net,grossWin,grossLoss,profitFactor:grossLoss>0?grossWin/grossLoss:grossWin>0?999:0,winRate:trades.length?wins/trades.length*100:0,maxDrawdown};
+  const fast=ema(adl,fastLength),slow=ema(adl,slowLength);
+  return { values:adl.map((_,i)=>(fast[i]||0)-(slow[i]||0)), coverage:candles.length?realVolume/candles.length*100:0 };
 }
 
-function closeTrade(position:{side:Side;entryTime:number;entryPrice:number;entryReason:string}, candle:Candle, reason:string):Trade {
-  const pnl=position.side==="long"?candle.close-position.entryPrice:position.entryPrice-candle.close;
-  return {side:position.side,entryTime:position.entryTime,entryPrice:position.entryPrice,exitTime:candle.time,exitPrice:candle.close,pnl,entryReason:position.entryReason,exitReason:reason};
-}
-
-function simulateExtremeFilter(candles:Candle[], ad:number[], sourceEvents:SourceEvent[]):Simulation {
-  const entryByTime=new Map<number,SourceEvent[]>();
-  for(const event of sourceEvents){
-    if(event.type!=="entry"||!event.direction)continue;
-    const list=entryByTime.get(Number(event.time))||[];list.push(event);entryByTime.set(Number(event.time),list);
-  }
-  const trades:Trade[]=[]; const markers:Marker[]=[];
-  let position:null|{side:Side;entryTime:number;entryPrice:number;entryReason:string}=null;
-  for(let i=1;i<candles.length;i+=1){
-    const c=candles[i]; const now=ad[i];
-    if(position){
-      const exitLong=position.side==="long"&&now<=1;
-      const exitShort=position.side==="short"&&now>=1;
-      if(exitLong||exitShort){
-        trades.push(closeTrade(position,c,"AD zurück an 1"));
-        markers.push({time:c.time,side:position.side,kind:"exit",text:"EXIT AD=1",color:"#facc15"});
-        position=null;
-      }
-    }
-    if(!position){
-      const events=entryByTime.get(c.time)||[];
-      for(const e of events){
-        const allowed=e.direction==="long"?now>1:now<1;
-        if(!allowed)continue;
-        position={side:e.direction!,entryTime:c.time,entryPrice:c.close,entryReason:"EXTREM + AD"};
-        markers.push({time:c.time,side:e.direction!,kind:"entry",text:e.direction==="long"?"LONG EXTREM":"SHORT EXTREM",color:e.direction==="long"?"#22c55e":"#ef4444"});
-        break;
-      }
-    }
-  }
-  if(position&&candles.length){const c=candles[candles.length-1];trades.push(closeTrade(position,c,"Datenende"));}
-  return {trades,markers,metrics:computeMetrics(trades)};
-}
-
-function simulateRegimePullback(candles:Candle[], ad:number[], rsiValues:number[], signal:number[]):Simulation {
-  const trades:Trade[]=[]; const markers:Marker[]=[];
-  let position:null|{side:Side;entryTime:number;entryPrice:number;entryReason:string}=null;
-  for(let i=1;i<candles.length;i+=1){
-    const c=candles[i]; const now=ad[i];
-    if(position){
-      const exitLong=position.side==="long"&&now<=1;
-      const exitShort=position.side==="short"&&now>=1;
-      if(exitLong||exitShort){
-        trades.push(closeTrade(position,c,"AD zurück an 1"));
-        markers.push({time:c.time,side:position.side,kind:"exit",text:"EXIT AD=1",color:"#facc15"});
-        position=null;
-      }
-    }
-    if(!position){
-      const crossUp=rsiValues[i-1]<=signal[i-1]&&rsiValues[i]>signal[i];
-      const crossDown=rsiValues[i-1]>=signal[i-1]&&rsiValues[i]<signal[i];
-      if(now>1&&crossUp){
-        position={side:"long",entryTime:c.time,entryPrice:c.close,entryReason:"AD LONG + RSI Cross"};
-        markers.push({time:c.time,side:"long",kind:"entry",text:"LONG PULLBACK",color:"#22c55e"});
-      }else if(now<1&&crossDown){
-        position={side:"short",entryTime:c.time,entryPrice:c.close,entryReason:"AD SHORT + RSI Cross"};
-        markers.push({time:c.time,side:"short",kind:"entry",text:"SHORT PULLBACK",color:"#ef4444"});
-      }
-    }
-  }
-  if(position&&candles.length){const c=candles[candles.length-1];trades.push(closeTrade(position,c,"Datenende"));}
-  return {trades,markers,metrics:computeMetrics(trades)};
-}
-
-function simulateRegimeCross(candles:Candle[], ad:number[]):Simulation {
-  const trades:Trade[]=[]; const markers:Marker[]=[];
-  let position:null|{side:Side;entryTime:number;entryPrice:number;entryReason:string}=null;
-  for(let i=1;i<candles.length;i+=1){
-    const c=candles[i]; const prev=ad[i-1]; const now=ad[i];
-    const crossUp=prev<=1&&now>1;
-    const crossDown=prev>=1&&now<1;
-    if(!crossUp&&!crossDown)continue;
-    const nextSide:Side=crossUp?"long":"short";
-    if(position){
-      trades.push(closeTrade(position,c,"AD Regimewechsel"));
-      markers.push({time:c.time,side:position.side,kind:"exit",text:"EXIT / FLIP AD",color:"#facc15"});
-      position=null;
-    }
-    position={side:nextSide,entryTime:c.time,entryPrice:c.close,entryReason:"AD Cross 1"};
-    markers.push({time:c.time,side:nextSide,kind:"entry",text:nextSide==="long"?"LONG AD>1":"SHORT AD<1",color:nextSide==="long"?"#22c55e":"#ef4444"});
-  }
-  if(position&&candles.length){const c=candles[candles.length-1];trades.push(closeTrade(position,c,"Datenende"));}
-  return {trades,markers,metrics:computeMetrics(trades)};
-}
+const emptyRun=():RunState=>({status:"idle",progress:0,message:"Noch nicht gerechnet"});
 
 export default function ADTrendLab(){
   const {symbol,interval,setSymbol,setInterval}=useSharedMarket();
   const [candles,setCandles]=useState<Candle[]>([]);
-  const [sourceEvents,setSourceEvents]=useState<SourceEvent[]>([]);
   const [adLength,setAdLength]=useState(11);
-  const [rsiLength,setRsiLength]=useState(14);
-  const [rsiSignalLength,setRsiSignalLength]=useState(9);
-  const [candleSource,setCandleSource]=useState<CandleSource>("heikin");
-  const [view,setView]=useState<View>("c");
-  const [status,setStatus]=useState("Lade …");
-  const priceHost=useRef<HTMLDivElement>(null);const adHost=useRef<HTMLDivElement>(null);const rsiHost=useRef<HTMLDivElement>(null);
-  const priceChart=useRef<IChartApi|null>(null);const adChart=useRef<IChartApi|null>(null);const rsiChart=useRef<IChartApi|null>(null);
-  const candleSeries=useRef<ISeriesApi<"Candlestick">|null>(null);const markerApi=useRef<any>(null);
-  const adLine=useRef<ISeriesApi<"Line">|null>(null);const oneLine=useRef<ISeriesApi<"Line">|null>(null);
-  const rsiLine=useRef<ISeriesApi<"Line">|null>(null);const signalLine=useRef<ISeriesApi<"Line">|null>(null);
+  const [chaikinFast,setChaikinFast]=useState(3);
+  const [chaikinSlow,setChaikinSlow]=useState(10);
+  const [exitHtf,setExitHtf]=useState(240);
+  const [exitTiming,setExitTiming]=useState(15);
+  const [lower,setLower]=useState(30);
+  const [upper,setUpper]=useState(70);
+  const [minTrades,setMinTrades]=useState(20);
+  const [activeMode,setActiveMode]=useState<Mode>("ad");
+  const [runs,setRuns]=useState<Record<Mode,RunState>>({none:emptyRun(),ad:emptyRun(),chaikin:emptyRun()});
+  const [status,setStatus]=useState("Lade Kerzen …");
 
-  const haCandles=useMemo(()=>heikinAshi(candles),[candles]);
-  const trendCandles=candleSource==="heikin"?haCandles:candles;
-  const closes=useMemo(()=>candles.map(c=>c.close),[candles]);
-  const ad=useMemo(()=>adRatio(trendCandles,adLength),[trendCandles,adLength]);
-  const rsiValues=useMemo(()=>rsi(closes,rsiLength),[closes,rsiLength]);
-  const rsiSignal=useMemo(()=>ema(rsiValues,rsiSignalLength),[rsiValues,rsiSignalLength]);
-  const modeA=useMemo(()=>simulateExtremeFilter(candles,ad,sourceEvents),[candles,ad,sourceEvents]);
-  const modeB=useMemo(()=>simulateRegimePullback(candles,ad,rsiValues,rsiSignal),[candles,ad,rsiValues,rsiSignal]);
-  const modeC=useMemo(()=>simulateRegimeCross(candles,ad),[candles,ad]);
-  const active=view==="a"?modeA:view==="b"?modeB:modeC;
-  const currentAd=ad.length?ad[ad.length-1]:1;
-  const currentRegime=currentAd>1?"LONG":currentAd<1?"SHORT":"NEUTRAL";
+  const priceHost=useRef<HTMLDivElement>(null), sensorHost=useRef<HTMLDivElement>(null);
+  const priceChart=useRef<IChartApi|null>(null), sensorChart=useRef<IChartApi|null>(null);
+  const candleSeries=useRef<ISeriesApi<"Candlestick">|null>(null), adSeries=useRef<ISeriesApi<"Line">|null>(null), chaikinSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const adOneSeries=useRef<ISeriesApi<"Line">|null>(null), zeroSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const markerApi=useRef<any>(null);
+  const candlesRef=useRef<Candle[]>([]);
+  const adRef=useRef<number[]>([]);
+  const chaikinRef=useRef<number[]>([]);
+  const activeModeRef=useRef<Mode>("ad");
+
+  const ha=useMemo(()=>heikinAshi(candles),[candles]);
+  const ad=useMemo(()=>adRatio(candles,adLength),[candles,adLength]);
+  const chaikin=useMemo(()=>chaikinOscillator(candles,chaikinFast,chaikinSlow),[candles,chaikinFast,chaikinSlow]);
+  const activeRun=runs[activeMode];
+  const activeEvents=activeRun.best?.metrics?.events||[];
+  useEffect(()=>{candlesRef.current=candles;adRef.current=ad;chaikinRef.current=chaikin.values;activeModeRef.current=activeMode;},[candles,ad,chaikin,activeMode]);
 
   useEffect(()=>{
-    if(!priceHost.current||!adHost.current||!rsiHost.current)return;
-    const common={layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},rightPriceScale:{borderColor:"#334155",minimumWidth:72},timeScale:{borderColor:"#334155",timeVisible:true},autoSize:true} as const;
-    const pc=createChart(priceHost.current,common);const ac=createChart(adHost.current,common);const rc=createChart(rsiHost.current,common);
+    if(!priceHost.current||!sensorHost.current)return;
+    const common={layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},rightPriceScale:{borderColor:"#334155",minimumWidth:72},timeScale:{borderColor:"#334155",timeVisible:true},crosshair:{vertLine:{visible:true,labelVisible:true},horzLine:{visible:true,labelVisible:true}},autoSize:true} as const;
+    const pc=createChart(priceHost.current,common),sc=createChart(sensorHost.current,common);
     const cs=pc.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});
-    const al=ac.addSeries(LineSeries,{color:"#38bdf8",lineWidth:2});const ol=ac.addSeries(LineSeries,{color:"#facc15",lineWidth:2,lineStyle:2});
-    const rl=rc.addSeries(LineSeries,{color:"#a855f7",lineWidth:2});const sl=rc.addSeries(LineSeries,{color:"#facc15",lineWidth:2});
-    markerApi.current=createSeriesMarkers(cs,[]);priceChart.current=pc;adChart.current=ac;rsiChart.current=rc;candleSeries.current=cs;adLine.current=al;oneLine.current=ol;rsiLine.current=rl;signalLine.current=sl;
-    let syncing=false;const sync=(source:IChartApi,a:IChartApi,b:IChartApi)=>source.timeScale().subscribeVisibleLogicalRangeChange(range=>{if(!range||syncing)return;syncing=true;a.timeScale().setVisibleLogicalRange(range);b.timeScale().setVisibleLogicalRange(range);syncing=false;});
-    sync(pc,ac,rc);sync(ac,pc,rc);sync(rc,pc,ac);
-    return()=>{pc.remove();ac.remove();rc.remove();};
+    const ads=sc.addSeries(LineSeries,{color:"#38bdf8",lineWidth:2,title:"HA-AD"});
+    const chs=sc.addSeries(LineSeries,{color:"#f97316",lineWidth:2,title:"Chaikin"});
+    const one=sc.addSeries(LineSeries,{color:"#facc15",lineWidth:1,lineStyle:2,title:"AD 1"});
+    const zero=sc.addSeries(LineSeries,{color:"#94a3b8",lineWidth:1,lineStyle:2,title:"Chaikin 0"});
+    markerApi.current=createSeriesMarkers(cs,[]);
+    priceChart.current=pc;sensorChart.current=sc;candleSeries.current=cs;adSeries.current=ads;chaikinSeries.current=chs;adOneSeries.current=one;zeroSeries.current=zero;
+
+    let rangeSync=false;
+    const syncRange=(source:IChartApi,target:IChartApi)=>source.timeScale().subscribeVisibleLogicalRangeChange(range=>{if(!range||rangeSync)return;rangeSync=true;target.timeScale().setVisibleLogicalRange(range);rangeSync=false;});
+    syncRange(pc,sc);syncRange(sc,pc);
+
+    let crossSync=false;
+    pc.subscribeCrosshairMove(param=>{
+      if(crossSync)return;
+      crossSync=true;
+      if(param.time){
+        const point=param.seriesData.get(cs) as any;
+        const price=Number(point?.close??point?.value);
+        if(Number.isFinite(price)) pc.setCrosshairPosition(price,param.time,cs);
+        const idx=candlesRef.current.findIndex(c=>Number(c.time)===Number(param.time));
+        if(idx>=0){
+          const mode=activeModeRef.current;
+          const v=mode==="chaikin"?chaikinRef.current[idx]:adRef.current[idx];
+          const series=mode==="chaikin"?chs:ads;
+          if(Number.isFinite(v)) sc.setCrosshairPosition(v,param.time,series);
+        }
+      }else sc.clearCrosshairPosition();
+      crossSync=false;
+    });
+    sc.subscribeCrosshairMove(param=>{
+      if(crossSync)return;
+      crossSync=true;
+      if(param.time){
+        const idx=candlesRef.current.findIndex(c=>Number(c.time)===Number(param.time));
+        if(idx>=0){
+          pc.setCrosshairPosition(candlesRef.current[idx].close,param.time,cs);
+          const mode=activeModeRef.current;
+          const v=mode==="chaikin"?chaikinRef.current[idx]:adRef.current[idx];
+          const series=mode==="chaikin"?chs:ads;
+          if(Number.isFinite(v)) sc.setCrosshairPosition(v,param.time,series);
+        }
+      }else pc.clearCrosshairPosition();
+      crossSync=false;
+    });
+    return()=>{pc.remove();sc.remove();};
   },[]);
 
   useEffect(()=>{
-    const displayCandles=candleSource==="heikin"?haCandles:candles;
-    candleSeries.current?.setData(displayCandles.map(c=>({...c,time:c.time as Time})));
-    adLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:ad[i]})));
-    oneLine.current?.setData(candles.map(c=>({time:c.time as Time,value:1})));
-    rsiLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:rsiValues[i]})));
-    signalLine.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:rsiSignal[i]})));
-    markerApi.current?.setMarkers(active.markers.map(m=>({time:m.time as Time,position:m.kind==="entry"?(m.side==="long"?"belowBar":"aboveBar"):"aboveBar",shape:m.kind==="entry"?(m.side==="long"?"arrowUp":"arrowDown"):"circle",color:m.color,text:m.text,size:m.kind==="entry"?1.2:.8})).sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
-  },[candles,haCandles,candleSource,ad,rsiValues,rsiSignal,active]);
+    candleSeries.current?.setData(ha.map(c=>({...c,time:c.time as Time})));
+    adSeries.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:ad[i]})));
+    chaikinSeries.current?.setData(candles.map((c,i)=>({time:c.time as Time,value:chaikin.values[i]})));
+    adOneSeries.current?.setData(candles.map(c=>({time:c.time as Time,value:1})));
+    zeroSeries.current?.setData(candles.map(c=>({time:c.time as Time,value:0})));
+    adSeries.current?.applyOptions({visible:activeMode!=="chaikin"});
+    adOneSeries.current?.applyOptions({visible:activeMode!=="chaikin"});
+    chaikinSeries.current?.applyOptions({visible:activeMode==="chaikin"});
+    zeroSeries.current?.applyOptions({visible:activeMode==="chaikin"});
+    const markers=activeEvents.filter(e=>e.type==="entry"||e.type==="exit").map(e=>({
+      time:Number(e.time) as Time,
+      position:e.type==="entry"?(e.direction==="long"?"belowBar":"aboveBar"):"aboveBar",
+      shape:e.type==="entry"?(e.direction==="long"?"arrowUp":"arrowDown"):"circle",
+      color:e.type==="entry"?(e.direction==="long"?"#22c55e":"#ef4444"):"#facc15",
+      text:e.type==="entry"?(String(e.reason||"").startsWith("TREND ")?`${e.direction?.toUpperCase()} TREND`:`${e.direction?.toUpperCase()} EXTREM`):"EXIT",
+      size:e.type==="entry"?1.2:.8,
+    })).sort((a,b)=>Number(a.time)-Number(b.time));
+    markerApi.current?.setMarkers(markers);
+  },[candles,ha,ad,chaikin,activeMode,activeEvents]);
 
   async function load(){
-    setStatus("Lade Kerzen und V8.5-Entries …");
+    setStatus("Lade 5000 Kerzen …");
     try{
-      const [data,live]=await Promise.all([
-        fetchJson(`${BACKEND_BASE}/qmomentum/data?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=5000&_ts=${Date.now()}`),
-        fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/state?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=5000&_ts=${Date.now()}`),
-      ]);
-      setCandles(Array.isArray(data.candles)?data.candles:[]);
-      setSourceEvents(Array.isArray((live as LiveReplay).events)?(live as LiveReplay).events!:[]);
-      setStatus(`${Array.isArray(data.candles)?data.candles.length:0} Kerzen · ${Array.isArray((live as LiveReplay).events)?(live as LiveReplay).events!.filter(e=>e.type==="entry").length:0} Extreme-Entries geladen`);
+      const data=await fetchJson(`${BACKEND_BASE}/qmomentum/data?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=5000&_ts=${Date.now()}`);
+      const list=Array.isArray(data.candles)?data.candles:[];
+      setCandles(list);
+      setStatus(`${list.length} Kerzen · Volumenabdeckung ${chaikinOscillator(list,chaikinFast,chaikinSlow).coverage.toFixed(1)}%`);
     }catch(error){setStatus(`Fehler: ${error instanceof Error?error.message:String(error)}`);}
   }
   useEffect(()=>{void load();},[symbol,interval]);
 
+  function setRun(mode:Mode,patch:Partial<RunState>){setRuns(prev=>({...prev,[mode]:{...prev[mode],...patch}}));}
+
+  async function runMode(mode:Mode){
+    setRun(mode,{status:"running",progress:0,message:"Optimizer startet …",best:undefined,error:undefined});
+    try{
+      const start=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-optimize/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        symbol,interval,limit:5000,min_trades:minTrades,z_window:200,
+        exit_htf_minutes:exitHtf,exit_timing_minutes:exitTiming,exit_rsi_lower:lower,exit_rsi_upper:upper,
+        trend_filter_mode:mode,ad_length:adLength,chaikin_fast:chaikinFast,chaikin_slow:chaikinSlow,
+        trend_sigma_values:mode==="none"?[0]:[0,0.25,0.5,0.75,1],
+      })});
+      const jobId=String(start.job_id);
+      while(true){
+        const step=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-optimize/step`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_id:jobId,batch_size:8})});
+        setRun(mode,{status:"running",progress:Number(step.progress_pct||0),message:`${step.processed}/${step.total} · ${Number(step.progress_pct||0).toFixed(1)}%`});
+        if(step.done){
+          const best=step.result?.best as Best|undefined;
+          if(!best)throw new Error("Kein Ergebnis mit Mindest-Trades gefunden");
+          setRun(mode,{status:"done",progress:100,message:"Fertig",best});
+          return;
+        }
+        await new Promise(r=>setTimeout(r,40));
+      }
+    }catch(error){setRun(mode,{status:"error",message:"Fehler",error:error instanceof Error?error.message:String(error)});}
+  }
+
+  async function runAll(){
+    await Promise.all([runMode("none"),runMode("ad"),runMode("chaikin")]);
+  }
+
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",padding:10,fontFamily:"Inter,Arial,sans-serif",boxSizing:"border-box"}}>
-    <header style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",padding:"6px 8px 12px"}}>
-      <div><b style={{fontSize:20}}>AD Trend Lab V1.1</b><div style={{fontSize:11,color:"#94a3b8"}}>HA-AD über/unter 1 · kein Puffer · drei Strategiemodi</div></div>
+    <header style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"6px 8px 12px"}}>
+      <div><b style={{fontSize:20}}>AD / Chaikin Trend Lab V1.2</b><div style={{fontSize:11,color:"#94a3b8"}}>V8.5-Basis bleibt unverändert · Extreme ignorieren Trendfilter · zusätzlicher Trendpfad wird optimiert</div></div>
       <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={input}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
       <select value={interval} onChange={e=>setInterval(e.target.value)} style={input}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
-      <label style={label}>AD Länge<input type="number" min="2" max="50" value={adLength} onChange={e=>setAdLength(Math.max(2,Number(e.target.value)||11))} style={smallInput}/></label>
-      <label style={label}>RSI<input type="number" min="2" max="50" value={rsiLength} onChange={e=>setRsiLength(Math.max(2,Number(e.target.value)||14))} style={smallInput}/></label>
-      <label style={label}>Signal<input type="number" min="1" max="30" value={rsiSignalLength} onChange={e=>setRsiSignalLength(Math.max(1,Number(e.target.value)||9))} style={smallInput}/></label>
-      <button onClick={()=>setCandleSource("heikin")} style={sourceButton(candleSource==="heikin")}>HEIKIN AD</button>
-      <button onClick={()=>setCandleSource("normal")} style={sourceButton(candleSource==="normal")}>NORMAL AD</button>
-      <button onClick={()=>setView("a")} style={tab(view==="a")}>A · EXTREM + AD</button>
-      <button onClick={()=>setView("b")} style={tab(view==="b")}>B · AD + PULLBACK</button>
-      <button onClick={()=>setView("c")} style={tab(view==="c")}>C · AD CROSS 1</button>
-      <span style={{fontSize:12,color:currentRegime==="LONG"?"#22c55e":currentRegime==="SHORT"?"#ef4444":"#facc15",fontWeight:800}}>REGIME {currentRegime} · AD {currentAd.toFixed(2)}</span>
+      <label style={label}>AD<input type="number" min="2" max="50" value={adLength} onChange={e=>setAdLength(Math.max(2,Number(e.target.value)||11))} style={smallInput}/></label>
+      <label style={label}>Chaikin<input type="number" min="1" max="20" value={chaikinFast} onChange={e=>setChaikinFast(Math.max(1,Number(e.target.value)||3))} style={miniInput}/>/<input type="number" min="2" max="60" value={chaikinSlow} onChange={e=>setChaikinSlow(Math.max(2,Number(e.target.value)||10))} style={miniInput}/></label>
+      <label style={label}>Armed TF<input type="number" value={exitHtf} onChange={e=>setExitHtf(Math.max(5,Number(e.target.value)||240))} style={smallInput}/></label>
+      <label style={label}>Timing TF<input type="number" value={exitTiming} onChange={e=>setExitTiming(Math.max(1,Number(e.target.value)||15))} style={smallInput}/></label>
+      <label style={label}>RSI<input type="number" value={lower} onChange={e=>setLower(Number(e.target.value)||30)} style={miniInput}/>/<input type="number" value={upper} onChange={e=>setUpper(Number(e.target.value)||70)} style={miniInput}/></label>
+      <label style={label}>Min Trades<input type="number" value={minTrades} onChange={e=>setMinTrades(Math.max(5,Number(e.target.value)||20))} style={smallInput}/></label>
+      <button onClick={()=>void runAll()} style={primary}>ALLE 3 OPTIMIEREN</button>
       <span style={{fontSize:12,color:"#22c55e",marginLeft:"auto"}}>{status}</span>
     </header>
-    <section style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(260px,1fr))",gap:8,marginBottom:8}}>
-      <MetricsCard title="MODUS A · EXTREME + AD-FILTER" metrics={modeA.metrics} active={view==="a"} onClick={()=>setView("a")}/>
-      <MetricsCard title="MODUS B · AD + RSI-PULLBACK" metrics={modeB.metrics} active={view==="b"} onClick={()=>setView("b")}/>
-      <MetricsCard title="MODUS C · DIREKTER AD-REGIME-CROSS" metrics={modeC.metrics} active={view==="c"} onClick={()=>setView("c")}/>
+
+    <section style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(300px,1fr))",gap:8,marginBottom:8}}>
+      <ResultCard title="BASIS V8.5" mode="none" run={runs.none} active={activeMode==="none"} onSelect={()=>setActiveMode("none")} onRun={()=>void runMode("none")}/>
+      <ResultCard title="BASIS + HA-AD TRENDPFAD" mode="ad" run={runs.ad} active={activeMode==="ad"} onSelect={()=>setActiveMode("ad")} onRun={()=>void runMode("ad")}/>
+      <ResultCard title="BASIS + CHAIKIN TRENDPFAD" mode="chaikin" run={runs.chaikin} active={activeMode==="chaikin"} onSelect={()=>setActiveMode("chaikin")} onRun={()=>void runMode("chaikin")}/>
     </section>
-    <section style={{display:"grid",gridTemplateRows:"minmax(430px,55vh) 190px 190px",gap:8}}>
-      <div ref={priceHost} style={chartBox}/><div ref={adHost} style={chartBox}/><div ref={rsiHost} style={chartBox}/>
+
+    <section style={{display:"grid",gridTemplateRows:"minmax(500px,62vh) 220px",gap:8}}>
+      <div ref={priceHost} style={chartBox}/><div ref={sensorHost} style={chartBox}/>
     </section>
+
     <section style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:8}}>
-      <Info title="REGELN MODUS A"><p>Bestehender V8.5-Extreme-Entry wird nur akzeptiert, wenn HA-AD die Richtung bestätigt.</p><code>AD &gt; 1 → nur LONG · AD &lt; 1 → nur SHORT · Exit bei Rückkehr an 1</code></Info>
-      <Info title="REGELN MODUS B"><p>HA-AD bestimmt das Regime. Der nächste RSI/Signal-Cross in Trendrichtung dient als Pullback-/Knick-Entry.</p><code>AD &gt; 1 + RSI Cross Up → LONG · AD &lt; 1 + RSI Cross Down → SHORT · Exit bei 1</code></Info>
-      <Info title="REGELN MODUS C"><p>Nur der Wechsel der HA-AD-Linie über oder unter 1 wird gehandelt. Bei jedem Gegencross erfolgt der direkte Flip.</p><code>Cross über 1 → LONG · Cross unter 1 → SHORT · Position bis zum Gegencross</code></Info>
+      <Info title="EXTREM-PFAD"><p>Echte Sigma-Extreme bleiben 1:1 V8.5. Weder AD noch Chaikin dürfen sie blockieren.</p><code>EXTREM → RSI-Cross → Entry · Filter ignoriert</code></Info>
+      <Info title="TREND-PFAD"><p>Nur wenn kein Extrem-Entry anliegt: Filter bestätigt Richtung, gelockertes Sigma und RSI/MACD-Knick liefern einen zusätzlichen Entry.</p><code>Regime + Pullback-Z + RSI-Cross + Histogramm-Knick</code></Info>
+      <Info title="CHAIKIN-DATEN"><p>Standard-Chaikin 3/10 verwendet Capital-Volumen. Alte Kerzen ohne Volumen laufen transparent mit Ersatzgewicht 1; die Abdeckung steht im Ergebnis.</p><code>EMA3(ADL) − EMA10(ADL), Null-Linie als Regime</code></Info>
     </section>
   </div>;
 }
 
-function MetricsCard({title,metrics,active,onClick}:{title:string;metrics:Metrics;active:boolean;onClick:()=>void}){
-  return <button onClick={onClick} style={{textAlign:"left",background:active?"#17213a":"#0c1322",border:`1px solid ${active?"#a855f7":"#26344d"}`,borderRadius:10,padding:14,color:"#eef2ff",cursor:"pointer"}}><div style={{fontSize:12,color:"#94a3b8",marginBottom:9}}>{title}</div><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}><Stat k="PF" v={metrics.profitFactor>=999?"∞":metrics.profitFactor.toFixed(2)}/><Stat k="Trades" v={String(metrics.trades)}/><Stat k="Netto" v={metrics.net.toFixed(1)}/><Stat k="Winrate" v={`${metrics.winRate.toFixed(1)}%`}/><Stat k="Drawdown" v={metrics.maxDrawdown.toFixed(1)}/></div></button>;
+function ResultCard({title,mode,run,active,onSelect,onRun}:{title:string;mode:Mode;run:RunState;active:boolean;onSelect:()=>void;onRun:()=>void}){
+  const m=run.best?.metrics,p=run.best?.params;
+  return <div onClick={onSelect} style={{background:active?"#17213a":"#0c1322",border:`1px solid ${active?"#a855f7":"#26344d"}`,borderRadius:10,padding:13,cursor:"pointer"}}>
+    <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><b>{title}</b><button onClick={e=>{e.stopPropagation();onRun();}} style={secondary}>{run.status==="running"?`${run.progress.toFixed(0)}%`:"START"}</button></div>
+    {run.status==="running"&&<div style={{height:5,background:"#111827",borderRadius:5,margin:"9px 0"}}><div style={{height:"100%",width:`${run.progress}%`,background:"#8b5cf6",borderRadius:5}}/></div>}
+    {m?<><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,marginTop:10}}><Stat k="PF" v={m.profit_factor.toFixed(2)}/><Stat k="Trades" v={String(m.trades)}/><Stat k="Netto" v={m.net.toFixed(1)}/><Stat k="Winrate" v={`${m.win_rate_pct.toFixed(1)}%`}/><Stat k="DD" v={m.max_drawdown.toFixed(1)}/></div><div style={{fontSize:11,color:"#94a3b8",marginTop:9}}>Extreme {m.extreme_entry_count??"–"} · Trend {m.trend_entry_count??0} · Trend-σ {Number(p?.trend_sigma_abs||0).toFixed(2)}{mode==="chaikin"?` · Volumen ${Number(m.chaikin_volume_coverage_pct||0).toFixed(1)}%`:""}</div></>:<div style={{fontSize:12,color:run.status==="error"?"#f87171":"#94a3b8",marginTop:12}}>{run.error||run.message}</div>}
+  </div>;
 }
-function Stat({k,v}:{k:string;v:string}){return <div><div style={{fontSize:10,color:"#94a3b8"}}>{k}</div><b style={{fontSize:18}}>{v}</b></div>}
+function Stat({k,v}:{k:string;v:string}){return <div><div style={{fontSize:9,color:"#94a3b8"}}>{k}</div><b style={{fontSize:17}}>{v}</b></div>}
 function Info({title,children}:{title:string;children:ReactNode}){return <div style={{background:"#0c1322",border:"1px solid #26344d",borderRadius:10,padding:13}}><b>{title}</b><div style={{fontSize:12,color:"#cbd5e1",lineHeight:1.55}}>{children}</div></div>}
 const input:CSSProperties={background:"#0b1322",border:"1px solid #334155",borderRadius:7,color:"#fff",padding:"8px 10px"};
-const smallInput:CSSProperties={...input,width:66,padding:"6px 8px"};
-const label:CSSProperties={display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#94a3b8"};
-const tab=(active:boolean):CSSProperties=>({background:active?"#6d28d9":"#111827",border:`1px solid ${active?"#a855f7":"#334155"}`,borderRadius:8,color:"#fff",padding:"8px 11px",fontWeight:800,cursor:"pointer"});
-const sourceButton=(active:boolean):CSSProperties=>({background:active?"#0f766e":"#111827",border:`1px solid ${active?"#2dd4bf":"#334155"}`,borderRadius:8,color:"#fff",padding:"8px 11px",fontWeight:800,cursor:"pointer"});
+const smallInput:CSSProperties={...input,width:62,padding:"6px 7px"};
+const miniInput:CSSProperties={...input,width:46,padding:"6px 6px"};
+const label:CSSProperties={display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#94a3b8"};
+const primary:CSSProperties={background:"#6d28d9",border:"1px solid #a855f7",borderRadius:8,color:"#fff",padding:"9px 13px",fontWeight:900,cursor:"pointer"};
+const secondary:CSSProperties={background:"#111827",border:"1px solid #475569",borderRadius:7,color:"#fff",padding:"6px 9px",fontWeight:800,cursor:"pointer"};
 const chartBox:CSSProperties={background:"#070b16",border:"1px solid #26344d",borderRadius:9,minHeight:0,overflow:"hidden"};
