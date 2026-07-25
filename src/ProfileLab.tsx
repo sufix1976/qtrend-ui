@@ -250,7 +250,7 @@ export default function ProfileLab(){
 
     const candles=Array.isArray(preview.candles)?preview.candles:[];
     const indicator=preview.indicators||{};
-    const times=candles.map((candle:any)=>Number(candle.time) as Time);
+    const times:Time[]=candles.map((candle:any)=>Number(candle.time) as Time);
 
     candleSeries.current?.setData(candles.map((c:any)=>({
       time:c.time as Time,
@@ -260,12 +260,12 @@ export default function ProfileLab(){
       close:Number(c.close),
     })));
 
-    const points=(values:any[],fallback=0)=>times.map((time,index)=>({
+    const points=(values:any[],fallback=0)=>times.map((time:Time,index:number)=>({
       time,
       value:Number(values?.[index]??fallback),
     }));
 
-    const histogramPoints=(values:any[])=>times.map((time,index)=>{
+    const histogramPoints=(values:any[])=>times.map((time:Time,index:number)=>{
       const value=Number(values?.[index]??0);
       return {
         time,
@@ -287,14 +287,14 @@ export default function ProfileLab(){
     const rsiSignalValues=Array.isArray(indicator.rsiSignal)?indicator.rsiSignal:[];
     rsiLineSeries.current?.setData(points(rsiValues,50));
     rsiSignalSeries.current?.setData(points(rsiSignalValues,50));
-    rsi30Series.current?.setData(times.map(time=>({time,value:30})));
-    rsi50Series.current?.setData(times.map(time=>({time,value:50})));
-    rsi70Series.current?.setData(times.map(time=>({time,value:70})));
+    rsi30Series.current?.setData(times.map((time:Time)=>({time,value:30})));
+    rsi50Series.current?.setData(times.map((time:Time)=>({time,value:50})));
+    rsi70Series.current?.setData(times.map((time:Time)=>({time,value:70})));
 
     const chaikinValues=Array.isArray(indicator.chaikin)?indicator.chaikin:[];
     chaikinLineSeries.current?.setData(points(chaikinValues));
     chaikinHistogramSeries.current?.setData(histogramPoints(chaikinValues));
-    chaikinZeroSeries.current?.setData(times.map(time=>({time,value:0})));
+    chaikinZeroSeries.current?.setData(times.map((time:Time)=>({time,value:0})));
 
     const adValues=Array.isArray(indicator.adRatio)?indicator.adRatio:[];
     const adSmooth=adValues.map((_:number,index:number)=>{
@@ -307,7 +307,7 @@ export default function ProfileLab(){
     });
     adLineSeries.current?.setData(points(adValues,1));
     adSignalSeries.current?.setData(points(adSmooth,1));
-    adZeroSeries.current?.setData(times.map(time=>({time,value:1})));
+    adZeroSeries.current?.setData(times.map((time:Time)=>({time,value:1})));
 
     const markers=(Array.isArray(preview.events)?preview.events:[])
       .filter((event:any)=>event.type==="entry"||event.type==="exit")
