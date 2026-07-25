@@ -416,6 +416,35 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const debugConfigAuto=Boolean(executionDebug?.config_auto_enabled);
   const debugLoopAuto=executionDebug?.loop_auto_enabled==null?null:Boolean(executionDebug.loop_auto_enabled);
   const debugAutoMismatch=debugLoopAuto!=null&&(auto!==debugConfigAuto||debugConfigAuto!==debugLoopAuto);
+  const tracePhaseLabel=(phase?:string)=>{
+    const labels:Record<string,string>={
+      CLAIMED:"Queue geclaimt",
+      BROKER_STATE_READ_START:"Brokerstatus wird gelesen",
+      BROKER_STATE_READ_OK:"Brokerstatus gelesen",
+      BROKER_STATE_READ_FAILED:"Brokerstatus fehlgeschlagen",
+      EXIT_POST_START:"EXIT wird gesendet",
+      EXIT_POST_OK:"EXIT gesendet",
+      BROKER_FLAT_WAIT_START:"Warte auf Broker FLAT",
+      BROKER_FLAT_CONFIRMED:"Broker FLAT bestätigt",
+      BROKER_FLAT_TIMEOUT:"Broker FLAT Timeout",
+      PRE_FLIP_EXIT_START:"Flip: Gegenseite schließen",
+      PRE_FLIP_EXIT_POSTED:"Flip: EXIT gesendet",
+      PRE_FLIP_FLAT_WAIT_START:"Flip: warte auf FLAT",
+      PRE_FLIP_FLAT_CONFIRMED:"Flip: FLAT bestätigt",
+      PRE_FLIP_FLAT_TIMEOUT:"Flip: FLAT Timeout",
+      TARGET_POST_START:"Zielposition wird gesendet",
+      TARGET_POST_OK:"Zielposition gesendet",
+      BROKER_TARGET_WAIT_START:"Warte auf Zielposition",
+      BROKER_TARGET_CONFIRMED:"Zielposition bestätigt",
+      BROKER_TARGET_TIMEOUT:"Zielposition Timeout",
+      QUEUE_ACK_DONE_START:"Queue-Abschluss wird gespeichert",
+      QUEUE_ACK_DONE_OK:"Queue DONE gespeichert",
+      EVENT_FAILED:"Event fehlgeschlagen",
+    };
+    return labels[String(phase||"")]||String(phase||"–");
+  };
+  const executionTrace=Array.isArray(executionDebug?.trace)?executionDebug.trace:[];
+
 
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",fontFamily:"Inter,Arial,sans-serif",padding:10,boxSizing:"border-box"}}>
     <header style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",padding:"6px 8px 12px"}}>
@@ -478,6 +507,19 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
             <Row k="Broker vorher" v={String(executionDebug.queue?.details?.broker_before||"–").toUpperCase()}/>
             <Row k="Broker danach" v={String(executionDebug.queue?.details?.broker_after||"–").toUpperCase()}/>
             <Row k="Queue-ID" v={String(executionDebug.queue_event_id||executionDebug.queue?.event_id||"–").slice(-24)}/>
+            <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid #26344d"}}>
+              <div style={{fontSize:11,fontWeight:900,color:"#93c5fd",marginBottom:6}}>WORKER TRACE</div>
+              {executionTrace.length?executionTrace.map((step:any)=>(
+                <div key={step.id} style={{display:"grid",gridTemplateColumns:"12px 1fr",gap:7,marginBottom:7}}>
+                  <div style={{width:9,height:9,borderRadius:"50%",marginTop:3,background:step.status==="error"?"#ef4444":"#22c55e"}}/>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:900,color:step.status==="error"?"#fca5a5":"#e2e8f0"}}>{tracePhaseLabel(step.phase)}</div>
+                    <div style={{fontSize:10,color:"#64748b"}}>{String(step.created_at||"")}</div>
+                    {step.error?<div style={{fontSize:10,color:"#f87171",overflowWrap:"anywhere"}}>{String(step.error)}</div>:null}
+                  </div>
+                </div>
+              )):<div style={{fontSize:11,color:"#64748b"}}>Noch keine Worker-Phasen gespeichert.</div>}
+            </div>
             {executionDebug.queue?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.queue.error)}</div>:null}
             {executionDebug.details?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.details.error)}</div>:null}
           </>:<div style={{fontSize:12,color:"#94a3b8"}}>Noch keine Execution-Diagnose für {symbol} vorhanden.</div>}
