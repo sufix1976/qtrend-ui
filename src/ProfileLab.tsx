@@ -111,6 +111,13 @@ export default function ProfileLab(){
 
   const chartRef=useRef<any>(null);
   const indicatorChartsRef=useRef<any[]>([]);
+  const crosshairValuesRef=useRef<Array<Map<number,number>>>([
+    new Map(),
+    new Map(),
+    new Map(),
+    new Map(),
+    new Map(),
+  ]);
   const candleSeries=useRef<any>(null);
   const markerApi=useRef<any>(null);
 
@@ -229,6 +236,55 @@ export default function ProfileLab(){
       });
     });
 
+    const primarySeries=[
+      candles,
+      macdLine,
+      rsiLine,
+      chaikinLine,
+      adLine,
+    ];
+
+    let crosshairSyncing=false;
+
+    charts.forEach((sourceChart,sourceIndex)=>{
+      sourceChart.subscribeCrosshairMove((param:any)=>{
+        if(crosshairSyncing)return;
+
+        crosshairSyncing=true;
+        try{
+          if(param?.time==null){
+            charts.forEach((targetChart,targetIndex)=>{
+              if(targetIndex!==sourceIndex){
+                targetChart.clearCrosshairPosition();
+              }
+            });
+            return;
+          }
+
+          const numericTime=Number(param.time);
+
+          charts.forEach((targetChart,targetIndex)=>{
+            if(targetIndex===sourceIndex)return;
+
+            const valueMap=crosshairValuesRef.current[targetIndex];
+            const value=valueMap?.get(numericTime);
+
+            if(Number.isFinite(value)){
+              targetChart.setCrosshairPosition(
+                Number(value),
+                param.time,
+                primarySeries[targetIndex]
+              );
+            }else{
+              targetChart.clearCrosshairPosition();
+            }
+          });
+        }finally{
+          crosshairSyncing=false;
+        }
+      });
+    });
+
     const resize=()=>{
       chart.applyOptions({width:chartEl.current?.clientWidth||800});
       macdChart.applyOptions({width:macdEl.current?.clientWidth||800});
@@ -297,6 +353,40 @@ export default function ProfileLab(){
     chaikinZeroSeries.current?.setData(times.map((time:Time)=>({time,value:0})));
 
     const adValues=Array.isArray(indicator.adRatio)?indicator.adRatio:[];
+
+    crosshairValuesRef.current=[
+      new Map(
+        candles.map((candle:any)=>[
+          Number(candle.time),
+          Number(candle.close),
+        ])
+      ),
+      new Map(
+        times.map((time:Time,index:number)=>[
+          Number(time),
+          Number(macdValues?.[index]??0),
+        ])
+      ),
+      new Map(
+        times.map((time:Time,index:number)=>[
+          Number(time),
+          Number(rsiValues?.[index]??50),
+        ])
+      ),
+      new Map(
+        times.map((time:Time,index:number)=>[
+          Number(time),
+          Number(chaikinValues?.[index]??0),
+        ])
+      ),
+      new Map(
+        times.map((time:Time,index:number)=>[
+          Number(time),
+          Number(adValues?.[index]??1),
+        ])
+      ),
+    ];
+
     const adSmooth=adValues.map((_:number,index:number)=>{
       const length=Math.max(2,Math.floor(Number(params.ad_length||11)));
       const from=Math.max(0,index-length+1);
@@ -525,7 +615,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.1</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.2</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
