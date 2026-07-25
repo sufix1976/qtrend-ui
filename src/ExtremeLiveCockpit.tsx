@@ -202,6 +202,11 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       setStatus("SIGNAL MIRROR verbunden · Auto-Orders noch gesperrt");
     }catch(e){setStatus(`Fehler: ${e instanceof Error?e.message:String(e)}`);}
   }
+  useEffect(()=>{
+    setChainTest(null);
+    setChainMessage("Bereit.");
+  },[symbol,interval]);
+
   useEffect(()=>{void load();const t=window.setInterval(()=>void load(),30000);return()=>window.clearInterval(t);},[symbol,interval]);
 
   async function activateProfile(id:string){
@@ -310,22 +315,22 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
     return x.test||null;
   }
   async function runChainTest(action:"LONG"|"SHORT"|"EXIT"){
-    if(symbol!=="GOLD"){
-      const msg="Kettentest ist zunächst nur für GOLD freigegeben";
+    if(!symbol){
+      const msg="Kein Instrument ausgewählt";
       setChainMessage(msg);setStatus(msg);return;
     }
     try{
       setChainBusy(true);
       setChainTest(null);
-      setChainMessage(`SENDE ${action} an Engine …`);
-      setStatus(`Kettentest ${action} wird erzeugt …`);
+      setChainMessage(`SENDE ${symbol} ${action} an Engine …`);
+      setStatus(`Kettentest ${symbol} ${action} wird erzeugt …`);
 
       console.log("[WORKER CHAIN TEST] click", {symbol,interval,action,auto});
 
       const created=await fetchJson(`${BACKEND_BASE}/worker-test/event`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({symbol:"GOLD",interval,action})
+        body:JSON.stringify({symbol,interval,action})
       });
 
       const eventId=String(created.event_id||"");
@@ -347,7 +352,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
           setChainMessage(`ENGINE STATE OK · warte auf Brokerbestätigung`);
         }else if(test?.status==="broker_confirmed"){
           setChainMessage(`KETTE OK · Broker ${String(test?.target_state||action).toUpperCase()}`);
-          setStatus(`Kettentest ${action}: komplette Kette OK`);
+          setStatus(`Kettentest ${symbol} ${action}: komplette Kette OK`);
           await load();
           return;
         }else if(test?.status==="failed"){
@@ -472,7 +477,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       </section>
       {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
         <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} disabled={executionBusy||autoBusy} onChange={e=>setSize(Number(e.target.value))} style={input}/><button type="button" disabled={executionBusy||autoBusy} style={{...button(),opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void saveExecution()}>{executionBusy?"SPEICHERT …":"SAVE"}</button></div><button type="button" disabled={autoBusy||executionBusy} style={{...(auto?onButton:offButton),opacity:autoBusy||executionBusy?0.6:1}} onClick={()=>void toggleAuto()}>{autoBusy?"AUTO SPEICHERT …":`AUTO ${auto?"ON":"OFF"}`}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button type="button" disabled={executionBusy||autoBusy} style={{...flatButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("flat")}>FLAT</button><button type="button" disabled={executionBusy||autoBusy} style={{...longButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("long")}>LONG</button><button type="button" disabled={executionBusy||autoBusy} style={{...shortButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("short")}>SHORT</button></div></Card>
-        <Card title="WORKER KETTENTEST"><div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Nur GOLD · DEMO · läuft über Engine-Event → Pure Event Worker → Broker.</div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...longButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("LONG");}}>TEST LONG</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...shortButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("SHORT");}}>TEST SHORT</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...flatButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("EXIT");}}>TEST EXIT</button></div><div style={{fontSize:11,fontWeight:800,color:chainMessage.startsWith("ENGINE FEHLER")||chainMessage.startsWith("FEHLER")||chainMessage.startsWith("TIMEOUT")?"#f87171":chainMessage.startsWith("KETTE OK")?"#22c55e":"#facc15",marginTop:9,padding:"7px 8px",background:"#08101d",border:"1px solid #26344d",borderRadius:7,overflowWrap:"anywhere"}}>{chainBusy?"● ":""}{chainMessage}</div>{chainTest?<div style={{marginTop:9}}><Row k="Engine Event" v={chainStage("event_created")?"OK":"WAIT"}/><Row k="Worker gelesen" v={chainStage("worker_received")?"OK":"WAIT"}/><Row k="Strategy State" v={chainStage("strategy_forwarded")?"OK":"WAIT"}/><Row k="Broker" v={chainStage("broker_confirmed")?"OK":chainTest.status==="failed"?"FEHLER":"WAIT"}/><Row k="Aktion" v={String(chainTest.action||chainTest.target_state||"–").toUpperCase()}/><Row k="Test-ID" v={String(chainTest.event_id||"–").slice(-18)}/>{chainTest.error?<div style={{fontSize:11,color:"#f87171",marginTop:6}}>{String(chainTest.error)}</div>:null}</div>:<div style={{fontSize:11,color:"#64748b",marginTop:8}}>{symbol!=="GOLD"?"Bitte GOLD auswählen.":null}</div>}</Card>
+        <Card title="WORKER KETTENTEST"><div style={{fontSize:11,color:"#94a3b8",marginBottom:5}}>{symbol} · Chart {interval} · DEMO · Engine nutzt den gespeicherten Profil-TF.</div><div style={{fontSize:10,color:"#64748b",marginBottom:8}}>Engine-Event → Execution Queue → Pure Event Worker → Broker</div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}><button type="button" disabled={chainBusy||!symbol} style={{...longButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("LONG");}}>TEST LONG</button><button type="button" disabled={chainBusy||!symbol} style={{...shortButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("SHORT");}}>TEST SHORT</button><button type="button" disabled={chainBusy||!symbol} style={{...flatButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("EXIT");}}>TEST EXIT</button></div><div style={{fontSize:11,fontWeight:800,color:chainMessage.startsWith("ENGINE FEHLER")||chainMessage.startsWith("FEHLER")||chainMessage.startsWith("TIMEOUT")?"#f87171":chainMessage.startsWith("KETTE OK")?"#22c55e":"#facc15",marginTop:9,padding:"7px 8px",background:"#08101d",border:"1px solid #26344d",borderRadius:7,overflowWrap:"anywhere"}}>{chainBusy?"● ":""}{chainMessage}</div>{chainTest?<div style={{marginTop:9}}><Row k="Instrument" v={String(chainTest.symbol||symbol).toUpperCase()}/><Row k="Profil-TF" v={String(chainTest.interval||"–")}/><Row k="Engine Event" v={chainStage("event_created")?"OK":"WAIT"}/><Row k="Worker gelesen" v={chainStage("worker_received")?"OK":"WAIT"}/><Row k="Strategy State" v={chainStage("strategy_forwarded")?"OK":"WAIT"}/><Row k="Broker" v={chainStage("broker_confirmed")?"OK":chainTest.status==="failed"?"FEHLER":"WAIT"}/><Row k="Aktion" v={String(chainTest.action||chainTest.target_state||"–").toUpperCase()}/><Row k="Test-ID" v={String(chainTest.event_id||"–").slice(-18)}/>{chainTest.error?<div style={{fontSize:11,color:"#f87171",marginTop:6}}>{String(chainTest.error)}</div>:null}</div>:<div style={{fontSize:11,color:"#64748b",marginTop:8}}>{!symbol?"Bitte Instrument auswählen.":null}</div>}</Card>
         <Card title="EXECUTION DEBUG V2">
           {executionDebug?<>
             <div style={{padding:"7px 8px",borderRadius:7,marginBottom:7,background:debugAutoMismatch?"#451a1a":"#08101d",border:`1px solid ${debugAutoMismatch?"#ef4444":"#26344d"}`,fontSize:11,fontWeight:900,color:debugAutoMismatch?"#fca5a5":"#93c5fd"}}>
