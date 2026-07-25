@@ -104,13 +104,33 @@ export default function ProfileLab(){
   const interval=market.interval;
 
   const chartEl=useRef<HTMLDivElement|null>(null);
-  const flowEl=useRef<HTMLDivElement|null>(null);
+  const macdEl=useRef<HTMLDivElement|null>(null);
+  const rsiEl=useRef<HTMLDivElement|null>(null);
+  const chaikinEl=useRef<HTMLDivElement|null>(null);
+  const adEl=useRef<HTMLDivElement|null>(null);
+
   const chartRef=useRef<any>(null);
-  const flowChartRef=useRef<any>(null);
+  const indicatorChartsRef=useRef<any[]>([]);
   const candleSeries=useRef<any>(null);
   const markerApi=useRef<any>(null);
-  const adSeries=useRef<any>(null);
-  const chaikinSeries=useRef<any>(null);
+
+  const macdLineSeries=useRef<any>(null);
+  const macdSignalSeries=useRef<any>(null);
+  const macdHistogramSeries=useRef<any>(null);
+
+  const rsiLineSeries=useRef<any>(null);
+  const rsiSignalSeries=useRef<any>(null);
+  const rsi30Series=useRef<any>(null);
+  const rsi50Series=useRef<any>(null);
+  const rsi70Series=useRef<any>(null);
+
+  const chaikinLineSeries=useRef<any>(null);
+  const chaikinHistogramSeries=useRef<any>(null);
+  const chaikinZeroSeries=useRef<any>(null);
+
+  const adLineSeries=useRef<any>(null);
+  const adSignalSeries=useRef<any>(null);
+  const adZeroSeries=useRef<any>(null);
 
   const [params,setParams]=useState<Params>(DEFAULT_PARAMS);
   const [baseline,setBaseline]=useState<Params>(DEFAULT_PARAMS);
@@ -124,66 +144,114 @@ export default function ProfileLab(){
   const [busy,setBusy]=useState(false);
   const [dirty,setDirty]=useState(false);
   const [status,setStatus]=useState("Profile Lab wird geladen …");
+  const [panels,setPanels]=useState({
+    macd:true,
+    rsi:true,
+    chaikin:true,
+    ad:true,
+  });
 
   useEffect(()=>{
-    if(!chartEl.current||!flowEl.current)return;
+    if(
+      !chartEl.current||
+      !macdEl.current||
+      !rsiEl.current||
+      !chaikinEl.current||
+      !adEl.current
+    )return;
 
-    const chart=createChart(chartEl.current,{
-      height:470,
+    const baseOptions=(height:number)=>({
+      height,
       layout:{background:{color:"#08101d"},textColor:"#cbd5e1"},
       grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},
       timeScale:{timeVisible:true,secondsVisible:false},
+      rightPriceScale:{borderColor:"#26344d"},
     });
+
+    const chart=createChart(chartEl.current,baseOptions(470));
     const candles=chart.addSeries(CandlestickSeries,{});
     markerApi.current=createSeriesMarkers(candles,[]);
 
-    const flow=createChart(flowEl.current,{
-      height:210,
-      layout:{background:{color:"#08101d"},textColor:"#cbd5e1"},
-      grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},
-      timeScale:{timeVisible:true,secondsVisible:false},
-    });
-    const ad=flow.addSeries(LineSeries,{lineWidth:2,title:"AD Ratio"});
-    const chaikin=flow.addSeries(HistogramSeries,{title:"Chaikin"});
+    const macdChart=createChart(macdEl.current,baseOptions(190));
+    const macdLine=macdChart.addSeries(LineSeries,{lineWidth:2,title:"MACD"});
+    const macdSignal=macdChart.addSeries(LineSeries,{lineWidth:2,title:"Signal"});
+    const macdHistogram=macdChart.addSeries(HistogramSeries,{title:"Histogramm"});
+
+    const rsiChart=createChart(rsiEl.current,baseOptions(175));
+    const rsiLine=rsiChart.addSeries(LineSeries,{lineWidth:2,title:"RSI"});
+    const rsiSignal=rsiChart.addSeries(LineSeries,{lineWidth:2,title:"RSI Signal"});
+    const rsi30=rsiChart.addSeries(LineSeries,{lineWidth:1,title:"30",lineStyle:2});
+    const rsi50=rsiChart.addSeries(LineSeries,{lineWidth:1,title:"50",lineStyle:2});
+    const rsi70=rsiChart.addSeries(LineSeries,{lineWidth:1,title:"70",lineStyle:2});
+
+    const chaikinChart=createChart(chaikinEl.current,baseOptions(175));
+    const chaikinLine=chaikinChart.addSeries(LineSeries,{lineWidth:2,title:"Chaikin"});
+    const chaikinHistogram=chaikinChart.addSeries(HistogramSeries,{title:"Chaikin Histogramm"});
+    const chaikinZero=chaikinChart.addSeries(LineSeries,{lineWidth:1,title:"Null",lineStyle:2});
+
+    const adChart=createChart(adEl.current,baseOptions(175));
+    const adLine=adChart.addSeries(LineSeries,{lineWidth:2,title:"AD Ratio"});
+    const adSignal=adChart.addSeries(LineSeries,{lineWidth:2,title:"AD Glättung"});
+    const adZero=adChart.addSeries(LineSeries,{lineWidth:1,title:"Neutral 1.0",lineStyle:2});
 
     chartRef.current=chart;
-    flowChartRef.current=flow;
+    indicatorChartsRef.current=[macdChart,rsiChart,chaikinChart,adChart];
     candleSeries.current=candles;
-    adSeries.current=ad;
-    chaikinSeries.current=chaikin;
 
+    macdLineSeries.current=macdLine;
+    macdSignalSeries.current=macdSignal;
+    macdHistogramSeries.current=macdHistogram;
+
+    rsiLineSeries.current=rsiLine;
+    rsiSignalSeries.current=rsiSignal;
+    rsi30Series.current=rsi30;
+    rsi50Series.current=rsi50;
+    rsi70Series.current=rsi70;
+
+    chaikinLineSeries.current=chaikinLine;
+    chaikinHistogramSeries.current=chaikinHistogram;
+    chaikinZeroSeries.current=chaikinZero;
+
+    adLineSeries.current=adLine;
+    adSignalSeries.current=adSignal;
+    adZeroSeries.current=adZero;
+
+    const charts=[chart,macdChart,rsiChart,chaikinChart,adChart];
     let syncing=false;
-    chart.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-      if(!range||syncing)return;
-      syncing=true;
-      flow.timeScale().setVisibleLogicalRange(range);
-      syncing=false;
-    });
-    flow.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-      if(!range||syncing)return;
-      syncing=true;
-      chart.timeScale().setVisibleLogicalRange(range);
-      syncing=false;
+    charts.forEach(source=>{
+      source.timeScale().subscribeVisibleLogicalRangeChange((range:any)=>{
+        if(!range||syncing)return;
+        syncing=true;
+        charts.forEach(target=>{
+          if(target!==source)target.timeScale().setVisibleLogicalRange(range);
+        });
+        syncing=false;
+      });
     });
 
     const resize=()=>{
       chart.applyOptions({width:chartEl.current?.clientWidth||800});
-      flow.applyOptions({width:flowEl.current?.clientWidth||800});
+      macdChart.applyOptions({width:macdEl.current?.clientWidth||800});
+      rsiChart.applyOptions({width:rsiEl.current?.clientWidth||800});
+      chaikinChart.applyOptions({width:chaikinEl.current?.clientWidth||800});
+      adChart.applyOptions({width:adEl.current?.clientWidth||800});
     };
     resize();
     window.addEventListener("resize",resize);
 
     return()=>{
       window.removeEventListener("resize",resize);
-      chart.remove();
-      flow.remove();
+      charts.forEach(item=>item.remove());
+      indicatorChartsRef.current=[];
     };
   },[]);
-
   useEffect(()=>{
     if(!preview)return;
 
     const candles=Array.isArray(preview.candles)?preview.candles:[];
+    const indicator=preview.indicators||{};
+    const times=candles.map((candle:any)=>Number(candle.time) as Time);
+
     candleSeries.current?.setData(candles.map((c:any)=>({
       time:c.time as Time,
       open:Number(c.open),
@@ -192,18 +260,54 @@ export default function ProfileLab(){
       close:Number(c.close),
     })));
 
-    const rows=Array.isArray(preview.indicators)?preview.indicators:[];
-    adSeries.current?.setData(rows.map((r:any)=>({
-      time:r.time as Time,
-      value:Number(r.ad_ratio??1),
-    })));
-    chaikinSeries.current?.setData(rows.map((r:any)=>({
-      time:r.time as Time,
-      value:Number(r.chaikin??0),
-      color:Number(r.chaikin??0)>=0
-        ?"rgba(34,197,94,.72)"
-        :"rgba(239,68,68,.72)",
-    })));
+    const points=(values:any[],fallback=0)=>times.map((time,index)=>({
+      time,
+      value:Number(values?.[index]??fallback),
+    }));
+
+    const histogramPoints=(values:any[])=>times.map((time,index)=>{
+      const value=Number(values?.[index]??0);
+      return {
+        time,
+        value,
+        color:value>=0
+          ?"rgba(34,197,94,.72)"
+          :"rgba(239,68,68,.72)",
+      };
+    });
+
+    const macdValues=Array.isArray(indicator.macd)?indicator.macd:[];
+    const signalValues=Array.isArray(indicator.signal)?indicator.signal:[];
+    const histogramValues=Array.isArray(indicator.histogram)?indicator.histogram:[];
+    macdLineSeries.current?.setData(points(macdValues));
+    macdSignalSeries.current?.setData(points(signalValues));
+    macdHistogramSeries.current?.setData(histogramPoints(histogramValues));
+
+    const rsiValues=Array.isArray(indicator.rsi)?indicator.rsi:[];
+    const rsiSignalValues=Array.isArray(indicator.rsiSignal)?indicator.rsiSignal:[];
+    rsiLineSeries.current?.setData(points(rsiValues,50));
+    rsiSignalSeries.current?.setData(points(rsiSignalValues,50));
+    rsi30Series.current?.setData(times.map(time=>({time,value:30})));
+    rsi50Series.current?.setData(times.map(time=>({time,value:50})));
+    rsi70Series.current?.setData(times.map(time=>({time,value:70})));
+
+    const chaikinValues=Array.isArray(indicator.chaikin)?indicator.chaikin:[];
+    chaikinLineSeries.current?.setData(points(chaikinValues));
+    chaikinHistogramSeries.current?.setData(histogramPoints(chaikinValues));
+    chaikinZeroSeries.current?.setData(times.map(time=>({time,value:0})));
+
+    const adValues=Array.isArray(indicator.adRatio)?indicator.adRatio:[];
+    const adSmooth=adValues.map((_:number,index:number)=>{
+      const length=Math.max(2,Math.floor(Number(params.ad_length||11)));
+      const from=Math.max(0,index-length+1);
+      const slice=adValues.slice(from,index+1).map(Number);
+      return slice.length
+        ?slice.reduce((sum:number,value:number)=>sum+value,0)/slice.length
+        :1;
+    });
+    adLineSeries.current?.setData(points(adValues,1));
+    adSignalSeries.current?.setData(points(adSmooth,1));
+    adZeroSeries.current?.setData(times.map(time=>({time,value:1})));
 
     const markers=(Array.isArray(preview.events)?preview.events:[])
       .filter((event:any)=>event.type==="entry"||event.type==="exit")
@@ -224,9 +328,8 @@ export default function ProfileLab(){
 
     markerApi.current?.setMarkers(markers);
     chartRef.current?.timeScale().fitContent();
-    flowChartRef.current?.timeScale().fitContent();
-  },[preview]);
-
+    indicatorChartsRef.current.forEach(chart=>chart.timeScale().fitContent());
+  },[preview,params.ad_length]);
   useEffect(()=>{
     void loadProfiles();
   },[symbol,interval]);
@@ -422,7 +525,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.1</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -445,11 +548,57 @@ export default function ProfileLab(){
       <section style={chartCard}>
         <div ref={chartEl} style={{width:"100%",height:470}}/>
 
-        <div style={{padding:"7px 10px",fontSize:11,color:"#94a3b8"}}>
-          FLOW · AD Ratio (Linie) + Chaikin (Histogramm)
+        <div style={panelToolbar}>
+          <span style={{fontSize:11,fontWeight:900,color:"#93c5fd"}}>INDIKATOREN</span>
+          {([
+            ["macd","MACD"],
+            ["rsi","RSI"],
+            ["chaikin","CHAIKIN"],
+            ["ad","AD"],
+          ] as const).map(([key,label])=>
+            <button
+              key={key}
+              type="button"
+              style={{
+                ...panelToggle,
+                background:panels[key]?"#164e63":"#172033",
+                borderColor:panels[key]?"#22d3ee":"#334155",
+                color:panels[key]?"#cffafe":"#94a3b8",
+              }}
+              onClick={()=>setPanels(previous=>({
+                ...previous,
+                [key]:!previous[key],
+              }))}
+            >
+              {panels[key]?"✓ ":""}{label}
+            </button>
+          )}
         </div>
 
-        <div ref={flowEl} style={{width:"100%",height:210}}/>
+        <IndicatorPanel
+          title={`MACD · ${params.macd_fast}/${params.macd_slow}/${params.macd_signal}`}
+          visible={panels.macd}
+          containerRef={macdEl}
+          height={190}
+        />
+        <IndicatorPanel
+          title={`RSI · Länge ${params.rsi_length} · Signal ${params.rsi_signal} · 30 / 50 / 70`}
+          visible={panels.rsi}
+          containerRef={rsiEl}
+          height={175}
+        />
+        <IndicatorPanel
+          title={`CHAIKIN · ${params.chaikin_fast}/${params.chaikin_slow} · Nulllinie`}
+          visible={panels.chaikin}
+          containerRef={chaikinEl}
+          height={175}
+        />
+        <IndicatorPanel
+          title={`AD RATIO · Länge ${params.ad_length} · Linie + Glättung · Neutral 1.0`}
+          visible={panels.ad}
+          containerRef={adEl}
+          height={175}
+        />
 
         <div style={metricsGrid}>
           <Metric label="PF" value={Number(metrics.profit_factor||0).toFixed(2)}/>
@@ -628,6 +777,38 @@ export default function ProfileLab(){
   </div>;
 }
 
+function IndicatorPanel({
+  title,
+  visible,
+  containerRef,
+  height,
+}:{
+  title:string;
+  visible:boolean;
+  containerRef:{current:HTMLDivElement|null};
+  height:number;
+}){
+  return <div style={{
+    display:visible?"block":"none",
+    marginTop:7,
+    border:"1px solid #26344d",
+    borderRadius:8,
+    overflow:"hidden",
+    background:"#08101d",
+  }}>
+    <div style={{
+      padding:"6px 9px",
+      fontSize:10,
+      fontWeight:900,
+      color:"#94a3b8",
+      borderBottom:"1px solid #172033",
+    }}>
+      {title}
+    </div>
+    <div ref={containerRef} style={{width:"100%",height}}/>
+  </div>;
+}
+
 function Card({title,children}:{title:string;children:any}){
   return <section style={card}>
     <div style={cardTitle}>{title}</div>
@@ -800,6 +981,25 @@ const activateButton:CSSProperties={
   border:"1px solid #22c55e",
   background:"#14532d",
   color:"#dcfce7",
+  fontWeight:900,
+  cursor:"pointer",
+};
+const panelToolbar:CSSProperties={
+  display:"flex",
+  alignItems:"center",
+  flexWrap:"wrap",
+  gap:6,
+  marginTop:8,
+  padding:"7px 8px",
+  background:"#08101d",
+  border:"1px solid #26344d",
+  borderRadius:8,
+};
+const panelToggle:CSSProperties={
+  padding:"5px 8px",
+  border:"1px solid",
+  borderRadius:7,
+  fontSize:10,
   fontWeight:900,
   cursor:"pointer",
 };
