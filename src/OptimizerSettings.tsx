@@ -10,7 +10,7 @@ const STRATEGIES = [
   { id:"basis_chaikin", label:"Basis + Chaikin" },
 ];
 
-type Job = { id:number; batch_id?:string; symbol:string; interval:string; strategy:string; status:string; progress:number; processed:number; total:number; scheduled_at?:string; started_at?:string; finished_at?:string; error?:string; attempts:number; result_json?:string };
+type Job = { id:number; batch_id?:string; symbol:string; interval:string; strategy:string; status:string; progress:number; processed:number; total:number; scheduled_at?:string; started_at?:string; finished_at?:string; error?:string; attempts:number; result_json?:string; profile_id?:string|null; adopted_at?:string|null };
 
 async function api(path:string, init?:RequestInit){
   const r=await fetch(`${BACKEND_BASE}${path}`,{cache:"no-store",...init});
@@ -30,6 +30,9 @@ export default function OptimizerSettings(){
   const [startAt,setStartAt]=useState(defaultStart);
   const [jobs,setJobs]=useState<Job[]>([]); const [current,setCurrent]=useState<Job|null>(null);
   const [history,setHistory]=useState<any[]>([]); const [message,setMessage]=useState("Bereit"); const [busy,setBusy]=useState(false);
+  const [preview,setPreview]=useState<any|null>(null);
+  const [previewBusyId,setPreviewBusyId]=useState<number|null>(null);
+  const [adoptBusyId,setAdoptBusyId]=useState<number|null>(null);
 
   async function load(){
     try{
@@ -50,6 +53,45 @@ export default function OptimizerSettings(){
     }catch(e:any){setMessage(`Startfehler: ${e.message}`)}finally{setBusy(false)}
   }
   async function action(id:number,kind:"pause"|"resume"|"cancel"){try{await post(`/optimizer/${kind}`,{id});await load()}catch(e:any){setMessage(e.message)}}
+
+  async function testProfile(job:Job){
+    try{
+      setPreviewBusyId(job.id);
+      const response=await post("/optimizer/test-profile",{job_id:job.id});
+      setPreview(response.preview||null);
+      setMessage(`${job.symbol} ${job.interval} · Testansicht geladen · nichts gespeichert`);
+    }catch(e:any){
+      setMessage(`Testansicht fehlgeschlagen: ${e.message}`);
+    }finally{
+      setPreviewBusyId(null);
+    }
+  }
+
+  async function adoptProfile(job:Job){
+    if(!window.confirm(`${job.symbol} ${job.interval} · ${strategyLabel(job.strategy)} wirklich als aktives Handelsprofil übernehmen?\n\nDabei wird keine Order erzeugt.`))return;
+    try{
+      setAdoptBusyId(job.id);
+      const response=await post("/optimizer/adopt-profile",{job_id:job.id});
+      setMessage(`AKTIVIERT: ${response.profile?.name||`${job.symbol} ${job.interval}`} · keine Order erzeugt`);
+      setPreview(response.profile?{
+        job_id:job.id,
+        symbol:response.profile.symbol,
+        interval:response.profile.interval,
+        strategy:response.profile.strategy,
+        strategy_label:response.profile.strategy_label,
+        name:response.profile.name,
+        params:response.profile.params,
+        metrics:response.profile.metrics,
+        completed_at:response.profile.activated_at,
+        adopted:true,
+      }:null);
+      await load();
+    }catch(e:any){
+      setMessage(`Übernahme fehlgeschlagen: ${e.message}`);
+    }finally{
+      setAdoptBusyId(null);
+    }
+  }
   const counts=jobs.reduce<Record<string,number>>((a,j)=>(a[j.status]=(a[j.status]||0)+1,a),{});
 
   return <div style={{minHeight:"100vh",background:"#070b16",color:"#e5edff",padding:18,fontFamily:"system-ui"}}>
@@ -64,7 +106,9 @@ export default function OptimizerSettings(){
 
     <section style={{...card,marginTop:16}}><h2>Queue</h2><div style={{overflowX:"auto"}}><table style={table}><thead><tr><th>ID</th><th>Markt</th><th>TF</th><th>Strategie</th><th>Status</th><th>Fortschritt</th><th>Start</th><th>Aktion</th></tr></thead><tbody>{jobs.map(j=><tr key={j.id}><td>{j.id}</td><td>{j.symbol}</td><td>{j.interval}</td><td>{strategyLabel(j.strategy)}</td><td><b>{j.status}</b>{j.error&&<div style={{color:"#fca5a5",maxWidth:280}}>{j.error}</div>}</td><td>{Number(j.progress||0).toFixed(1)} %</td><td>{fmt(j.scheduled_at)}</td><td>{j.status==="PAUSED"&&<button style={small} onClick={()=>void action(j.id,"resume")}>FORTSETZEN</button>}{["WAITING","PAUSED"].includes(j.status)&&<button style={danger} onClick={()=>void action(j.id,"cancel")}>LÖSCHEN</button>}</td></tr>)}</tbody></table></div></section>
 
-    <section style={{...card,marginTop:16}}><h2>Letzte Ergebnisse</h2><div style={{overflowX:"auto"}}><table style={table}><thead><tr><th>Zeit</th><th>Markt</th><th>TF</th><th>Strategie</th><th>PF</th><th>Netto</th><th>DD</th><th>Effizienz</th><th>Trades</th></tr></thead><tbody>{history.slice(0,50).map(h=><tr key={h.id}><td>{fmt(h.completed_at)}</td><td>{h.symbol}</td><td>{h.interval}</td><td>{strategyLabel(h.strategy)}</td><td>{Number(h.profit_factor||0).toFixed(2)}</td><td>{Number(h.net||0).toFixed(1)}</td><td>{Number(h.max_drawdown||0).toFixed(1)}</td><td>{Number(h.efficiency||0).toFixed(2)}</td><td>{h.trades}</td></tr>)}</tbody></table></div></section>
+    <section style={{...card,marginTop:16}}><h2>Letzte Ergebnisse</h2><div style={{overflowX:"auto"}}><table style={table}><thead><tr><th>Zeit</th><th>Markt</th><th>TF</th><th>Strategie</th><th>PF</th><th>Netto</th><th>DD</th><th>Effizienz</th><th>Trades</th><th>Profil</th></tr></thead><tbody>{history.slice(0,50).map(h=>{const job=jobs.find(j=>j.id===Number(h.job_id));const adopted=Boolean(h.profile_id||job?.profile_id);return <tr key={h.id}><td>{fmt(h.completed_at)}</td><td>{h.symbol}</td><td>{h.interval}</td><td>{strategyLabel(h.strategy)}</td><td>{Number(h.profit_factor||0).toFixed(2)}</td><td>{Number(h.net||0).toFixed(1)}</td><td>{Number(h.max_drawdown||0).toFixed(1)}</td><td>{Number(h.efficiency||0).toFixed(2)}</td><td>{h.trades}</td><td><div style={{display:"flex",gap:6,flexWrap:"wrap",minWidth:220}}><button style={testButton} disabled={!job||previewBusyId===Number(h.job_id)} onClick={()=>job&&void testProfile(job)}>{previewBusyId===Number(h.job_id)?"LÄDT …":"TESTEN"}</button><button style={adopted?adoptedButton:adoptButton} disabled={!job||adoptBusyId===Number(h.job_id)} onClick={()=>job&&void adoptProfile(job)}>{adoptBusyId===Number(h.job_id)?"ÜBERNIMMT …":adopted?"AKTIVIERT":"ÜBERNEHMEN"}</button></div>{adopted&&<div style={{fontSize:11,color:"#86efac",marginTop:4}}>{fmt(h.adopted_at||job?.adopted_at)}</div>}</td></tr>})}</tbody></table></div></section>
+
+    {preview&&<section style={{...card,marginTop:16,border:"1px solid #3b82f6"}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}><div><h2 style={{margin:"0 0 5px"}}>{preview.adopted?"Aktiviertes Profil":"Temporäre Testansicht"}</h2><div style={{fontSize:20,fontWeight:900}}>{preview.symbol} · {preview.interval} · {preview.strategy_label||strategyLabel(preview.strategy)}</div><div style={{color:preview.adopted?"#86efac":"#facc15",marginTop:4}}>{preview.adopted?"DAUERHAFT AKTIV · keine Order erzeugt":"NICHT GESPEICHERT · NICHT AKTIV · nach Reload weg"}</div></div><button style={small} onClick={()=>setPreview(null)}>SCHLIESSEN</button></div><div style={{...grid,marginTop:14}}><div style={previewCard}><b>Kennzahlen</b><PreviewRow k="PF" v={Number(preview.metrics?.profit_factor||0).toFixed(2)}/><PreviewRow k="Netto" v={Number(preview.metrics?.net||0).toFixed(2)}/><PreviewRow k="Drawdown" v={Number(preview.metrics?.max_drawdown||0).toFixed(2)}/><PreviewRow k="Trades" v={String(preview.metrics?.trades??"–")}/><PreviewRow k="Winrate" v={preview.metrics?.win_rate_pct!=null?`${Number(preview.metrics.win_rate_pct).toFixed(1)} %`:"–"}/></div><div style={previewCard}><b>Entry</b><PreviewRow k="MACD" v={`${preview.params?.macd_fast??"–"} / ${preview.params?.macd_slow??"–"} / ${preview.params?.macd_signal??9}`}/><PreviewRow k="RSI" v={String(preview.params?.rsi_length??"–")}/><PreviewRow k="LONG Sigma" v={String(preview.params?.long_zone_sigma??"–")}/><PreviewRow k="SHORT Sigma" v={String(preview.params?.short_zone_sigma??"–")}/><PreviewRow k="Trend Sigma" v={String(preview.params?.trend_sigma_abs??"–")}/></div><div style={previewCard}><b>Exit / Trend</b><PreviewRow k="Armed TF" v={`${preview.params?.exit_htf_minutes??"–"}m`}/><PreviewRow k="Timing TF" v={`${preview.params?.exit_timing_minutes??"–"}m`}/><PreviewRow k="RSI-Zonen" v={`${preview.params?.exit_rsi_lower??"–"} / ${preview.params?.exit_rsi_upper??"–"}`}/><PreviewRow k="AD" v={String(preview.params?.ad_length??"–")}/><PreviewRow k="Chaikin" v={`${preview.params?.chaikin_fast??"–"} / ${preview.params?.chaikin_slow??"–"}`}/></div></div></section>}
   </div>
 }
 
@@ -77,3 +121,8 @@ const primary:CSSProperties={width:"100%",padding:12,border:0,borderRadius:9,bac
 const small:CSSProperties={padding:"7px 10px",margin:"8px 6px 0 0",border:"1px solid #3b82f6",borderRadius:7,background:"#172554",color:"#bfdbfe",fontWeight:800};
 const danger:CSSProperties={...small,border:"1px solid #ef4444",background:"#450a0a",color:"#fecaca"};
 const table:CSSProperties={width:"100%",borderCollapse:"collapse",fontSize:13};
+const testButton:CSSProperties={padding:"7px 10px",border:"1px solid #38bdf8",borderRadius:7,background:"#082f49",color:"#bae6fd",fontWeight:900,cursor:"pointer"};
+const adoptButton:CSSProperties={padding:"7px 10px",border:"1px solid #22c55e",borderRadius:7,background:"#14532d",color:"#dcfce7",fontWeight:900,cursor:"pointer"};
+const adoptedButton:CSSProperties={...adoptButton,background:"#166534",color:"#bbf7d0"};
+const previewCard:CSSProperties={background:"#08101d",border:"1px solid #26344d",borderRadius:10,padding:12};
+function PreviewRow({k,v}:{k:string;v:string}){return <div style={{display:"flex",justifyContent:"space-between",gap:12,padding:"5px 0",borderBottom:"1px solid #1e293b",fontSize:13}}><span style={{color:"#94a3b8"}}>{k}</span><b>{v}</b></div>}
