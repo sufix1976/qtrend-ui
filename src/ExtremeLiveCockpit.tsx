@@ -91,6 +91,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const [chainTest,setChainTest]=useState<any>(null);
   const [chainBusy,setChainBusy]=useState(false);
   const [chainMessage,setChainMessage]=useState("Bereit.");
+  const [executionDebug,setExecutionDebug]=useState<any>(null);
   const priceHost=useRef<HTMLDivElement>(null); const macdHost=useRef<HTMLDivElement>(null); const rsiHost=useRef<HTMLDivElement>(null);
   const priceChart=useRef<IChartApi|null>(null); const macdChart=useRef<IChartApi|null>(null); const rsiChart=useRef<IChartApi|null>(null);
   const candleSeries=useRef<ISeriesApi<"Candlestick">|null>(null); const markerApi=useRef<any>(null);
@@ -161,7 +162,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
 
   async function load(){
     try{
-      const [c,s,p,l,cfg,profileList,riskInfo,dbStatus,execInfo,signalInfo]=await Promise.all([
+      const [c,s,p,l,cfg,profileList,riskInfo,dbStatus,execInfo,signalInfo,executionDebugInfo]=await Promise.all([
         fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${symbol}&interval=${interval}&limit=1500&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/v5/state?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
         fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile?symbol=${symbol}&interval=${interval}&_ts=${Date.now()}`),
@@ -172,10 +173,12 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         fetchOptional(`${BACKEND_BASE}/debug/db?_ts=${Date.now()}`),
         fetchOptional(`${BACKEND_BASE}/db/executions?_ts=${Date.now()}`),
         fetchOptional(`${BACKEND_BASE}/db/signals?_ts=${Date.now()}`),
+        fetchOptional(`${BACKEND_BASE}/execution-debug?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`),
       ]);
       setCandles(Array.isArray(c.candles)?c.candles:[]);setSnapshot(s.state||null);setProfile({...DEFAULT_PROFILE,...p.params});setLive(l);setProfiles(Array.isArray(profileList.profiles)?profileList.profiles:[]);
       if(riskInfo){setRisk(riskInfo);setRiskInput(String(riskInfo.max_position_loss_eur??0));}
       if(dbStatus)setDbInfo(dbStatus);
+      setExecutionDebug(executionDebugInfo?.debug||null);
       const signals=new Map((Array.isArray(signalInfo?.rows)?signalInfo.rows:[]).map((row:any)=>[row.signal_id,row]));
       const recent=(Array.isArray(execInfo?.rows)?execInfo.rows:[]).filter((row:any)=>String(row.epic||"").toUpperCase()===symbol.toUpperCase()).slice(0,5).map((row:any)=>{
         const sig:any=signals.get(row.signal_id)||null; let payload:any={}; let response:any={};
@@ -307,6 +310,25 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const fs=live?.final_state; const cur=live?.current; const strategy=String(fs?.position||"flat").toUpperCase(); const broker=String(snapshot?.broker_side||"flat").toUpperCase();
   const field=(key:keyof Profile,label:string,step="1")=><label style={{display:"grid",gap:4,fontSize:11,color:"#94a3b8"}}>{label}<input type="number" step={step} value={profile[key]} onChange={e=>setProfile(p=>({...p,[key]:Number(e.target.value)}))} style={input}/></label>;
 
+  const debugReasonLabel=(reason?:string)=>{
+    const labels:Record<string,string>={
+      bootstrap_locked:"BOOTSTRAP · HISTORIE VERRIEGELT",
+      profile_tf_changed:"PROFIL-TF GEÄNDERT · HISTORIE VERRIEGELT",
+      same_signal_id:"GLEICHE SIGNAL-ID · NICHT ERNEUT",
+      event_not_new:"EVENT NICHT NEU",
+      no_system_events:"KEINE AUSFÜHRBAREN SYSTEMEVENTS",
+      queue_inserted:"IN QUEUE EINGEFÜGT",
+      queue_duplicate:"BEREITS IN QUEUE",
+      auto_off:"AUTO AUS",
+      bridge_error:"BRIDGE-FEHLER",
+      bridge_not_observed_yet:"NOCH KEIN BRIDGE-DURCHLAUF",
+    };
+    return labels[String(reason||"")]||String(reason||"–").toUpperCase();
+  };
+  const debugDecisionLabel=(decision?:string)=>decision==="queued"?"ERZEUGT":decision==="error"?"FEHLER":"NICHT ERZEUGT";
+  const debugQueueStatus=String(executionDebug?.queue?.status||"–").toUpperCase();
+  const debugWorkerInvolved=Boolean(executionDebug?.queue?.claimed_at||executionDebug?.queue?.completed_at);
+
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",fontFamily:"Inter,Arial,sans-serif",padding:10,boxSizing:"border-box"}}>
     <header style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",padding:"6px 8px 12px"}}>
       <b style={{fontSize:20}}>Extreme MACD V8.5 · Demo Candidate</b>
@@ -334,6 +356,22 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
         <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} onChange={e=>setSize(Number(e.target.value))} style={input}/><button style={button()} onClick={()=>void saveExecution()}>Save</button></div><button style={auto?onButton:offButton} onClick={()=>{const n=!auto;setAuto(n);void saveExecution(n);}}>AUTO {auto?"ON":"OFF"}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button style={flatButton} onClick={()=>void manual("flat")}>FLAT</button><button style={longButton} onClick={()=>void manual("long")}>LONG</button><button style={shortButton} onClick={()=>void manual("short")}>SHORT</button></div></Card>
         <Card title="WORKER KETTENTEST"><div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Nur GOLD · DEMO · läuft über Engine-Event → Pure Event Worker → Broker.</div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...longButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("LONG");}}>TEST LONG</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...shortButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("SHORT");}}>TEST SHORT</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...flatButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("EXIT");}}>TEST EXIT</button></div><div style={{fontSize:11,fontWeight:800,color:chainMessage.startsWith("ENGINE FEHLER")||chainMessage.startsWith("FEHLER")||chainMessage.startsWith("TIMEOUT")?"#f87171":chainMessage.startsWith("KETTE OK")?"#22c55e":"#facc15",marginTop:9,padding:"7px 8px",background:"#08101d",border:"1px solid #26344d",borderRadius:7,overflowWrap:"anywhere"}}>{chainBusy?"● ":""}{chainMessage}</div>{chainTest?<div style={{marginTop:9}}><Row k="Engine Event" v={chainStage("event_created")?"OK":"WAIT"}/><Row k="Worker gelesen" v={chainStage("worker_received")?"OK":"WAIT"}/><Row k="Strategy State" v={chainStage("strategy_forwarded")?"OK":"WAIT"}/><Row k="Broker" v={chainStage("broker_confirmed")?"OK":chainTest.status==="failed"?"FEHLER":"WAIT"}/><Row k="Aktion" v={String(chainTest.action||chainTest.target_state||"–").toUpperCase()}/><Row k="Test-ID" v={String(chainTest.event_id||"–").slice(-18)}/>{chainTest.error?<div style={{fontSize:11,color:"#f87171",marginTop:6}}>{String(chainTest.error)}</div>:null}</div>:<div style={{fontSize:11,color:"#64748b",marginTop:8}}>{symbol!=="GOLD"?"Bitte GOLD auswählen.":null}</div>}</Card>
+        <Card title="EXECUTION DEBUG">
+          {executionDebug?<>
+            <Row k="Instrument / TF" v={`${String(executionDebug.symbol||symbol)} · ${String(executionDebug.interval||interval)}`}/>
+            <Row k="Auto" v={executionDebug.auto_enabled?"ON":"OFF"}/>
+            <Row k="Letztes Systemevent" v={executionDebug.last_signal_action?String(executionDebug.last_signal_action).toUpperCase():"–"}/>
+            <Row k="Signalzeit" v={executionDebug.last_signal_time?fmtTime(Number(executionDebug.last_signal_time)):"–"}/>
+            <Row k="Signal-ID" v={String(executionDebug.last_signal_key||"–").slice(-24)}/>
+            <Row k="Queue erzeugt" v={debugDecisionLabel(executionDebug.decision)}/>
+            <Row k="Grund" v={debugReasonLabel(executionDebug.reason)}/>
+            <Row k="Queue-Status" v={debugQueueStatus}/>
+            <Row k="Worker beteiligt" v={debugWorkerInvolved?"JA":"NEIN"}/>
+            <Row k="Queue-ID" v={String(executionDebug.queue_event_id||executionDebug.queue?.event_id||"–").slice(-24)}/>
+            {executionDebug.queue?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.queue.error)}</div>:null}
+            {executionDebug.details?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.details.error)}</div>:null}
+          </>:<div style={{fontSize:12,color:"#94a3b8"}}>Noch keine Execution-Diagnose für {symbol} vorhanden.</div>}
+        </Card>
         <Card title="BROKER INFO">{brokerLog.length?<>{brokerLog.map((row:any,index:number)=><div key={`${row.exec_id||index}`} style={{padding:index?"8px 0 0":"0",marginTop:index?8:0,borderTop:index?"1px solid #26344d":"none"}}><Row k={index===0?"Letzte Aktion":"Aktion"} v={String(row.action||"–").toUpperCase()}/><Row k="Zeit" v={fmtTime(row.executed_at)}/><Row k="Grund" v={String(row.reason||"–").toUpperCase()}/><Row k="Signal" v={String(row.signal_id||"–").slice(0,24)}/><Row k="Status" v={String(row.status??"–")}/></div>)}</>:<div style={{fontSize:12,color:"#94a3b8"}}>Noch keine Brokeraktion für {symbol} gefunden.</div>}</Card>
         <Card title="BROKER RISK"><Row k="Max. Positionsverlust" v={risk?.enabled?`${Number(risk.max_position_loss_eur).toFixed(2)} € · AKTIV`:"DEAKTIVIERT"}/><Row k="Prüfung" v={risk?.poll_ms?`${Math.round(Number(risk.poll_ms)/1000)} Sek.`:"–"}/><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginTop:9}}><input type="number" min="0" step="1" value={riskInput} onChange={e=>setRiskInput(e.target.value)} style={input}/><button style={onButton} onClick={()=>void saveMaxLoss(Math.max(0,Number(riskInput)||0))}>SPEICHERN</button></div><button style={{...offButton,background:"#7f1d1d"}} onClick={()=>void saveMaxLoss(0)}>DEAKTIVIEREN</button><div style={{fontSize:11,color:"#94a3b8",marginTop:7}}>Dieser alte Engine-Guard schließt jede Brokerposition automatisch, sobald ihr offener Verlust den eingestellten Eurobetrag erreicht.</div></Card>
         <Card title="STRATEGIE"><Row k="Modus" v={profile.strategy_mode==="basis_chaikin"?"BASIS + CHAIKIN":profile.strategy_mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5"}/><Row k="Extreme" v="AKTIV · Filter ignoriert"/><Row k="Trendpfad" v={profile.trend_filter_mode==="chaikin"?`CHAIKIN ${profile.chaikin_fast??3}/${profile.chaikin_slow??10}`:profile.trend_filter_mode==="ad"?`HA-AD ${profile.ad_length??11}`:"AUS"}/><Row k="Trend Sigma" v={profile.trend_filter_mode!=="none"?Number(profile.trend_sigma_abs??0).toFixed(2):"–"}/><Row k="Aktiv seit" v={profile.activation_time_ms?fmtTime(profile.activation_time_ms):"älteres Profil"}/></Card>
