@@ -98,6 +98,36 @@ function navigate(view:string){
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+function buildHeikinCandles(candles:any[]){
+  let previousOpen=0;
+  let previousClose=0;
+
+  return candles.map((candle:any,index:number)=>{
+    const open=Number(candle.open);
+    const high=Number(candle.high);
+    const low=Number(candle.low);
+    const close=Number(candle.close);
+
+    const heikinClose=(open+high+low+close)/4;
+    const heikinOpen=index===0
+      ?(open+close)/2
+      :(previousOpen+previousClose)/2;
+    const heikinHigh=Math.max(high,heikinOpen,heikinClose);
+    const heikinLow=Math.min(low,heikinOpen,heikinClose);
+
+    previousOpen=heikinOpen;
+    previousClose=heikinClose;
+
+    return {
+      time:candle.time,
+      open:heikinOpen,
+      high:heikinHigh,
+      low:heikinLow,
+      close:heikinClose,
+    };
+  });
+}
+
 export default function ProfileLab(){
   const market=useSharedMarket();
   const symbol=market.symbol;
@@ -157,6 +187,7 @@ export default function ProfileLab(){
     chaikin:true,
     ad:true,
   });
+  const [candleMode,setCandleMode]=useState<"heikin"|"normal">("heikin");
 
   useEffect(()=>{
     if(
@@ -305,10 +336,13 @@ export default function ProfileLab(){
     if(!preview)return;
 
     const candles=Array.isArray(preview.candles)?preview.candles:[];
+    const displayedCandles=candleMode==="heikin"
+      ?buildHeikinCandles(candles)
+      :candles;
     const indicator=preview.indicators||{};
     const times:Time[]=candles.map((candle:any)=>Number(candle.time) as Time);
 
-    candleSeries.current?.setData(candles.map((c:any)=>({
+    candleSeries.current?.setData(displayedCandles.map((c:any)=>({
       time:c.time as Time,
       open:Number(c.open),
       high:Number(c.high),
@@ -356,7 +390,7 @@ export default function ProfileLab(){
 
     crosshairValuesRef.current=[
       new Map(
-        candles.map((candle:any)=>[
+        displayedCandles.map((candle:any)=>[
           Number(candle.time),
           Number(candle.close),
         ])
@@ -419,7 +453,7 @@ export default function ProfileLab(){
     markerApi.current?.setMarkers(markers);
     chartRef.current?.timeScale().fitContent();
     indicatorChartsRef.current.forEach(chart=>chart.timeScale().fitContent());
-  },[preview,params.ad_length]);
+  },[preview,params.ad_length,candleMode]);
   useEffect(()=>{
     void loadProfiles();
   },[symbol,interval]);
@@ -593,6 +627,27 @@ export default function ProfileLab(){
 
   const chosen=profiles.find(row=>row.id===selectedId)||null;
   const metrics=preview?.metrics||{};
+
+  const profitFactor=Number(metrics.profit_factor||0);
+  const net=Number(metrics.net||0);
+  const drawdown=Number(metrics.max_drawdown||0);
+
+  const grossLoss=
+    Number.isFinite(profitFactor)&&
+    Math.abs(profitFactor-1)>0.0000001
+      ?Math.abs(net/(profitFactor-1))
+      :0;
+
+  const grossProfit=
+    profitFactor>0
+      ?grossLoss*profitFactor
+      :Math.max(0,net);
+
+  const efficiency=
+    drawdown>0
+      ?net/drawdown
+      :0;
+
   const strategyLabel=params.strategy_mode==="basis_chaikin"
     ?"Basis + Chaikin"
     :params.strategy_mode==="basis_ad"
@@ -615,7 +670,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.2</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.3</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -639,6 +694,34 @@ export default function ProfileLab(){
         <div ref={chartEl} style={{width:"100%",height:470}}/>
 
         <div style={panelToolbar}>
+          <span style={{fontSize:11,fontWeight:900,color:"#93c5fd"}}>KERZEN</span>
+          <button
+            type="button"
+            style={{
+              ...panelToggle,
+              background:candleMode==="heikin"?"#1d4ed8":"#172033",
+              borderColor:candleMode==="heikin"?"#60a5fa":"#334155",
+              color:candleMode==="heikin"?"#eff6ff":"#94a3b8",
+            }}
+            onClick={()=>setCandleMode("heikin")}
+          >
+            HEIKIN
+          </button>
+          <button
+            type="button"
+            style={{
+              ...panelToggle,
+              background:candleMode==="normal"?"#334155":"#172033",
+              borderColor:candleMode==="normal"?"#cbd5e1":"#334155",
+              color:candleMode==="normal"?"#f8fafc":"#94a3b8",
+            }}
+            onClick={()=>setCandleMode("normal")}
+          >
+            NORMAL
+          </button>
+
+          <span style={{width:1,height:22,background:"#334155",margin:"0 3px"}}/>
+
           <span style={{fontSize:11,fontWeight:900,color:"#93c5fd"}}>INDIKATOREN</span>
           {([
             ["macd","MACD"],
@@ -691,9 +774,12 @@ export default function ProfileLab(){
         />
 
         <div style={metricsGrid}>
-          <Metric label="PF" value={Number(metrics.profit_factor||0).toFixed(2)}/>
-          <Metric label="Netto" value={Number(metrics.net||0).toFixed(1)}/>
-          <Metric label="DD" value={Number(metrics.max_drawdown||0).toFixed(1)}/>
+          <Metric label="PF" value={profitFactor.toFixed(2)}/>
+          <Metric label="Gewinn" value={grossProfit.toFixed(1)}/>
+          <Metric label="Verlust" value={grossLoss.toFixed(1)}/>
+          <Metric label="Netto" value={net.toFixed(1)}/>
+          <Metric label="DD" value={drawdown.toFixed(1)}/>
+          <Metric label="Effizienz" value={efficiency.toFixed(2)}/>
           <Metric label="Trades" value={String(metrics.trades??0)}/>
           <Metric label="Winrate" value={`${Number(metrics.win_rate_pct||0).toFixed(1)} %`}/>
         </div>
@@ -987,6 +1073,7 @@ const chartCard:CSSProperties={
   borderRadius:12,
   padding:8,
   minWidth:0,
+  overflowX:"auto",
 };
 const side:CSSProperties={
   display:"grid",
@@ -1095,7 +1182,7 @@ const panelToggle:CSSProperties={
 };
 const metricsGrid:CSSProperties={
   display:"grid",
-  gridTemplateColumns:"repeat(5,1fr)",
+  gridTemplateColumns:"repeat(8,minmax(90px,1fr))",
   gap:6,
   marginTop:8,
 };
