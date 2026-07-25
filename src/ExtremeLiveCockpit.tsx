@@ -87,7 +87,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const [mirror,setMirror]=useState<any>(null); const [mirrorBusy,setMirrorBusy]=useState(false);
   const [risk,setRisk]=useState<any>(null); const [riskInput,setRiskInput]=useState("0");
   const [dbInfo,setDbInfo]=useState<any>(null); const [brokerLog,setBrokerLog]=useState<any[]>([]);
-  const [size,setSize]=useState(1); const [auto,setAuto]=useState(false); const [status,setStatus]=useState("Verbinden …");
+  const [size,setSize]=useState(1); const [auto,setAuto]=useState(false); const [autoBusy,setAutoBusy]=useState(false); const [executionBusy,setExecutionBusy]=useState(false); const [status,setStatus]=useState("Verbinden …");
   const [chainTest,setChainTest]=useState<any>(null);
   const [chainBusy,setChainBusy]=useState(false);
   const [chainMessage,setChainMessage]=useState("Bereit.");
@@ -194,7 +194,11 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         setActiveProfileId(String(matching.id));
         setSelectedProfileId(current=>current||String(matching.id));
       }
-      if(cfg?.row){setSize(Number(cfg.row.size||1));setAuto(Boolean(cfg.row.auto_enabled));}
+      const executionCfg=cfg?.execution_row||cfg?.row||null;
+      if(executionCfg){
+        setSize(Number(executionCfg.size||1));
+        setAuto(Number(executionCfg.auto_enabled||0)===1);
+      }
       setStatus("SIGNAL MIRROR verbunden · Auto-Orders noch gesperrt");
     }catch(e){setStatus(`Fehler: ${e instanceof Error?e.message:String(e)}`);}
   }
@@ -224,8 +228,81 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
     try{setMirrorBusy(true);setStatus("Mirror-Test läuft …");const x=await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/mirror?id=${encodeURIComponent(profileId)}&_ts=${Date.now()}`);setMirror(x);setStatus(x.compare?.identical?"Mirror-Test: IDENTISCH":"Mirror-Test: DIFFERENZ gefunden");}catch(e){setStatus(`Mirror-Test fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}finally{setMirrorBusy(false);}
   }
   async function saveProfile(){try{await fetchJson(`${BACKEND_BASE}/qmomentum/extreme-live/profile`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,params:profile})});setStatus("V7.4 Profil gespeichert");await load();}catch(e){setStatus(`Profilfehler: ${e instanceof Error?e.message:String(e)}`);}}
-  async function saveExecution(nextAuto=auto){try{await fetchJson(`${BACKEND_BASE}/v5/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,size,auto_enabled:nextAuto})});setStatus("Ausführungskonfiguration gespeichert");}catch(e){setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
-  async function manual(side:"long"|"short"|"flat"){try{const x=await fetchJson(`${BACKEND_BASE}/v5/manual`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,side})});setStatus(`${side.toUpperCase()} in Ausführungsqueue · ${String(x.event_id||"").slice(-18)}`);window.setTimeout(()=>void load(),2500);}catch(e){setStatus(`Manuell fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}}
+  async function saveExecution(nextAuto=auto){
+    try{
+      setExecutionBusy(true);
+      const response=await fetchJson(`${BACKEND_BASE}/v5/config`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({symbol,interval,size,auto_enabled:nextAuto})
+      });
+
+      const confirmed=response?.execution_row||null;
+      if(!response?.verified||!confirmed){
+        throw new Error("Engine hat die Ausführungskonfiguration nicht bestätigt");
+      }
+
+      const confirmedAuto=Number(confirmed.auto_enabled||0)===1;
+      const confirmedSize=Number(confirmed.size||size);
+      const confirmedInterval=String(confirmed.interval||interval);
+
+      setAuto(confirmedAuto);
+      setSize(confirmedSize);
+
+      if(confirmedAuto!==Boolean(nextAuto)){
+        throw new Error(`AUTO-Verifikation abweichend: gewünscht ${nextAuto?"ON":"OFF"}, gespeichert ${confirmedAuto?"ON":"OFF"}`);
+      }
+
+      setStatus(`DB bestätigt: ${symbol} ${confirmedInterval} · AUTO ${confirmedAuto?"ON":"OFF"} · Size ${confirmedSize}`);
+      window.setTimeout(()=>void load(),3500);
+      return confirmed;
+    }catch(e){
+      setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);
+      await load();
+      throw e;
+    }finally{
+      setExecutionBusy(false);
+    }
+  }
+
+  async function toggleAuto(){
+    if(autoBusy||executionBusy)return;
+    const requested=!auto;
+    try{
+      setAutoBusy(true);
+      setStatus(`AUTO ${requested?"ON":"OFF"} wird in DB gespeichert …`);
+      await saveExecution(requested);
+    }catch{
+      // saveExecution lädt den tatsächlichen DB-Zustand erneut.
+    }finally{
+      setAutoBusy(false);
+    }
+  }
+
+  async function manual(side:"long"|"short"|"flat"){
+    if(executionBusy)return;
+    try{
+      setExecutionBusy(true);
+      setStatus(`${side.toUpperCase()} wird in Execution Queue geschrieben …`);
+      const x=await fetchJson(`${BACKEND_BASE}/v5/manual`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({symbol,side})
+      });
+
+      if(!x?.queued||!x?.event_id){
+        throw new Error("Engine hat kein Queue-Ereignis bestätigt");
+      }
+
+      setStatus(`${side.toUpperCase()} bestätigt · Queue ${String(x.event_id).slice(-18)}`);
+      window.setTimeout(()=>void load(),2500);
+    }catch(e){
+      setStatus(`Manuell fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);
+      await load();
+    }finally{
+      setExecutionBusy(false);
+    }
+  }
 
   async function refreshChainTest(eventId:string){
     const x=await fetchJson(`${BACKEND_BASE}/worker-test/status?event_id=${encodeURIComponent(eventId)}&_ts=${Date.now()}`);
@@ -365,7 +442,7 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
         <div ref={priceHost} style={chartBox}/><div ref={macdHost} style={chartBox}/><div ref={rsiHost} style={chartBox}/>
       </section>
       {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
-        <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} onChange={e=>setSize(Number(e.target.value))} style={input}/><button style={button()} onClick={()=>void saveExecution()}>Save</button></div><button style={auto?onButton:offButton} onClick={()=>{const n=!auto;setAuto(n);void saveExecution(n);}}>AUTO {auto?"ON":"OFF"}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button style={flatButton} onClick={()=>void manual("flat")}>FLAT</button><button style={longButton} onClick={()=>void manual("long")}>LONG</button><button style={shortButton} onClick={()=>void manual("short")}>SHORT</button></div></Card>
+        <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} disabled={executionBusy||autoBusy} onChange={e=>setSize(Number(e.target.value))} style={input}/><button type="button" disabled={executionBusy||autoBusy} style={{...button(),opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void saveExecution()}>{executionBusy?"SPEICHERT …":"SAVE"}</button></div><button type="button" disabled={autoBusy||executionBusy} style={{...(auto?onButton:offButton),opacity:autoBusy||executionBusy?0.6:1}} onClick={()=>void toggleAuto()}>{autoBusy?"AUTO SPEICHERT …":`AUTO ${auto?"ON":"OFF"}`}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button type="button" disabled={executionBusy||autoBusy} style={{...flatButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("flat")}>FLAT</button><button type="button" disabled={executionBusy||autoBusy} style={{...longButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("long")}>LONG</button><button type="button" disabled={executionBusy||autoBusy} style={{...shortButton,opacity:executionBusy||autoBusy?0.55:1}} onClick={()=>void manual("short")}>SHORT</button></div></Card>
         <Card title="WORKER KETTENTEST"><div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Nur GOLD · DEMO · läuft über Engine-Event → Pure Event Worker → Broker.</div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...longButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("LONG");}}>TEST LONG</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...shortButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("SHORT");}}>TEST SHORT</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...flatButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("EXIT");}}>TEST EXIT</button></div><div style={{fontSize:11,fontWeight:800,color:chainMessage.startsWith("ENGINE FEHLER")||chainMessage.startsWith("FEHLER")||chainMessage.startsWith("TIMEOUT")?"#f87171":chainMessage.startsWith("KETTE OK")?"#22c55e":"#facc15",marginTop:9,padding:"7px 8px",background:"#08101d",border:"1px solid #26344d",borderRadius:7,overflowWrap:"anywhere"}}>{chainBusy?"● ":""}{chainMessage}</div>{chainTest?<div style={{marginTop:9}}><Row k="Engine Event" v={chainStage("event_created")?"OK":"WAIT"}/><Row k="Worker gelesen" v={chainStage("worker_received")?"OK":"WAIT"}/><Row k="Strategy State" v={chainStage("strategy_forwarded")?"OK":"WAIT"}/><Row k="Broker" v={chainStage("broker_confirmed")?"OK":chainTest.status==="failed"?"FEHLER":"WAIT"}/><Row k="Aktion" v={String(chainTest.action||chainTest.target_state||"–").toUpperCase()}/><Row k="Test-ID" v={String(chainTest.event_id||"–").slice(-18)}/>{chainTest.error?<div style={{fontSize:11,color:"#f87171",marginTop:6}}>{String(chainTest.error)}</div>:null}</div>:<div style={{fontSize:11,color:"#64748b",marginTop:8}}>{symbol!=="GOLD"?"Bitte GOLD auswählen.":null}</div>}</Card>
         <Card title="EXECUTION DEBUG V2">
           {executionDebug?<>
