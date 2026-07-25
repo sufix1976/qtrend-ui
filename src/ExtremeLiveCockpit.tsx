@@ -328,6 +328,17 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
   const debugDecisionLabel=(decision?:string)=>decision==="queued"?"ERZEUGT":decision==="error"?"FEHLER":"NICHT ERZEUGT";
   const debugQueueStatus=String(executionDebug?.queue?.status||"–").toUpperCase();
   const debugWorkerInvolved=Boolean(executionDebug?.queue?.claimed_at||executionDebug?.queue?.completed_at);
+  const debugHeartbeatAge=(()=>{
+    const raw=executionDebug?.bridge_finished_at||executionDebug?.updated_at;
+    if(!raw)return null;
+    const ms=Date.now()-new Date(String(raw)).getTime();
+    return Number.isFinite(ms)?Math.max(0,Math.round(ms/1000)):null;
+  })();
+  const debugHeartbeatLabel=debugHeartbeatAge==null?"–":debugHeartbeatAge<5?"JETZT":debugHeartbeatAge<60?`vor ${debugHeartbeatAge} Sek.`:`vor ${Math.round(debugHeartbeatAge/60)} Min.`;
+  const debugStrategyLabel=(mode?:string)=>mode==="basis_chaikin"?"BASIS + CHAIKIN":mode==="basis_ad"?"BASIS + HA-AD":"BASIS V8.5";
+  const debugConfigAuto=Boolean(executionDebug?.config_auto_enabled);
+  const debugLoopAuto=executionDebug?.loop_auto_enabled==null?null:Boolean(executionDebug.loop_auto_enabled);
+  const debugAutoMismatch=debugLoopAuto!=null&&(auto!==debugConfigAuto||debugConfigAuto!==debugLoopAuto);
 
   return <div style={{minHeight:"100vh",background:"#050914",color:"#eef2ff",fontFamily:"Inter,Arial,sans-serif",padding:10,boxSizing:"border-box"}}>
     <header style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",padding:"6px 8px 12px"}}>
@@ -356,17 +367,39 @@ export default function ExtremeLiveCockpit({ chartOnly = false }: { chartOnly?: 
       {!chartOnly && <aside style={{display:"grid",gap:9,alignContent:"start",maxHeight:"calc(100vh - 90px)",overflowY:"auto",paddingRight:3}}>
         <Card title="POSITION / BROKER"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Hero label="POSITION" value={strategy}/><Hero label="BROKER" value={broker}/></div><div style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:7,alignItems:"center",marginTop:10}}><span>Size</span><input type="number" step="any" value={size} onChange={e=>setSize(Number(e.target.value))} style={input}/><button style={button()} onClick={()=>void saveExecution()}>Save</button></div><button style={auto?onButton:offButton} onClick={()=>{const n=!auto;setAuto(n);void saveExecution(n);}}>AUTO {auto?"ON":"OFF"}</button><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:7}}><button style={flatButton} onClick={()=>void manual("flat")}>FLAT</button><button style={longButton} onClick={()=>void manual("long")}>LONG</button><button style={shortButton} onClick={()=>void manual("short")}>SHORT</button></div></Card>
         <Card title="WORKER KETTENTEST"><div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Nur GOLD · DEMO · läuft über Engine-Event → Pure Event Worker → Broker.</div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...longButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("LONG");}}>TEST LONG</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...shortButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("SHORT");}}>TEST SHORT</button><button type="button" disabled={chainBusy||symbol!=="GOLD"} style={{...flatButton,opacity:chainBusy?0.55:1}} onClick={()=>{void runChainTest("EXIT");}}>TEST EXIT</button></div><div style={{fontSize:11,fontWeight:800,color:chainMessage.startsWith("ENGINE FEHLER")||chainMessage.startsWith("FEHLER")||chainMessage.startsWith("TIMEOUT")?"#f87171":chainMessage.startsWith("KETTE OK")?"#22c55e":"#facc15",marginTop:9,padding:"7px 8px",background:"#08101d",border:"1px solid #26344d",borderRadius:7,overflowWrap:"anywhere"}}>{chainBusy?"● ":""}{chainMessage}</div>{chainTest?<div style={{marginTop:9}}><Row k="Engine Event" v={chainStage("event_created")?"OK":"WAIT"}/><Row k="Worker gelesen" v={chainStage("worker_received")?"OK":"WAIT"}/><Row k="Strategy State" v={chainStage("strategy_forwarded")?"OK":"WAIT"}/><Row k="Broker" v={chainStage("broker_confirmed")?"OK":chainTest.status==="failed"?"FEHLER":"WAIT"}/><Row k="Aktion" v={String(chainTest.action||chainTest.target_state||"–").toUpperCase()}/><Row k="Test-ID" v={String(chainTest.event_id||"–").slice(-18)}/>{chainTest.error?<div style={{fontSize:11,color:"#f87171",marginTop:6}}>{String(chainTest.error)}</div>:null}</div>:<div style={{fontSize:11,color:"#64748b",marginTop:8}}>{symbol!=="GOLD"?"Bitte GOLD auswählen.":null}</div>}</Card>
-        <Card title="EXECUTION DEBUG">
+        <Card title="EXECUTION DEBUG V2">
           {executionDebug?<>
+            <div style={{padding:"7px 8px",borderRadius:7,marginBottom:7,background:debugAutoMismatch?"#451a1a":"#08101d",border:`1px solid ${debugAutoMismatch?"#ef4444":"#26344d"}`,fontSize:11,fontWeight:900,color:debugAutoMismatch?"#fca5a5":"#93c5fd"}}>
+              {debugAutoMismatch?"⚠ AUTO-WERTE NICHT SYNCHRON":"BRIDGE-DATEN SYNCHRON"}
+            </div>
             <Row k="Instrument / TF" v={`${String(executionDebug.symbol||symbol)} · ${String(executionDebug.interval||interval)}`}/>
-            <Row k="Auto" v={executionDebug.auto_enabled?"ON":"OFF"}/>
+            <Row k="Profil" v={String(executionDebug.profile_name||"–")}/>
+            <Row k="Strategie" v={debugStrategyLabel(executionDebug.strategy_mode)}/>
+            <Row k="Cockpit AUTO" v={auto?"ON":"OFF"}/>
+            <Row k="Config AUTO" v={debugConfigAuto?"ON":"OFF"}/>
+            <Row k="AUTO im Loop" v={debugLoopAuto==null?"–":debugLoopAuto?"ON":"OFF"}/>
+            <Row k="Bridge Heartbeat" v={debugHeartbeatLabel}/>
+            <Row k="Bridge-Zeit" v={executionDebug.bridge_finished_at?String(executionDebug.bridge_finished_at):executionDebug.updated_at?String(executionDebug.updated_at):"–"}/>
+            <Row k="Bridge Run" v={String(executionDebug.bridge_run_id||"–").slice(-20)}/>
+            <Row k="Events gefunden" v={String(executionDebug.parsed_event_count??"–")}/>
+            <Row k="Neue Events" v={String(executionDebug.pending_event_count??"–")}/>
             <Row k="Letztes Systemevent" v={executionDebug.last_signal_action?String(executionDebug.last_signal_action).toUpperCase():"–"}/>
             <Row k="Signalzeit" v={executionDebug.last_signal_time?fmtTime(Number(executionDebug.last_signal_time)):"–"}/>
             <Row k="Signal-ID" v={String(executionDebug.last_signal_key||"–").slice(-24)}/>
+            <Row k="Cursor-Zeit" v={executionDebug.cursor_event_time?fmtTime(Number(executionDebug.cursor_event_time)):"–"}/>
+            <Row k="Cursor-ID" v={String(executionDebug.cursor_event_key||"–").slice(-24)}/>
+            <Row k="Neueste Event-Zeit" v={executionDebug.latest_event_time?fmtTime(Number(executionDebug.latest_event_time)):"–"}/>
             <Row k="Queue erzeugt" v={debugDecisionLabel(executionDebug.decision)}/>
             <Row k="Grund" v={debugReasonLabel(executionDebug.reason)}/>
             <Row k="Queue-Status" v={debugQueueStatus}/>
+            <Row k="Queue-Quelle" v={String(executionDebug.queue?.source||"–").toUpperCase()}/>
+            <Row k="Versuche" v={String(executionDebug.queue?.attempts??"–")}/>
             <Row k="Worker beteiligt" v={debugWorkerInvolved?"JA":"NEIN"}/>
+            <Row k="Worker-ID" v={String(executionDebug.queue?.claimed_by||"–").slice(-24)}/>
+            <Row k="Geclaimt" v={executionDebug.queue?.claimed_at?String(executionDebug.queue.claimed_at):"–"}/>
+            <Row k="Abgeschlossen" v={executionDebug.queue?.completed_at?String(executionDebug.queue.completed_at):"–"}/>
+            <Row k="Broker vorher" v={String(executionDebug.queue?.details?.broker_before||"–").toUpperCase()}/>
+            <Row k="Broker danach" v={String(executionDebug.queue?.details?.broker_after||"–").toUpperCase()}/>
             <Row k="Queue-ID" v={String(executionDebug.queue_event_id||executionDebug.queue?.event_id||"–").slice(-24)}/>
             {executionDebug.queue?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.queue.error)}</div>:null}
             {executionDebug.details?.error?<div style={{fontSize:11,color:"#f87171",marginTop:7,overflowWrap:"anywhere"}}>{String(executionDebug.details.error)}</div>:null}
