@@ -58,6 +58,22 @@ type MultiTfTopRow = {
   score:number;
 };
 
+type TfFrequencyRow = {
+  tf:string;
+  count:number;
+  share_pct:number;
+  avg_score:number;
+  avg_pf:number;
+  best_rank:number;
+};
+
+type TfFrequency = {
+  macd?:TfFrequencyRow[];
+  rsi?:TfFrequencyRow[];
+  chaikin?:TfFrequencyRow[];
+  ad?:TfFrequencyRow[];
+};
+
 type MultiTfJob = {
   id:string;
   symbol:string;
@@ -67,6 +83,22 @@ type MultiTfJob = {
   processed:number;
   progress_pct:number;
   min_trades:number;
+  top:MultiTfTopRow[];
+  frequency?:TfFrequency;
+  error?:string|null;
+};
+
+type ParameterJob = {
+  id:string;
+  parent_run_id?:string|null;
+  symbol:string;
+  interval:string;
+  status:string;
+  total:number;
+  processed:number;
+  progress_pct:number;
+  min_trades:number;
+  tf_count:number;
   top:MultiTfTopRow[];
   error?:string|null;
 };
@@ -228,6 +260,8 @@ export default function ProfileLab(){
   const [tfOptimizerOptions,setTfOptimizerOptions]=useState<number[]>([
     5,10,15,20,30,45,60,90,120,180,
   ]);
+  const [parameterJob,setParameterJob]=useState<ParameterJob|null>(null);
+  const [parameterTopTfCount,setParameterTopTfCount]=useState(3);
 
   useEffect(()=>{
     if(
@@ -522,6 +556,22 @@ export default function ProfileLab(){
         ){
           setTfOptimizerJob(job);
         }
+
+        const parameterQuery=parameterJob?.id
+          ?`?job_id=${encodeURIComponent(parameterJob.id)}&_ts=${Date.now()}`
+          :`?_ts=${Date.now()}`;
+        const parameterData=await fetchJson(
+          `${BACKEND_BASE}/qmomentum/multi-tf-optimize/parameter-status${parameterQuery}`
+        );
+        if(cancelled)return;
+        const parameter=parameterData?.job||null;
+        if(
+          parameter &&
+          parameter.symbol===symbol &&
+          parameter.interval===interval
+        ){
+          setParameterJob(parameter);
+        }
       }catch{
         // Der Lab-Optimizer darf die normale Vorschau niemals stören.
       }
@@ -533,7 +583,7 @@ export default function ProfileLab(){
       cancelled=true;
       window.clearInterval(timer);
     };
-  },[symbol,interval,tfOptimizerJob?.id]);
+  },[symbol,interval,tfOptimizerJob?.id,parameterJob?.id]);
 
   useEffect(()=>{
     const timer=window.setTimeout(()=>void runPreview(false),450);
@@ -784,6 +834,76 @@ export default function ProfileLab(){
     );
   }
 
+  async function startParameterOptimizer(){
+    if(!tfOptimizerJob?.id||!(tfOptimizerJob.top||[]).length){
+      setStatus("Zuerst einen abgeschlossenen TF-Lauf auswählen");
+      return;
+    }
+    try{
+      setTfOptimizerBusy(true);
+      setStatus("Phase 2 · Parameteroptimierung wird gestartet …");
+      const data=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/multi-tf-optimize/parameter-start`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            parent_run_id:tfOptimizerJob.id,
+            symbol,
+            interval,
+            params,
+            top_tf_count:parameterTopTfCount,
+            min_trades:tfOptimizerMinTrades,
+            limit:5000,
+            max_combinations:50000,
+            wide_search:false,
+          }),
+        }
+      );
+      setParameterJob(data.job);
+      setStatus(
+        `Phase 2 gestartet: ${data.job.total} Parameterkombinationen auf ${data.job.tf_count} TF-Siegern`
+      );
+    }catch(error){
+      setStatus(
+        `Phase 2 fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }finally{
+      setTfOptimizerBusy(false);
+    }
+  }
+
+  async function controlParameterOptimizer(action:"pause"|"resume"|"cancel"){
+    if(!parameterJob?.id)return;
+    try{
+      const data=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/multi-tf-optimize/parameter-${action}`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({job_id:parameterJob.id}),
+        }
+      );
+      setParameterJob(data.job);
+      setStatus(`Parameteroptimierung: ${String(data.job.status)}`);
+    }catch(error){
+      setStatus(
+        `Parametersteuerung fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }
+  }
+
+  function loadParameterRow(row:MultiTfTopRow){
+    setParams(previous=>({
+      ...previous,
+      ...row.params,
+    }));
+    setCompareView("multi");
+    setStatus(
+      `Parameterprofil geladen · PF ${Number(row.metrics.profit_factor||0).toFixed(2)} · Score ${Number(row.score||0).toFixed(1)}`
+    );
+  }
+
   function setField<K extends keyof Params>(key:K,value:Params[K]){
     setParams(previous=>({...previous,[key]:value}));
   }
@@ -854,7 +974,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.5 · OPTIMIZER V2</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.6 · OPTIMIZER V2 ANALYSE</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -1211,11 +1331,21 @@ export default function ProfileLab(){
               {tfOptimizerJob.error}
             </div>:null}
 
-            <div style={{marginTop:9,fontSize:10,fontWeight:900,color:"#93c5fd"}}>
-              TOP-KOMBINATIONEN
+            <div style={{marginTop:10,fontSize:10,fontWeight:900,color:"#93c5fd"}}>
+              TF-HÄUFIGKEIT · TOP 100
             </div>
-            <div style={{display:"grid",gap:5,marginTop:5,maxHeight:310,overflowY:"auto"}}>
-              {(tfOptimizerJob.top||[]).slice(0,12).map((row,index)=>{
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:6}}>
+              <TfHeatmap title="MACD" rows={tfOptimizerJob.frequency?.macd||[]}/>
+              <TfHeatmap title="RSI" rows={tfOptimizerJob.frequency?.rsi||[]}/>
+              <TfHeatmap title="CHAIKIN" rows={tfOptimizerJob.frequency?.chaikin||[]}/>
+              <TfHeatmap title="AD" rows={tfOptimizerJob.frequency?.ad||[]}/>
+            </div>
+
+            <div style={{marginTop:10,fontSize:10,fontWeight:900,color:"#93c5fd"}}>
+              TOP 100 KOMBINATIONEN
+            </div>
+            <div style={{display:"grid",gap:5,marginTop:5,maxHeight:360,overflowY:"auto"}}>
+              {(tfOptimizerJob.top||[]).slice(0,100).map((row,index)=>{
                 const dd=Number(row.metrics.max_drawdown||0);
                 const netValue=Number(row.metrics.net||0);
                 const eff=dd>0?netValue/dd:0;
@@ -1245,6 +1375,116 @@ export default function ProfileLab(){
                   </div>
                 </button>;
               })}
+            </div>
+
+            <div style={{
+              marginTop:10,
+              paddingTop:9,
+              borderTop:"1px solid #26344d",
+            }}>
+              <div style={{fontSize:10,fontWeight:900,color:"#c084fc"}}>
+                PHASE 2 · PARAMETER AUF BESTEN TFs
+              </div>
+              <div style={{fontSize:9,color:"#94a3b8",lineHeight:1.4,marginTop:4}}>
+                MACD-, RSI-, Chaikin- und AD-Werte werden um die aktuellen Einstellungen variiert.
+              </div>
+              <label style={{...fieldStyle,marginTop:7}}>
+                <span>Anzahl TF-Sieger</span>
+                <select
+                  style={selectStyle}
+                  value={parameterTopTfCount}
+                  disabled={parameterJob?.status==="RUNNING"}
+                  onChange={event=>setParameterTopTfCount(Number(event.target.value))}
+                >
+                  {[1,2,3,5].map(value=>
+                    <option key={value} value={value}>{value}</option>
+                  )}
+                </select>
+              </label>
+              <button
+                style={{...primaryButton,background:"#6b21a8",borderColor:"#c084fc"}}
+                disabled={
+                  tfOptimizerBusy||
+                  tfOptimizerJob.status!=="FINISHED"||
+                  parameterJob?.status==="RUNNING"
+                }
+                onClick={()=>void startParameterOptimizer()}
+              >
+                PARAMETER-SUCHE STARTEN
+              </button>
+
+              {parameterJob?<div style={{marginTop:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#cbd5e1"}}>
+                  <b>{parameterJob.status}</b>
+                  <span>{parameterJob.processed} / {parameterJob.total} · {Number(parameterJob.progress_pct||0).toFixed(1)} %</span>
+                </div>
+                <div style={{height:8,background:"#172033",borderRadius:999,overflow:"hidden",marginTop:5}}>
+                  <div style={{
+                    height:"100%",
+                    width:`${Math.max(0,Math.min(100,Number(parameterJob.progress_pct||0)))}%`,
+                    background:"#a855f7",
+                  }}/>
+                </div>
+                <div style={buttonGrid}>
+                  <button
+                    style={secondaryButton}
+                    disabled={parameterJob.status!=="RUNNING"}
+                    onClick={()=>void controlParameterOptimizer("pause")}
+                  >
+                    PAUSE
+                  </button>
+                  <button
+                    style={secondaryButton}
+                    disabled={parameterJob.status!=="PAUSED"}
+                    onClick={()=>void controlParameterOptimizer("resume")}
+                  >
+                    FORTSETZEN
+                  </button>
+                </div>
+                {parameterJob.error?<div style={{marginTop:6,fontSize:9,color:"#f87171"}}>
+                  {parameterJob.error}
+                </div>:null}
+                <div style={{marginTop:8,fontSize:10,fontWeight:900,color:"#c084fc"}}>
+                  BESTE PARAMETERPROFILE
+                </div>
+                <div style={{display:"grid",gap:5,marginTop:5,maxHeight:330,overflowY:"auto"}}>
+                  {(parameterJob.top||[]).slice(0,30).map((row,index)=>{
+                    const dd=Number(row.metrics.max_drawdown||0);
+                    const netValue=Number(row.metrics.net||0);
+                    return <button
+                      key={`parameter-${index}-${row.params.macd_fast}-${row.params.rsi_length}`}
+                      type="button"
+                      style={{
+                        textAlign:"left",
+                        background:"#10091b",
+                        border:"1px solid #4c1d95",
+                        borderRadius:7,
+                        padding:"7px 8px",
+                        color:"#f3e8ff",
+                        cursor:"pointer",
+                      }}
+                      onClick={()=>loadParameterRow(row)}
+                    >
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontWeight:900}}>
+                        <span>#{index+1} · Score {Number(row.score||0).toFixed(1)}</span>
+                        <span>PF {Number(row.metrics.profit_factor||0).toFixed(2)}</span>
+                      </div>
+                      <div style={{fontSize:9,color:"#d8b4fe",marginTop:3}}>
+                        TF: M {row.params.macd_tf} · R {row.params.rsi_tf} · C {row.params.chaikin_tf} · AD {row.params.ad_tf}
+                      </div>
+                      <div style={{fontSize:9,color:"#c4b5fd",marginTop:2}}>
+                        MACD {row.params.macd_fast}/{row.params.macd_slow}/{row.params.macd_signal}
+                        {" · "}RSI {row.params.rsi_length}/{row.params.rsi_signal}
+                        {" · "}C {row.params.chaikin_fast}/{row.params.chaikin_slow}
+                        {" · "}AD {row.params.ad_length}
+                      </div>
+                      <div style={{fontSize:9,color:"#8b5cf6",marginTop:2}}>
+                        Netto {netValue.toFixed(1)} · DD {dd.toFixed(1)} · Trades {row.metrics.trades}
+                      </div>
+                    </button>;
+                  })}
+                </div>
+              </div>:null}
             </div>
           </div>:null}
         </Card>
@@ -1330,6 +1570,41 @@ function IndicatorPanel({
       {title}
     </div>
     <div ref={containerRef} style={{width:"100%",height}}/>
+  </div>;
+}
+
+function TfHeatmap({
+  title,
+  rows,
+}:{
+  title:string;
+  rows:TfFrequencyRow[];
+}){
+  const maximum=Math.max(1,...rows.map(row=>Number(row.count||0)));
+  return <div style={{
+    background:"#08101d",
+    border:"1px solid #26344d",
+    borderRadius:7,
+    padding:7,
+  }}>
+    <div style={{fontSize:9,fontWeight:900,color:"#93c5fd",marginBottom:5}}>
+      {title}
+    </div>
+    <div style={{display:"grid",gap:4}}>
+      {rows.slice(0,8).map(row=><div key={row.tf}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#cbd5e1"}}>
+          <span>{row.tf}</span>
+          <span>{row.count}× · {Number(row.share_pct||0).toFixed(0)} % · ØPF {Number(row.avg_pf||0).toFixed(2)}</span>
+        </div>
+        <div style={{height:7,background:"#172033",borderRadius:999,overflow:"hidden",marginTop:2}}>
+          <div style={{
+            height:"100%",
+            width:`${Math.max(4,(Number(row.count||0)/maximum)*100)}%`,
+            background:"#0ea5e9",
+          }}/>
+        </div>
+      </div>)}
+    </div>
   </div>;
 }
 
