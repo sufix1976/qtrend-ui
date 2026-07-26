@@ -46,6 +46,31 @@ type Params = {
   ad_tf:string;
 };
 
+type MultiTfTopRow = {
+  params:Params;
+  metrics:{
+    trades:number;
+    profit_factor:number;
+    net:number;
+    max_drawdown:number;
+    win_rate_pct:number;
+  };
+  score:number;
+};
+
+type MultiTfJob = {
+  id:string;
+  symbol:string;
+  interval:string;
+  status:string;
+  total:number;
+  processed:number;
+  progress_pct:number;
+  min_trades:number;
+  top:MultiTfTopRow[];
+  error?:string|null;
+};
+
 type Ratings = {
   trend:number;
   entry:number;
@@ -197,6 +222,12 @@ export default function ProfileLab(){
   });
   const [candleMode,setCandleMode]=useState<"heikin"|"normal">("heikin");
   const [compareView,setCompareView]=useState<"multi"|"baseline">("multi");
+  const [tfOptimizerJob,setTfOptimizerJob]=useState<MultiTfJob|null>(null);
+  const [tfOptimizerBusy,setTfOptimizerBusy]=useState(false);
+  const [tfOptimizerMinTrades,setTfOptimizerMinTrades]=useState(20);
+  const [tfOptimizerOptions,setTfOptimizerOptions]=useState<number[]>([
+    5,10,15,20,30,45,60,90,120,180,
+  ]);
 
   useEffect(()=>{
     if(
@@ -472,6 +503,39 @@ export default function ProfileLab(){
   },[symbol,interval]);
 
   useEffect(()=>{
+    let cancelled=false;
+
+    async function poll(){
+      try{
+        const query=tfOptimizerJob?.id
+          ?`?job_id=${encodeURIComponent(tfOptimizerJob.id)}&_ts=${Date.now()}`
+          :`?_ts=${Date.now()}`;
+        const data=await fetchJson(
+          `${BACKEND_BASE}/qmomentum/multi-tf-optimize/status${query}`
+        );
+        if(cancelled)return;
+        const job=data?.job||null;
+        if(
+          job &&
+          job.symbol===symbol &&
+          job.interval===interval
+        ){
+          setTfOptimizerJob(job);
+        }
+      }catch{
+        // Der Lab-Optimizer darf die normale Vorschau niemals stören.
+      }
+    }
+
+    void poll();
+    const timer=window.setInterval(()=>void poll(),2500);
+    return()=>{
+      cancelled=true;
+      window.clearInterval(timer);
+    };
+  },[symbol,interval,tfOptimizerJob?.id]);
+
+  useEffect(()=>{
     const timer=window.setTimeout(()=>void runPreview(false),450);
     return()=>window.clearTimeout(timer);
   },[params,symbol,interval]);
@@ -644,6 +708,82 @@ export default function ProfileLab(){
     }
   }
 
+  async function startTfOptimizer(){
+    try{
+      setTfOptimizerBusy(true);
+      setStatus("Multi-TF-Optimizer wird gestartet …");
+
+      const allowed=tfOptimizerOptions
+        .filter(value=>value>=Number(String(interval).replace(/[^0-9]/g,"")))
+        .map(value=>`${value}m`);
+
+      const data=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/multi-tf-optimize/start`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            symbol,
+            interval,
+            params,
+            limit:5000,
+            min_trades:tfOptimizerMinTrades,
+            macd_tf_options:allowed,
+            rsi_tf_options:allowed,
+            chaikin_tf_options:allowed,
+            ad_tf_options:allowed,
+            max_combinations:20000,
+          }),
+        }
+      );
+
+      setTfOptimizerJob(data.job);
+      setStatus(
+        `Multi-TF-Lauf gestartet: ${data.job.total} Kombinationen · Browser kann geschlossen werden`
+      );
+    }catch(error){
+      setStatus(
+        `Multi-TF-Optimizer fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }finally{
+      setTfOptimizerBusy(false);
+    }
+  }
+
+  async function controlTfOptimizer(action:"pause"|"resume"|"cancel"){
+    if(!tfOptimizerJob?.id)return;
+    try{
+      const data=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/multi-tf-optimize/${action}`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({job_id:tfOptimizerJob.id}),
+        }
+      );
+      setTfOptimizerJob(data.job);
+      setStatus(`Multi-TF-Optimizer: ${String(data.job.status)}`);
+    }catch(error){
+      setStatus(
+        `Optimizer-Steuerung fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }
+  }
+
+  function loadTfOptimizerRow(row:MultiTfTopRow){
+    setParams(previous=>({
+      ...previous,
+      macd_tf:String(row.params.macd_tf||interval),
+      rsi_tf:String(row.params.rsi_tf||interval),
+      chaikin_tf:String(row.params.chaikin_tf||interval),
+      ad_tf:String(row.params.ad_tf||interval),
+    }));
+    setCompareView("multi");
+    setStatus(
+      `TF-Kombination geladen: MACD ${row.params.macd_tf} · RSI ${row.params.rsi_tf} · Chaikin ${row.params.chaikin_tf} · AD ${row.params.ad_tf}`
+    );
+  }
+
   function setField<K extends keyof Params>(key:K,value:Params[K]){
     setParams(previous=>({...previous,[key]:value}));
   }
@@ -714,7 +854,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.4 · MULTI-TF</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.5 · OPTIMIZER V2</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -968,6 +1108,145 @@ export default function ProfileLab(){
             {inputField("exit_rsi_upper","RSI oben")}
             {inputField("protect_min_hold_bars","Min Hold")}
           </div>
+        </Card>
+
+        <Card title="OPTIMIZER V2 · TF-SUCHE">
+          <div style={{fontSize:10,color:"#94a3b8",lineHeight:1.45}}>
+            Phase 1 hält alle Parameter fest und sucht nur die vier Indikator-TFs.
+            Closed-HTF · Lab-only · keine Aktivierung.
+          </div>
+
+          <div style={{marginTop:8}}>
+            <div style={{fontSize:10,color:"#64748b",marginBottom:5}}>
+              ZUGELASSENE TIMEFRAMES
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {[5,10,15,20,30,45,60,90,120,180,240].map(value=>{
+                const base=Number(String(interval).replace(/[^0-9]/g,""))||5;
+                const disabled=value<base;
+                const active=tfOptimizerOptions.includes(value);
+                return <button
+                  key={value}
+                  type="button"
+                  disabled={disabled||tfOptimizerJob?.status==="RUNNING"}
+                  style={{
+                    ...panelToggle,
+                    opacity:disabled?0.3:1,
+                    background:active?"#164e63":"#172033",
+                    borderColor:active?"#22d3ee":"#334155",
+                    color:active?"#cffafe":"#94a3b8",
+                  }}
+                  onClick={()=>setTfOptimizerOptions(previous=>
+                    active
+                      ?previous.filter(item=>item!==value)
+                      :[...previous,value].sort((a,b)=>a-b)
+                  )}
+                >
+                  {value}m
+                </button>;
+              })}
+            </div>
+          </div>
+
+          <label style={{...fieldStyle,marginTop:8}}>
+            <span>Mindestanzahl Trades</span>
+            <input
+              style={inputStyle}
+              type="number"
+              min={5}
+              step={1}
+              value={tfOptimizerMinTrades}
+              disabled={tfOptimizerJob?.status==="RUNNING"}
+              onChange={event=>setTfOptimizerMinTrades(
+                Math.max(5,Number(event.target.value)||5)
+              )}
+            />
+          </label>
+
+          <button
+            style={primaryButton}
+            disabled={
+              tfOptimizerBusy||
+              tfOptimizerJob?.status==="RUNNING"||
+              tfOptimizerOptions.length===0
+            }
+            onClick={()=>void startTfOptimizer()}
+          >
+            {tfOptimizerBusy?"STARTET …":"TF-SUCHE STARTEN"}
+          </button>
+
+          {tfOptimizerJob?<div style={{marginTop:9}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#cbd5e1"}}>
+              <b>{tfOptimizerJob.status}</b>
+              <span>
+                {tfOptimizerJob.processed} / {tfOptimizerJob.total} · {Number(tfOptimizerJob.progress_pct||0).toFixed(1)} %
+              </span>
+            </div>
+            <div style={{height:8,background:"#172033",borderRadius:999,overflow:"hidden",marginTop:5}}>
+              <div style={{
+                height:"100%",
+                width:`${Math.max(0,Math.min(100,Number(tfOptimizerJob.progress_pct||0)))}%`,
+                background:"#0ea5e9",
+              }}/>
+            </div>
+
+            <div style={buttonGrid}>
+              <button
+                style={secondaryButton}
+                disabled={tfOptimizerJob.status!=="RUNNING"}
+                onClick={()=>void controlTfOptimizer("pause")}
+              >
+                PAUSE
+              </button>
+              <button
+                style={secondaryButton}
+                disabled={tfOptimizerJob.status!=="PAUSED"}
+                onClick={()=>void controlTfOptimizer("resume")}
+              >
+                FORTSETZEN
+              </button>
+            </div>
+
+            {tfOptimizerJob.error?<div style={{marginTop:7,color:"#f87171",fontSize:10}}>
+              {tfOptimizerJob.error}
+            </div>:null}
+
+            <div style={{marginTop:9,fontSize:10,fontWeight:900,color:"#93c5fd"}}>
+              TOP-KOMBINATIONEN
+            </div>
+            <div style={{display:"grid",gap:5,marginTop:5,maxHeight:310,overflowY:"auto"}}>
+              {(tfOptimizerJob.top||[]).slice(0,12).map((row,index)=>{
+                const dd=Number(row.metrics.max_drawdown||0);
+                const netValue=Number(row.metrics.net||0);
+                const eff=dd>0?netValue/dd:0;
+                return <button
+                  key={`${row.params.macd_tf}-${row.params.rsi_tf}-${row.params.chaikin_tf}-${row.params.ad_tf}-${index}`}
+                  type="button"
+                  style={{
+                    textAlign:"left",
+                    background:"#08101d",
+                    border:"1px solid #26344d",
+                    borderRadius:7,
+                    padding:"7px 8px",
+                    color:"#e2e8f0",
+                    cursor:"pointer",
+                  }}
+                  onClick={()=>loadTfOptimizerRow(row)}
+                >
+                  <div style={{display:"flex",justifyContent:"space-between",gap:6,fontSize:10,fontWeight:900}}>
+                    <span>#{index+1} · Score {Number(row.score||0).toFixed(1)}</span>
+                    <span>PF {Number(row.metrics.profit_factor||0).toFixed(2)}</span>
+                  </div>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>
+                    M {row.params.macd_tf} · R {row.params.rsi_tf} · C {row.params.chaikin_tf} · AD {row.params.ad_tf}
+                  </div>
+                  <div style={{fontSize:9,color:"#64748b",marginTop:2}}>
+                    Netto {netValue.toFixed(1)} · DD {dd.toFixed(1)} · Eff {eff.toFixed(2)} · Trades {row.metrics.trades}
+                  </div>
+                </button>;
+              })}
+            </div>
+          </div>:null}
         </Card>
 
         <Card title="VISUELLE BEWERTUNG">
