@@ -63,6 +63,30 @@ type FamilyResult={
   metrics:ExitMetrics;
 };
 
+type ExitOptimizerRow={
+  family:FamilyKey;
+  score:number;
+  params:any;
+  min_hold_bars:number;
+  options:Record<string,number>;
+  metrics:ExitMetrics;
+};
+
+type ExitOptimizerJob={
+  id:string;
+  family:FamilyKey;
+  symbol:string;
+  interval:string;
+  status:string;
+  total:number;
+  processed:number;
+  progress_pct:number;
+  minimum_trades:number;
+  frozen_entry_count:number;
+  error?:string|null;
+  top:ExitOptimizerRow[];
+};
+
 const FAMILY_LABELS:Record<FamilyKey,string>={
   current:"AKTUELL",
   macd:"MACD",
@@ -111,6 +135,12 @@ export default function ExitLab(){
   const [busy,setBusy]=useState(false);
   const [status,setStatus]=useState("Exit Lab wird geladen …");
   const [selectedTrade,setSelectedTrade]=useState(0);
+  const [optimizerFamily,setOptimizerFamily]=useState<FamilyKey>("macd");
+  const [optimizerJob,setOptimizerJob]=useState<ExitOptimizerJob|null>(null);
+  const [optimizerWinners,setOptimizerWinners]=useState<
+    Partial<Record<FamilyKey,ExitOptimizerRow>>
+  >({});
+  const [minimumTrades,setMinimumTrades]=useState(20);
 
   useEffect(()=>{
     if(!chartEl.current||!macdEl.current||!rsiEl.current)return;
@@ -173,6 +203,37 @@ export default function ExitLab(){
   useEffect(()=>{
     void loadProfileAndPreview();
   },[symbol,interval]);
+
+  useEffect(()=>{
+    if(!optimizerJob?.id)return;
+    let cancelled=false;
+
+    async function poll(){
+      try{
+        const result=await fetchJson(
+          `${BACKEND_BASE}/qmomentum/exit-lab/optimize/status?job_id=${encodeURIComponent(optimizerJob.id)}&_ts=${Date.now()}`
+        );
+        if(cancelled||!result?.job)return;
+        const job=result.job as ExitOptimizerJob;
+        setOptimizerJob(job);
+        if(job.status==="FINISHED"&&job.top?.[0]){
+          setOptimizerWinners(previous=>({
+            ...previous,
+            [job.family]:job.top[0],
+          }));
+        }
+      }catch{
+        // Exit-Chart bleibt auch bei Polling-Fehler bedienbar.
+      }
+    }
+
+    void poll();
+    const timer=window.setInterval(()=>void poll(),2000);
+    return()=>{
+      cancelled=true;
+      window.clearInterval(timer);
+    };
+  },[optimizerJob?.id]);
 
   useEffect(()=>{
     if(!data)return;
@@ -247,6 +308,77 @@ export default function ExitLab(){
     subChartsRef.current.forEach(chart=>chart.timeScale().fitContent());
   },[data,family]);
 
+  async function startExitOptimizer(){
+    if(!profile||optimizerFamily==="current"||optimizerFamily==="combo")return;
+    try{
+      setBusy(true);
+      setStatus(
+        `${FAMILY_LABELS[optimizerFamily]}-Exit-Optimizer wird gestartet …`
+      );
+      const result=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/exit-lab/optimize/start`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            symbol,
+            interval,
+            family:optimizerFamily,
+            params:profile,
+            limit,
+            minimum_trades:minimumTrades,
+            tf_options:[5,10,15,20,30,45,60,90,120],
+            hold_options:[2,4,6,8,12],
+            max_combinations:20000,
+          }),
+        }
+      );
+      setOptimizerJob(result.job);
+      setStatus(
+        `${FAMILY_LABELS[optimizerFamily]}: ${result.job.total} Exit-Kombinationen · Entries fix`
+      );
+    }catch(error){
+      setStatus(
+        `Exit-Optimizer fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  async function controlExitOptimizer(action:"pause"|"resume"|"cancel"){
+    if(!optimizerJob?.id)return;
+    try{
+      const result=await fetchJson(
+        `${BACKEND_BASE}/qmomentum/exit-lab/optimize/${action}`,
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({job_id:optimizerJob.id}),
+        }
+      );
+      setOptimizerJob(result.job);
+    }catch(error){
+      setStatus(
+        `Optimizer-Steuerung fehlgeschlagen: ${error instanceof Error?error.message:String(error)}`
+      );
+    }
+  }
+
+  async function loadOptimizerRow(row:ExitOptimizerRow){
+    const nextProfile={
+      ...profile,
+      ...row.params,
+    };
+    setProfile(nextProfile);
+    setMinHoldBars(row.min_hold_bars);
+    setFamily(row.family);
+    setStatus(
+      `${FAMILY_LABELS[row.family]}-Sieger geladen · Score ${row.score.toFixed(1)} · neue Vorschau wird berechnet`
+    );
+    await runPreview(nextProfile,row.min_hold_bars,row.family,row.options);
+  }
+
   async function loadProfileAndPreview(){
     try{
       setBusy(true);
@@ -265,7 +397,12 @@ export default function ExitLab(){
     }
   }
 
-  async function runPreview(params=profile){
+  async function runPreview(
+    params=profile,
+    holdBars=minHoldBars,
+    selectedFamily:FamilyKey=family,
+    familyOptions:Record<string,number>={}
+  ){
     if(!params)return;
     try{
       setBusy(true);
@@ -280,7 +417,10 @@ export default function ExitLab(){
             interval,
             params,
             limit,
-            min_hold_bars:minHoldBars,
+            min_hold_bars:holdBars,
+            family_options:{
+              [selectedFamily]:familyOptions,
+            },
           }),
         }
       );
@@ -303,7 +443,7 @@ export default function ExitLab(){
   return <div style={page}>
     <div style={header}>
       <div>
-        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V1</div>
+        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V2 · FAMILY OPTIMIZER</div>
         <div style={{fontSize:12,color:"#94a3b8"}}>
           {symbol} · {interval} · ENTRIES FIX · LAB ONLY
         </div>
@@ -387,6 +527,221 @@ export default function ExitLab(){
           >
             {busy?"BERECHNET …":"EXIT-VARIANTEN NEU BERECHNEN"}
           </button>
+        </Card>
+
+        <Card title="EXIT-FAMILIEN-OPTIMIZER">
+          <div style={smallText}>
+            Optimiert immer nur eine Exitfamilie. Die Entry-Zeitpunkte bleiben
+            während des gesamten Laufs identisch.
+          </div>
+
+          <label style={field}>
+            <span>Exitfamilie</span>
+            <select
+              style={input}
+              value={optimizerFamily}
+              disabled={optimizerJob?.status==="RUNNING"}
+              onChange={event=>setOptimizerFamily(
+                event.target.value as FamilyKey
+              )}
+            >
+              {(["macd","rsi","chaikin","ad"] as FamilyKey[]).map(key=>
+                <option key={key} value={key}>{FAMILY_LABELS[key]}</option>
+              )}
+            </select>
+          </label>
+
+          <label style={field}>
+            <span>Mindestanzahl Trades</span>
+            <input
+              style={input}
+              type="number"
+              min={5}
+              value={minimumTrades}
+              disabled={optimizerJob?.status==="RUNNING"}
+              onChange={event=>setMinimumTrades(
+                Math.max(5,Number(event.target.value)||5)
+              )}
+            />
+          </label>
+
+          <button
+            style={primaryButton}
+            disabled={busy||optimizerJob?.status==="RUNNING"}
+            onClick={()=>void startExitOptimizer()}
+          >
+            {optimizerJob?.status==="RUNNING"
+              ?"OPTIMIERUNG LÄUFT …"
+              :`${FAMILY_LABELS[optimizerFamily]} OPTIMIEREN`}
+          </button>
+
+          {optimizerJob?<div style={{marginTop:9}}>
+            <div style={{
+              display:"flex",
+              justifyContent:"space-between",
+              fontSize:10,
+            }}>
+              <b>{optimizerJob.status}</b>
+              <span>
+                {optimizerJob.processed} / {optimizerJob.total}
+                {" · "}
+                {Number(optimizerJob.progress_pct||0).toFixed(1)} %
+              </span>
+            </div>
+
+            <div style={{
+              height:8,
+              background:"#172033",
+              borderRadius:999,
+              overflow:"hidden",
+              marginTop:5,
+            }}>
+              <div style={{
+                height:"100%",
+                width:`${Math.max(
+                  0,
+                  Math.min(100,Number(optimizerJob.progress_pct||0))
+                )}%`,
+                background:"#a855f7",
+              }}/>
+            </div>
+
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:"1fr 1fr",
+              gap:6,
+              marginTop:7,
+            }}>
+              <button
+                style={secondaryButton}
+                disabled={optimizerJob.status!=="RUNNING"}
+                onClick={()=>void controlExitOptimizer("pause")}
+              >
+                PAUSE
+              </button>
+              <button
+                style={secondaryButton}
+                disabled={optimizerJob.status!=="PAUSED"}
+                onClick={()=>void controlExitOptimizer("resume")}
+              >
+                FORTSETZEN
+              </button>
+            </div>
+
+            {optimizerJob.error?<div style={{
+              fontSize:9,
+              color:"#fca5a5",
+              marginTop:6,
+            }}>
+              {optimizerJob.error}
+            </div>:null}
+
+            <div style={{
+              marginTop:9,
+              fontSize:10,
+              fontWeight:900,
+              color:"#c084fc",
+            }}>
+              TOP EXIT-PARAMETER
+            </div>
+
+            <div style={{
+              display:"grid",
+              gap:5,
+              maxHeight:320,
+              overflowY:"auto",
+              marginTop:5,
+            }}>
+              {(optimizerJob.top||[]).slice(0,30).map((row,index)=>
+                <button
+                  key={`${row.family}-${index}-${row.score}`}
+                  type="button"
+                  style={{
+                    ...rankButton,
+                    marginTop:0,
+                    borderColor:"#4c1d95",
+                    background:"#160b25",
+                  }}
+                  onClick={()=>void loadOptimizerRow(row)}
+                >
+                  <div style={{
+                    display:"flex",
+                    justifyContent:"space-between",
+                    fontWeight:900,
+                  }}>
+                    <span>#{index+1} · Score {row.score.toFixed(1)}</span>
+                    <span>PF {row.metrics.profit_factor.toFixed(2)}</span>
+                  </div>
+                  <div style={{
+                    fontSize:9,
+                    color:"#d8b4fe",
+                    marginTop:3,
+                  }}>
+                    TF {
+                      row.family==="macd"
+                        ?row.params.macd_tf
+                        :row.family==="rsi"
+                        ?row.params.rsi_tf
+                        :row.family==="chaikin"
+                        ?row.params.chaikin_tf
+                        :row.params.ad_tf
+                    }
+                    {" · "}Hold {row.min_hold_bars}
+                  </div>
+                  <div style={{
+                    fontSize:9,
+                    color:"#94a3b8",
+                    marginTop:2,
+                  }}>
+                    Netto {row.metrics.net.toFixed(1)}
+                    {" · "}Eff {row.metrics.exit_efficiency_pct.toFixed(1)} %
+                    {" · "}DD {row.metrics.max_drawdown.toFixed(1)}
+                    {" · "}Trades {row.metrics.trades}
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>:null}
+        </Card>
+
+        <Card title="FAMILIEN-SIEGER">
+          <div style={{display:"grid",gap:5}}>
+            {(["macd","rsi","chaikin","ad"] as FamilyKey[]).map(key=>{
+              const winner=optimizerWinners[key];
+              return <div
+                key={key}
+                style={{
+                  background:"#08101d",
+                  border:"1px solid #26344d",
+                  borderRadius:7,
+                  padding:"7px 8px",
+                }}
+              >
+                <div style={{
+                  display:"flex",
+                  justifyContent:"space-between",
+                  fontWeight:900,
+                }}>
+                  <span>{FAMILY_LABELS[key]}</span>
+                  <span>
+                    {winner
+                      ?`Score ${winner.score.toFixed(1)}`
+                      :"NOCH NICHT OPTIMIERT"}
+                  </span>
+                </div>
+                {winner?<div style={{
+                  fontSize:9,
+                  color:"#94a3b8",
+                  marginTop:3,
+                }}>
+                  PF {winner.metrics.profit_factor.toFixed(2)}
+                  {" · "}Netto {winner.metrics.net.toFixed(1)}
+                  {" · "}Eff {winner.metrics.exit_efficiency_pct.toFixed(1)} %
+                  {" · "}DD {winner.metrics.max_drawdown.toFixed(1)}
+                </div>:null}
+              </div>;
+            })}
+          </div>
         </Card>
 
         <Card title="EXIT-VERGLEICH">
@@ -612,6 +967,16 @@ const primaryButton:CSSProperties={
   border:"1px solid #c084fc",
   background:"#581c87",
   color:"#f3e8ff",
+  fontWeight:900,
+  cursor:"pointer",
+};
+const secondaryButton:CSSProperties={
+  width:"100%",
+  padding:"8px 9px",
+  borderRadius:7,
+  border:"1px solid #334155",
+  background:"#172033",
+  color:"#e2e8f0",
   fontWeight:900,
   cursor:"pointer",
 };
