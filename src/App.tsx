@@ -33,7 +33,7 @@ export default function App() {
   return (
     <div className="v8-shell">
       <nav className="v8-nav">
-        <div className="v8-brand"><b>QTrend V10.2 Chaikin Exit Research</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
+        <div className="v8-brand"><b>QTrend V10.3 Chaikin TF Fast Slow</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
         <div className="v8-tabs">
           {(["chart","lab","adlab","profilelab","exitlab","cockpit","trainer","momentum","settings"] as View[]).map(item => (
             <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item === "adlab" ? "AD LAB" : item === "profilelab" ? "PROFILE LAB" : item === "exitlab" ? "EXIT LAB" : item.toUpperCase()}</button>

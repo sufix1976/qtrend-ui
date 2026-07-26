@@ -74,8 +74,11 @@ type ExitOptimizerRow={
 
 type ChaikinTfRow={
   rank:number;
+  tf_rank?:number;
   family:"chaikin";
   chaikin_tf:string;
+  chaikin_fast:number;
+  chaikin_slow:number;
   params:any;
   min_hold_bars:number;
   options:Record<string,number>;
@@ -90,12 +93,19 @@ type ChaikinTfExplorerResult={
   candle_count:number;
   entry_count:number;
   fixed:{
-    chaikin_fast:number;
-    chaikin_slow:number;
+    base_chaikin_fast:number;
+    base_chaikin_slow:number;
     min_hold_bars:number;
     chaikin_threshold:number;
   };
+  search_space:{
+    fast_values:number[];
+    slow_values:number[];
+    tf_count:number;
+    combination_count:number;
+  };
   ranking:ChaikinTfRow[];
+  best_by_tf:ChaikinTfRow[];
   best:ChaikinTfRow|null;
 };
 
@@ -369,8 +379,8 @@ export default function ExitLab(){
       setChaikinExplorer(result);
       setStatus(
         result.best
-          ?`Chaikin TF Explorer fertig · Sieger ${result.best.chaikin_tf} · PF ${Number(result.best.metrics.profit_factor||0).toFixed(2)}`
-          :"Chaikin TF Explorer fertig · kein gültiges Ergebnis"
+          ?`Chaikin Explorer fertig · Sieger ${result.best.chaikin_tf} · ${result.best.chaikin_fast}/${result.best.chaikin_slow} · PF ${Number(result.best.metrics.profit_factor||0).toFixed(2)}`
+          :"Chaikin Explorer fertig · kein gültiges Ergebnis"
       );
     }catch(error){
       setStatus(
@@ -385,12 +395,14 @@ export default function ExitLab(){
     const nextProfile={
       ...profile,
       chaikin_tf:row.chaikin_tf,
+      chaikin_fast:row.chaikin_fast,
+      chaikin_slow:row.chaikin_slow,
     };
     setProfile(nextProfile);
     setFamily("chaikin");
     setMinHoldBars(row.min_hold_bars);
     setStatus(
-      `Chaikin TF ${row.chaikin_tf} geladen · Fast/Slow unverändert · Vorschau wird berechnet`
+      `Chaikin ${row.chaikin_tf} · ${row.chaikin_fast}/${row.chaikin_slow} geladen · Vorschau wird berechnet`
     );
     await runPreview(
       nextProfile,
@@ -535,7 +547,7 @@ export default function ExitLab(){
   return <div style={page}>
     <div style={header}>
       <div>
-        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V3 · CHAIKIN TF EXPLORER</div>
+        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V3.1 · CHAIKIN TF × FAST/SLOW</div>
         <div style={{fontSize:12,color:"#94a3b8"}}>
           {symbol} · {interval} · ENTRIES FIX · LAB ONLY
         </div>
@@ -621,10 +633,11 @@ export default function ExitLab(){
           </button>
         </Card>
 
-        <Card title="CHAIKIN TF EXPLORER · STUFE 1">
+        <Card title="CHAIKIN TF × FAST/SLOW · STUFE 1.1">
           <div style={smallText}>
-            Diese Stufe verändert ausschließlich den Chaikin-TF.
-            Fast, Slow, Schwelle, Hold und alle Entry-Zeitpunkte bleiben fest.
+            Der TF bleibt die Hauptachse. Pro TF werden mehrere Fast/Slow-
+            Kombinationen getestet. Hold, Schwelle und alle Entry-Zeitpunkte
+            bleiben fest.
           </div>
 
           <div style={{
@@ -635,7 +648,7 @@ export default function ExitLab(){
             fontSize:10,
           }}>
             <div style={fixedBox}>
-              <span style={fixedLabel}>FAST / SLOW</span>
+              <span style={fixedLabel}>AUSGANG FAST / SLOW</span>
               <b>{Number(profile?.chaikin_fast||0)} / {Number(profile?.chaikin_slow||0)}</b>
             </div>
             <div style={fixedBox}>
@@ -656,7 +669,7 @@ export default function ExitLab(){
           >
             {chaikinTfBusy
               ?"TFs WERDEN VERGLICHEN …"
-              :"NUR CHAIKIN-TF TESTEN"}
+              :"TF × FAST/SLOW TESTEN"}
           </button>
 
           {chaikinExplorer?<div style={{marginTop:9}}>
@@ -667,7 +680,8 @@ export default function ExitLab(){
             }}>
               {chaikinExplorer.entry_count} Entries fix ·
               {" "}{chaikinExplorer.candle_count} Kerzen ·
-              {" "}Fast/Slow {chaikinExplorer.fixed.chaikin_fast}/{chaikinExplorer.fixed.chaikin_slow}
+              {" "}{chaikinExplorer.search_space.combination_count} Kombinationen ·
+              {" "}Hold {chaikinExplorer.fixed.min_hold_bars}
             </div>
 
             <div style={{
@@ -676,7 +690,7 @@ export default function ExitLab(){
               fontWeight:900,
               color:"#67e8f9",
             }}>
-              TF-RANGLISTE
+              BESTE KOMBINATION JE TF
             </div>
 
             <div style={{
@@ -686,10 +700,10 @@ export default function ExitLab(){
               overflowY:"auto",
               marginTop:5,
             }}>
-              {(chaikinExplorer.ranking||[]).map(row=>{
+              {(chaikinExplorer.best_by_tf||[]).map(row=>{
                 const bestScore=Math.max(
                   1,
-                  Number(chaikinExplorer.ranking?.[0]?.score||1)
+                  Number(chaikinExplorer.best_by_tf?.[0]?.score||1)
                 );
                 const width=Math.max(
                   4,
@@ -712,7 +726,7 @@ export default function ExitLab(){
                     justifyContent:"space-between",
                     fontWeight:900,
                   }}>
-                    <span>#{row.rank} · {row.chaikin_tf}</span>
+                    <span>#{row.tf_rank||row.rank} · {row.chaikin_tf}</span>
                     <span>PF {Number(row.metrics.profit_factor||0).toFixed(2)}</span>
                   </div>
 
@@ -735,7 +749,8 @@ export default function ExitLab(){
                     color:"#94a3b8",
                     marginTop:4,
                   }}>
-                    Score {Number(row.score||0).toFixed(1)}
+                    Fast/Slow {row.chaikin_fast}/{row.chaikin_slow}
+                    {" · "}Score {Number(row.score||0).toFixed(1)}
                     {" · "}Netto {Number(row.metrics.net||0).toFixed(1)}
                     {" · "}Eff {Number(row.metrics.exit_efficiency_pct||0).toFixed(1)} %
                     {" · "}DD {Number(row.metrics.max_drawdown||0).toFixed(1)}
@@ -749,7 +764,57 @@ export default function ExitLab(){
               fontSize:9,
               color:"#64748b",
             }}>
-              Klick auf einen TF lädt nur diesen Chaikin-TF ins Exit Lab.
+              Klick lädt den TF und seine beste Fast/Slow-Kombination ins Exit Lab.
+            </div>
+
+            <div style={{
+              marginTop:10,
+              fontSize:10,
+              fontWeight:900,
+              color:"#67e8f9",
+            }}>
+              TOP 20 GESAMTKOMBINATIONEN
+            </div>
+
+            <div style={{
+              display:"grid",
+              gap:5,
+              maxHeight:300,
+              overflowY:"auto",
+              marginTop:5,
+            }}>
+              {(chaikinExplorer.ranking||[]).slice(0,20).map(row=>
+                <button
+                  key={`all-${row.rank}-${row.chaikin_tf}-${row.chaikin_fast}-${row.chaikin_slow}`}
+                  type="button"
+                  style={{
+                    ...rankButton,
+                    marginTop:0,
+                    borderColor:row.rank===1?"#22d3ee":"#26344d",
+                    background:row.rank===1?"#083344":"#08101d",
+                  }}
+                  onClick={()=>void loadChaikinTfRow(row)}
+                >
+                  <div style={{
+                    display:"flex",
+                    justifyContent:"space-between",
+                    fontWeight:900,
+                  }}>
+                    <span>#{row.rank} · {row.chaikin_tf} · {row.chaikin_fast}/{row.chaikin_slow}</span>
+                    <span>PF {Number(row.metrics.profit_factor||0).toFixed(2)}</span>
+                  </div>
+                  <div style={{
+                    fontSize:9,
+                    color:"#94a3b8",
+                    marginTop:3,
+                  }}>
+                    Score {Number(row.score||0).toFixed(1)}
+                    {" · "}Netto {Number(row.metrics.net||0).toFixed(1)}
+                    {" · "}Eff {Number(row.metrics.exit_efficiency_pct||0).toFixed(1)} %
+                    {" · "}Trades {Number(row.metrics.trades||0)}
+                  </div>
+                </button>
+              )}
             </div>
           </div>:null}
         </Card>
