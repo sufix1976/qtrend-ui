@@ -46,6 +46,32 @@ type Params = {
   ad_tf:string;
 };
 
+type OptimizerSnapshot = {
+  snapshot_version:string;
+  engine_version:string;
+  run_id?:string|null;
+  parent_run_id?:string|null;
+  phase:number;
+  symbol:string;
+  interval:string;
+  requested_limit:number;
+  candle_count:number;
+  start_time:number;
+  end_time:number;
+  warmup_bars:number;
+  closed_htf:boolean;
+  params_fingerprint:string;
+  environment_fingerprint:string;
+  params:Params;
+  expected_metrics?:{
+    trades:number;
+    profit_factor:number;
+    net:number;
+    max_drawdown:number;
+    win_rate_pct:number;
+  }|null;
+};
+
 type MultiTfTopRow = {
   params:Params;
   metrics:{
@@ -56,6 +82,7 @@ type MultiTfTopRow = {
     win_rate_pct:number;
   };
   score:number;
+  snapshot?:OptimizerSnapshot|null;
 };
 
 type TfFrequencyRow = {
@@ -85,6 +112,7 @@ type MultiTfJob = {
   min_trades:number;
   top:MultiTfTopRow[];
   frequency?:TfFrequency;
+  snapshot?:OptimizerSnapshot|null;
   error?:string|null;
 };
 
@@ -100,6 +128,7 @@ type ParameterJob = {
   min_trades:number;
   tf_count:number;
   top:MultiTfTopRow[];
+  snapshot?:OptimizerSnapshot|null;
   error?:string|null;
 };
 
@@ -262,6 +291,8 @@ export default function ProfileLab(){
   ]);
   const [parameterJob,setParameterJob]=useState<ParameterJob|null>(null);
   const [parameterTopTfCount,setParameterTopTfCount]=useState(3);
+  const [previewLimit,setPreviewLimit]=useState(1500);
+  const [loadedSnapshot,setLoadedSnapshot]=useState<OptimizerSnapshot|null>(null);
 
   useEffect(()=>{
     if(
@@ -588,7 +619,7 @@ export default function ProfileLab(){
   useEffect(()=>{
     const timer=window.setTimeout(()=>void runPreview(false),450);
     return()=>window.clearTimeout(timer);
-  },[params,symbol,interval]);
+  },[params,symbol,interval,previewLimit,loadedSnapshot?.environment_fingerprint]);
 
   async function loadProfiles(){
     try{
@@ -631,7 +662,13 @@ export default function ProfileLab(){
       const data=await fetchJson(`${BACKEND_BASE}/qmomentum/profile-lab/preview`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({symbol,interval,params,limit:1500}),
+        body:JSON.stringify({
+          symbol,
+          interval,
+          params,
+          limit:previewLimit,
+          snapshot:loadedSnapshot,
+        }),
       });
 
       setPreview(data);
@@ -655,6 +692,8 @@ export default function ProfileLab(){
     setProfileName(`${profile.name} · Kopie`);
     setNote(profile.note||"");
     setDirty(false);
+    setLoadedSnapshot(null);
+    setPreviewLimit(1500);
     setStatus(`Profil "${profile.name}" temporär geladen`);
   }
 
@@ -665,6 +704,8 @@ export default function ProfileLab(){
     setSelectedId("");
     setProfileName(`${symbol} ${interval} · Aktiv-Kopie`);
     setDirty(false);
+    setLoadedSnapshot(null);
+    setPreviewLimit(1500);
     setStatus("Aktives Profil als temporäre Arbeitskopie geladen");
   }
 
@@ -828,9 +869,12 @@ export default function ProfileLab(){
       chaikin_tf:String(row.params.chaikin_tf||interval),
       ad_tf:String(row.params.ad_tf||interval),
     }));
+    const snapshot=row.snapshot||tfOptimizerJob?.snapshot||null;
+    setLoadedSnapshot(snapshot);
+    setPreviewLimit(Number(snapshot?.requested_limit||snapshot?.candle_count||5000));
     setCompareView("multi");
     setStatus(
-      `TF-Kombination geladen: MACD ${row.params.macd_tf} · RSI ${row.params.rsi_tf} · Chaikin ${row.params.chaikin_tf} · AD ${row.params.ad_tf}`
+      `TF-Kombination geladen · reproduzierbarer Zeitraum ${Number(snapshot?.candle_count||0)} Kerzen`
     );
   }
 
@@ -898,9 +942,12 @@ export default function ProfileLab(){
       ...previous,
       ...row.params,
     }));
+    const snapshot=row.snapshot||parameterJob?.snapshot||null;
+    setLoadedSnapshot(snapshot);
+    setPreviewLimit(Number(snapshot?.requested_limit||snapshot?.candle_count||5000));
     setCompareView("multi");
     setStatus(
-      `Parameterprofil geladen · PF ${Number(row.metrics.profit_factor||0).toFixed(2)} · Score ${Number(row.score||0).toFixed(1)}`
+      `Parameterprofil geladen · ${Number(snapshot?.candle_count||0)} Kerzen · MATCH wird geprüft`
     );
   }
 
@@ -932,6 +979,88 @@ export default function ProfileLab(){
     drawdown>0
       ?net/drawdown
       :0;
+
+  const reproducedSnapshot=preview?.reproduction_snapshot as OptimizerSnapshot|undefined;
+  const expectedMetrics=loadedSnapshot?.expected_metrics||null;
+
+  const metricNear=(a:number,b:number,tolerance=0.0001)=>
+    Math.abs(Number(a||0)-Number(b||0))<=tolerance;
+
+  const matchChecks=loadedSnapshot?[
+    {
+      label:"Symbol",
+      ok:String(reproducedSnapshot?.symbol||symbol)===String(loadedSnapshot.symbol),
+      detail:`${reproducedSnapshot?.symbol||symbol} / ${loadedSnapshot.symbol}`,
+    },
+    {
+      label:"Chart-TF",
+      ok:String(reproducedSnapshot?.interval||interval)===String(loadedSnapshot.interval),
+      detail:`${reproducedSnapshot?.interval||interval} / ${loadedSnapshot.interval}`,
+    },
+    {
+      label:"Kerzen",
+      ok:Number(reproducedSnapshot?.candle_count||0)===Number(loadedSnapshot.candle_count||0),
+      detail:`${Number(reproducedSnapshot?.candle_count||0)} / ${Number(loadedSnapshot.candle_count||0)}`,
+    },
+    {
+      label:"Startzeit",
+      ok:Number(reproducedSnapshot?.start_time||0)===Number(loadedSnapshot.start_time||0),
+      detail:`${Number(reproducedSnapshot?.start_time||0)} / ${Number(loadedSnapshot.start_time||0)}`,
+    },
+    {
+      label:"Endzeit",
+      ok:Number(reproducedSnapshot?.end_time||0)===Number(loadedSnapshot.end_time||0),
+      detail:`${Number(reproducedSnapshot?.end_time||0)} / ${Number(loadedSnapshot.end_time||0)}`,
+    },
+    {
+      label:"Warmup",
+      ok:Number(reproducedSnapshot?.warmup_bars||0)===Number(loadedSnapshot.warmup_bars||0),
+      detail:`${Number(reproducedSnapshot?.warmup_bars||0)} / ${Number(loadedSnapshot.warmup_bars||0)}`,
+    },
+    {
+      label:"Closed HTF",
+      ok:Boolean(reproducedSnapshot?.closed_htf)===Boolean(loadedSnapshot.closed_htf),
+      detail:`${String(Boolean(reproducedSnapshot?.closed_htf))} / ${String(Boolean(loadedSnapshot.closed_htf))}`,
+    },
+    {
+      label:"Parameter",
+      ok:String(reproducedSnapshot?.params_fingerprint||"")===String(loadedSnapshot.params_fingerprint||""),
+      detail:`${reproducedSnapshot?.params_fingerprint||"-"} / ${loadedSnapshot.params_fingerprint||"-"}`,
+    },
+    {
+      label:"Trades",
+      ok:expectedMetrics
+        ?Number(multiMetrics.trades||0)===Number(expectedMetrics.trades||0)
+        :false,
+      detail:`${Number(multiMetrics.trades||0)} / ${Number(expectedMetrics?.trades||0)}`,
+    },
+    {
+      label:"PF",
+      ok:expectedMetrics
+        ?metricNear(Number(multiMetrics.profit_factor||0),Number(expectedMetrics.profit_factor||0))
+        :false,
+      detail:`${Number(multiMetrics.profit_factor||0).toFixed(4)} / ${Number(expectedMetrics?.profit_factor||0).toFixed(4)}`,
+    },
+    {
+      label:"Netto",
+      ok:expectedMetrics
+        ?metricNear(Number(multiMetrics.net||0),Number(expectedMetrics.net||0),0.001)
+        :false,
+      detail:`${Number(multiMetrics.net||0).toFixed(3)} / ${Number(expectedMetrics?.net||0).toFixed(3)}`,
+    },
+    {
+      label:"DD",
+      ok:expectedMetrics
+        ?metricNear(Number(multiMetrics.max_drawdown||0),Number(expectedMetrics.max_drawdown||0),0.001)
+        :false,
+      detail:`${Number(multiMetrics.max_drawdown||0).toFixed(3)} / ${Number(expectedMetrics?.max_drawdown||0).toFixed(3)}`,
+    },
+  ]:[];
+
+  const matchPassed=matchChecks.filter(row=>row.ok).length;
+  const matchPercent=matchChecks.length
+    ?Math.round(matchPassed/matchChecks.length*100)
+    :0;
 
   const strategyLabel=params.strategy_mode==="basis_chaikin"
     ?"Basis + Chaikin"
@@ -974,7 +1103,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.6 · OPTIMIZER V2 ANALYSE</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.7 · REPRODUCIBLE OPTIMIZER</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -1156,6 +1285,49 @@ export default function ProfileLab(){
             Übergibt nur die temporäre Ansicht. Das aktive Handelsprofil bleibt unverändert.
           </div>
         </Card>
+
+        {loadedSnapshot?<Card title="OPTIMIZER MATCH">
+          <div style={{
+            display:"flex",
+            justifyContent:"space-between",
+            alignItems:"center",
+            gap:8,
+            padding:"9px 10px",
+            borderRadius:8,
+            background:matchPercent===100?"#052e16":"#451a03",
+            border:`1px solid ${matchPercent===100?"#22c55e":"#f59e0b"}`,
+            color:matchPercent===100?"#bbf7d0":"#fde68a",
+            fontWeight:900,
+          }}>
+            <span>MATCH</span>
+            <span style={{fontSize:22}}>{matchPercent} %</span>
+          </div>
+          <div style={{fontSize:9,color:"#64748b",marginTop:6}}>
+            Run {loadedSnapshot.run_id||"-"} · {loadedSnapshot.candle_count} Kerzen · CLOSED HTF
+          </div>
+          <div style={{display:"grid",gap:4,marginTop:8}}>
+            {matchChecks.map(row=><div
+              key={row.label}
+              style={{
+                display:"grid",
+                gridTemplateColumns:"18px 90px minmax(0,1fr)",
+                gap:5,
+                alignItems:"center",
+                fontSize:9,
+                color:row.ok?"#86efac":"#fca5a5",
+              }}
+            >
+              <b>{row.ok?"✓":"✗"}</b>
+              <b>{row.label}</b>
+              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {row.detail}
+              </span>
+            </div>)}
+          </div>
+          <div style={{fontSize:9,color:"#94a3b8",marginTop:7}}>
+            Optimizer / Profile Lab. Nur 100 % gilt als reproduzierbar.
+          </div>
+        </Card>:null}
 
         <Card title="STRATEGIE">
           <select
