@@ -40,6 +40,10 @@ type Params = {
   ad_length:number;
   chaikin_fast:number;
   chaikin_slow:number;
+  macd_tf:string;
+  rsi_tf:string;
+  chaikin_tf:string;
+  ad_tf:string;
 };
 
 type Ratings = {
@@ -71,6 +75,10 @@ const DEFAULT_PARAMS:Params = {
   ad_length:11,
   chaikin_fast:3,
   chaikin_slow:10,
+  macd_tf:"",
+  rsi_tf:"",
+  chaikin_tf:"",
+  ad_tf:"",
 };
 
 const DEFAULT_RATINGS:Ratings = {
@@ -188,6 +196,7 @@ export default function ProfileLab(){
     ad:true,
   });
   const [candleMode,setCandleMode]=useState<"heikin"|"normal">("heikin");
+  const [compareView,setCompareView]=useState<"multi"|"baseline">("multi");
 
   useEffect(()=>{
     if(
@@ -339,7 +348,10 @@ export default function ProfileLab(){
     const displayedCandles=candleMode==="heikin"
       ?buildHeikinCandles(candles)
       :candles;
-    const indicator=preview.indicators||{};
+    const selectedPreview=compareView==="baseline"
+      ?preview?.comparison?.baseline
+      :preview?.comparison?.multi_tf;
+    const indicator=selectedPreview?.indicators||preview.indicators||{};
     const times:Time[]=candles.map((candle:any)=>Number(candle.time) as Time);
 
     candleSeries.current?.setData(displayedCandles.map((c:any)=>({
@@ -433,7 +445,8 @@ export default function ProfileLab(){
     adSignalSeries.current?.setData(points(adSmooth,1));
     adZeroSeries.current?.setData(times.map((time:Time)=>({time,value:1})));
 
-    const markers=(Array.isArray(preview.events)?preview.events:[])
+    const markerEvents=selectedPreview?.events||preview.events||[];
+    const markers=(Array.isArray(markerEvents)?markerEvents:[])
       .filter((event:any)=>event.type==="entry"||event.type==="exit")
       .map((event:any)=>event.type==="entry"?{
         time:event.time as Time,
@@ -453,7 +466,7 @@ export default function ProfileLab(){
     markerApi.current?.setMarkers(markers);
     chartRef.current?.timeScale().fitContent();
     indicatorChartsRef.current.forEach(chart=>chart.timeScale().fitContent());
-  },[preview,params.ad_length,candleMode]);
+  },[preview,params.ad_length,candleMode,compareView]);
   useEffect(()=>{
     void loadProfiles();
   },[symbol,interval]);
@@ -475,6 +488,10 @@ export default function ProfileLab(){
 
       const next={
         ...DEFAULT_PARAMS,
+        macd_tf:interval,
+        rsi_tf:interval,
+        chaikin_tf:interval,
+        ad_tf:interval,
         ...(data.active_params||list[0]?.params||{}),
       };
 
@@ -517,7 +534,7 @@ export default function ProfileLab(){
   }
 
   function loadProfile(profile:any){
-    const next={...DEFAULT_PARAMS,...profile.params};
+    const next={...DEFAULT_PARAMS,macd_tf:interval,rsi_tf:interval,chaikin_tf:interval,ad_tf:interval,...profile.params};
     setParams(next);
     setBaseline(next);
     setSelectedId(profile.id);
@@ -528,7 +545,7 @@ export default function ProfileLab(){
   }
 
   function loadActive(){
-    const next={...DEFAULT_PARAMS,...(activeParams||DEFAULT_PARAMS)};
+    const next={...DEFAULT_PARAMS,macd_tf:interval,rsi_tf:interval,chaikin_tf:interval,ad_tf:interval,...(activeParams||DEFAULT_PARAMS)};
     setParams(next);
     setBaseline(next);
     setSelectedId("");
@@ -552,6 +569,12 @@ export default function ProfileLab(){
   }
 
   async function saveManual(activate=false){
+    const hasMultiTf=[params.macd_tf,params.rsi_tf,params.chaikin_tf,params.ad_tf]
+      .some(value=>String(value||interval)!==interval);
+    if(activate&&hasMultiTf){
+      setStatus("Multi-TF ist in V9.7 Phase 1 nur fürs Profile Lab freigegeben");
+      return;
+    }
     try{
       setBusy(true);
       const name=profileName.trim()||`${symbol} ${interval} · Manuell`;
@@ -626,7 +649,9 @@ export default function ProfileLab(){
   }
 
   const chosen=profiles.find(row=>row.id===selectedId)||null;
-  const metrics=preview?.metrics||{};
+  const baselineMetrics=preview?.comparison?.baseline?.metrics||{};
+  const multiMetrics=preview?.comparison?.multi_tf?.metrics||preview?.metrics||{};
+  const metrics=compareView==="baseline"?baselineMetrics:multiMetrics;
 
   const profitFactor=Number(metrics.profit_factor||0);
   const net=Number(metrics.net||0);
@@ -654,6 +679,25 @@ export default function ProfileLab(){
     ?"Basis + HA-AD"
     :"Basis V8.5";
 
+  const timeframeOptions=(()=>{
+    const baseMinutes=Number(String(interval).replace(/[^0-9]/g,""))||5;
+    const candidates=[5,10,15,20,30,45,60,90,120,180,240];
+    return candidates.filter(value=>value>=baseMinutes);
+  })();
+
+  const tfField=(key:"macd_tf"|"rsi_tf"|"chaikin_tf"|"ad_tf",label:string)=>(
+    <label style={fieldStyle}>
+      <span>{label}</span>
+      <select
+        style={selectStyle}
+        value={String(params[key]||interval)}
+        onChange={event=>setField(key,event.target.value)}
+      >
+        {timeframeOptions.map(value=><option key={value} value={`${value}m`}>{value}m</option>)}
+      </select>
+    </label>
+  );
+
   const inputField=(key:keyof Params,label:string,step="1")=>(
     <label style={fieldStyle}>
       <span>{label}</span>
@@ -670,7 +714,7 @@ export default function ProfileLab(){
   return <div style={page}>
     <div style={topbar}>
       <div>
-        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.3</div>
+        <div style={{fontSize:24,fontWeight:900}}>PROFILE LAB V1.4 · MULTI-TF</div>
         <div style={{color:"#94a3b8",fontSize:12}}>
           {symbol} · {interval} · {strategyLabel}
         </div>
@@ -722,6 +766,20 @@ export default function ProfileLab(){
 
           <span style={{width:1,height:22,background:"#334155",margin:"0 3px"}}/>
 
+          <span style={{fontSize:11,fontWeight:900,color:"#93c5fd"}}>VERGLEICH</span>
+          <button
+            type="button"
+            style={{...panelToggle,background:compareView==="baseline"?"#854d0e":"#172033",borderColor:compareView==="baseline"?"#facc15":"#334155",color:compareView==="baseline"?"#fef9c3":"#94a3b8"}}
+            onClick={()=>setCompareView("baseline")}
+          >A · CHART-TF</button>
+          <button
+            type="button"
+            style={{...panelToggle,background:compareView==="multi"?"#14532d":"#172033",borderColor:compareView==="multi"?"#22c55e":"#334155",color:compareView==="multi"?"#dcfce7":"#94a3b8"}}
+            onClick={()=>setCompareView("multi")}
+          >B · MULTI-TF</button>
+
+          <span style={{width:1,height:22,background:"#334155",margin:"0 3px"}}/>
+
           <span style={{fontSize:11,fontWeight:900,color:"#93c5fd"}}>INDIKATOREN</span>
           {([
             ["macd","MACD"],
@@ -749,25 +807,25 @@ export default function ProfileLab(){
         </div>
 
         <IndicatorPanel
-          title={`MACD · ${params.macd_fast}/${params.macd_slow}/${params.macd_signal}`}
+          title={`MACD · ${compareView==="baseline"?interval:params.macd_tf||interval} · ${params.macd_fast}/${params.macd_slow}/${params.macd_signal} · CLOSED`}
           visible={panels.macd}
           containerRef={macdEl}
           height={190}
         />
         <IndicatorPanel
-          title={`RSI · Länge ${params.rsi_length} · Signal ${params.rsi_signal} · 30 / 50 / 70`}
+          title={`RSI · ${compareView==="baseline"?interval:params.rsi_tf||interval} · Länge ${params.rsi_length} · Signal ${params.rsi_signal} · CLOSED`}
           visible={panels.rsi}
           containerRef={rsiEl}
           height={175}
         />
         <IndicatorPanel
-          title={`CHAIKIN · ${params.chaikin_fast}/${params.chaikin_slow} · Nulllinie`}
+          title={`CHAIKIN · ${compareView==="baseline"?interval:params.chaikin_tf||interval} · ${params.chaikin_fast}/${params.chaikin_slow} · CLOSED`}
           visible={panels.chaikin}
           containerRef={chaikinEl}
           height={175}
         />
         <IndicatorPanel
-          title={`AD RATIO · Länge ${params.ad_length} · Linie + Glättung · Neutral 1.0`}
+          title={`AD RATIO · ${compareView==="baseline"?interval:params.ad_tf||interval} · Länge ${params.ad_length} · CLOSED`}
           visible={panels.ad}
           containerRef={adEl}
           height={175}
@@ -784,8 +842,15 @@ export default function ProfileLab(){
           <Metric label="Winrate" value={`${Number(metrics.win_rate_pct||0).toFixed(1)} %`}/>
         </div>
 
+        <div style={comparisonStrip}>
+          <CompareMetric label="PF" a={Number(baselineMetrics.profit_factor||0)} b={Number(multiMetrics.profit_factor||0)}/>
+          <CompareMetric label="Netto" a={Number(baselineMetrics.net||0)} b={Number(multiMetrics.net||0)}/>
+          <CompareMetric label="DD" a={Number(baselineMetrics.max_drawdown||0)} b={Number(multiMetrics.max_drawdown||0)} lowerBetter/>
+          <CompareMetric label="Trades" a={Number(baselineMetrics.trades||0)} b={Number(multiMetrics.trades||0)}/>
+          <CompareMetric label="Winrate" a={Number(baselineMetrics.win_rate_pct||0)} b={Number(multiMetrics.win_rate_pct||0)}/>
+        </div>
         <div style={{fontSize:11,color:"#64748b",marginTop:7}}>
-          Kennzahlen dienen nur als Information. Die Bewertung erfolgt bewusst nach Chartbild.
+          A = alle Indikatoren auf Chart-TF. B = aktuelle Multi-TF-Kombination. Closed-HTF verhindert Look-ahead.
         </div>
       </section>
 
@@ -858,6 +923,8 @@ export default function ProfileLab(){
 
         <Card title="FLOW · AD + CHAIKIN">
           <div style={twoCols}>
+            {tfField("ad_tf","AD TF")}
+            {tfField("chaikin_tf","Chaikin TF")}
             {inputField("ad_length","AD Länge")}
             {inputField("chaikin_fast","Chaikin Fast")}
             {inputField("chaikin_slow","Chaikin Slow")}
@@ -880,6 +947,8 @@ export default function ProfileLab(){
 
         <Card title="MOMENTUM / ENTRY">
           <div style={twoCols}>
+            {tfField("macd_tf","MACD TF")}
+            {tfField("rsi_tf","RSI TF")}
             {inputField("macd_fast","MACD Fast")}
             {inputField("macd_slow","MACD Slow")}
             {inputField("macd_signal","MACD Signal")}
@@ -996,6 +1065,28 @@ function Metric({label,value}:{label:string;value:string}){
   return <div style={metric}>
     <div style={{fontSize:10,color:"#64748b"}}>{label}</div>
     <b>{value}</b>
+  </div>;
+}
+
+function CompareMetric({
+  label,
+  a,
+  b,
+  lowerBetter=false,
+}:{
+  label:string;
+  a:number;
+  b:number;
+  lowerBetter?:boolean;
+}){
+  const delta=b-a;
+  const improved=lowerBetter?delta<0:delta>0;
+  return <div style={compareMetric}>
+    <div style={{fontSize:10,color:"#94a3b8"}}>{label}</div>
+    <div style={{fontSize:11}}>A {a.toFixed(label==="Trades"?0:2)} · B {b.toFixed(label==="Trades"?0:2)}</div>
+    <div style={{fontSize:10,fontWeight:900,color:Math.abs(delta)<0.0001?"#94a3b8":improved?"#22c55e":"#ef4444"}}>
+      Δ {delta>=0?"+":""}{delta.toFixed(label==="Trades"?0:2)}
+    </div>
   </div>;
 }
 
@@ -1160,6 +1251,20 @@ const activateButton:CSSProperties={
   color:"#dcfce7",
   fontWeight:900,
   cursor:"pointer",
+};
+const comparisonStrip:CSSProperties={
+  display:"grid",
+  gridTemplateColumns:"repeat(5,minmax(110px,1fr))",
+  gap:6,
+  marginTop:8,
+  minWidth:620,
+};
+const compareMetric:CSSProperties={
+  background:"#08101d",
+  border:"1px solid #26344d",
+  borderRadius:8,
+  padding:"7px 8px",
+  textAlign:"center",
 };
 const panelToolbar:CSSProperties={
   display:"flex",
