@@ -205,13 +205,14 @@ export default function ExitLab(){
   },[symbol,interval]);
 
   useEffect(()=>{
-    if(!optimizerJob?.id)return;
+    const optimizerJobId=String(optimizerJob?.id||"");
+    if(!optimizerJobId)return;
     let cancelled=false;
 
     async function poll(){
       try{
         const result=await fetchJson(
-          `${BACKEND_BASE}/qmomentum/exit-lab/optimize/status?job_id=${encodeURIComponent(optimizerJob.id)}&_ts=${Date.now()}`
+          `${BACKEND_BASE}/qmomentum/exit-lab/optimize/status?job_id=${encodeURIComponent(optimizerJobId)}&_ts=${Date.now()}`
         );
         if(cancelled||!result?.job)return;
         const job=result.job as ExitOptimizerJob;
