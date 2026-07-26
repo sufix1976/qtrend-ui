@@ -19,6 +19,7 @@ const BACKEND_BASE =
   "https://qtrend-trading-engine.onrender.com";
 
 type FamilyKey =
+  |"dual"
   |"current"
   |"macd"
   |"rsi"
@@ -60,7 +61,69 @@ type ExitTrade={
 type FamilyResult={
   family:FamilyKey;
   trades:ExitTrade[];
-  metrics:ExitMetrics;
+  metrics:ExitMetrics&{
+    failure_exits?:number;
+    trend_exits?:number;
+    proved_trades?:number;
+    false_failure_count?:number;
+    false_failure_rate_pct?:number;
+    loss_saved?:number;
+    profit_killed?:number;
+    failure_net_value?:number;
+  };
+  lifecycle?:any[];
+  states?:any[];
+  config?:any;
+};
+
+type DualParams={
+  atr_length:number;
+  prove_min_bars:number;
+  prove_max_bars:number;
+  prove_atr:number;
+  prove_close_atr:number;
+  failure_tf:string;
+  failure_min_bars:number;
+  failure_confirm_bars:number;
+  failure_votes:number;
+  failure_timeout_votes:number;
+  failure_entry_loss_atr:number;
+  failure_hard_mae_atr:number;
+  trend_macd_tf:string;
+  trend_rsi_tf:string;
+  trend_chaikin_tf:string;
+  trend_ad_tf:string;
+  trend_min_hold_bars:number;
+  trend_retrace_arm_pct:number;
+  trend_retrace_exit_pct:number;
+  trend_emergency_retrace_pct:number;
+  trend_votes:number;
+  false_failure_mfe_atr:number;
+};
+
+const DEFAULT_DUAL_PARAMS:DualParams={
+  atr_length:14,
+  prove_min_bars:2,
+  prove_max_bars:10,
+  prove_atr:0.55,
+  prove_close_atr:0.25,
+  failure_tf:"5m",
+  failure_min_bars:2,
+  failure_confirm_bars:3,
+  failure_votes:3,
+  failure_timeout_votes:2,
+  failure_entry_loss_atr:0.25,
+  failure_hard_mae_atr:0.8,
+  trend_macd_tf:"30m",
+  trend_rsi_tf:"30m",
+  trend_chaikin_tf:"30m",
+  trend_ad_tf:"30m",
+  trend_min_hold_bars:5,
+  trend_retrace_arm_pct:22,
+  trend_retrace_exit_pct:35,
+  trend_emergency_retrace_pct:65,
+  trend_votes:2,
+  false_failure_mfe_atr:1,
 };
 
 type ExitOptimizerRow={
@@ -125,6 +188,7 @@ type ExitOptimizerJob={
 };
 
 const FAMILY_LABELS:Record<FamilyKey,string>={
+  dual:"DUAL EXIT",
   current:"AKTUELL",
   macd:"MACD",
   rsi:"RSI",
@@ -182,6 +246,14 @@ export default function ExitLab(){
     ChaikinTfExplorerResult|null
   >(null);
   const [chaikinTfBusy,setChaikinTfBusy]=useState(false);
+  const [dualParams,setDualParams]=useState<DualParams>({
+    ...DEFAULT_DUAL_PARAMS,
+    failure_tf:interval,
+    trend_macd_tf:profile?.macd_tf||"30m",
+    trend_rsi_tf:profile?.rsi_tf||"30m",
+    trend_chaikin_tf:profile?.chaikin_tf||"30m",
+    trend_ad_tf:profile?.ad_tf||"30m",
+  });
 
   useEffect(()=>{
     if(!chartEl.current||!macdEl.current||!rsiEl.current)return;
@@ -314,6 +386,21 @@ export default function ExitLab(){
     const familyTrades:ExitTrade[]=data.families?.[family]?.trades||[];
     const markers:any[]=[];
 
+    if(family==="dual"){
+      const states=data.families?.dual?.states||[];
+      for(const row of states){
+        if(row.proved_time){
+          markers.push({
+            time:row.proved_time as Time,
+            position:"belowBar",
+            color:"#38bdf8",
+            shape:"circle",
+            text:"TREND",
+          });
+        }
+      }
+    }
+
     for(const trade of familyTrades){
       markers.push({
         time:trade.entry_time as Time,
@@ -325,9 +412,17 @@ export default function ExitLab(){
       markers.push({
         time:trade.exit_time as Time,
         position:trade.direction==="long"?"aboveBar":"belowBar",
-        color:family==="current"?"#facc15":"#a855f7",
+        color:family==="current"
+          ?"#facc15"
+          :family==="dual"&&trade.reason.startsWith("FAILURE")
+          ?"#fb7185"
+          :family==="dual"
+          ?"#22d3ee"
+          :"#a855f7",
         shape:"circle",
-        text:`${FAMILY_LABELS[family]} ${trade.pnl>=0?"+":""}${trade.pnl.toFixed(1)}`,
+        text:family==="dual"
+          ?(trade.reason.startsWith("FAILURE")?"FAIL":"TREND EXIT")
+          :`${FAMILY_LABELS[family]} ${trade.pnl>=0?"+":""}${trade.pnl.toFixed(1)}`,
       });
     }
 
@@ -525,6 +620,7 @@ export default function ExitLab(){
             family_options:{
               [selectedFamily]:familyOptions,
             },
+            dual_params:dualParams,
           }),
         }
       );
@@ -547,7 +643,7 @@ export default function ExitLab(){
   return <div style={page}>
     <div style={header}>
       <div>
-        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V3.1 · CHAIKIN TF × FAST/SLOW</div>
+        <div style={{fontSize:25,fontWeight:900}}>EXIT LAB V4 · DUAL EXIT ENGINE</div>
         <div style={{fontSize:12,color:"#94a3b8"}}>
           {symbol} · {interval} · ENTRIES FIX · LAB ONLY
         </div>
@@ -631,6 +727,106 @@ export default function ExitLab(){
           >
             {busy?"BERECHNET …":"EXIT-VARIANTEN NEU BERECHNEN"}
           </button>
+        </Card>
+
+        <Card title="DUAL EXIT ENGINE · V4">
+          <div style={smallText}>
+            PROVE entscheidet, ob der Trade funktioniert. Gescheiterte Trades
+            verlassen FAILURE schnell. Bestätigte Gewinner wechseln in TREND
+            und werden auf höheren TFs gehalten.
+          </div>
+
+          <div style={{marginTop:8,fontSize:10,fontWeight:900,color:"#fb7185"}}>
+            FAILURE EXIT
+          </div>
+          <label style={field}>
+            <span>Failure-TF</span>
+            <select
+              style={input}
+              value={dualParams.failure_tf}
+              onChange={event=>setDualParams(previous=>({
+                ...previous,
+                failure_tf:event.target.value,
+              }))}
+            >
+              {["5m","10m","15m","20m","30m","45m","60m"].map(tf=>
+                <option key={tf} value={tf}>{tf}</option>
+              )}
+            </select>
+          </label>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            <DualInput label="Prove max Bars" value={dualParams.prove_max_bars}
+              step="1" onChange={value=>setDualParams(p=>({...p,prove_max_bars:value}))}/>
+            <DualInput label="Prove ATR" value={dualParams.prove_atr}
+              step="0.05" onChange={value=>setDualParams(p=>({...p,prove_atr:value}))}/>
+            <DualInput label="Failure Stimmen" value={dualParams.failure_votes}
+              step="1" onChange={value=>setDualParams(p=>({...p,failure_votes:value}))}/>
+            <DualInput label="Hard MAE ATR" value={dualParams.failure_hard_mae_atr}
+              step="0.05" onChange={value=>setDualParams(p=>({...p,failure_hard_mae_atr:value}))}/>
+          </div>
+
+          <div style={{marginTop:9,fontSize:10,fontWeight:900,color:"#22d3ee"}}>
+            TREND EXIT
+          </div>
+          {([
+            ["trend_macd_tf","MACD TF"],
+            ["trend_rsi_tf","RSI TF"],
+            ["trend_chaikin_tf","Chaikin TF"],
+            ["trend_ad_tf","AD TF"],
+          ] as [keyof DualParams,string][]).map(([key,label])=>
+            <label key={String(key)} style={field}>
+              <span>{label}</span>
+              <select
+                style={input}
+                value={String(dualParams[key])}
+                onChange={event=>setDualParams(previous=>({
+                  ...previous,
+                  [key]:event.target.value,
+                }))}
+              >
+                {["5m","10m","15m","20m","30m","45m","60m","90m","120m","180m","240m"].map(tf=>
+                  <option key={tf} value={tf}>{tf}</option>
+                )}
+              </select>
+            </label>
+          )}
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            <DualInput label="Arm Rückgabe %" value={dualParams.trend_retrace_arm_pct}
+              step="1" onChange={value=>setDualParams(p=>({...p,trend_retrace_arm_pct:value}))}/>
+            <DualInput label="Exit Rückgabe %" value={dualParams.trend_retrace_exit_pct}
+              step="1" onChange={value=>setDualParams(p=>({...p,trend_retrace_exit_pct:value}))}/>
+            <DualInput label="Trend Stimmen" value={dualParams.trend_votes}
+              step="1" onChange={value=>setDualParams(p=>({...p,trend_votes:value}))}/>
+            <DualInput label="Trend min Bars" value={dualParams.trend_min_hold_bars}
+              step="1" onChange={value=>setDualParams(p=>({...p,trend_min_hold_bars:value}))}/>
+          </div>
+
+          <button
+            style={{
+              ...primaryButton,
+              background:"#0e7490",
+              borderColor:"#67e8f9",
+            }}
+            disabled={busy}
+            onClick={()=>{
+              setFamily("dual");
+              void runPreview(profile,minHoldBars,"dual",{});
+            }}
+          >
+            DUAL EXIT BERECHNEN
+          </button>
+
+          {data?.families?.dual?<div style={{marginTop:8,display:"grid",gap:5}}>
+            <Inspect label="Proved" value={String(data.families.dual.metrics.proved_trades||0)}/>
+            <Inspect label="Failure Exits" value={String(data.families.dual.metrics.failure_exits||0)}/>
+            <Inspect label="Trend Exits" value={String(data.families.dual.metrics.trend_exits||0)}/>
+            <Inspect label="False Failure" value={`${Number(data.families.dual.metrics.false_failure_rate_pct||0).toFixed(1)} %`}/>
+            <Inspect label="Loss saved" value={Number(data.families.dual.metrics.loss_saved||0).toFixed(1)}/>
+            <Inspect label="Profit killed" value={Number(data.families.dual.metrics.profit_killed||0).toFixed(1)}/>
+            <Inspect label="Failure-Wert" value={Number(data.families.dual.metrics.failure_net_value||0).toFixed(1)}/>
+          </div>:null}
         </Card>
 
         <Card title="CHAIKIN TF × FAST/SLOW · STUFE 1.1">
@@ -1089,6 +1285,19 @@ export default function ExitLab(){
             <Inspect label="Liegen gelassen" value={trade.left_on_table.toFixed(2)}/>
             <Inspect label="Haltedauer" value={`${trade.hold_bars} Bars`}/>
             <Inspect label="Grund" value={trade.reason}/>
+            {family==="dual"?<Inspect
+              label="Zustände"
+              value={(data?.families?.dual?.lifecycle?.[selectedTrade]?.rows||[])
+                .reduce((acc:any[],row:any)=>{
+                  const previous=acc[acc.length-1];
+                  if(!previous||previous.state!==row.state){
+                    acc.push(row);
+                  }
+                  return acc;
+                },[])
+                .map((row:any)=>`${row.bars_since_entry}: ${row.state}`)
+                .join(" → ")||"–"}
+            />:null}
           </div>:null}
         </Card>
 
@@ -1104,6 +1313,29 @@ export default function ExitLab(){
 
     <div style={statusBar}>{status}</div>
   </div>;
+}
+
+function DualInput({
+  label,
+  value,
+  step,
+  onChange,
+}:{
+  label:string;
+  value:number;
+  step:string;
+  onChange:(value:number)=>void;
+}){
+  return <label style={field}>
+    <span>{label}</span>
+    <input
+      style={input}
+      type="number"
+      step={step}
+      value={value}
+      onChange={event=>onChange(Number(event.target.value))}
+    />
+  </label>;
 }
 
 function Card({title,children}:{title:string;children:any}){
