@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QMASTER Parameter Lab V1</title>
+<title>QMASTER Parameter Lab V2</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#081018;color:#e7eef6}
 *{box-sizing:border-box}body{margin:0;background:#081018;color:#e7eef6}
-main{max-width:1500px;margin:auto;padding:18px}
+main{max-width:1600px;margin:auto;padding:18px}
 h1{font-size:24px;margin:0 0 4px}p{color:#9fb0c0;margin:0}
 .card{border:1px solid #263646;background:#0d1720;border-radius:12px;padding:14px;margin-top:12px}
 .grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}
@@ -20,7 +20,7 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{padding:8px;border-bottom:1px solid #243442;text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:center}
 th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
-.good{font-weight:700}.small{font-size:12px;color:#8fa2b4}
+.good{font-weight:700}.small{font-size:12px;color:#8fa2b4}.moduleBox{display:none}.moduleBox.active{display:block}.setup{text-align:left!important;font-weight:650}
 #resultsWrap{max-height:570px;overflow:auto}
 @media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}}
 </style>
@@ -28,8 +28,8 @@ th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
 <body>
 <main>
   <header>
-    <h1>QMASTER Parameter Lab V1</h1>
-    <p>Fast/Slow-SMA Sweeper für die bestehende QMASTER-Logik. Keine Orders, keine Webhooks.</p>
+    <h1>QMASTER Parameter Lab V2</h1>
+    <p>Multi-Parameter-Sweeper für QMASTER: SMA, POC, CHANNEL, ATR/RSI und MACD. Keine Orders, keine Webhooks.</p>
   </header>
 
   <section class="card">
@@ -62,7 +62,7 @@ th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
         <select id="exitSlow2"><option>30m</option><option selected>1h</option></select>
       </label>
       <label>Candles je TF
-        <input id="limit" type="number" min="300" max="5000" step="100" value="1000">
+        <input id="limit" type="number" min="300" max="50000" step="100" value="10000">
       </label>
       <label>POC Turn Bars
         <input id="pocBars" type="number" min="1" max="50" value="15">
@@ -78,6 +78,33 @@ th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
 
   <section class="card">
     <div class="grid">
+      <label>Sweep-Modul
+        <select id="sweepModule">
+          <option value="SMA">SMA — Fast / Slow</option>
+          <option value="POC">POC — Turn Bars</option>
+          <option value="CHANNEL">CHANNEL — Width / Flat</option>
+          <option value="ATR_RSI">ATR / RSI</option>
+          <option value="MACD">MACD — Fast / Slow / Signal</option>
+        </select>
+      </label>
+      <label>Basis Fast SMA <input id="baseFast" type="number" min="1" value="16"></label>
+      <label>Basis Slow SMA <input id="baseSlow" type="number" min="2" value="42"></label>
+      <label>ATR Länge <input id="atrLen" type="number" min="1" value="6"></label>
+      <label>RSI Länge <input id="rsiLen" type="number" min="1" value="9"></label>
+      <label>Min. Trades Ranking <input id="minTrades" type="number" min="0" value="20"></label>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <label>MACD Fast <input id="macdFast" type="number" min="1" value="3"></label>
+      <label>MACD Slow <input id="macdSlow" type="number" min="2" value="16"></label>
+      <label>MACD Signal <input id="macdSig" type="number" min="1" value="19"></label>
+      <label>POC Turn Bars <input id="pocBars" type="number" min="1" max="50" value="15"></label>
+      <label>Channel Width <input id="channelWidth" type="number" min=".1" step=".05" value="1"></label>
+      <label>Channel Flat <input id="flatK" type="number" min="0" step=".01" value=".15"></label>
+    </div>
+  </section>
+
+  <section class="card moduleBox active" data-module="SMA">
+    <div class="grid">
       <label>Fast SMA von <input id="fastFrom" type="number" min="1" value="10"></label>
       <label>Fast SMA bis <input id="fastTo" type="number" min="1" value="18"></label>
       <label>Fast Schritt <input id="fastStep" type="number" min="1" value="1"></label>
@@ -85,19 +112,55 @@ th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
       <label>Slow SMA bis <input id="slowTo" type="number" min="2" value="55"></label>
       <label>Slow Schritt <input id="slowStep" type="number" min="1" value="1"></label>
     </div>
-    <div class="grid" style="margin-top:10px">
-      <label>ATR Länge <input id="atrLen" type="number" min="1" value="6"></label>
-      <label>RSI Länge <input id="rsiLen" type="number" min="1" value="9"></label>
-      <label>MACD Fast <input id="macdFast" type="number" min="1" value="3"></label>
-      <label>MACD Slow <input id="macdSlow" type="number" min="2" value="16"></label>
-      <label>MACD Signal <input id="macdSig" type="number" min="1" value="19"></label>
-      <label>Notbremse Bars <input id="brakeBars" type="number" min="1" max="20" value="2"></label>
+  </section>
+
+  <section class="card moduleBox" data-module="POC">
+    <div class="grid">
+      <label>POC Bars von <input id="pocFrom" type="number" min="1" value="8"></label>
+      <label>POC Bars bis <input id="pocTo" type="number" min="1" value="22"></label>
+      <label>POC Schritt <input id="pocStep" type="number" min="1" value="1"></label>
+    </div>
+  </section>
+
+  <section class="card moduleBox" data-module="CHANNEL">
+    <div class="grid">
+      <label>Width von <input id="widthFrom" type="number" min=".1" step=".05" value=".70"></label>
+      <label>Width bis <input id="widthTo" type="number" min=".1" step=".05" value="1.30"></label>
+      <label>Width Schritt <input id="widthStep" type="number" min=".01" step=".01" value=".10"></label>
+      <label>Flat von <input id="flatFrom" type="number" min="0" step=".01" value=".05"></label>
+      <label>Flat bis <input id="flatTo" type="number" min="0" step=".01" value=".30"></label>
+      <label>Flat Schritt <input id="flatStep" type="number" min=".01" step=".01" value=".05"></label>
+    </div>
+  </section>
+
+  <section class="card moduleBox" data-module="ATR_RSI">
+    <div class="grid">
+      <label>ATR von <input id="atrFrom" type="number" min="1" value="4"></label>
+      <label>ATR bis <input id="atrTo" type="number" min="1" value="10"></label>
+      <label>ATR Schritt <input id="atrStep" type="number" min="1" value="1"></label>
+      <label>RSI von <input id="rsiFrom" type="number" min="1" value="7"></label>
+      <label>RSI bis <input id="rsiTo" type="number" min="1" value="14"></label>
+      <label>RSI Schritt <input id="rsiStep" type="number" min="1" value="1"></label>
+    </div>
+  </section>
+
+  <section class="card moduleBox" data-module="MACD">
+    <div class="grid">
+      <label>MACD Fast von <input id="mfFrom" type="number" min="1" value="2"></label>
+      <label>MACD Fast bis <input id="mfTo" type="number" min="1" value="6"></label>
+      <label>MACD Fast Schritt <input id="mfStep" type="number" min="1" value="1"></label>
+      <label>MACD Slow von <input id="msFrom" type="number" min="2" value="12"></label>
+      <label>MACD Slow bis <input id="msTo" type="number" min="2" value="20"></label>
+      <label>MACD Slow Schritt <input id="msStep" type="number" min="1" value="1"></label>
+      <label>Signal von <input id="sigFrom" type="number" min="1" value="10"></label>
+      <label>Signal bis <input id="sigTo" type="number" min="1" value="22"></label>
+      <label>Signal Schritt <input id="sigStep" type="number" min="1" value="2"></label>
     </div>
   </section>
 
   <section class="card actions">
     <button id="run">Sweep starten</button>
-    <button id="gold">Gold-Referenz 14/44 einsetzen</button>
+    <button id="gold">Gold-Referenz einsetzen</button>
     <span id="status" class="status">Bereit.</span>
   </section>
 
@@ -106,7 +169,7 @@ th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
     <div id="resultsWrap">
       <table>
         <thead><tr>
-          <th>#</th><th>Fast</th><th>Slow</th><th>Trades</th><th>Wins</th><th>Win %</th>
+          <th>#</th><th style="text-align:left">Setup</th><th>Trades</th><th>Wins</th><th>Win %</th>
           <th>PF</th><th>Netto</th><th>Max DD</th><th>GP</th><th>GL</th>
         </tr></thead>
         <tbody id="results"></tbody>
@@ -234,7 +297,7 @@ async function fetchCandles(symbol,tf,limit){
 }
 function simulate(all,p){
   let chart=all[p.chart], qCache={};
-  function q(tf){let k=tf+"_"+p.fast+"_"+p.slow;if(!qCache[k])qCache[k]=qtrend(all[tf],p);return qCache[k]}
+  function q(tf){let k=[tf,p.fast,p.slow,p.atr,p.rsi,p.mf,p.ms,p.msig].join("_");if(!qCache[k])qCache[k]=qtrend(all[tf],p);return qCache[k]}
   let E=align(all[p.entry],q(p.entry),chart), F=align(all[p.xf],q(p.xf),chart), M=align(all[p.xm],q(p.xm),chart), S1=align(all[p.x1],q(p.x1),chart), S2=align(all[p.x2],q(p.x2),chart);
   let C=align(all[p.channel],channelStates(all[p.channel],p.channel,p.cw,p.flat),chart), P=pocTurns(chart,p.chart,p.cw,p.poc);
   let pos=0,entry=0,trades=[],peakEq=0,eq=0,maxDD=0,opp=0;
@@ -255,22 +318,111 @@ function simulate(all,p){
   let wins=trades.filter(x=>x>0),loss=trades.filter(x=>x<0),gp=wins.reduce((a,b)=>a+b,0),gl=-loss.reduce((a,b)=>a+b,0),pf=gl>0?gp/gl:(gp>0?999:null);
   return {trades:trades.length,wins:wins.length,wr:trades.length?wins.length/trades.length*100:0,pf,net:trades.reduce((a,b)=>a+b,0),dd:maxDD,gp,gl};
 }
-function range(a,b,s){let r=[];for(let x=a;x<=b;x+=s)r.push(x);return r}
-$("gold").onclick=()=>{$("fastFrom").value=12;$("fastTo").value=16;$("slowFrom").value=40;$("slowTo").value=48;$("atrLen").value=6;$("rsiLen").value=9;$("macdFast").value=3;$("macdSlow").value=16;$("macdSig").value=19}
+function range(a,b,s){
+  let r=[], eps=Math.abs(s)*1e-7;
+  if(!(s>0)) return r;
+  for(let x=a;x<=b+eps;x+=s) r.push(+x.toFixed(8));
+  return r;
+}
+function currentBase(){
+  return {
+    chart:$("chartTf").value,entry:$("entryTf").value,channel:$("channelTf").value,
+    xf:$("exitFast").value,xm:$("exitMid").value,x1:$("exitSlow1").value,x2:$("exitSlow2").value,
+    fast:+$("baseFast").value,slow:+$("baseSlow").value,
+    atr:+$("atrLen").value,rsi:+$("rsiLen").value,
+    mf:+$("macdFast").value,ms:+$("macdSlow").value,msig:+$("macdSig").value,
+    poc:+$("pocBars").value,cw:+$("channelWidth").value,flat:+$("flatK").value,
+    brake:+$("brakeBars").value
+  };
+}
+function buildCombos(module, base){
+  let c=[];
+  if(module==="SMA"){
+    for(let fast of range(+$("fastFrom").value,+$("fastTo").value,+$("fastStep").value))
+      for(let slow of range(+$("slowFrom").value,+$("slowTo").value,+$("slowStep").value))
+        if(fast<slow)c.push({p:{...base,fast,slow},label:`Fast ${fast} / Slow ${slow}`});
+  }else if(module==="POC"){
+    for(let poc of range(+$("pocFrom").value,+$("pocTo").value,+$("pocStep").value))
+      c.push({p:{...base,poc},label:`POC ${poc}`});
+  }else if(module==="CHANNEL"){
+    for(let cw of range(+$("widthFrom").value,+$("widthTo").value,+$("widthStep").value))
+      for(let flat of range(+$("flatFrom").value,+$("flatTo").value,+$("flatStep").value))
+        c.push({p:{...base,cw,flat},label:`Width ${cw.toFixed(2)} / Flat ${flat.toFixed(2)}`});
+  }else if(module==="ATR_RSI"){
+    for(let atr of range(+$("atrFrom").value,+$("atrTo").value,+$("atrStep").value))
+      for(let rsi of range(+$("rsiFrom").value,+$("rsiTo").value,+$("rsiStep").value))
+        c.push({p:{...base,atr,rsi},label:`ATR ${atr} / RSI ${rsi}`});
+  }else if(module==="MACD"){
+    for(let mf of range(+$("mfFrom").value,+$("mfTo").value,+$("mfStep").value))
+      for(let ms of range(+$("msFrom").value,+$("msTo").value,+$("msStep").value))
+        for(let msig of range(+$("sigFrom").value,+$("sigTo").value,+$("sigStep").value))
+          if(mf<ms)c.push({p:{...base,mf,ms,msig},label:`MACD ${mf} / ${ms} / ${msig}`});
+  }
+  return c;
+}
+function setModuleUi(){
+  let m=$("sweepModule").value;
+  document.querySelectorAll(".moduleBox").forEach(el=>el.classList.toggle("active",el.dataset.module===m));
+}
+$("sweepModule").onchange=setModuleUi;
+setModuleUi();
+
+$("gold").onclick=()=>{
+  $("baseFast").value=14;$("baseSlow").value=44;
+  $("atrLen").value=6;$("rsiLen").value=9;
+  $("macdFast").value=3;$("macdSlow").value=16;$("macdSig").value=19;
+  $("pocBars").value=15;$("channelWidth").value=1;$("flatK").value=.15;
+  $("fastFrom").value=10;$("fastTo").value=18;$("slowFrom").value=35;$("slowTo").value=55;
+};
+
 $("run").onclick=async()=>{
   const btn=$("run");btn.disabled=true;$("results").innerHTML="";
   try{
-    let symbol=$("symbol").value,limit=+$("limit").value,tfs=[...new Set([$ ("chartTf").value,$("entryTf").value,$("channelTf").value,$("exitFast").value,$("exitMid").value,$("exitSlow1").value,$("exitSlow2").value])];
+    let symbol=$("symbol").value,limit=+$("limit").value;
+    let tfs=[...new Set([
+      $("chartTf").value,$("entryTf").value,$("channelTf").value,
+      $("exitFast").value,$("exitMid").value,$("exitSlow1").value,$("exitSlow2").value
+    ])];
     $("status").textContent="Lade "+symbol+": "+tfs.join(", ")+" …";
-    let pairs=await Promise.all(tfs.map(async tf=>[tf,await fetchCandles(symbol,tf,limit)])),all=Object.fromEntries(pairs);
-    let combos=[];for(let fast of range(+$("fastFrom").value,+$("fastTo").value,+$("fastStep").value))for(let slow of range(+$("slowFrom").value,+$("slowTo").value,+$("slowStep").value))if(fast<slow)combos.push([fast,slow]);
-    $("status").textContent=combos.length+" Kombinationen werden berechnet …";await new Promise(r=>setTimeout(r,20));
-    let res=[];let base={chart:$("chartTf").value,entry:$("entryTf").value,channel:$("channelTf").value,xf:$("exitFast").value,xm:$("exitMid").value,x1:$("exitSlow1").value,x2:$("exitSlow2").value,atr:+$("atrLen").value,rsi:+$("rsiLen").value,mf:+$("macdFast").value,ms:+$("macdSlow").value,msig:+$("macdSig").value,poc:+$("pocBars").value,cw:+$("channelWidth").value,flat:+$("flatK").value,brake:+$("brakeBars").value};
-    let n=0;for(let [fast,slow] of combos){res.push({fast,slow,...simulate(all,{...base,fast,slow})});if((++n)%10===0){$("status").textContent=n+"/"+combos.length;await new Promise(r=>setTimeout(r,0))}}
-    res.sort((a,b)=>(b.trades>=20)-(a.trades>=20)||((b.pf??-1)-(a.pf??-1))||(b.net-a.net)||(a.dd-b.dd));
-    $("results").innerHTML=res.map((x,i)=>`<tr><td>${i+1}</td><td>${x.fast}</td><td>${x.slow}</td><td>${x.trades}</td><td>${x.wins}</td><td>${x.wr.toFixed(1)}</td><td class="good">${x.pf==null?"—":x.pf.toFixed(3)}</td><td>${x.net.toFixed(2)}</td><td>${x.dd.toFixed(2)}</td><td>${x.gp.toFixed(2)}</td><td>${x.gl.toFixed(2)}</td></tr>`).join("");
-    $("status").textContent="Fertig: "+res.length+" Kombinationen.";
-  }catch(e){$("status").textContent="FEHLER: "+e.message;console.error(e)}finally{btn.disabled=false}
+    let pairs=await Promise.all(tfs.map(async tf=>[tf,await fetchCandles(symbol,tf,limit)]));
+    let all=Object.fromEntries(pairs);
+
+    let base=currentBase(), module=$("sweepModule").value, combos=buildCombos(module,base);
+    if(!combos.length) throw new Error("Keine gültigen Kombinationen.");
+    if(combos.length>2000) throw new Error("Zu viele Kombinationen ("+combos.length+"). Bereiche verkleinern; Maximum V2 = 2000.");
+
+    $("status").textContent=combos.length+" Kombinationen werden berechnet …";
+    await new Promise(r=>setTimeout(r,20));
+
+    let res=[],n=0;
+    for(let item of combos){
+      res.push({label:item.label,...simulate(all,item.p)});
+      n++;
+      if(n%5===0){
+        $("status").textContent=n+"/"+combos.length+" — "+item.label;
+        await new Promise(r=>setTimeout(r,0));
+      }
+    }
+
+    let minTrades=+$("minTrades").value;
+    res.sort((a,b)=>{
+      let qa=a.trades>=minTrades?1:0,qb=b.trades>=minTrades?1:0;
+      return (qb-qa)||((b.pf??-1)-(a.pf??-1))||(b.net-a.net)||(a.dd-b.dd)||(b.trades-a.trades);
+    });
+
+    $("results").innerHTML=res.map((x,i)=>`<tr>
+      <td>${i+1}</td><td class="setup">${x.label}</td><td>${x.trades}</td><td>${x.wins}</td>
+      <td>${x.wr.toFixed(1)}</td><td class="good">${x.pf==null?"—":x.pf.toFixed(3)}</td>
+      <td>${x.net.toFixed(2)}</td><td>${x.dd.toFixed(2)}</td><td>${x.gp.toFixed(2)}</td><td>${x.gl.toFixed(2)}</td>
+    </tr>`).join("");
+
+    $("status").textContent=`Fertig: ${res.length} Kombinationen — Modul ${module}.`;
+  }catch(e){
+    $("status").textContent="FEHLER: "+e.message;
+    console.error(e);
+  }finally{
+    btn.disabled=false;
+  }
 };
 </script>
 </body>
