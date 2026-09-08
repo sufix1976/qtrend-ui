@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QMASTER Parameter Lab V1</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#081018;color:#e7eef6}
+*{box-sizing:border-box}body{margin:0;background:#081018;color:#e7eef6}
+main{max-width:1500px;margin:auto;padding:18px}
+h1{font-size:24px;margin:0 0 4px}p{color:#9fb0c0;margin:0}
+.card{border:1px solid #263646;background:#0d1720;border-radius:12px;padding:14px;margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}
+label{display:grid;gap:5px;font-size:12px;color:#9fb0c0}
+input,select,button{background:#101d28;color:#edf5fb;border:1px solid #324657;border-radius:8px;padding:9px;font:inherit}
+button{cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status{font-size:13px;color:#9fb0c0}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:8px;border-bottom:1px solid #243442;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:center}
+th{position:sticky;top:0;background:#0d1720;color:#9fb0c0}
+.good{font-weight:700}.small{font-size:12px;color:#8fa2b4}
+#resultsWrap{max-height:570px;overflow:auto}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>QMASTER Parameter Lab V1</h1>
+    <p>Fast/Slow-SMA Sweeper für die bestehende QMASTER-Logik. Keine Orders, keine Webhooks.</p>
+  </header>
+
+  <section class="card">
+    <div class="grid">
+      <label>Instrument
+        <select id="symbol">
+          <option>GOLD</option><option>US100</option><option>US30</option><option>DE40</option>
+          <option>BTCUSD</option><option>ETHUSD</option><option>SOLUSD</option><option>OIL_CRUDE</option>
+        </select>
+      </label>
+      <label>Chart TF
+        <select id="chartTf"><option>1m</option><option>5m</option><option selected>10m</option><option>15m</option><option>30m</option><option>1h</option></select>
+      </label>
+      <label>ENTRY TF
+        <select id="entryTf"><option>1m</option><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option></select>
+      </label>
+      <label>CHANNEL TF
+        <select id="channelTf"><option>1m</option><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option></select>
+      </label>
+      <label>EXIT fast
+        <select id="exitFast"><option>1m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option></select>
+      </label>
+      <label>EXIT mid
+        <select id="exitMid"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option></select>
+      </label>
+      <label>EXIT slow 1
+        <select id="exitSlow1"><option>15m</option><option selected>30m</option><option>1h</option></select>
+      </label>
+      <label>EXIT slow 2
+        <select id="exitSlow2"><option>30m</option><option selected>1h</option></select>
+      </label>
+      <label>Candles je TF
+        <input id="limit" type="number" min="300" max="5000" step="100" value="1000">
+      </label>
+      <label>POC Turn Bars
+        <input id="pocBars" type="number" min="1" max="50" value="15">
+      </label>
+      <label>Channel width
+        <input id="channelWidth" type="number" min=".1" step=".1" value="1">
+      </label>
+      <label>Channel flat
+        <input id="flatK" type="number" min="0" step=".05" value=".15">
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="grid">
+      <label>Fast SMA von <input id="fastFrom" type="number" min="1" value="10"></label>
+      <label>Fast SMA bis <input id="fastTo" type="number" min="1" value="18"></label>
+      <label>Fast Schritt <input id="fastStep" type="number" min="1" value="1"></label>
+      <label>Slow SMA von <input id="slowFrom" type="number" min="2" value="35"></label>
+      <label>Slow SMA bis <input id="slowTo" type="number" min="2" value="55"></label>
+      <label>Slow Schritt <input id="slowStep" type="number" min="1" value="1"></label>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <label>ATR Länge <input id="atrLen" type="number" min="1" value="6"></label>
+      <label>RSI Länge <input id="rsiLen" type="number" min="1" value="9"></label>
+      <label>MACD Fast <input id="macdFast" type="number" min="1" value="3"></label>
+      <label>MACD Slow <input id="macdSlow" type="number" min="2" value="16"></label>
+      <label>MACD Signal <input id="macdSig" type="number" min="1" value="19"></label>
+      <label>Notbremse Bars <input id="brakeBars" type="number" min="1" max="20" value="2"></label>
+    </div>
+  </section>
+
+  <section class="card actions">
+    <button id="run">Sweep starten</button>
+    <button id="gold">Gold-Referenz 14/44 einsetzen</button>
+    <span id="status" class="status">Bereit.</span>
+  </section>
+
+  <section class="card">
+    <div class="small">Sortierung: robuste Ergebnisse zuerst über Mindest-Trades, PF, Netto und Drawdown. PF allein ist nicht das Ziel.</div>
+    <div id="resultsWrap">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Fast</th><th>Slow</th><th>Trades</th><th>Wins</th><th>Win %</th>
+          <th>PF</th><th>Netto</th><th>Max DD</th><th>GP</th><th>GL</th>
+        </tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const BACKEND="https://qtrend-trading-engine.onrender.com";
+const $=id=>document.getElementById(id);
+const clamp=x=>Math.max(0,Math.min(100,x));
+const scoreAbs=(x,s)=>s?clamp(Math.abs(x)/s*100):0;
+const tfMin=tf=>tf.endsWith("h")?parseInt(tf)*60:parseInt(tf);
+const tfMs=tf=>tfMin(tf)*60000;
+
+function sma(a,n){let out=Array(a.length).fill(NaN),s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=n)s-=a[i-n];if(i>=n-1)out[i]=s/n;}return out}
+function ema(a,n){let out=Array(a.length).fill(NaN),alpha=2/(n+1),prev=NaN;for(let i=0;i<a.length;i++){let v=a[i];if(!Number.isFinite(v))continue;if(!Number.isFinite(prev))prev=v;else prev=alpha*v+(1-alpha)*prev;out[i]=prev;}return out}
+function stdev(a,n){let out=Array(a.length).fill(NaN);for(let i=n-1;i<a.length;i++){let s=0,s2=0;for(let j=i-n+1;j<=i;j++){s+=a[j];s2+=a[j]*a[j]}let m=s/n;out[i]=Math.sqrt(Math.max(0,s2/n-m*m));}return out}
+function atr(c,n){
+  let tr=c.map((x,i)=>i===0?x.high-x.low:Math.max(x.high-x.low,Math.abs(x.high-c[i-1].close),Math.abs(x.low-c[i-1].close)));
+  let out=Array(c.length).fill(NaN),prev=NaN;
+  for(let i=0;i<tr.length;i++){if(i===n-1){let s=0;for(let j=0;j<n;j++)s+=tr[j];prev=s/n;out[i]=prev}else if(i>=n){prev=(prev*(n-1)+tr[i])/n;out[i]=prev}}
+  return out
+}
+function rsi(c,n){
+  let out=Array(c.length).fill(NaN),g=0,l=0,ag=NaN,al=NaN;
+  for(let i=1;i<c.length;i++){let d=c[i].close-c[i-1].close,up=Math.max(d,0),dn=Math.max(-d,0);
+    if(i<=n){g+=up;l+=dn;if(i===n){ag=g/n;al=l/n;out[i]=al===0?100:100-100/(1+ag/al)}}
+    else{ag=(ag*(n-1)+up)/n;al=(al*(n-1)+dn)/n;out[i]=al===0?100:100-100/(1+ag/al)}
+  } return out
+}
+function qtrend(c,p){
+  const close=c.map(x=>x.close), open=c.map(x=>x.open), high=c.map(x=>x.high), low=c.map(x=>x.low);
+  const sf=sma(close,p.fast), ss=sma(close,p.slow), A=atr(c,p.atr), Aavg=sma(A.map(x=>Number.isFinite(x)?x:0),50), R=rsi(c,p.rsi);
+  const ef=ema(close,p.mf), es=ema(close,p.ms), macd=close.map((_,i)=>ef[i]-es[i]), sig=ema(macd,p.msig), hist=macd.map((x,i)=>x-sig[i]);
+  const sd=stdev(close,20), sdAvg=sma(sd.map(x=>Number.isFinite(x)?x:0),50);
+  let out=[],phase=4,age=0,prevDir=0,prevPhase=4,prevFlow=0;
+  let momPrev=NaN,enPrev=NaN,volPrev=NaN;
+  for(let i=0;i<c.length;i++){
+    if(i<Math.max(p.slow+12,p.atr+55,p.rsi+7,p.ms+p.msig+5)){out.push(null);continue}
+    let atrv=A[i]||0, body=Math.abs(close[i]-open[i]), range=high[i]-low[i], bodyPct=range>0?body/range:0, wick=range>0?1-bodyPct:0;
+    let slope=ss[i]-ss[i-5], prevSlope=ss[i-5]-ss[i-10], curve=slope-prevSlope;
+    let trendSlope=scoreAbs(slope,atrv*.6), trendCurve=scoreAbs(curve,atrv*.4), priceDist=scoreAbs(close[i]-ss[i],atrv*2), maAlign=sf[i]!==ss[i]?100:0;
+    let trend=clamp(trendSlope*.35+trendCurve*.20+priceDist*.25+maAlign*.20);
+    let rSpeed=R[i]-R[i-3], rAccel=rSpeed-(R[i-3]-R[i-6]), hSpeed=hist[i]-hist[i-3];
+    let mom=clamp(scoreAbs(R[i]-50,25)*.2+scoreAbs(rSpeed,10)*.2+scoreAbs(rAccel,8)*.15+scoreAbs(hist[i],atrv*.08)*.25+scoreAbs(hSpeed,atrv*.05)*.2);
+    let atrEnergy=Aavg[i]>0?clamp(atrv/Aavg[i]*65):0, rangeEnergy=atrv>0?clamp(range/atrv*55):0, bodyEnergy=clamp(bodyPct*100), impulse=Math.abs(close[i]-close[i-5]), impulseE=atrv>0?clamp(impulse/atrv*30):0;
+    let energy=clamp((atrEnergy+rangeEnergy+bodyEnergy+impulseE)/4);
+    let atrVol=Aavg[i]>0?clamp(atrv/Aavg[i]*100):0, sdVol=sdAvg[i]>0?clamp(sd[i]/sdAvg[i]*100):0, rangeVol=atrv>0?clamp(range/atrv*70):0;
+    let vol=clamp(atrVol*.45+sdVol*.35+rangeVol*.2);
+    let smallBody=clamp((1-bodyPct)*100), highWicks=clamp(wick*100), lowAtr=Aavg[i]>0?clamp((1.35-atrv/Aavg[i])*100):0, flatSma=clamp(100-trendSlope), tight=atrv>0?clamp((1.2-range/atrv)*100):0;
+    let comp=clamp(smallBody*.2+highWicks*.2+lowAtr*.25+flatSma*.2+tight*.15);
+    let bull=(close[i]>sf[i]?20:0)+(close[i]>ss[i]?20:0)+(sf[i]>ss[i]?20:0)+(ss[i]>ss[i-5]?20:0)+(close[i]>close[i-5]?20:0);
+    let bear=(close[i]<sf[i]?20:0)+(close[i]<ss[i]?20:0)+(sf[i]<ss[i]?20:0)+(ss[i]<ss[i-5]?20:0)+(close[i]<close[i-5]?20:0);
+    let struct=Math.max(bull,bear), dir=bull>bear?1:bear>bull?-1:0;
+    age=dir!==0&&dir===prevDir?age+1:dir!==0?1:0; let ageScore=clamp(age/80*100);
+    let momFall=Number.isFinite(momPrev)&&mom<momPrev, enFall=Number.isFinite(enPrev)&&energy<enPrev, volFall=Number.isFinite(volPrev)&&vol<volPrev, enRise=Number.isFinite(enPrev)&&energy>enPrev, momRise=Number.isFinite(momPrev)&&mom>momPrev;
+    let balance=clamp(comp*.45+(100-trend)*.2+(100-energy)*.2+(100-vol)*.15);
+    let pull=clamp(comp*.30+(100-energy)*.25+ageScore*.15+(momFall?20:0)+(enFall?10:0));
+    let exh=clamp(ageScore*.30+pull*.30+(momFall?20:0)+(enFall?15:0)+(volFall?10:0));
+    let trendReg=clamp(trend*.35+struct*.35+ageScore*.15+(100-balance)*.15), rangeReg=clamp(comp*.4+balance*.35+(100-trend)*.15+(100-energy)*.1), reg=trendReg>=rangeReg?1:0;
+    let isComp=comp>=62&&energy<=45&&balance>=50, isExp=mom>=65&&energy>=45&&vol>=55&&comp<=60, isPull=reg===1&&trend>=55&&struct>=60&&ageScore>=20&&(energy<=45||momFall||enFall), isExh=reg===1&&exh>=65&&ageScore>=25&&pull>=55;
+    let cp=clamp((comp+balance+(100-energy))/3), ep=clamp((mom+energy+vol+trend)/4), pp=clamp((pull+trend+struct+ageScore)/4), xp=exh;
+    let current=phase===1?ep:phase===2?pp:phase===3?xp:cp,cand=phase,candP=current;
+    if(reg===0){if(isExp&&comp<55){cand=1;candP=ep}else{cand=4;candP=cp}}
+    else if(phase===4&&isExp){cand=1;candP=ep}
+    else if(phase===1){if(isExh){cand=3;candP=xp}else if(isPull){cand=2;candP=pp}}
+    else if(phase===2){if(isExh){cand=3;candP=xp}else if(isExp&&enRise){cand=1;candP=ep}}
+    else if(phase===3){if(isComp||reg===0){cand=4;candP=cp}else if(isExp&&enRise&&momRise){cand=1;candP=ep}}
+    let dirChanged=dir!==0&&dir!==prevDir; if(cand!==phase&&(dirChanged||candP>=current+8))phase=cand;
+    let dna=(reg===1&&phase===1&&dir===1)?1:(reg===1&&phase===1&&dir===-1)?-1:0, flow=dna;
+    if(prevPhase===4&&phase===1)flow=0; else if(prevPhase===1&&phase===2)flow=0; else if(prevPhase===2&&phase===1)flow=dir; else if(prevPhase===1&&phase===3)flow=0; else if(prevPhase===3&&phase===4)flow=0;
+    let eLong=flow===1&&prevFlow!==1&&close[i]>open[i], eShort=flow===-1&&prevFlow!==-1&&close[i]<open[i];
+    out.push({dir,reg,phase,entryLong:eLong,entryShort:eShort});
+    prevDir=dir;prevPhase=phase;prevFlow=flow;momPrev=mom;enPrev=energy;volPrev=vol;
+  }
+  return out
+}
+function bucketStart(t,sessionMin){
+  let ms=sessionMin*60000;
+  if(sessionMin===10080){let d=new Date(t),day=(d.getUTCDay()+6)%7;let z=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day);return z}
+  if(sessionMin>=1440){return Math.floor(t/ms)*ms}
+  return Math.floor(t/ms)*ms;
+}
+function autoSession(tf){
+  let m=tfMin(tf); if(m<=1)return 240;if(m<15)return 720;if(m<60)return 2880;if(m<240)return 10080;if(m<1440)return 43200;return 525600;
+}
+function linregLog(arr){
+  let n=arr.length,sx=0,sy=0,sxx=0,sxy=0;for(let i=0;i<n;i++){let x=i+1,y=Math.log(arr[n-1-i]);sx+=x;sy+=y;sxx+=x*x;sxy+=x*y}
+  let den=n*sxx-sx*sx,sl=n>1&&den!==0?(n*sxy-sx*sy)/den:0,ic=(sy-sl*sx)/n;return [sl,ic];
+}
+function channelStates(c,tf,width,flatK){
+  let sess=autoSession(tf), out=[], group=[];
+  for(let i=0;i<c.length;i++){
+    if(i===0||bucketStart(c[i].time,sess)!==bucketStart(c[i-1].time,sess))group=[];
+    group.push(c[i]); let closes=group.map(x=>x.close),[sl,ic]=linregLog(closes),n=group.length,rs=Math.exp(ic+sl*n),re=Math.exp(ic);
+    let mean=closes.reduce((a,b)=>a+b,0)/n,dev=Math.sqrt(closes.reduce((a,b)=>a+(b-mean)**2,0)/n);
+    let loS=rs-dev*width, loE=re-dev*width, bins=30, vols=Array(bins).fill(0), step=(2*dev*width)/bins;
+    if(step>0)for(let j=0;j<n;j++){let idx=Math.floor((group[j].close-loS)/step);if(idx>=0&&idx<bins)vols[idx]+=group[j].volume||0}
+    let mi=vols.indexOf(Math.max(...vols)),off=(mi+.5)*step,pocS=loS+off,pocE=loE+off,move=pocE-pocS,flat=dev*width*flatK,state=Math.abs(move)<=flat?0:move>0?1:-1;
+    out.push({state});
+  } return out
+}
+function pocTurns(c,chartTf,width,nBars){
+  let sess=autoSession(chartTf), vals=[], grp=[],up=[],down=[];
+  for(let i=0;i<c.length;i++){
+    if(i===0||bucketStart(c[i].time,sess)!==bucketStart(c[i-1].time,sess))grp=[];
+    grp.push(c[i]);let closes=grp.map(x=>x.close),[sl,ic]=linregLog(closes),n=grp.length,rs=Math.exp(ic+sl*n),re=Math.exp(ic),mean=closes.reduce((a,b)=>a+b,0)/n,dev=Math.sqrt(closes.reduce((a,b)=>a+(b-mean)**2,0)/n);
+    let loS=rs-dev*width,bins=30,step=(2*dev*width)/bins,vols=Array(bins).fill(0);
+    if(step>0)for(let j=0;j<n;j++){let idx=Math.floor((grp[j].close-loS)/step);if(idx>=0&&idx<bins)vols[idx]+=grp[j].volume||0}
+    let mi=vols.indexOf(Math.max(...vols)),off=(mi+.5)*step,poc=(re-dev*width)+off;vals.push(poc);
+    let pu=true,pd=true;if(i<=nBars){pu=pd=false}else for(let k=1;k<=nBars;k++){pu=pu&&(vals[i-k]-vals[i-k-1]>0);pd=pd&&(vals[i-k]-vals[i-k-1]<0)}
+    let slope=i?vals[i]-vals[i-1]:0;up.push(pd&&slope>0);down.push(pu&&slope<0);
+  }return {up,down}
+}
+function align(srcC,srcOut,chartC){
+  let out=Array(chartC.length).fill(null),j=-1,ms=(srcC.length>1?(srcC[1].time-srcC[0].time):60000);
+  for(let i=0;i<chartC.length;i++){let ct=chartC[i].time+(i+1<chartC.length?chartC[i+1].time-chartC[i].time:ms);while(j+1<srcC.length&&srcC[j+1].time+ms<=ct)j++;out[i]=j>=0?srcOut[j]:null}return out
+}
+async function fetchCandles(symbol,tf,limit){
+  let url=new URL("/api/market-data/klines",BACKEND);url.searchParams.set("provider","capital");url.searchParams.set("symbol",symbol);url.searchParams.set("interval",tf);url.searchParams.set("limit",limit);url.searchParams.set("_ts",Date.now());
+  let r=await fetch(url);if(!r.ok)throw new Error(tf+" HTTP "+r.status);let j=await r.json();if(!j.ok||!Array.isArray(j.candles))throw new Error(tf+" keine Candles");
+  return j.candles.map(x=>({time:Number(x.time)*1000,open:+x.open,high:+x.high,low:+x.low,close:+x.close,volume:+(x.volume??x.lastTradedVolume??0)})).sort((a,b)=>a.time-b.time);
+}
+function simulate(all,p){
+  let chart=all[p.chart], qCache={};
+  function q(tf){let k=tf+"_"+p.fast+"_"+p.slow;if(!qCache[k])qCache[k]=qtrend(all[tf],p);return qCache[k]}
+  let E=align(all[p.entry],q(p.entry),chart), F=align(all[p.xf],q(p.xf),chart), M=align(all[p.xm],q(p.xm),chart), S1=align(all[p.x1],q(p.x1),chart), S2=align(all[p.x2],q(p.x2),chart);
+  let C=align(all[p.channel],channelStates(all[p.channel],p.channel,p.cw,p.flat),chart), P=pocTurns(chart,p.chart,p.cw,p.poc);
+  let pos=0,entry=0,trades=[],peakEq=0,eq=0,maxDD=0,opp=0;
+  let prevEL=false,prevES=false,prevXL=false,prevXS=false;
+  for(let i=0;i<chart.length;i++){
+    let e=E[i],f=F[i],m=M[i],s1=S1[i],s2=S2[i],ch=C[i];if(!e||!f||!m||!s1||!s2||!ch)continue;
+    let el=!!e.entryLong,es=!!e.entryShort, elEdge=el&&!prevEL,esEdge=es&&!prevES;
+    let xl=f.dir===-1&&m.dir===-1&&((s1.dir===1&&s1.phase===3)||(s2.dir===1&&s2.phase===3));
+    let xs=f.dir===1&&m.dir===1&&((s1.dir===-1&&s1.phase===3)||(s2.dir===-1&&s2.phase===3));
+    let xlEdge=xl&&!prevXL,xsEdge=xs&&!prevXS,price=chart[i].close,exit=false;
+    if(pos===1){if(xlEdge||P.down[i])exit=true;else{opp=ch.state===-1?opp+1:0;if(opp>=p.brake)exit=true}
+      if(exit){let pl=price-entry;trades.push(pl);eq+=pl;peakEq=Math.max(peakEq,eq);maxDD=Math.max(maxDD,peakEq-eq);pos=0;opp=0}}
+    else if(pos===-1){if(xsEdge||P.up[i])exit=true;else{opp=ch.state===1?opp+1:0;if(opp>=p.brake)exit=true}
+      if(exit){let pl=entry-price;trades.push(pl);eq+=pl;peakEq=Math.max(peakEq,eq);maxDD=Math.max(maxDD,peakEq-eq);pos=0;opp=0}}
+    else{if(ch.state===1&&elEdge){pos=1;entry=price;opp=0}else if(ch.state===-1&&esEdge){pos=-1;entry=price;opp=0}}
+    prevEL=el;prevES=es;prevXL=xl;prevXS=xs;
+  }
+  let wins=trades.filter(x=>x>0),loss=trades.filter(x=>x<0),gp=wins.reduce((a,b)=>a+b,0),gl=-loss.reduce((a,b)=>a+b,0),pf=gl>0?gp/gl:(gp>0?999:null);
+  return {trades:trades.length,wins:wins.length,wr:trades.length?wins.length/trades.length*100:0,pf,net:trades.reduce((a,b)=>a+b,0),dd:maxDD,gp,gl};
+}
+function range(a,b,s){let r=[];for(let x=a;x<=b;x+=s)r.push(x);return r}
+$("gold").onclick=()=>{$("fastFrom").value=12;$("fastTo").value=16;$("slowFrom").value=40;$("slowTo").value=48;$("atrLen").value=6;$("rsiLen").value=9;$("macdFast").value=3;$("macdSlow").value=16;$("macdSig").value=19}
+$("run").onclick=async()=>{
+  const btn=$("run");btn.disabled=true;$("results").innerHTML="";
+  try{
+    let symbol=$("symbol").value,limit=+$("limit").value,tfs=[...new Set([$ ("chartTf").value,$("entryTf").value,$("channelTf").value,$("exitFast").value,$("exitMid").value,$("exitSlow1").value,$("exitSlow2").value])];
+    $("status").textContent="Lade "+symbol+": "+tfs.join(", ")+" …";
+    let pairs=await Promise.all(tfs.map(async tf=>[tf,await fetchCandles(symbol,tf,limit)])),all=Object.fromEntries(pairs);
+    let combos=[];for(let fast of range(+$("fastFrom").value,+$("fastTo").value,+$("fastStep").value))for(let slow of range(+$("slowFrom").value,+$("slowTo").value,+$("slowStep").value))if(fast<slow)combos.push([fast,slow]);
+    $("status").textContent=combos.length+" Kombinationen werden berechnet …";await new Promise(r=>setTimeout(r,20));
+    let res=[];let base={chart:$("chartTf").value,entry:$("entryTf").value,channel:$("channelTf").value,xf:$("exitFast").value,xm:$("exitMid").value,x1:$("exitSlow1").value,x2:$("exitSlow2").value,atr:+$("atrLen").value,rsi:+$("rsiLen").value,mf:+$("macdFast").value,ms:+$("macdSlow").value,msig:+$("macdSig").value,poc:+$("pocBars").value,cw:+$("channelWidth").value,flat:+$("flatK").value,brake:+$("brakeBars").value};
+    let n=0;for(let [fast,slow] of combos){res.push({fast,slow,...simulate(all,{...base,fast,slow})});if((++n)%10===0){$("status").textContent=n+"/"+combos.length;await new Promise(r=>setTimeout(r,0))}}
+    res.sort((a,b)=>(b.trades>=20)-(a.trades>=20)||((b.pf??-1)-(a.pf??-1))||(b.net-a.net)||(a.dd-b.dd));
+    $("results").innerHTML=res.map((x,i)=>`<tr><td>${i+1}</td><td>${x.fast}</td><td>${x.slow}</td><td>${x.trades}</td><td>${x.wins}</td><td>${x.wr.toFixed(1)}</td><td class="good">${x.pf==null?"—":x.pf.toFixed(3)}</td><td>${x.net.toFixed(2)}</td><td>${x.dd.toFixed(2)}</td><td>${x.gp.toFixed(2)}</td><td>${x.gl.toFixed(2)}</td></tr>`).join("");
+    $("status").textContent="Fertig: "+res.length+" Kombinationen.";
+  }catch(e){$("status").textContent="FEHLER: "+e.message;console.error(e)}finally{btn.disabled=false}
+};
+</script>
+</body>
+</html>
