@@ -264,7 +264,7 @@ function calculateEntry(candles:Candle[],cfg:EntryConfig):EntryRow[]{
     else if(phase===4){if(isExpansion){candidate=1;candidatePower=expansionPower;}}
     else if(phase===1){if(isExhaustion){candidate=3;candidatePower=exhaustionPower;}else if(isPullback){candidate=2;candidatePower=pullbackPower;}}
     else if(phase===2){if(isExhaustion){candidate=3;candidatePower=exhaustionPower;}else if(isExpansion&&energyRising){candidate=1;candidatePower=expansionPower;}}
-    else if(phase===3){if(isCompression||regime===0){candidate=4;candidatePower=compressionPower;}else if(isExpansion&&energyRising&&momentumRising){candidate=1;candidatePower=expansionPower;}}
+    else if(phase===3){if(isCompression){candidate=4;candidatePower=compressionPower;}else if(isExpansion&&energyRising&&momentumRising){candidate=1;candidatePower=expansionPower;}}
     const directionChanged=dir!==0&&dir!==prevDir; if(candidate!==phase&&(directionChanged||candidatePower>=currentPower+cfg.phaseSwitchMargin))phase=candidate;
     const dna=regime===1&&phase===1?dir:0; let flow=dna;
     if(prevPhase===4&&phase===1)flow=0; else if(prevPhase===1&&phase===2)flow=0; else if(prevPhase===2&&phase===1)flow=dir; else if(prevPhase===1&&phase===3)flow=0; else if(prevPhase===3&&phase===4)flow=0;
