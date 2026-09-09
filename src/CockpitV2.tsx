@@ -352,6 +352,7 @@ export default function CockpitV2(){
   text: "",
   size: 2,
 });
+    }
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
   },[entryRows,entryCfg.enabled,entryCfg.showMarkers,interval]);
 
