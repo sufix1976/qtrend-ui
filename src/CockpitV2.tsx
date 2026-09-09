@@ -344,8 +344,14 @@ export default function CockpitV2(){
     for(const r of entryRows){
       if(r.entry==="NONE")continue;
       const time=Math.floor(r.time/sec)*sec; if(seen.has(time))continue; seen.add(time);
-      markers.push({time:time as Time,position:r.entry==="LONG"?"belowBar":"aboveBar",color:r.entry==="LONG"?"#22c55e":"#ef4444",shape:r.entry==="LONG"?"arrowUp":"arrowDown",text:r.entry==="LONG"?"ENTRY LONG":"ENTRY SHORT",size:1.2});
-    }
+      markers.push({
+  time: time as Time,
+  position: r.entry === "LONG" ? "belowBar" : "aboveBar",
+  color: r.entry === "LONG" ? "#22c55e" : "#ef4444",
+  shape: r.entry === "LONG" ? "arrowUp" : "arrowDown",
+  text: "",
+  size: 2,
+});
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
   },[entryRows,entryCfg.enabled,entryCfg.showMarkers,interval]);
 
