@@ -25,6 +25,23 @@ function saveProfile(profile:InstrumentProfile){localStorage.setItem(profileKey(
 function heikin(c:Candle[]):Candle[]{if(!c.length)return[];const out:Candle[]=[];let po=(c[0].open+c[0].close)/2,pc=(c[0].open+c[0].high+c[0].low+c[0].close)/4;out.push({time:c[0].time,open:po,close:pc,high:Math.max(c[0].high,po,pc),low:Math.min(c[0].low,po,pc),volume:c[0].volume});for(let i=1;i<c.length;i++){const x=c[i],close=(x.open+x.high+x.low+x.close)/4,open=(po+pc)/2;out.push({time:x.time,open,close,high:Math.max(x.high,open,close),low:Math.min(x.low,open,close),volume:x.volume});po=open;pc=close;}return out;}
 async function fetchJson(url:string,init:RequestInit={}){const r=await fetch(url,{cache:"no-store",...init});const text=await r.text();let j:any;try{j=JSON.parse(text);}catch{throw new Error(`Keine JSON-Antwort: ${text.slice(0,120)}`);}if(!r.ok||j?.ok===false)throw new Error(j?.info||j?.reason||j?.error||`HTTP ${r.status}`);return j;}
 async function fetchCandles(symbol:string,interval:string,limit=5000):Promise<Candle[]>{const j=await fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}&_ts=${Date.now()}`);return(Array.isArray(j?.candles)?j.candles:[]).map((c:any)=>({time:Number(c.time),open:Number(c.open),high:Number(c.high),low:Number(c.low),close:Number(c.close),volume:Number(c.volume||0)})).filter((c:Candle)=>[c.time,c.open,c.high,c.low,c.close].every(Number.isFinite)).sort((a:Candle,b:Candle)=>a.time-b.time);}
+function extractLivePrice(payload:any,symbol:string){
+ const arrays=[payload?.markets,payload?.data?.markets,payload?.data,payload?.rows].filter(Array.isArray) as any[][];
+ const rows=arrays.flat();
+ const wanted=String(symbol||"").toUpperCase();
+ const row=rows.find((x:any)=>String(x?.epic??x?.symbol??x?.market?.epic??"").toUpperCase()===wanted)||rows[0]||payload?.market||payload?.data||payload;
+ const nodes=[row?.snapshot,row?.market,row];
+ for(const node of nodes){
+  if(!node)continue;
+  const bid=Number(node?.bid??node?.price?.bid);
+  const ask=Number(node?.offer??node?.ask??node?.price?.offer??node?.price?.ask);
+  if(Number.isFinite(bid)&&Number.isFinite(ask))return(bid+ask)/2;
+  if(Number.isFinite(bid))return bid;
+  if(Number.isFinite(ask))return ask;
+ }
+ return null;
+}
+async function fetchLivePrice(symbol:string){const j=await fetchJson(`${BACKEND_BASE}/cap/markets?term=${encodeURIComponent(symbol)}&_ts=${Date.now()}`);const price=extractLivePrice(j,symbol);if(price==null||!Number.isFinite(price)||price<=0)throw new Error("Kein Live-Preis");return price;}
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
 const panel:CSSProperties={border:"1px solid #24324a",background:"#0b1220",borderRadius:10};const inputStyle:CSSProperties={background:"#0a1020",border:"1px solid #334155",color:"#e5eefc",borderRadius:7,padding:"8px 10px",fontWeight:700};const buttonStyle:CSSProperties={...inputStyle,cursor:"pointer"};
 
@@ -58,6 +75,27 @@ export default function CockpitV2(){
 
  useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
  useEffect(()=>{let stopped=false;const poll=async()=>{try{const j=await refreshTradingStatus();await refreshSourceEvents();if(!stopped){setTradingStatus(j);setTradingMessage("SIGNALQUELLE ENGINE · Bereit");}}catch(e){if(!stopped)setTradingMessage(`Statusfehler: ${e instanceof Error?e.message:String(e)}`);}};void poll();const t=window.setInterval(()=>void poll(),5000);return()=>{stopped=true;window.clearInterval(t);};},[symbol]);
+ useEffect(()=>{
+  let stopped=false,running=false;
+  const poll=async()=>{
+   if(running)return;running=true;
+   try{
+    const price=await fetchLivePrice(symbol);
+    if(stopped)return;
+    const sec=tfSeconds(interval),bucket=Math.floor(Math.floor(Date.now()/1000)/sec)*sec;
+    setCandles(prev=>{
+     if(!prev.length)return prev;
+     const next=[...prev],last=next[next.length-1];
+     if(last.time>bucket)return prev;
+     if(last.time===bucket){next[next.length-1]={...last,high:Math.max(last.high,price),low:Math.min(last.low,price),close:price};return next;}
+     next.push({time:bucket,open:price,high:price,low:price,close:price,volume:0});
+     return next.length>5000?next.slice(-5000):next;
+    });
+   }catch{/* Live-Anzeige darf die Strategie niemals beeinflussen */}
+   finally{running=false;}
+  };
+  void poll();const t=window.setInterval(()=>void poll(),2500);return()=>{stopped=true;window.clearInterval(t);};
+ },[symbol,interval]);
  useEffect(()=>{const next=readProfile(symbol,interval);setProfile(next);if(next.interval!==interval)setInterval(next.interval);},[symbol]);
  useEffect(()=>{setProfile(p=>p.interval===interval?p:{...p,interval});},[interval]);
  useEffect(()=>{if(!priceHost.current)return;const c=createChart(priceHost.current,{autoSize:true,layout:{background:{color:"#070b16"},textColor:"#dbe4ff"},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:78},timeScale:{borderColor:"#334155",timeVisible:true,secondsVisible:false,tickMarkFormatter:(t:any)=>chartBerlinTime(Number(t))},localization:{timeFormatter:(t:any)=>chartBerlinTime(Number(t))}});const s=c.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});exitFastSeries.current=c.addSeries(LineSeries,{color:"#38bdf8",lineWidth:2,priceLineVisible:false,lastValueVisible:false});exitSlowSeries.current=c.addSeries(LineSeries,{color:"#f8fafc",lineWidth:2,priceLineVisible:false,lastValueVisible:false});exitUpperSeries.current=c.addSeries(LineSeries,{color:"#facc15",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});exitLowerSeries.current=c.addSeries(LineSeries,{color:"#e879f9",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});channelTrendSeries.current=c.addSeries(LineSeries,{color:"#22c55e",lineWidth:3,priceLineVisible:false,lastValueVisible:false});chart.current=c;series.current=s;markerApi.current=createSeriesMarkers(s,[]);c.subscribeCrosshairMove(p=>{if(!p.time)return;const row=candleMapRef.current.get(Number(p.time));if(row)setSelected(row);});return()=>{c.remove();chart.current=null;series.current=null;markerApi.current=null;};},[]);
