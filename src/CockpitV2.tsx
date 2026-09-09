@@ -406,8 +406,7 @@ export default function CockpitV2(){
   const exitSlowSeries=useRef<ISeriesApi<"Line">|null>(null);
   const exitUpperSeries=useRef<ISeriesApi<"Line">|null>(null);
   const exitLowerSeries=useRef<ISeriesApi<"Line">|null>(null);
-  const channelUpSeries=useRef<ISeriesApi<"Line">|null>(null);
-  const channelDownSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const channelTrendSeries=useRef<ISeriesApi<"Line">|null>(null);
   const markerApi=useRef<any>(null);
   const candleMapRef=useRef(new Map<number,Candle>());
   const shown=useMemo(()=>profile.chartMode==="heikin"?heikin(candles):candles,[candles,profile.chartMode]);
@@ -421,10 +420,11 @@ export default function CockpitV2(){
   const channelCfg=profile.modules.channel;
   const channelCandles=useMemo(()=>resample(entryBase,channelCfg.tf),[entryBase,channelCfg.tf]);
   const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrend(channelCandles,channelCfg):[],[channelCandles,channelCfg]);
-  const channelLines=useMemo(()=>({
-    up:channelRows.map(r=>r.trend===1?{time:r.time as Time,value:r.value}:{time:r.time as Time}),
-    down:channelRows.map(r=>r.trend===-1?{time:r.time as Time,value:r.value}:{time:r.time as Time}),
-  }),[channelRows]);
+  const channelLine=useMemo(()=>channelRows.map(r=>({
+    time:r.time as Time,
+    value:r.value,
+    color:r.trend===1?"#22c55e":"#ef4444",
+  })),[channelRows]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
@@ -459,11 +459,10 @@ export default function CockpitV2(){
     exitSlowSeries.current=c.addSeries(LineSeries,{color:"#f8fafc",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
     exitUpperSeries.current=c.addSeries(LineSeries,{color:"#facc15",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
     exitLowerSeries.current=c.addSeries(LineSeries,{color:"#e879f9",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
-    channelUpSeries.current=c.addSeries(LineSeries,{color:"#22c55e",lineWidth:3,priceLineVisible:false,lastValueVisible:false});
-    channelDownSeries.current=c.addSeries(LineSeries,{color:"#ef4444",lineWidth:3,priceLineVisible:false,lastValueVisible:false});
+    channelTrendSeries.current=c.addSeries(LineSeries,{color:"#22c55e",lineWidth:3,priceLineVisible:false,lastValueVisible:false});
     chart.current=c; series.current=s; markerApi.current=createSeriesMarkers(s,[]);
     c.subscribeCrosshairMove(param=>{if(!param.time)return;const row=candleMapRef.current.get(Number(param.time));if(row)setSelected(row);});
-    return()=>{c.remove();chart.current=null;series.current=null;exitFastSeries.current=null;exitSlowSeries.current=null;exitUpperSeries.current=null;exitLowerSeries.current=null;channelUpSeries.current=null;channelDownSeries.current=null;markerApi.current=null;};
+    return()=>{c.remove();chart.current=null;series.current=null;exitFastSeries.current=null;exitSlowSeries.current=null;exitUpperSeries.current=null;exitLowerSeries.current=null;channelTrendSeries.current=null;markerApi.current=null;};
   },[]);
 
   useEffect(()=>{
@@ -485,11 +484,9 @@ export default function CockpitV2(){
 
   useEffect(()=>{
     const visible=channelCfg.enabled&&channelCfg.showLines;
-    channelUpSeries.current?.applyOptions({visible});
-    channelDownSeries.current?.applyOptions({visible});
-    channelUpSeries.current?.setData(channelLines.up);
-    channelDownSeries.current?.setData(channelLines.down);
-  },[channelLines,channelCfg.enabled,channelCfg.showLines]);
+    channelTrendSeries.current?.applyOptions({visible});
+    channelTrendSeries.current?.setData(channelLine);
+  },[channelLine,channelCfg.enabled,channelCfg.showLines]);
 
   useEffect(()=>{
     if(!markerApi.current)return;
