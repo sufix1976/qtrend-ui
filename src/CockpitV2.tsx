@@ -346,64 +346,126 @@ function calculateEntry(candles:Candle[],cfg:EntryConfig):EntryRow[]{
   return rows;
 }
 
-function calculateExit(candles:Candle[],cfg:ExitConfig):ExitRow[]{
-  const close=candles.map(c=>c.close);
-  const fast=sma(close,cfg.fastSma);
-  const slow=sma(close,cfg.slowSma);
+function lastSma(values:number[],len:number){
+  if(len<=0||values.length<len)return null;
+  let sum=0;
+  for(let i=values.length-len;i<values.length;i+=1)sum+=values[i];
+  return sum/len;
+}
+
+function calculateExitCausal(base:Candle[],cfg:ExitConfig):ExitRow[]{
+  const bucketSeconds=tfSeconds(cfg.tf);
+  const completedCloses:number[]=[];
   const rows:ExitRow[]=[];
+  let bucket:number|null=null;
+  let partialClose:number|null=null;
   let wasLongAbove=false;
   let wasShortBelow=false;
 
-  for(let i=0;i<candles.length;i+=1){
-    const f=fast[i],s=slow[i];
-    if(f==null||s==null)continue;
-    const longLine=cfg.useSlowExit?s:s+cfg.offset;
-    const shortLine=cfg.useSlowExit?s:s-cfg.offset;
-    if(f>longLine)wasLongAbove=true;
-    if(f<shortLine)wasShortBelow=true;
-    if(wasLongAbove&&f<=longLine){rows.push({time:candles[i].time,exit:"LONG",reason:"SMA"});wasLongAbove=false;}
-    if(wasShortBelow&&f>=shortLine){rows.push({time:candles[i].time,exit:"SHORT",reason:"SMA"});wasShortBelow=false;}
+  for(const candle of base){
+    const nextBucket=Math.floor(candle.time/bucketSeconds)*bucketSeconds;
+    if(bucket!=null&&nextBucket!==bucket&&partialClose!=null)completedCloses.push(partialClose);
+    if(nextBucket!==bucket)bucket=nextBucket;
+    partialClose=candle.close;
+    const values=[...completedCloses,partialClose];
+    const fast=lastSma(values,cfg.fastSma);
+    const slow=lastSma(values,cfg.slowSma);
+    if(fast==null||slow==null)continue;
+    const longLine=cfg.useSlowExit?slow:slow+cfg.offset;
+    const shortLine=cfg.useSlowExit?slow:slow-cfg.offset;
+    if(fast>longLine)wasLongAbove=true;
+    if(fast<shortLine)wasShortBelow=true;
+    const signalTime=candle.time+60;
+    if(wasLongAbove&&fast<=longLine){rows.push({time:signalTime,exit:"LONG",reason:"SMA"});wasLongAbove=false;}
+    if(wasShortBelow&&fast>=shortLine){rows.push({time:signalTime,exit:"SHORT",reason:"SMA"});wasShortBelow=false;}
   }
   return rows;
 }
 
-function calculateExitLines(candles:Candle[],cfg:ExitConfig){
-  const close=candles.map(c=>c.close);
-  const fast=sma(close,cfg.fastSma);
-  const slow=sma(close,cfg.slowSma);
-  const points=(values:(number|null)[],offset=0)=>values.flatMap((value,i)=>value==null?[]:[{time:candles[i].time as Time,value:value+offset}]);
+function calculateExitLinesCausal(base:Candle[],cfg:ExitConfig,chartTf:string){
+  const moduleSeconds=tfSeconds(cfg.tf);
+  const chartSeconds=tfSeconds(chartTf);
+  const completedCloses:number[]=[];
+  const buckets=new Map<number,{time:Time;fast:number;slow:number;upper:number;lower:number}>();
+  let bucket:number|null=null;
+  let partialClose:number|null=null;
+  for(const candle of base){
+    const nextBucket=Math.floor(candle.time/moduleSeconds)*moduleSeconds;
+    if(bucket!=null&&nextBucket!==bucket&&partialClose!=null)completedCloses.push(partialClose);
+    if(nextBucket!==bucket)bucket=nextBucket;
+    partialClose=candle.close;
+    const values=[...completedCloses,partialClose];
+    const fast=lastSma(values,cfg.fastSma);
+    const slow=lastSma(values,cfg.slowSma);
+    if(fast==null||slow==null)continue;
+    const chartTime=Math.floor(candle.time/chartSeconds)*chartSeconds;
+    buckets.set(chartTime,{time:chartTime as Time,fast,slow,upper:slow+cfg.offset,lower:slow-cfg.offset});
+  }
+  const values=[...buckets.values()];
   return {
-    fast:points(fast),
-    slow:points(slow),
-    upper:points(slow,cfg.offset),
-    lower:points(slow,-cfg.offset),
+    fast:values.map(v=>({time:v.time,value:v.fast})),
+    slow:values.map(v=>({time:v.time,value:v.slow})),
+    upper:values.map(v=>({time:v.time,value:v.upper})),
+    lower:values.map(v=>({time:v.time,value:v.lower})),
   };
 }
 
-function calculateSupertrend(candles:Candle[],cfg:ChannelConfig):ChannelRow[]{
-  if(!candles.length)return [];
-  const tr:(number|null)[]=candles.map((c,i)=>i===0?c.high-c.low:Math.max(c.high-c.low,Math.abs(c.high-candles[i-1].close),Math.abs(c.low-candles[i-1].close)));
-  const atr=cfg.useRmaAtr?rma(tr,cfg.atrPeriod):sma(tr.map(v=>v??0),cfg.atrPeriod);
+function calculateSupertrendCausal(base:Candle[],cfg:ChannelConfig):ChannelRow[]{
+  const bucketSeconds=tfSeconds(cfg.tf);
+  const completedTrs:number[]=[];
   const rows:ChannelRow[]=[];
-  let trend:1|-1=1;
-  let prevUp:number|null=null;
-  let prevDn:number|null=null;
+  let bucket:number|null=null;
+  let partial:Candle|null=null;
+  let previousBar:Candle|null=null;
+  let committedAtr:number|null=null;
+  let committedTrend:1|-1=1;
+  let committedUp:number|null=null;
+  let committedDn:number|null=null;
 
-  for(let i=0;i<candles.length;i+=1){
-    const a=atr[i];
-    if(a==null)continue;
-    const c=candles[i];
-    const src=(c.high+c.low)/2;
-    const basicUp=src-cfg.multiplier*a;
-    const basicDn=src+cfg.multiplier*a;
-    const up:number=prevUp!=null&&i>0&&candles[i-1].close>prevUp?Math.max(basicUp,prevUp):basicUp;
-    const dn:number=prevDn!=null&&i>0&&candles[i-1].close<prevDn?Math.min(basicDn,prevDn):basicDn;
-    const previousTrend=trend;
-    if(previousTrend===-1&&prevDn!=null&&c.close>prevDn)trend=1;
-    else if(previousTrend===1&&prevUp!=null&&c.close<prevUp)trend=-1;
-    rows.push({time:c.time,trend,value:trend===1?up:dn});
-    prevUp=up;
-    prevDn=dn;
+  const trueRange=(bar:Candle,previous:Candle|null)=>previous==null?bar.high-bar.low:Math.max(bar.high-bar.low,Math.abs(bar.high-previous.close),Math.abs(bar.low-previous.close));
+  const provisionalAtr=(tr:number)=>{
+    if(cfg.useRmaAtr){
+      if(committedAtr!=null)return (committedAtr*(cfg.atrPeriod-1)+tr)/cfg.atrPeriod;
+      const seed=[...completedTrs,tr];
+      return seed.length>=cfg.atrPeriod?seed.slice(-cfg.atrPeriod).reduce((a,b)=>a+b,0)/cfg.atrPeriod:null;
+    }
+    const window=[...completedTrs,tr];
+    return window.length>=cfg.atrPeriod?window.slice(-cfg.atrPeriod).reduce((a,b)=>a+b,0)/cfg.atrPeriod:null;
+  };
+  const candidate=(bar:Candle)=>{
+    const tr=trueRange(bar,previousBar);
+    const atr=provisionalAtr(tr);
+    if(atr==null)return null;
+    const src=(bar.high+bar.low)/2;
+    const basicUp=src-cfg.multiplier*atr;
+    const basicDn=src+cfg.multiplier*atr;
+    const up=committedUp!=null&&previousBar!=null&&previousBar.close>committedUp?Math.max(basicUp,committedUp):basicUp;
+    const dn=committedDn!=null&&previousBar!=null&&previousBar.close<committedDn?Math.min(basicDn,committedDn):basicDn;
+    let trend=committedTrend;
+    if(committedTrend===-1&&committedDn!=null&&bar.close>committedDn)trend=1;
+    else if(committedTrend===1&&committedUp!=null&&bar.close<committedUp)trend=-1;
+    return {trend:trend as 1|-1,value:trend===1?up:dn,up,dn,atr,tr};
+  };
+  const commitPartial=()=>{
+    if(!partial)return;
+    const result=candidate(partial);
+    const tr=trueRange(partial,previousBar);
+    completedTrs.push(tr);
+    if(cfg.useRmaAtr){
+      if(committedAtr!=null)committedAtr=(committedAtr*(cfg.atrPeriod-1)+tr)/cfg.atrPeriod;
+      else if(completedTrs.length>=cfg.atrPeriod)committedAtr=completedTrs.slice(-cfg.atrPeriod).reduce((a,b)=>a+b,0)/cfg.atrPeriod;
+    }
+    if(result){committedTrend=result.trend;committedUp=result.up;committedDn=result.dn;}
+    previousBar=partial;
+  };
+
+  for(const candle of base){
+    const nextBucket=Math.floor(candle.time/bucketSeconds)*bucketSeconds;
+    if(bucket!=null&&nextBucket!==bucket)commitPartial();
+    if(nextBucket!==bucket){bucket=nextBucket;partial={...candle,time:nextBucket};}
+    else if(partial){partial.high=Math.max(partial.high,candle.high);partial.low=Math.min(partial.low,candle.low);partial.close=candle.close;}
+    const result=partial?candidate(partial):null;
+    if(result)rows.push({time:candle.time+60,trend:result.trend,value:result.value});
   }
   return rows;
 }
@@ -484,12 +546,10 @@ export default function CockpitV2(){
   const entryCandles=useMemo(()=>resample(entryBase,entryCfg.tf),[entryBase,entryCfg.tf]);
   const entryRows=useMemo(()=>entryCfg.enabled?calculateEntry(entryCandles,entryCfg):[],[entryCandles,entryCfg]);
   const exitCfg=profile.modules.exit;
-  const exitCandles=useMemo(()=>resample(entryBase,exitCfg.tf),[entryBase,exitCfg.tf]);
-  const exitRows=useMemo(()=>exitCfg.enabled?calculateExit(exitCandles,exitCfg):[],[exitCandles,exitCfg]);
-  const exitLines=useMemo(()=>calculateExitLines(exitCandles,exitCfg),[exitCandles,exitCfg]);
+  const exitRows=useMemo(()=>exitCfg.enabled?calculateExitCausal(entryBase,exitCfg):[],[entryBase,exitCfg]);
+  const exitLines=useMemo(()=>calculateExitLinesCausal(entryBase,exitCfg,interval),[entryBase,exitCfg,interval]);
   const channelCfg=profile.modules.channel;
-  const channelCandles=useMemo(()=>resample(entryBase,channelCfg.tf),[entryBase,channelCfg.tf]);
-  const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrend(channelCandles,channelCfg):[],[channelCandles,channelCfg]);
+  const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrendCausal(entryBase,channelCfg):[],[entryBase,channelCfg]);
   const trendFlipExitRows=useMemo(()=>{
     if(!exitCfg.enabled||!exitCfg.exitOnTrendFlip)return [];
     const rows:ExitRow[]=[];
@@ -503,20 +563,21 @@ export default function CockpitV2(){
   },[channelRows,exitCfg.enabled,exitCfg.exitOnTrendFlip]);
   const allExitRows=useMemo(()=>[...exitRows,...trendFlipExitRows].sort((a,b)=>a.time-b.time),[exitRows,trendFlipExitRows]);
   const controllerCfg=profile.modules.controller;
-  const controllerRows=useMemo(()=>calculateController(entryRows,allExitRows,channelRows,controllerCfg),[entryRows,allExitRows,channelRows,controllerCfg]);
-  const channelLine=useMemo(()=>channelRows.map(r=>({
-    time:r.time as Time,
-    value:r.value,
-    color:r.trend===1?"#22c55e":"#ef4444",
-  })),[channelRows]);
+  const controllerEntries=useMemo(()=>entryRows.map(row=>({...row,time:row.time+tfSeconds(entryCfg.tf)})),[entryRows,entryCfg.tf]);
+  const controllerRows=useMemo(()=>calculateController(controllerEntries,allExitRows,channelRows,controllerCfg),[controllerEntries,allExitRows,channelRows,controllerCfg]);
+  const channelLine=useMemo(()=>{
+    const sec=tfSeconds(interval);const map=new Map<number,{time:Time;value:number;color:string}>();
+    for(const row of channelRows){const time=Math.floor((row.time-1)/sec)*sec;map.set(time,{time:time as Time,value:row.value,color:row.trend===1?"#22c55e":"#ef4444"});}
+    return [...map.values()];
+  },[channelRows,interval]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
   },[entryRows,interval]);
   const selectedEntry=selected?entryByChartTime.get(selected.time)||null:null;
-  const selectedExit=selected?allExitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
-  const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time)||null:null;
-  const selectedController=selected?[...controllerRows].reverse().find(r=>r.time<=selected.time)||null:null;
+  const selectedExit=selected?allExitRows.find(r=>Math.floor((r.time-1)/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
+  const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time+tfSeconds(interval))||null:null;
+  const selectedController=selected?[...controllerRows].reverse().find(r=>r.time<=selected.time+tfSeconds(interval))||null:null;
 
   useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
 
@@ -585,13 +646,13 @@ export default function CockpitV2(){
     }
     if(exitCfg.enabled&&exitCfg.showMarkers){
       for(const r of allExitRows){
-        const time=Math.floor(r.time/sec)*sec; const key=`exit-${time}-${r.exit}`; if(seen.has(key))continue; seen.add(key);
+        const time=Math.floor((r.time-1)/sec)*sec; const key=`exit-${time}-${r.exit}`; if(seen.has(key))continue; seen.add(key);
         markers.push({time:time as Time,position:r.exit==="LONG"?"aboveBar":"belowBar",color:r.exit==="LONG"?"#facc15":"#e879f9",shape:"square",text:"×",size:1.5});
       }
     }
     if(controllerCfg.enabled&&controllerCfg.showMarkers){
       for(const r of controllerRows){
-        const time=Math.floor(r.time/sec)*sec;
+        const time=Math.floor((r.time-1)/sec)*sec;
         const key=`controller-${time}-${r.action}`;
         if(seen.has(key))continue;
         seen.add(key);
