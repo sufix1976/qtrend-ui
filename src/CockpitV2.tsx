@@ -49,6 +49,7 @@ type ExitConfig = {
   slowSma:number;
   offset:number;
   useSlowExit:boolean;
+  exitOnTrendFlip:boolean;
 };
 
 type ChannelConfig = {
@@ -76,7 +77,7 @@ type InstrumentProfile = {
   };
 };
 
-type ExitRow = { time:number; exit:"LONG"|"SHORT" };
+type ExitRow = { time:number; exit:"LONG"|"SHORT"; reason:"SMA"|"TREND_FLIP" };
 type ChannelRow = { time:number; trend:1|-1; value:number };
 
 type EntryRow = {
@@ -129,6 +130,7 @@ const DEFAULT_EXIT:ExitConfig={
   slowSma:100,
   offset:150,
   useSlowExit:true,
+  exitOnTrendFlip:true,
 };
 
 const DEFAULT_CHANNEL:ChannelConfig={
@@ -336,8 +338,8 @@ function calculateExit(candles:Candle[],cfg:ExitConfig):ExitRow[]{
     const shortLine=cfg.useSlowExit?s:s-cfg.offset;
     if(f>longLine)wasLongAbove=true;
     if(f<shortLine)wasShortBelow=true;
-    if(wasLongAbove&&f<=longLine){rows.push({time:candles[i].time,exit:"LONG"});wasLongAbove=false;}
-    if(wasShortBelow&&f>=shortLine){rows.push({time:candles[i].time,exit:"SHORT"});wasShortBelow=false;}
+    if(wasLongAbove&&f<=longLine){rows.push({time:candles[i].time,exit:"LONG",reason:"SMA"});wasLongAbove=false;}
+    if(wasShortBelow&&f>=shortLine){rows.push({time:candles[i].time,exit:"SHORT",reason:"SMA"});wasShortBelow=false;}
   }
   return rows;
 }
@@ -420,6 +422,18 @@ export default function CockpitV2(){
   const channelCfg=profile.modules.channel;
   const channelCandles=useMemo(()=>resample(entryBase,channelCfg.tf),[entryBase,channelCfg.tf]);
   const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrend(channelCandles,channelCfg):[],[channelCandles,channelCfg]);
+  const trendFlipExitRows=useMemo(()=>{
+    if(!exitCfg.enabled||!exitCfg.exitOnTrendFlip)return [];
+    const rows:ExitRow[]=[];
+    for(let i=1;i<channelRows.length;i+=1){
+      const previous=channelRows[i-1].trend;
+      const current=channelRows[i].trend;
+      if(previous===-1&&current===1)rows.push({time:channelRows[i].time,exit:"SHORT",reason:"TREND_FLIP"});
+      if(previous===1&&current===-1)rows.push({time:channelRows[i].time,exit:"LONG",reason:"TREND_FLIP"});
+    }
+    return rows;
+  },[channelRows,exitCfg.enabled,exitCfg.exitOnTrendFlip]);
+  const allExitRows=useMemo(()=>[...exitRows,...trendFlipExitRows].sort((a,b)=>a.time-b.time),[exitRows,trendFlipExitRows]);
   const channelLine=useMemo(()=>channelRows.map(r=>({
     time:r.time as Time,
     value:r.value,
@@ -430,7 +444,7 @@ export default function CockpitV2(){
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
   },[entryRows,interval]);
   const selectedEntry=selected?entryByChartTime.get(selected.time)||null:null;
-  const selectedExit=selected?exitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
+  const selectedExit=selected?allExitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
   const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time)||null:null;
 
   useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
@@ -499,13 +513,13 @@ export default function CockpitV2(){
       }
     }
     if(exitCfg.enabled&&exitCfg.showMarkers){
-      for(const r of exitRows){
+      for(const r of allExitRows){
         const time=Math.floor(r.time/sec)*sec; const key=`exit-${time}-${r.exit}`; if(seen.has(key))continue; seen.add(key);
         markers.push({time:time as Time,position:r.exit==="LONG"?"aboveBar":"belowBar",color:r.exit==="LONG"?"#facc15":"#e879f9",shape:"square",text:"×",size:1.5});
       }
     }
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
-  },[entryRows,exitRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,interval]);
+  },[entryRows,allExitRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,interval]);
 
   async function load(fit=false){
     try{
@@ -578,7 +592,7 @@ export default function CockpitV2(){
             <InfoRow k="ATR" v={fmt(selectedEntry?.atr,3)}/><InfoRow k="RSI" v={fmt(selectedEntry?.rsi,2)}/>
             <InfoRow k="MACD Hist" v={fmt(selectedEntry?.hist,4)}/>
             <div style={{height:1,background:"#24324a",margin:"5px 0"}}/>
-            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v={selectedChannel?(selectedChannel.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="TREND TF" v={channelCfg.tf}/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
+            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v={selectedChannel?(selectedChannel.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="TREND TF" v={channelCfg.tf}/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
           </div>:<div style={{color:"#64748b"}}>Noch keine Kerze ausgewählt.</div>}
         </section>
       </aside>
@@ -610,6 +624,7 @@ function ExitSettings({cfg,patch}:{cfg:ExitConfig;patch:(p:Partial<ExitConfig>)=
       <label style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:10,paddingBottom:8}}>Modul aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
       <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
       <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT Linien anzeigen<input type="checkbox" checked={cfg.showLines} onChange={e=>patch({showLines:e.target.checked})}/></label>
+      <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT bei Trendwechsel<input type="checkbox" checked={cfg.exitOnTrendFlip} onChange={e=>patch({exitOnTrendFlip:e.target.checked})}/></label>
     </div>
     <div style={{fontWeight:800,color:"#cbd5e1",fontSize:12}}>SMA-Cross EXIT</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{num("fastSma","Fast SMA")}{num("slowSma","Slow SMA")}{num("offset","Offset",0.1)}</div>
@@ -621,6 +636,7 @@ function ExitSettings({cfg,patch}:{cfg:ExitConfig;patch:(p:Partial<ExitConfig>)=
       <span style={{color:"#e879f9",fontWeight:900}}>┅┅ untere Offset-Linie</span>
       <span style={{color:"#facc15",fontWeight:900}}>■ × LONG-EXIT · gelb</span>
       <span style={{color:"#e879f9",fontWeight:900}}>■ × SHORT-EXIT · magenta</span>
+      <span style={{color:"#94a3b8"}}>Trendwechsel: grün→rot = LONG-EXIT · rot→grün = SHORT-EXIT</span>
       <span style={{color:"#64748b"}}>EXIT arbeitet unabhängig. Änderungen wirken sofort und ändern ENTRY nicht.</span>
     </div>
   </div>;
