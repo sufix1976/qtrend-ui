@@ -19,7 +19,7 @@ const INTERVALS = ["1m","2m","3m","5m","8m","10m","15m","18m","30m","1h"];
 
 type Candle = { time:number; open:number; high:number; low:number; close:number; volume?:number };
 type ChartMode = "candles" | "heikin";
-type ModuleKey = "view" | "entry" | "exit" | "channel" | "poc";
+type ModuleKey = "view" | "entry" | "exit" | "channel" | "poc" | "controller";
 
 type EntryConfig = {
   enabled:boolean;
@@ -61,6 +61,13 @@ type ChannelConfig = {
   useRmaAtr:boolean;
 };
 
+type ControllerConfig = {
+  enabled:boolean;
+  showMarkers:boolean;
+  requireTrend:boolean;
+  allowFlip:boolean;
+};
+
 type InstrumentProfile = {
   symbol:string;
   interval:string;
@@ -74,11 +81,19 @@ type InstrumentProfile = {
     exit:ExitConfig;
     channel:ChannelConfig;
     poc:Record<string, unknown>;
+    controller:ControllerConfig;
   };
 };
 
 type ExitRow = { time:number; exit:"LONG"|"SHORT"; reason:"SMA"|"TREND_FLIP" };
 type ChannelRow = { time:number; trend:1|-1; value:number };
+type ControllerState = "FLAT"|"LONG"|"SHORT";
+type ControllerRow = {
+  time:number;
+  action:"OPEN_LONG"|"OPEN_SHORT"|"EXIT_LONG"|"EXIT_SHORT"|"FLIP_LONG"|"FLIP_SHORT";
+  state:ControllerState;
+  reason:"ENTRY"|"SMA_EXIT"|"TREND_FLIP_EXIT"|"OPPOSITE_ENTRY";
+};
 
 type EntryRow = {
   time:number;
@@ -142,6 +157,13 @@ const DEFAULT_CHANNEL:ChannelConfig={
   useRmaAtr:true,
 };
 
+const DEFAULT_CONTROLLER:ControllerConfig={
+  enabled:true,
+  showMarkers:true,
+  requireTrend:true,
+  allowFlip:true,
+};
+
 function defaultProfile(symbol:string, interval:string):InstrumentProfile {
   return {
     symbol,
@@ -151,7 +173,7 @@ function defaultProfile(symbol:string, interval:string):InstrumentProfile {
     showPaneA:false,
     showPaneB:false,
     updatedAt:new Date().toISOString(),
-    modules:{entry:{...DEFAULT_ENTRY},exit:{...DEFAULT_EXIT},channel:{...DEFAULT_CHANNEL},poc:{}},
+    modules:{entry:{...DEFAULT_ENTRY},exit:{...DEFAULT_EXIT},channel:{...DEFAULT_CHANNEL},poc:{},controller:{...DEFAULT_CONTROLLER}},
   };
 }
 
@@ -169,6 +191,7 @@ function readProfile(symbol:string, fallbackInterval:string):InstrumentProfile {
         exit:{...DEFAULT_EXIT,...(parsed?.modules?.exit||{})},
         channel:{...DEFAULT_CHANNEL,...(parsed?.modules?.channel||{})},
         poc:{...(parsed?.modules?.poc||{})},
+        controller:{...DEFAULT_CONTROLLER,...(parsed?.modules?.controller||{})},
       },
     };
   } catch {
@@ -385,6 +408,51 @@ function calculateSupertrend(candles:Candle[],cfg:ChannelConfig):ChannelRow[]{
   return rows;
 }
 
+function calculateController(entries:EntryRow[],exits:ExitRow[],trendRows:ChannelRow[],cfg:ControllerConfig):ControllerRow[]{
+  if(!cfg.enabled)return [];
+  const events=[
+    ...exits.map(row=>({time:row.time,priority:0,kind:"EXIT" as const,row})),
+    ...entries.filter(row=>row.entry!=="NONE").map(row=>({time:row.time,priority:1,kind:"ENTRY" as const,row})),
+  ].sort((a,b)=>a.time-b.time||a.priority-b.priority);
+  const output:ControllerRow[]=[];
+  let state:ControllerState="FLAT";
+  let trendIndex=-1;
+
+  for(const event of events){
+    while(trendIndex+1<trendRows.length&&trendRows[trendIndex+1].time<=event.time)trendIndex+=1;
+    const trend=trendIndex>=0?trendRows[trendIndex].trend:null;
+
+    if(event.kind==="EXIT"){
+      const exit=event.row.exit;
+      if(exit==="LONG"&&state==="LONG"){
+        state="FLAT";
+        output.push({time:event.time,action:"EXIT_LONG",state,reason:event.row.reason==="TREND_FLIP"?"TREND_FLIP_EXIT":"SMA_EXIT"});
+      }else if(exit==="SHORT"&&state==="SHORT"){
+        state="FLAT";
+        output.push({time:event.time,action:"EXIT_SHORT",state,reason:event.row.reason==="TREND_FLIP"?"TREND_FLIP_EXIT":"SMA_EXIT"});
+      }
+      continue;
+    }
+
+    const direction=event.row.entry;
+    if(direction==="NONE")continue;
+    if(cfg.requireTrend&&((direction==="LONG"&&trend!==1)||(direction==="SHORT"&&trend!==-1)))continue;
+    if(state===direction)continue;
+
+    if(state==="FLAT"){
+      state=direction;
+      output.push({time:event.time,action:direction==="LONG"?"OPEN_LONG":"OPEN_SHORT",state,reason:"ENTRY"});
+      continue;
+    }
+
+    if(cfg.allowFlip){
+      state=direction;
+      output.push({time:event.time,action:direction==="LONG"?"FLIP_LONG":"FLIP_SHORT",state,reason:"OPPOSITE_ENTRY"});
+    }
+  }
+  return output;
+}
+
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}
 function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}
 function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
@@ -434,6 +502,8 @@ export default function CockpitV2(){
     return rows;
   },[channelRows,exitCfg.enabled,exitCfg.exitOnTrendFlip]);
   const allExitRows=useMemo(()=>[...exitRows,...trendFlipExitRows].sort((a,b)=>a.time-b.time),[exitRows,trendFlipExitRows]);
+  const controllerCfg=profile.modules.controller;
+  const controllerRows=useMemo(()=>calculateController(entryRows,allExitRows,channelRows,controllerCfg),[entryRows,allExitRows,channelRows,controllerCfg]);
   const channelLine=useMemo(()=>channelRows.map(r=>({
     time:r.time as Time,
     value:r.value,
@@ -446,6 +516,7 @@ export default function CockpitV2(){
   const selectedEntry=selected?entryByChartTime.get(selected.time)||null:null;
   const selectedExit=selected?allExitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
   const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time)||null:null;
+  const selectedController=selected?[...controllerRows].reverse().find(r=>r.time<=selected.time)||null:null;
 
   useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
 
@@ -518,8 +589,26 @@ export default function CockpitV2(){
         markers.push({time:time as Time,position:r.exit==="LONG"?"aboveBar":"belowBar",color:r.exit==="LONG"?"#facc15":"#e879f9",shape:"square",text:"×",size:1.5});
       }
     }
+    if(controllerCfg.enabled&&controllerCfg.showMarkers){
+      for(const r of controllerRows){
+        const time=Math.floor(r.time/sec)*sec;
+        const key=`controller-${time}-${r.action}`;
+        if(seen.has(key))continue;
+        seen.add(key);
+        const opensLong=r.action==="OPEN_LONG"||r.action==="FLIP_LONG";
+        const opensShort=r.action==="OPEN_SHORT"||r.action==="FLIP_SHORT";
+        markers.push({
+          time:time as Time,
+          position:opensLong?"belowBar":opensShort?"aboveBar":r.action==="EXIT_LONG"?"aboveBar":"belowBar",
+          color:opensLong?"#38bdf8":opensShort?"#fb923c":"#f8fafc",
+          shape:opensLong?"arrowUp":opensShort?"arrowDown":"circle",
+          text:opensLong?(r.action==="FLIP_LONG"?"C FLIP L":"C LONG"):opensShort?(r.action==="FLIP_SHORT"?"C FLIP S":"C SHORT"):r.action==="EXIT_LONG"?"C EXIT L":"C EXIT S",
+          size:2.5,
+        });
+      }
+    }
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
-  },[entryRows,allExitRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,interval]);
+  },[entryRows,allExitRows,controllerRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,controllerCfg.enabled,controllerCfg.showMarkers,interval]);
 
   async function load(fit=false){
     try{
@@ -537,9 +626,10 @@ export default function CockpitV2(){
   function patchEntry(patch:Partial<EntryConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,entry:{...prev.modules.entry,...patch}}}));}
   function patchExit(patch:Partial<ExitConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,exit:{...prev.modules.exit,...patch}}}));}
   function patchChannel(patch:Partial<ChannelConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,channel:{...prev.modules.channel,...patch}}}));}
+  function patchController(patch:Partial<ControllerConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,controller:{...prev.modules.controller,...patch}}}));}
   function persist(){saveProfile(profile);setStatus(`Profil ${symbol} gespeichert`);}
 
-  const moduleTabs:ModuleKey[]=["view","entry","exit","channel","poc"];
+  const moduleTabs:ModuleKey[]=["view","entry","exit","channel","poc","controller"];
   const active=profile.activeModule;
 
   return <div style={{height:"calc(100vh - 84px)",minHeight:720,display:"grid",gridTemplateRows:"auto 1fr",gap:10,padding:8,color:"#dbe4ff",background:"#050914"}}>
@@ -566,7 +656,7 @@ export default function CockpitV2(){
       <aside style={{display:"grid",gridTemplateRows:"minmax(330px,auto) minmax(0,1fr)",gap:10,minHeight:0}}>
         <section style={{...panel,padding:12,overflow:"auto"}}>
           <div style={{fontWeight:900,fontSize:14,marginBottom:10}}>MODUL-EINSTELLUNGEN</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5,marginBottom:12}}>{moduleTabs.map(k=><button key={k} onClick={()=>patchProfile({activeModule:k})} style={{...buttonStyle,padding:"7px 4px",fontSize:11,borderColor:active===k?"#7c3aed":"#334155",background:active===k?"#4c1d95":"#0a1020"}}>{k.toUpperCase()}</button>)}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:12}}>{moduleTabs.map(k=><button key={k} onClick={()=>patchProfile({activeModule:k})} style={{...buttonStyle,padding:"7px 4px",fontSize:11,borderColor:active===k?"#7c3aed":"#334155",background:active===k?"#4c1d95":"#0a1020"}}>{k.toUpperCase()}</button>)}</div>
           {active==="view"&&<div style={{display:"grid",gap:10}}>
             <label style={{display:"grid",gap:5,fontSize:12,color:"#94a3b8"}}>Chart-TF<select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
             <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Pane A vorbereiten<input type="checkbox" checked={profile.showPaneA} onChange={e=>patchProfile({showPaneA:e.target.checked})}/></label>
@@ -576,6 +666,7 @@ export default function CockpitV2(){
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
           {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
           {active==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel}/>}
+          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController}/>}
           {active==="poc"&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
@@ -592,7 +683,7 @@ export default function CockpitV2(){
             <InfoRow k="ATR" v={fmt(selectedEntry?.atr,3)}/><InfoRow k="RSI" v={fmt(selectedEntry?.rsi,2)}/>
             <InfoRow k="MACD Hist" v={fmt(selectedEntry?.hist,4)}/>
             <div style={{height:1,background:"#24324a",margin:"5px 0"}}/>
-            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v={selectedChannel?(selectedChannel.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="TREND TF" v={channelCfg.tf}/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
+            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v={selectedChannel?(selectedChannel.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="TREND TF" v={channelCfg.tf}/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v={selectedController?.state||"FLAT"}/><InfoRow k="C ACTION" v={selectedController?.action||"—"}/><InfoRow k="C GRUND" v={selectedController?.reason||"—"}/>
           </div>:<div style={{color:"#64748b"}}>Noch keine Kerze ausgewählt.</div>}
         </section>
       </aside>
@@ -657,6 +748,21 @@ function ChannelSettings({cfg,patch}:{cfg:ChannelConfig;patch:(p:Partial<Channel
       <span style={{color:"#22c55e",fontWeight:900}}>━━ LONG-Trend · grün</span>
       <span style={{color:"#ef4444",fontWeight:900}}>━━ SHORT-Trend · rot</span>
       <span style={{color:"#64748b"}}>Nur Trenddarstellung. Keine Filterung von ENTRY oder EXIT.</span>
+    </div>
+  </div>;
+}
+
+function ControllerSettings({cfg,patch}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void}){
+  return <div style={{display:"grid",gap:10}}>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller-Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Trendrichtung verlangen<input type="checkbox" checked={cfg.requireTrend} onChange={e=>patch({requireTrend:e.target.checked})}/></label>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Direkten Flip erlauben<input type="checkbox" checked={cfg.allowFlip} onChange={e=>patch({allowFlip:e.target.checked})}/></label>
+    <div style={{display:"grid",gap:5,padding:9,border:"1px dashed #334155",borderRadius:8,fontSize:11}}>
+      <span style={{color:"#38bdf8",fontWeight:900}}>▲ Controller LONG · blau</span>
+      <span style={{color:"#fb923c",fontWeight:900}}>▼ Controller SHORT · orange</span>
+      <span style={{color:"#f8fafc",fontWeight:900}}>● Controller EXIT · weiß</span>
+      <span style={{color:"#64748b"}}>ENTRY nur in Trendrichtung. Passende EXITs schließen; unpassende EXITs werden ignoriert.</span>
     </div>
   </div>;
 }
