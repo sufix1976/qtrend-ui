@@ -382,32 +382,68 @@ function calculateExitCausal(base:Candle[],cfg:ExitConfig):ExitRow[]{
   return rows;
 }
 
-function calculateExitLinesCausal(base:Candle[],cfg:ExitConfig,chartTf:string){
-  const moduleSeconds=tfSeconds(cfg.tf);
+function completedModuleCandles(base:Candle[],tf:string){
+  if(!base.length)return [];
+  const moduleSeconds=tfSeconds(tf);
+  const knownThrough=base[base.length-1].time+60;
+  return resample(base,tf).filter(candle=>candle.time+moduleSeconds<=knownThrough);
+}
+
+function availableChartTime(moduleStart:number,moduleTf:string,chartTf:string){
+  const availableAt=moduleStart+tfSeconds(moduleTf);
   const chartSeconds=tfSeconds(chartTf);
-  const completedCloses:number[]=[];
-  const buckets=new Map<number,{time:Time;fast:number;slow:number;upper:number;lower:number}>();
-  let bucket:number|null=null;
-  let partialClose:number|null=null;
-  for(const candle of base){
-    const nextBucket=Math.floor(candle.time/moduleSeconds)*moduleSeconds;
-    if(bucket!=null&&nextBucket!==bucket&&partialClose!=null)completedCloses.push(partialClose);
-    if(nextBucket!==bucket)bucket=nextBucket;
-    partialClose=candle.close;
-    const values=[...completedCloses,partialClose];
-    const fast=lastSma(values,cfg.fastSma);
-    const slow=lastSma(values,cfg.slowSma);
+  return Math.floor((availableAt-1)/chartSeconds)*chartSeconds;
+}
+
+function calculateExitLinesVisual(base:Candle[],cfg:ExitConfig,chartTf:string){
+  const candles=completedModuleCandles(base,cfg.tf);
+  const closes=candles.map(c=>c.close);
+  const values:{time:Time;fast:number;slow:number;upper:number;lower:number}[]=[];
+  for(let i=0;i<candles.length;i+=1){
+    const fast=lastSma(closes.slice(0,i+1),cfg.fastSma);
+    const slow=lastSma(closes.slice(0,i+1),cfg.slowSma);
     if(fast==null||slow==null)continue;
-    const chartTime=Math.floor(candle.time/chartSeconds)*chartSeconds;
-    buckets.set(chartTime,{time:chartTime as Time,fast,slow,upper:slow+cfg.offset,lower:slow-cfg.offset});
+    const time=availableChartTime(candles[i].time,cfg.tf,chartTf);
+    values.push({time:time as Time,fast,slow,upper:slow+cfg.offset,lower:slow-cfg.offset});
   }
-  const values=[...buckets.values()];
   return {
     fast:values.map(v=>({time:v.time,value:v.fast})),
     slow:values.map(v=>({time:v.time,value:v.slow})),
     upper:values.map(v=>({time:v.time,value:v.upper})),
     lower:values.map(v=>({time:v.time,value:v.lower})),
   };
+}
+
+function calculateSupertrendVisual(base:Candle[],cfg:ChannelConfig,chartTf:string):{time:Time;value:number;color:string}[]{
+  const candles=completedModuleCandles(base,cfg.tf);
+  const trs:number[]=[];
+  const output:{time:Time;value:number;color:string}[]=[];
+  let atr:number|null=null;
+  let trend:1|-1=1;
+  let previousUp:number|null=null;
+  let previousDn:number|null=null;
+  for(let i=0;i<candles.length;i+=1){
+    const candle=candles[i];
+    const previous=i>0?candles[i-1]:null;
+    const tr=previous==null?candle.high-candle.low:Math.max(candle.high-candle.low,Math.abs(candle.high-previous.close),Math.abs(candle.low-previous.close));
+    trs.push(tr);
+    if(cfg.useRmaAtr){
+      if(atr!=null)atr=(atr*(cfg.atrPeriod-1)+tr)/cfg.atrPeriod;
+      else if(trs.length>=cfg.atrPeriod)atr=trs.slice(-cfg.atrPeriod).reduce((a,b)=>a+b,0)/cfg.atrPeriod;
+    }else if(trs.length>=cfg.atrPeriod)atr=trs.slice(-cfg.atrPeriod).reduce((a,b)=>a+b,0)/cfg.atrPeriod;
+    if(atr==null)continue;
+    const src=(candle.high+candle.low)/2;
+    const basicUp=src-cfg.multiplier*atr;
+    const basicDn=src+cfg.multiplier*atr;
+    const up:number=previousUp!=null&&previous!=null&&previous.close>previousUp?Math.max(basicUp,previousUp):basicUp;
+    const dn:number=previousDn!=null&&previous!=null&&previous.close<previousDn?Math.min(basicDn,previousDn):basicDn;
+    if(trend===-1&&previousDn!=null&&candle.close>previousDn)trend=1;
+    else if(trend===1&&previousUp!=null&&candle.close<previousUp)trend=-1;
+    previousUp=up;previousDn=dn;
+    const time=availableChartTime(candle.time,cfg.tf,chartTf);
+    output.push({time:time as Time,value:trend===1?up:dn,color:trend===1?"#22c55e":"#ef4444"});
+  }
+  return output;
 }
 
 function calculateSupertrendCausal(base:Candle[],cfg:ChannelConfig):ChannelRow[]{
@@ -547,7 +583,7 @@ export default function CockpitV2(){
   const entryRows=useMemo(()=>entryCfg.enabled?calculateEntry(entryCandles,entryCfg):[],[entryCandles,entryCfg]);
   const exitCfg=profile.modules.exit;
   const exitRows=useMemo(()=>exitCfg.enabled?calculateExitCausal(entryBase,exitCfg):[],[entryBase,exitCfg]);
-  const exitLines=useMemo(()=>calculateExitLinesCausal(entryBase,exitCfg,interval),[entryBase,exitCfg,interval]);
+  const exitLines=useMemo(()=>calculateExitLinesVisual(entryBase,exitCfg,interval),[entryBase,exitCfg,interval]);
   const channelCfg=profile.modules.channel;
   const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrendCausal(entryBase,channelCfg):[],[entryBase,channelCfg]);
   const trendFlipExitRows=useMemo(()=>{
@@ -565,11 +601,7 @@ export default function CockpitV2(){
   const controllerCfg=profile.modules.controller;
   const controllerEntries=useMemo(()=>entryRows.map(row=>({...row,time:row.time+tfSeconds(entryCfg.tf)})),[entryRows,entryCfg.tf]);
   const controllerRows=useMemo(()=>calculateController(controllerEntries,allExitRows,channelRows,controllerCfg),[controllerEntries,allExitRows,channelRows,controllerCfg]);
-  const channelLine=useMemo(()=>{
-    const sec=tfSeconds(interval);const map=new Map<number,{time:Time;value:number;color:string}>();
-    for(const row of channelRows){const time=Math.floor((row.time-1)/sec)*sec;map.set(time,{time:time as Time,value:row.value,color:row.trend===1?"#22c55e":"#ef4444"});}
-    return [...map.values()];
-  },[channelRows,interval]);
+  const channelLine=useMemo(()=>calculateSupertrendVisual(entryBase,channelCfg,interval),[entryBase,channelCfg,interval]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
