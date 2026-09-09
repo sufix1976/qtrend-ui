@@ -715,7 +715,7 @@ export default function CockpitV2(){
 
   useEffect(()=>{
     const row=controllerRows[controllerRows.length-1];
-    if(!row||symbol!=="GOLD")return;
+    if(!row)return;
     const action=row.action==="OPEN_LONG"||row.action==="FLIP_LONG"?"LONG":row.action==="OPEN_SHORT"||row.action==="FLIP_SHORT"?"SHORT":"EXIT";
     const key=`${symbol}-${interval}-${action}-${row.time}`;
     if(submittedControllerEvent.current===key)return;
@@ -1010,7 +1010,7 @@ function ControllerSettings({cfg,patch,stats,trading,tradingMessage,onAuto,onTes
       <button onClick={()=>onTest("SHORT")} style={{...buttonStyle,padding:"9px 4px",background:"#991b1b",color:"white"}}>TEST SHORT</button>
       <button onClick={()=>onTest("EXIT")} style={{...buttonStyle,padding:"9px 4px",background:"#334155",color:"white"}}>TEST EXIT</button>
     </div>
-    <div style={{color:"#64748b",fontSize:11}}>V2 sendet nur frische GOLD-Controller-Ereignisse. AUTO und Positionsgröße stammen aus der bestehenden Engine-Konfiguration.</div>
+    <div style={{color:"#64748b",fontSize:11}}>V2 sendet nur frische Controller-Ereignisse. AUTO und Positionsgröße stammen je Instrument aus der bestehenden Engine-Konfiguration.</div>
   </div>;
 }
 
