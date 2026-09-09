@@ -104,6 +104,12 @@ type BacktestStats = {
   profitFactor:number|null;
   winRate:number;
 };
+type TradingStatus = {
+  demo:boolean;
+  execute_orders:boolean;
+  config:{symbol:string;interval:string;size:number;auto_enabled:number}|null;
+  event:{event_id:string;action:string;status:string;error?:string|null;created_at:string}|null;
+};
 
 type EntryRow = {
   time:number;
@@ -620,6 +626,9 @@ export default function CockpitV2(){
   const channelTrendSeries=useRef<ISeriesApi<"Line">|null>(null);
   const markerApi=useRef<any>(null);
   const candleMapRef=useRef(new Map<number,Candle>());
+  const submittedControllerEvent=useRef("");
+  const [tradingStatus,setTradingStatus]=useState<TradingStatus|null>(null);
+  const [tradingMessage,setTradingMessage]=useState("Tradingstatus wird geladen …");
   const shown=useMemo(()=>profile.chartMode==="heikin"?heikin(candles):candles,[candles,profile.chartMode]);
   const entryCfg=profile.modules.entry;
   const entryCandles=useMemo(()=>resample(entryBase,entryCfg.tf),[entryBase,entryCfg.tf]);
@@ -656,6 +665,46 @@ export default function CockpitV2(){
   const selectedController=selected?[...controllerRows].reverse().find(r=>r.time<=selected.time+tfSeconds(interval))||null:null;
 
   useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
+
+  useEffect(()=>{
+    let stopped=false;
+    const poll=async()=>{
+      try{
+        const response=await fetch(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`,{cache:"no-store"});
+        const json=await response.json();
+        if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.error||`HTTP ${response.status}`);
+        if(!stopped){setTradingStatus(json);setTradingMessage("Bereit");}
+      }catch(error){if(!stopped)setTradingMessage(`Statusfehler: ${error instanceof Error?error.message:String(error)}`);}
+    };
+    void poll();
+    const timer=window.setInterval(()=>void poll(),5000);
+    return()=>{stopped=true;window.clearInterval(timer);};
+  },[symbol]);
+
+  useEffect(()=>{
+    const row=controllerRows[controllerRows.length-1];
+    if(!row||symbol!=="GOLD")return;
+    const action=row.action==="OPEN_LONG"||row.action==="FLIP_LONG"?"LONG":row.action==="OPEN_SHORT"||row.action==="FLIP_SHORT"?"SHORT":"EXIT";
+    const key=`${symbol}-${interval}-${action}-${row.time}`;
+    if(submittedControllerEvent.current===key)return;
+    if(Math.floor(Date.now()/1000)-row.time>120)return;
+    submittedControllerEvent.current=key;
+    void (async()=>{
+      try{
+        const response=await fetch(`${BACKEND_BASE}/cockpit-v2/controller-event`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({symbol,interval,action,event_time:row.time,controller_action:row.action}),
+        });
+        const json=await response.json();
+        if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.reason||json?.error||`HTTP ${response.status}`);
+        setTradingMessage(json?.ignored?`Ignoriert: ${json.reason}`:json?.inserted?`Queue: ${action}`:`Bereits erfasst: ${action}`);
+      }catch(error){
+        submittedControllerEvent.current="";
+        setTradingMessage(`Sendefehler: ${error instanceof Error?error.message:String(error)}`);
+      }
+    })();
+  },[controllerRows,symbol,interval]);
 
   useEffect(()=>{
     const next=readProfile(symbol,interval);
@@ -803,7 +852,7 @@ export default function CockpitV2(){
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
           {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
           {active==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel}/>}
-          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={backtestStats}/>}
+          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={backtestStats} trading={tradingStatus} tradingMessage={tradingMessage}/>}
           {active==="poc"&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
@@ -889,7 +938,7 @@ function ChannelSettings({cfg,patch}:{cfg:ChannelConfig;patch:(p:Partial<Channel
   </div>;
 }
 
-function ControllerSettings({cfg,patch,stats}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void;stats:BacktestStats}){
+function ControllerSettings({cfg,patch,stats,trading,tradingMessage}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void;stats:BacktestStats;trading:TradingStatus|null;tradingMessage:string}){
   return <div style={{display:"grid",gap:10}}>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller-Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
@@ -913,6 +962,17 @@ function ControllerSettings({cfg,patch,stats}:{cfg:ControllerConfig;patch:(p:Par
       <InfoRow k="Bruttoverlust" v={stats.grossLoss.toFixed(2)}/>
     </div>
     <div style={{color:"#64748b",fontSize:11}}>Ausführung am nächsten verfügbaren 1m-Open. Offener letzter Trade, Spread, Slippage und Gebühren sind nicht enthalten.</div>
+    <div style={{fontWeight:900,color:"#cbd5e1",fontSize:12}}>TRADING · CAPITAL.COM</div>
+    <div style={{display:"grid",gap:7,padding:10,border:`1px solid ${trading?.config?.auto_enabled?"#166534":"#7f1d1d"}`,borderRadius:8,background:"#08111e"}}>
+      <InfoRow k="Konto" v={trading?.demo?"DEMO":"—"}/>
+      <InfoRow k="AUTO" v={trading?.config?.auto_enabled?"ON":"OFF"}/>
+      <InfoRow k="Positionsgröße" v={trading?.config?.size??"—"}/>
+      <InfoRow k="Orders" v={trading?.execute_orders?"AKTIV":"DEAKTIVIERT"}/>
+      <InfoRow k="Letztes Event" v={trading?.event?.action||"—"}/>
+      <InfoRow k="Queue-Status" v={trading?.event?.status||"—"}/>
+      <div style={{color:tradingMessage.startsWith("Sende")||tradingMessage.startsWith("Status")?"#fca5a5":"#86efac",fontSize:11,fontWeight:800}}>{tradingMessage}</div>
+    </div>
+    <div style={{color:"#64748b",fontSize:11}}>V2 sendet nur frische GOLD-Controller-Ereignisse. AUTO und Positionsgröße stammen aus der bestehenden Engine-Konfiguration.</div>
   </div>;
 }
 
