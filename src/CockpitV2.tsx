@@ -4,6 +4,8 @@ import {
   CrosshairMode,
   createChart,
   createSeriesMarkers,
+  LineSeries,
+  LineStyle,
   type IChartApi,
   type ISeriesApi,
   type Time,
@@ -42,6 +44,7 @@ type ExitConfig = {
   enabled:boolean;
   tf:string;
   showMarkers:boolean;
+  showLines:boolean;
   fastSma:number;
   slowSma:number;
   offset:number;
@@ -111,6 +114,7 @@ const DEFAULT_EXIT:ExitConfig={
   enabled:true,
   tf:"5m",
   showMarkers:true,
+  showLines:true,
   fastSma:10,
   slowSma:100,
   offset:150,
@@ -319,6 +323,19 @@ function calculateExit(candles:Candle[],cfg:ExitConfig):ExitRow[]{
   return rows;
 }
 
+function calculateExitLines(candles:Candle[],cfg:ExitConfig){
+  const close=candles.map(c=>c.close);
+  const fast=sma(close,cfg.fastSma);
+  const slow=sma(close,cfg.slowSma);
+  const points=(values:(number|null)[],offset=0)=>values.flatMap((value,i)=>value==null?[]:[{time:candles[i].time as Time,value:value+offset}]);
+  return {
+    fast:points(fast),
+    slow:points(slow),
+    upper:points(slow,cfg.offset),
+    lower:points(slow,-cfg.offset),
+  };
+}
+
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}
 function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}
 function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
@@ -338,6 +355,10 @@ export default function CockpitV2(){
   const priceHost=useRef<HTMLDivElement>(null);
   const chart=useRef<IChartApi|null>(null);
   const series=useRef<ISeriesApi<"Candlestick">|null>(null);
+  const exitFastSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const exitSlowSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const exitUpperSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const exitLowerSeries=useRef<ISeriesApi<"Line">|null>(null);
   const markerApi=useRef<any>(null);
   const candleMap=useMemo(()=>new Map(candles.map(c=>[Number(c.time),c])),[candles]);
   const shown=useMemo(()=>profile.chartMode==="heikin"?heikin(candles):candles,[candles,profile.chartMode]);
@@ -347,6 +368,7 @@ export default function CockpitV2(){
   const exitCfg=profile.modules.exit;
   const exitCandles=useMemo(()=>resample(entryBase,exitCfg.tf),[entryBase,exitCfg.tf]);
   const exitRows=useMemo(()=>exitCfg.enabled?calculateExit(exitCandles,exitCfg):[],[exitCandles,exitCfg]);
+  const exitLines=useMemo(()=>calculateExitLines(exitCandles,exitCfg),[exitCandles,exitCfg]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
@@ -374,15 +396,31 @@ export default function CockpitV2(){
       localization:{timeFormatter:(time:any)=>chartBerlinTime(Number(time))},
     });
     const s=c.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false});
+    exitFastSeries.current=c.addSeries(LineSeries,{color:"#38bdf8",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+    exitSlowSeries.current=c.addSeries(LineSeries,{color:"#f8fafc",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+    exitUpperSeries.current=c.addSeries(LineSeries,{color:"#facc15",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
+    exitLowerSeries.current=c.addSeries(LineSeries,{color:"#e879f9",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
     chart.current=c; series.current=s; markerApi.current=createSeriesMarkers(s,[]);
     c.subscribeCrosshairMove(param=>{if(!param.time)return;const row=candleMap.get(Number(param.time));if(row)setSelected(row);});
-    return()=>{c.remove();chart.current=null;series.current=null;markerApi.current=null;};
+    return()=>{c.remove();chart.current=null;series.current=null;exitFastSeries.current=null;exitSlowSeries.current=null;exitUpperSeries.current=null;exitLowerSeries.current=null;markerApi.current=null;};
   },[candleMap]);
 
   useEffect(()=>{
     series.current?.setData(shown.map(c=>({time:c.time as Time,open:c.open,high:c.high,low:c.low,close:c.close})));
     if(shown.length&&!selected) setSelected(candles[candles.length-1]||null);
   },[shown]);
+
+  useEffect(()=>{
+    const visible=exitCfg.enabled&&exitCfg.showLines;
+    exitFastSeries.current?.applyOptions({visible});
+    exitSlowSeries.current?.applyOptions({visible});
+    exitUpperSeries.current?.applyOptions({visible:visible&&!exitCfg.useSlowExit});
+    exitLowerSeries.current?.applyOptions({visible:visible&&!exitCfg.useSlowExit});
+    exitFastSeries.current?.setData(exitLines.fast);
+    exitSlowSeries.current?.setData(exitLines.slow);
+    exitUpperSeries.current?.setData(exitLines.upper);
+    exitLowerSeries.current?.setData(exitLines.lower);
+  },[exitLines,exitCfg.enabled,exitCfg.showLines,exitCfg.useSlowExit]);
 
   useEffect(()=>{
     if(!markerApi.current)return;
@@ -503,11 +541,16 @@ function ExitSettings({cfg,patch}:{cfg:ExitConfig;patch:(p:Partial<ExitConfig>)=
       <label style={{display:"grid",gap:4,fontSize:12,color:"#94a3b8"}}>EXIT TF<select value={cfg.tf} onChange={e=>patch({tf:e.target.value})} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
       <label style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:10,paddingBottom:8}}>Modul aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
       <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
+      <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT Linien anzeigen<input type="checkbox" checked={cfg.showLines} onChange={e=>patch({showLines:e.target.checked})}/></label>
     </div>
     <div style={{fontWeight:800,color:"#cbd5e1",fontSize:12}}>SMA-Cross EXIT</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{num("fastSma","Fast SMA")}{num("slowSma","Slow SMA")}{num("offset","Offset",0.1)}</div>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Slow SMA direkt verwenden<input type="checkbox" checked={cfg.useSlowExit} onChange={e=>patch({useSlowExit:e.target.checked})}/></label>
     <div style={{display:"grid",gap:5,padding:9,border:"1px dashed #334155",borderRadius:8,fontSize:11}}>
+      <span style={{color:"#38bdf8",fontWeight:900}}>━━ Fast SMA</span>
+      <span style={{color:"#f8fafc",fontWeight:900}}>━━ Slow SMA</span>
+      <span style={{color:"#facc15",fontWeight:900}}>┅┅ obere Offset-Linie</span>
+      <span style={{color:"#e879f9",fontWeight:900}}>┅┅ untere Offset-Linie</span>
       <span style={{color:"#facc15",fontWeight:900}}>■ × LONG-EXIT · gelb</span>
       <span style={{color:"#e879f9",fontWeight:900}}>■ × SHORT-EXIT · magenta</span>
       <span style={{color:"#64748b"}}>EXIT arbeitet unabhängig. Änderungen wirken sofort und ändern ENTRY nicht.</span>
