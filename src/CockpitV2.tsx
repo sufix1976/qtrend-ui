@@ -664,15 +664,47 @@ export default function CockpitV2(){
   const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time+tfSeconds(interval))||null:null;
   const selectedController=selected?[...controllerRows].reverse().find(r=>r.time<=selected.time+tfSeconds(interval))||null:null;
 
+  async function refreshTradingStatus(){
+    const response=await fetch(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`,{cache:"no-store"});
+    const json=await response.json();
+    if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.error||`HTTP ${response.status}`);
+    setTradingStatus(json);
+    return json as TradingStatus;
+  }
+
+  async function changeTradingAuto(enabled:boolean){
+    try{
+      setTradingMessage(enabled?"AUTO wird eingeschaltet …":"AUTO wird ausgeschaltet …");
+      const response=await fetch(`${BACKEND_BASE}/cockpit-v2/auto`,{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,enabled}),
+      });
+      const json=await response.json();
+      if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.error||`HTTP ${response.status}`);
+      submittedControllerEvent.current="";
+      await refreshTradingStatus();
+      setTradingMessage(enabled?"AUTO ON":"AUTO OFF");
+    }catch(error){setTradingMessage(`AUTO-Fehler: ${error instanceof Error?error.message:String(error)}`);}
+  }
+
+  async function runTradingTest(action:"LONG"|"SHORT"|"EXIT"){
+    try{
+      setTradingMessage(`TEST ${action} wird gesendet …`);
+      const response=await fetch(`${BACKEND_BASE}/worker-test/event`,{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,interval,action}),
+      });
+      const json=await response.json();
+      if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.error||`HTTP ${response.status}`);
+      setTradingMessage(`TEST ${action}: Queue ${json.event_id}`);
+    }catch(error){setTradingMessage(`Testfehler: ${error instanceof Error?error.message:String(error)}`);}
+  }
+
   useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
 
   useEffect(()=>{
     let stopped=false;
     const poll=async()=>{
       try{
-        const response=await fetch(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`,{cache:"no-store"});
-        const json=await response.json();
-        if(!response.ok||json?.ok===false)throw new Error(json?.info||json?.error||`HTTP ${response.status}`);
+        const json=await refreshTradingStatus();
         if(!stopped){setTradingStatus(json);setTradingMessage("Bereit");}
       }catch(error){if(!stopped)setTradingMessage(`Statusfehler: ${error instanceof Error?error.message:String(error)}`);}
     };
@@ -839,7 +871,7 @@ export default function CockpitV2(){
         {profile.showPaneB&&<div style={{...panel,padding:12,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontWeight:800}}>INDIKATOR-PANE B · vorbereitet</div>}
       </div>
 
-      <aside style={{display:"grid",gridTemplateRows:"minmax(330px,auto) minmax(0,1fr)",gap:10,minHeight:0}}>
+      <aside style={{display:"grid",gridTemplateRows:"minmax(0,3fr) minmax(0,2fr)",gap:10,minHeight:0,overflow:"hidden"}}>
         <section style={{...panel,padding:12,overflow:"auto"}}>
           <div style={{fontWeight:900,fontSize:14,marginBottom:10}}>MODUL-EINSTELLUNGEN</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:12}}>{moduleTabs.map(k=><button key={k} onClick={()=>patchProfile({activeModule:k})} style={{...buttonStyle,padding:"7px 4px",fontSize:11,borderColor:active===k?"#7c3aed":"#334155",background:active===k?"#4c1d95":"#0a1020"}}>{k.toUpperCase()}</button>)}</div>
@@ -852,7 +884,7 @@ export default function CockpitV2(){
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
           {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
           {active==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel}/>}
-          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={backtestStats} trading={tradingStatus} tradingMessage={tradingMessage}/>}
+          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={backtestStats} trading={tradingStatus} tradingMessage={tradingMessage} onAuto={changeTradingAuto} onTest={runTradingTest}/>}
           {active==="poc"&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
@@ -938,7 +970,7 @@ function ChannelSettings({cfg,patch}:{cfg:ChannelConfig;patch:(p:Partial<Channel
   </div>;
 }
 
-function ControllerSettings({cfg,patch,stats,trading,tradingMessage}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void;stats:BacktestStats;trading:TradingStatus|null;tradingMessage:string}){
+function ControllerSettings({cfg,patch,stats,trading,tradingMessage,onAuto,onTest}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void;stats:BacktestStats;trading:TradingStatus|null;tradingMessage:string;onAuto:(enabled:boolean)=>void;onTest:(action:"LONG"|"SHORT"|"EXIT")=>void}){
   return <div style={{display:"grid",gap:10}}>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller-Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
@@ -971,6 +1003,12 @@ function ControllerSettings({cfg,patch,stats,trading,tradingMessage}:{cfg:Contro
       <InfoRow k="Letztes Event" v={trading?.event?.action||"—"}/>
       <InfoRow k="Queue-Status" v={trading?.event?.status||"—"}/>
       <div style={{color:tradingMessage.startsWith("Sende")||tradingMessage.startsWith("Status")?"#fca5a5":"#86efac",fontSize:11,fontWeight:800}}>{tradingMessage}</div>
+    </div>
+    <button onClick={()=>onAuto(!Boolean(trading?.config?.auto_enabled))} style={{...buttonStyle,width:"100%",borderColor:trading?.config?.auto_enabled?"#b91c1c":"#15803d",background:trading?.config?.auto_enabled?"#7f1d1d":"#166534",color:"white"}}>{trading?.config?.auto_enabled?"AUTO AUSSCHALTEN":"AUTO EINSCHALTEN"}</button>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+      <button onClick={()=>onTest("LONG")} style={{...buttonStyle,padding:"9px 4px",background:"#166534",color:"white"}}>TEST LONG</button>
+      <button onClick={()=>onTest("SHORT")} style={{...buttonStyle,padding:"9px 4px",background:"#991b1b",color:"white"}}>TEST SHORT</button>
+      <button onClick={()=>onTest("EXIT")} style={{...buttonStyle,padding:"9px 4px",background:"#334155",color:"white"}}>TEST EXIT</button>
     </div>
     <div style={{color:"#64748b",fontSize:11}}>V2 sendet nur frische GOLD-Controller-Ereignisse. AUTO und Positionsgröße stammen aus der bestehenden Engine-Konfiguration.</div>
   </div>;
