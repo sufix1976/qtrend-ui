@@ -94,6 +94,16 @@ type ControllerRow = {
   state:ControllerState;
   reason:"ENTRY"|"SMA_EXIT"|"TREND_FLIP_EXIT"|"OPPOSITE_ENTRY";
 };
+type BacktestStats = {
+  trades:number;
+  wins:number;
+  losses:number;
+  grossProfit:number;
+  grossLoss:number;
+  net:number;
+  profitFactor:number|null;
+  winRate:number;
+};
 
 type EntryRow = {
   time:number;
@@ -551,6 +561,39 @@ function calculateController(entries:EntryRow[],exits:ExitRow[],trendRows:Channe
   return output;
 }
 
+function calculateBacktest(rows:ControllerRow[],base:Candle[]):BacktestStats{
+  let side:"LONG"|"SHORT"|null=null;
+  let entryPrice=0;
+  let trades=0,wins=0,losses=0,grossProfit=0,grossLoss=0;
+  let candleIndex=0;
+  const executionPrice=(time:number)=>{
+    while(candleIndex<base.length&&base[candleIndex].time<time)candleIndex+=1;
+    return candleIndex<base.length?base[candleIndex].open:null;
+  };
+  const close=(price:number)=>{
+    if(side==null)return;
+    const pnl=side==="LONG"?price-entryPrice:entryPrice-price;
+    trades+=1;
+    if(pnl>0){wins+=1;grossProfit+=pnl;}
+    else if(pnl<0){losses+=1;grossLoss+=-pnl;}
+    side=null;
+  };
+  for(const row of rows){
+    const price=executionPrice(row.time);
+    if(price==null)continue;
+    if(row.action==="EXIT_LONG"||row.action==="EXIT_SHORT"){close(price);continue;}
+    if(row.action==="FLIP_LONG"||row.action==="FLIP_SHORT")close(price);
+    if(row.action==="OPEN_LONG"||row.action==="FLIP_LONG"){side="LONG";entryPrice=price;}
+    if(row.action==="OPEN_SHORT"||row.action==="FLIP_SHORT"){side="SHORT";entryPrice=price;}
+  }
+  return {
+    trades,wins,losses,grossProfit,grossLoss,
+    net:grossProfit-grossLoss,
+    profitFactor:grossLoss>0?grossProfit/grossLoss:grossProfit>0?Infinity:null,
+    winRate:trades>0?wins/trades*100:0,
+  };
+}
+
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}
 function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}
 function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
@@ -601,6 +644,7 @@ export default function CockpitV2(){
   const controllerCfg=profile.modules.controller;
   const controllerEntries=useMemo(()=>entryRows.map(row=>({...row,time:row.time+tfSeconds(entryCfg.tf)})),[entryRows,entryCfg.tf]);
   const controllerRows=useMemo(()=>calculateController(controllerEntries,allExitRows,channelRows,controllerCfg),[controllerEntries,allExitRows,channelRows,controllerCfg]);
+  const backtestStats=useMemo(()=>calculateBacktest(controllerRows,entryBase),[controllerRows,entryBase]);
   const channelLine=useMemo(()=>calculateSupertrendVisual(entryBase,channelCfg,interval),[entryBase,channelCfg,interval]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
@@ -759,7 +803,7 @@ export default function CockpitV2(){
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
           {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
           {active==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel}/>}
-          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController}/>}
+          {active==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={backtestStats}/>}
           {active==="poc"&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
@@ -845,7 +889,7 @@ function ChannelSettings({cfg,patch}:{cfg:ChannelConfig;patch:(p:Partial<Channel
   </div>;
 }
 
-function ControllerSettings({cfg,patch}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void}){
+function ControllerSettings({cfg,patch,stats}:{cfg:ControllerConfig;patch:(p:Partial<ControllerConfig>)=>void;stats:BacktestStats}){
   return <div style={{display:"grid",gap:10}}>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
     <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Controller-Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
@@ -857,6 +901,18 @@ function ControllerSettings({cfg,patch}:{cfg:ControllerConfig;patch:(p:Partial<C
       <span style={{color:"#f8fafc",fontWeight:900}}>● Controller EXIT · weiß</span>
       <span style={{color:"#64748b"}}>ENTRY nur in Trendrichtung. Passende EXITs schließen; unpassende EXITs werden ignoriert.</span>
     </div>
+    <div style={{fontWeight:900,color:"#cbd5e1",fontSize:12}}>KAUSALER BACKTEST · GESCHLOSSENE TRADES</div>
+    <div style={{display:"grid",gap:7,padding:10,border:"1px solid #334155",borderRadius:8,background:"#08111e"}}>
+      <InfoRow k="PF" v={stats.profitFactor==null?"—":stats.profitFactor===Infinity?"∞":stats.profitFactor.toFixed(3)}/>
+      <InfoRow k="Netto Punkte" v={stats.net.toFixed(2)}/>
+      <InfoRow k="Trades" v={stats.trades}/>
+      <InfoRow k="Trefferquote" v={`${stats.winRate.toFixed(1)} %`}/>
+      <InfoRow k="Gewinner" v={stats.wins}/>
+      <InfoRow k="Verlierer" v={stats.losses}/>
+      <InfoRow k="Bruttogewinn" v={stats.grossProfit.toFixed(2)}/>
+      <InfoRow k="Bruttoverlust" v={stats.grossLoss.toFixed(2)}/>
+    </div>
+    <div style={{color:"#64748b",fontSize:11}}>Ausführung am nächsten verfügbaren 1m-Open. Offener letzter Trade, Spread, Slippage und Gebühren sind nicht enthalten.</div>
   </div>;
 }
 
