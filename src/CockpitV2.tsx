@@ -38,6 +38,16 @@ type EntryConfig = {
   phaseSwitchMargin:number;
 };
 
+type ExitConfig = {
+  enabled:boolean;
+  tf:string;
+  showMarkers:boolean;
+  fastSma:number;
+  slowSma:number;
+  offset:number;
+  useSlowExit:boolean;
+};
+
 type InstrumentProfile = {
   symbol:string;
   interval:string;
@@ -48,11 +58,13 @@ type InstrumentProfile = {
   updatedAt:string;
   modules:{
     entry:EntryConfig;
-    exit:Record<string, unknown>;
+    exit:ExitConfig;
     channel:Record<string, unknown>;
     poc:Record<string, unknown>;
   };
 };
+
+type ExitRow = { time:number; exit:"LONG"|"SHORT" };
 
 type EntryRow = {
   time:number;
@@ -95,6 +107,16 @@ const DEFAULT_ENTRY:EntryConfig={
   phaseSwitchMargin:8,
 };
 
+const DEFAULT_EXIT:ExitConfig={
+  enabled:true,
+  tf:"5m",
+  showMarkers:true,
+  fastSma:10,
+  slowSma:100,
+  offset:150,
+  useSlowExit:true,
+};
+
 function defaultProfile(symbol:string, interval:string):InstrumentProfile {
   return {
     symbol,
@@ -104,7 +126,7 @@ function defaultProfile(symbol:string, interval:string):InstrumentProfile {
     showPaneA:false,
     showPaneB:false,
     updatedAt:new Date().toISOString(),
-    modules:{entry:{...DEFAULT_ENTRY},exit:{},channel:{},poc:{}},
+    modules:{entry:{...DEFAULT_ENTRY},exit:{...DEFAULT_EXIT},channel:{},poc:{}},
   };
 }
 
@@ -119,7 +141,7 @@ function readProfile(symbol:string, fallbackInterval:string):InstrumentProfile {
       symbol,
       modules:{
         entry:{...DEFAULT_ENTRY,...(parsed?.modules?.entry||{})},
-        exit:{...(parsed?.modules?.exit||{})},
+        exit:{...DEFAULT_EXIT,...(parsed?.modules?.exit||{})},
         channel:{...(parsed?.modules?.channel||{})},
         poc:{...(parsed?.modules?.poc||{})},
       },
@@ -276,6 +298,27 @@ function calculateEntry(candles:Candle[],cfg:EntryConfig):EntryRow[]{
   return rows;
 }
 
+function calculateExit(candles:Candle[],cfg:ExitConfig):ExitRow[]{
+  const close=candles.map(c=>c.close);
+  const fast=sma(close,cfg.fastSma);
+  const slow=sma(close,cfg.slowSma);
+  const rows:ExitRow[]=[];
+  let wasLongAbove=false;
+  let wasShortBelow=false;
+
+  for(let i=0;i<candles.length;i+=1){
+    const f=fast[i],s=slow[i];
+    if(f==null||s==null)continue;
+    const longLine=cfg.useSlowExit?s:s+cfg.offset;
+    const shortLine=cfg.useSlowExit?s:s-cfg.offset;
+    if(f>longLine)wasLongAbove=true;
+    if(f<shortLine)wasShortBelow=true;
+    if(wasLongAbove&&f<=longLine){rows.push({time:candles[i].time,exit:"LONG"});wasLongAbove=false;}
+    if(wasShortBelow&&f>=shortLine){rows.push({time:candles[i].time,exit:"SHORT"});wasShortBelow=false;}
+  }
+  return rows;
+}
+
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}
 function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}
 function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
@@ -301,11 +344,15 @@ export default function CockpitV2(){
   const entryCfg=profile.modules.entry;
   const entryCandles=useMemo(()=>resample(entryBase,entryCfg.tf),[entryBase,entryCfg.tf]);
   const entryRows=useMemo(()=>entryCfg.enabled?calculateEntry(entryCandles,entryCfg):[],[entryCandles,entryCfg]);
+  const exitCfg=profile.modules.exit;
+  const exitCandles=useMemo(()=>resample(entryBase,exitCfg.tf),[entryBase,exitCfg.tf]);
+  const exitRows=useMemo(()=>exitCfg.enabled?calculateExit(exitCandles,exitCfg):[],[exitCandles,exitCfg]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
   },[entryRows,interval]);
   const selectedEntry=selected?entryByChartTime.get(selected.time)||null:null;
+  const selectedExit=selected?exitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
 
   useEffect(()=>{
     const next=readProfile(symbol,interval);
@@ -339,22 +386,22 @@ export default function CockpitV2(){
 
   useEffect(()=>{
     if(!markerApi.current)return;
-    if(!entryCfg.enabled||!entryCfg.showMarkers){markerApi.current.setMarkers([]);return;}
-    const sec=tfSeconds(interval); const seen=new Set<number>(); const markers:any[]=[];
-    for(const r of entryRows){
-      if(r.entry==="NONE")continue;
-      const time=Math.floor(r.time/sec)*sec; if(seen.has(time))continue; seen.add(time);
-      markers.push({
-  time: time as Time,
-  position: r.entry === "LONG" ? "belowBar" : "aboveBar",
-  color: r.entry === "LONG" ? "#22c55e" : "#ef4444",
-  shape: r.entry === "LONG" ? "arrowUp" : "arrowDown",
-  text: "",
-  size: 2,
-});
+    const sec=tfSeconds(interval); const seen=new Set<string>(); const markers:any[]=[];
+    if(entryCfg.enabled&&entryCfg.showMarkers){
+      for(const r of entryRows){
+        if(r.entry==="NONE")continue;
+        const time=Math.floor(r.time/sec)*sec; const key=`entry-${time}-${r.entry}`; if(seen.has(key))continue; seen.add(key);
+        markers.push({time:time as Time,position:r.entry==="LONG"?"belowBar":"aboveBar",color:r.entry==="LONG"?"#22c55e":"#ef4444",shape:r.entry==="LONG"?"arrowUp":"arrowDown",text:"",size:2});
+      }
+    }
+    if(exitCfg.enabled&&exitCfg.showMarkers){
+      for(const r of exitRows){
+        const time=Math.floor(r.time/sec)*sec; const key=`exit-${time}-${r.exit}`; if(seen.has(key))continue; seen.add(key);
+        markers.push({time:time as Time,position:r.exit==="LONG"?"aboveBar":"belowBar",color:r.exit==="LONG"?"#facc15":"#e879f9",shape:"square",text:"×",size:1.5});
+      }
     }
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
-  },[entryRows,entryCfg.enabled,entryCfg.showMarkers,interval]);
+  },[entryRows,exitRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,interval]);
 
   async function load(){
     try{
@@ -370,6 +417,7 @@ export default function CockpitV2(){
 
   function patchProfile(patch:Partial<InstrumentProfile>){setProfile(prev=>({...prev,...patch}));}
   function patchEntry(patch:Partial<EntryConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,entry:{...prev.modules.entry,...patch}}}));}
+  function patchExit(patch:Partial<ExitConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,exit:{...prev.modules.exit,...patch}}}));}
   function persist(){saveProfile(profile);setStatus(`Profil ${symbol} gespeichert`);}
 
   const moduleTabs:ModuleKey[]=["view","entry","exit","channel","poc"];
@@ -390,7 +438,7 @@ export default function CockpitV2(){
       <div style={{display:"grid",gridTemplateRows:`minmax(430px,1fr) ${profile.showPaneA?"180px":"0px"} ${profile.showPaneB?"180px":"0px"}`,gap:8,minHeight:0}}>
         <div style={{...panel,overflow:"hidden",position:"relative"}}>
           <div ref={priceHost} style={{position:"absolute",inset:0}} />
-          <div style={{position:"absolute",top:10,left:12,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:12,fontWeight:800}}>{symbol} · {interval} · {profile.chartMode==="heikin"?"Heikin":"Candles"} · ENTRY {entryCfg.tf}</div>
+          <div style={{position:"absolute",top:10,left:12,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:12,fontWeight:800}}>{symbol} · {interval} · {profile.chartMode==="heikin"?"Heikin":"Candles"} · ENTRY {entryCfg.tf} · EXIT {exitCfg.tf}</div>
         </div>
         {profile.showPaneA&&<div style={{...panel,padding:12,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontWeight:800}}>INDIKATOR-PANE A · vorbereitet</div>}
         {profile.showPaneB&&<div style={{...panel,padding:12,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontWeight:800}}>INDIKATOR-PANE B · vorbereitet</div>}
@@ -404,10 +452,11 @@ export default function CockpitV2(){
             <label style={{display:"grid",gap:5,fontSize:12,color:"#94a3b8"}}>Chart-TF<select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
             <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Pane A vorbereiten<input type="checkbox" checked={profile.showPaneA} onChange={e=>patchProfile({showPaneA:e.target.checked})}/></label>
             <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Pane B vorbereiten<input type="checkbox" checked={profile.showPaneB} onChange={e=>patchProfile({showPaneB:e.target.checked})}/></label>
-            <div style={{padding:10,border:"1px dashed #334155",borderRadius:8,color:"#64748b",fontSize:12}}>ENTRY ist jetzt das erste echte Modul. EXIT, CHANNEL und POC bleiben noch leer.</div>
+            <div style={{padding:10,border:"1px dashed #334155",borderRadius:8,color:"#64748b",fontSize:12}}>ENTRY und EXIT sind aktiv. CHANNEL und POC bleiben noch leer.</div>
           </div>}
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
-          {(active==="exit"||active==="channel"||active==="poc")&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
+          {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
+          {(active==="channel"||active==="poc")&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
         <section style={{...panel,padding:12,overflow:"auto"}}>
@@ -423,7 +472,7 @@ export default function CockpitV2(){
             <InfoRow k="ATR" v={fmt(selectedEntry?.atr,3)}/><InfoRow k="RSI" v={fmt(selectedEntry?.rsi,2)}/>
             <InfoRow k="MACD Hist" v={fmt(selectedEntry?.hist,4)}/>
             <div style={{height:1,background:"#24324a",margin:"5px 0"}}/>
-            <InfoRow k="EXIT" v="—" muted/><InfoRow k="CHANNEL" v="—" muted/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
+            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v="—" muted/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
           </div>:<div style={{color:"#64748b"}}>Noch keine Kerze ausgewählt.</div>}
         </section>
       </aside>
@@ -444,6 +493,25 @@ function EntrySettings({cfg,patch}:{cfg:EntryConfig;patch:(p:Partial<EntryConfig
     <div style={{fontWeight:800,color:"#cbd5e1",fontSize:12}}>Flow / Expansion</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{num("expansionMomentum","Momentum min")}{num("expansionEnergy","Energy min")}{num("expansionVolatility","Volatility min")}{num("expansionCompressionMax","Compression max")}{num("compressionMin","Compression min")}{num("phaseSwitchMargin","Phase Margin",0.5)}</div>
     <div style={{padding:9,border:"1px dashed #334155",borderRadius:8,color:"#64748b",fontSize:11}}>Nur ENTRY. Änderungen wirken sofort auf die Marker. Gespeichert werden sie erst mit PROFIL SPEICHERN und gelten dann nur für dieses Instrument.</div>
+  </div>;
+}
+
+function ExitSettings({cfg,patch}:{cfg:ExitConfig;patch:(p:Partial<ExitConfig>)=>void}){
+  const num=(key:keyof ExitConfig,label:string,step=1)=><label style={{display:"grid",gap:4,fontSize:12,color:"#94a3b8"}}>{label}<input type="number" step={step} value={Number(cfg[key])} onChange={e=>patch({[key]:Number(e.target.value)} as Partial<ExitConfig>)} style={inputStyle}/></label>;
+  return <div style={{display:"grid",gap:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <label style={{display:"grid",gap:4,fontSize:12,color:"#94a3b8"}}>EXIT TF<select value={cfg.tf} onChange={e=>patch({tf:e.target.value})} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
+      <label style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:10,paddingBottom:8}}>Modul aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
+      <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>EXIT Marker anzeigen<input type="checkbox" checked={cfg.showMarkers} onChange={e=>patch({showMarkers:e.target.checked})}/></label>
+    </div>
+    <div style={{fontWeight:800,color:"#cbd5e1",fontSize:12}}>SMA-Cross EXIT</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{num("fastSma","Fast SMA")}{num("slowSma","Slow SMA")}{num("offset","Offset",0.1)}</div>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Slow SMA direkt verwenden<input type="checkbox" checked={cfg.useSlowExit} onChange={e=>patch({useSlowExit:e.target.checked})}/></label>
+    <div style={{display:"grid",gap:5,padding:9,border:"1px dashed #334155",borderRadius:8,fontSize:11}}>
+      <span style={{color:"#facc15",fontWeight:900}}>■ × LONG-EXIT · gelb</span>
+      <span style={{color:"#e879f9",fontWeight:900}}>■ × SHORT-EXIT · magenta</span>
+      <span style={{color:"#64748b"}}>EXIT arbeitet unabhängig. Änderungen wirken sofort und ändern ENTRY nicht.</span>
+    </div>
   </div>;
 }
 
