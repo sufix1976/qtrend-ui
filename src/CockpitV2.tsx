@@ -51,6 +51,15 @@ type ExitConfig = {
   useSlowExit:boolean;
 };
 
+type ChannelConfig = {
+  enabled:boolean;
+  tf:string;
+  showLines:boolean;
+  atrPeriod:number;
+  multiplier:number;
+  useRmaAtr:boolean;
+};
+
 type InstrumentProfile = {
   symbol:string;
   interval:string;
@@ -62,12 +71,13 @@ type InstrumentProfile = {
   modules:{
     entry:EntryConfig;
     exit:ExitConfig;
-    channel:Record<string, unknown>;
+    channel:ChannelConfig;
     poc:Record<string, unknown>;
   };
 };
 
 type ExitRow = { time:number; exit:"LONG"|"SHORT" };
+type ChannelRow = { time:number; trend:1|-1; value:number };
 
 type EntryRow = {
   time:number;
@@ -121,6 +131,15 @@ const DEFAULT_EXIT:ExitConfig={
   useSlowExit:true,
 };
 
+const DEFAULT_CHANNEL:ChannelConfig={
+  enabled:true,
+  tf:"30m",
+  showLines:true,
+  atrPeriod:10,
+  multiplier:3,
+  useRmaAtr:true,
+};
+
 function defaultProfile(symbol:string, interval:string):InstrumentProfile {
   return {
     symbol,
@@ -130,7 +149,7 @@ function defaultProfile(symbol:string, interval:string):InstrumentProfile {
     showPaneA:false,
     showPaneB:false,
     updatedAt:new Date().toISOString(),
-    modules:{entry:{...DEFAULT_ENTRY},exit:{...DEFAULT_EXIT},channel:{},poc:{}},
+    modules:{entry:{...DEFAULT_ENTRY},exit:{...DEFAULT_EXIT},channel:{...DEFAULT_CHANNEL},poc:{}},
   };
 }
 
@@ -146,7 +165,7 @@ function readProfile(symbol:string, fallbackInterval:string):InstrumentProfile {
       modules:{
         entry:{...DEFAULT_ENTRY,...(parsed?.modules?.entry||{})},
         exit:{...DEFAULT_EXIT,...(parsed?.modules?.exit||{})},
-        channel:{...(parsed?.modules?.channel||{})},
+        channel:{...DEFAULT_CHANNEL,...(parsed?.modules?.channel||{})},
         poc:{...(parsed?.modules?.poc||{})},
       },
     };
@@ -336,6 +355,34 @@ function calculateExitLines(candles:Candle[],cfg:ExitConfig){
   };
 }
 
+function calculateSupertrend(candles:Candle[],cfg:ChannelConfig):ChannelRow[]{
+  if(!candles.length)return [];
+  const tr:(number|null)[]=candles.map((c,i)=>i===0?c.high-c.low:Math.max(c.high-c.low,Math.abs(c.high-candles[i-1].close),Math.abs(c.low-candles[i-1].close)));
+  const atr=cfg.useRmaAtr?rma(tr,cfg.atrPeriod):sma(tr.map(v=>v??0),cfg.atrPeriod);
+  const rows:ChannelRow[]=[];
+  let trend:1|-1=1;
+  let prevUp:number|null=null;
+  let prevDn:number|null=null;
+
+  for(let i=0;i<candles.length;i+=1){
+    const a=atr[i];
+    if(a==null)continue;
+    const c=candles[i];
+    const src=(c.high+c.low)/2;
+    const basicUp=src-cfg.multiplier*a;
+    const basicDn=src+cfg.multiplier*a;
+    const up:number=prevUp!=null&&i>0&&candles[i-1].close>prevUp?Math.max(basicUp,prevUp):basicUp;
+    const dn:number=prevDn!=null&&i>0&&candles[i-1].close<prevDn?Math.min(basicDn,prevDn):basicDn;
+    const previousTrend=trend;
+    if(previousTrend===-1&&prevDn!=null&&c.close>prevDn)trend=1;
+    else if(previousTrend===1&&prevUp!=null&&c.close<prevUp)trend=-1;
+    rows.push({time:c.time,trend,value:trend===1?up:dn});
+    prevUp=up;
+    prevDn=dn;
+  }
+  return rows;
+}
+
 function phaseText(v:number){return v===1?"EXPANSION":v===2?"PULLBACK":v===3?"EXHAUSTION":"COMPRESSION";}
 function dirText(v:number){return v===1?"UP":v===-1?"DOWN":"RANGE";}
 function fmt(v:number|null|undefined,d=2){return v==null||!Number.isFinite(v)?"—":v.toFixed(d);}
@@ -359,8 +406,10 @@ export default function CockpitV2(){
   const exitSlowSeries=useRef<ISeriesApi<"Line">|null>(null);
   const exitUpperSeries=useRef<ISeriesApi<"Line">|null>(null);
   const exitLowerSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const channelUpSeries=useRef<ISeriesApi<"Line">|null>(null);
+  const channelDownSeries=useRef<ISeriesApi<"Line">|null>(null);
   const markerApi=useRef<any>(null);
-  const candleMap=useMemo(()=>new Map(candles.map(c=>[Number(c.time),c])),[candles]);
+  const candleMapRef=useRef(new Map<number,Candle>());
   const shown=useMemo(()=>profile.chartMode==="heikin"?heikin(candles):candles,[candles,profile.chartMode]);
   const entryCfg=profile.modules.entry;
   const entryCandles=useMemo(()=>resample(entryBase,entryCfg.tf),[entryBase,entryCfg.tf]);
@@ -369,12 +418,22 @@ export default function CockpitV2(){
   const exitCandles=useMemo(()=>resample(entryBase,exitCfg.tf),[entryBase,exitCfg.tf]);
   const exitRows=useMemo(()=>exitCfg.enabled?calculateExit(exitCandles,exitCfg):[],[exitCandles,exitCfg]);
   const exitLines=useMemo(()=>calculateExitLines(exitCandles,exitCfg),[exitCandles,exitCfg]);
+  const channelCfg=profile.modules.channel;
+  const channelCandles=useMemo(()=>resample(entryBase,channelCfg.tf),[entryBase,channelCfg.tf]);
+  const channelRows=useMemo(()=>channelCfg.enabled?calculateSupertrend(channelCandles,channelCfg):[],[channelCandles,channelCfg]);
+  const channelLines=useMemo(()=>({
+    up:channelRows.map(r=>r.trend===1?{time:r.time as Time,value:r.value}:{time:r.time as Time}),
+    down:channelRows.map(r=>r.trend===-1?{time:r.time as Time,value:r.value}:{time:r.time as Time}),
+  }),[channelRows]);
   const entryByChartTime=useMemo(()=>{
     const map=new Map<number,EntryRow>(); const sec=tfSeconds(interval);
     for(const r of entryRows){map.set(Math.floor(r.time/sec)*sec,r);} return map;
   },[entryRows,interval]);
   const selectedEntry=selected?entryByChartTime.get(selected.time)||null:null;
   const selectedExit=selected?exitRows.find(r=>Math.floor(r.time/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
+  const selectedChannel=selected?[...channelRows].reverse().find(r=>r.time<=selected.time)||null:null;
+
+  useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[Number(c.time),c]));},[candles]);
 
   useEffect(()=>{
     const next=readProfile(symbol,interval);
@@ -400,10 +459,12 @@ export default function CockpitV2(){
     exitSlowSeries.current=c.addSeries(LineSeries,{color:"#f8fafc",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
     exitUpperSeries.current=c.addSeries(LineSeries,{color:"#facc15",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
     exitLowerSeries.current=c.addSeries(LineSeries,{color:"#e879f9",lineWidth:2,lineStyle:LineStyle.Dashed,priceLineVisible:false,lastValueVisible:false});
+    channelUpSeries.current=c.addSeries(LineSeries,{color:"#22c55e",lineWidth:3,priceLineVisible:false,lastValueVisible:false});
+    channelDownSeries.current=c.addSeries(LineSeries,{color:"#ef4444",lineWidth:3,priceLineVisible:false,lastValueVisible:false});
     chart.current=c; series.current=s; markerApi.current=createSeriesMarkers(s,[]);
-    c.subscribeCrosshairMove(param=>{if(!param.time)return;const row=candleMap.get(Number(param.time));if(row)setSelected(row);});
-    return()=>{c.remove();chart.current=null;series.current=null;exitFastSeries.current=null;exitSlowSeries.current=null;exitUpperSeries.current=null;exitLowerSeries.current=null;markerApi.current=null;};
-  },[candleMap]);
+    c.subscribeCrosshairMove(param=>{if(!param.time)return;const row=candleMapRef.current.get(Number(param.time));if(row)setSelected(row);});
+    return()=>{c.remove();chart.current=null;series.current=null;exitFastSeries.current=null;exitSlowSeries.current=null;exitUpperSeries.current=null;exitLowerSeries.current=null;channelUpSeries.current=null;channelDownSeries.current=null;markerApi.current=null;};
+  },[]);
 
   useEffect(()=>{
     series.current?.setData(shown.map(c=>({time:c.time as Time,open:c.open,high:c.high,low:c.low,close:c.close})));
@@ -421,6 +482,14 @@ export default function CockpitV2(){
     exitUpperSeries.current?.setData(exitLines.upper);
     exitLowerSeries.current?.setData(exitLines.lower);
   },[exitLines,exitCfg.enabled,exitCfg.showLines,exitCfg.useSlowExit]);
+
+  useEffect(()=>{
+    const visible=channelCfg.enabled&&channelCfg.showLines;
+    channelUpSeries.current?.applyOptions({visible});
+    channelDownSeries.current?.applyOptions({visible});
+    channelUpSeries.current?.setData(channelLines.up);
+    channelDownSeries.current?.setData(channelLines.down);
+  },[channelLines,channelCfg.enabled,channelCfg.showLines]);
 
   useEffect(()=>{
     if(!markerApi.current)return;
@@ -441,21 +510,22 @@ export default function CockpitV2(){
     markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));
   },[entryRows,exitRows,entryCfg.enabled,entryCfg.showMarkers,exitCfg.enabled,exitCfg.showMarkers,interval]);
 
-  async function load(){
+  async function load(fit=false){
     try{
       setBusy(true); setStatus(`${symbol} ${interval} wird geladen …`);
       const [rows,base]=await Promise.all([fetchCandles(symbol,interval,5000),fetchCandles(symbol,"1m",30000)]);
       setCandles(rows); setEntryBase(base); setSelected(rows[rows.length-1]||null);
       setStatus(`${symbol} ${interval} · ${rows.length} Kerzen · ENTRY-Basis ${base.length}×1m`);
-      queueMicrotask(()=>chart.current?.timeScale().fitContent());
+      if(fit)queueMicrotask(()=>chart.current?.timeScale().fitContent());
     }catch(e){setStatus(`Fehler: ${e instanceof Error?e.message:String(e)}`);}finally{setBusy(false);}
   }
 
-  useEffect(()=>{void load();const t=window.setInterval(()=>void load(),30000);return()=>window.clearInterval(t);},[symbol,interval]);
+  useEffect(()=>{void load(true);const t=window.setInterval(()=>void load(false),30000);return()=>window.clearInterval(t);},[symbol,interval]);
 
   function patchProfile(patch:Partial<InstrumentProfile>){setProfile(prev=>({...prev,...patch}));}
   function patchEntry(patch:Partial<EntryConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,entry:{...prev.modules.entry,...patch}}}));}
   function patchExit(patch:Partial<ExitConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,exit:{...prev.modules.exit,...patch}}}));}
+  function patchChannel(patch:Partial<ChannelConfig>){setProfile(prev=>({...prev,modules:{...prev.modules,channel:{...prev.modules.channel,...patch}}}));}
   function persist(){saveProfile(profile);setStatus(`Profil ${symbol} gespeichert`);}
 
   const moduleTabs:ModuleKey[]=["view","entry","exit","channel","poc"];
@@ -467,7 +537,7 @@ export default function CockpitV2(){
       <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={inputStyle}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
       <select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
       <button onClick={()=>patchProfile({chartMode:profile.chartMode==="candles"?"heikin":"candles"})} style={{...buttonStyle,borderColor:profile.chartMode==="heikin"?"#2563eb":"#334155",color:profile.chartMode==="heikin"?"#93c5fd":"#e5eefc"}}>{profile.chartMode==="heikin"?"HEIKIN":"KERZEN"}</button>
-      <button disabled={busy} onClick={()=>void load()} style={buttonStyle}>{busy?"LÄDT …":"AKTUALISIEREN"}</button>
+      <button disabled={busy} onClick={()=>void load(true)} style={buttonStyle}>{busy?"LÄDT …":"AKTUALISIEREN"}</button>
       <div style={{flex:1,minWidth:220,padding:"8px 12px",borderRadius:7,border:"1px solid #166534",background:"#052e1a",color:"#86efac",fontWeight:800}}>{status}</div>
       <button onClick={persist} style={{...buttonStyle,borderColor:"#0f766e",background:"#0f766e",color:"white"}}>PROFIL SPEICHERN</button>
     </div>
@@ -476,7 +546,7 @@ export default function CockpitV2(){
       <div style={{display:"grid",gridTemplateRows:`minmax(430px,1fr) ${profile.showPaneA?"180px":"0px"} ${profile.showPaneB?"180px":"0px"}`,gap:8,minHeight:0}}>
         <div style={{...panel,overflow:"hidden",position:"relative"}}>
           <div ref={priceHost} style={{position:"absolute",inset:0}} />
-          <div style={{position:"absolute",top:10,left:12,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:12,fontWeight:800}}>{symbol} · {interval} · {profile.chartMode==="heikin"?"Heikin":"Candles"} · ENTRY {entryCfg.tf} · EXIT {exitCfg.tf}</div>
+          <div style={{position:"absolute",top:10,left:12,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:12,fontWeight:800}}>{symbol} · {interval} · {profile.chartMode==="heikin"?"Heikin":"Candles"} · ENTRY {entryCfg.tf} · EXIT {exitCfg.tf} · TREND {channelCfg.tf}</div>
         </div>
         {profile.showPaneA&&<div style={{...panel,padding:12,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontWeight:800}}>INDIKATOR-PANE A · vorbereitet</div>}
         {profile.showPaneB&&<div style={{...panel,padding:12,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontWeight:800}}>INDIKATOR-PANE B · vorbereitet</div>}
@@ -490,11 +560,12 @@ export default function CockpitV2(){
             <label style={{display:"grid",gap:5,fontSize:12,color:"#94a3b8"}}>Chart-TF<select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
             <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Pane A vorbereiten<input type="checkbox" checked={profile.showPaneA} onChange={e=>patchProfile({showPaneA:e.target.checked})}/></label>
             <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Pane B vorbereiten<input type="checkbox" checked={profile.showPaneB} onChange={e=>patchProfile({showPaneB:e.target.checked})}/></label>
-            <div style={{padding:10,border:"1px dashed #334155",borderRadius:8,color:"#64748b",fontSize:12}}>ENTRY und EXIT sind aktiv. CHANNEL und POC bleiben noch leer.</div>
+            <div style={{padding:10,border:"1px dashed #334155",borderRadius:8,color:"#64748b",fontSize:12}}>ENTRY, EXIT und CHANNEL/TREND sind aktiv. POC bleibt noch leer.</div>
           </div>}
           {active==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
           {active==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
-          {(active==="channel"||active==="poc")&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
+          {active==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel}/>}
+          {active==="poc"&&<div style={{padding:12,border:"1px dashed #334155",borderRadius:8,color:"#94a3b8"}}><b>{active.toUpperCase()}</b><div style={{marginTop:6,color:"#64748b"}}>Steckplatz vorbereitet. Noch keine Logik, keine Parameter, keine Marker.</div></div>}
         </section>
 
         <section style={{...panel,padding:12,overflow:"auto"}}>
@@ -510,7 +581,7 @@ export default function CockpitV2(){
             <InfoRow k="ATR" v={fmt(selectedEntry?.atr,3)}/><InfoRow k="RSI" v={fmt(selectedEntry?.rsi,2)}/>
             <InfoRow k="MACD Hist" v={fmt(selectedEntry?.hist,4)}/>
             <div style={{height:1,background:"#24324a",margin:"5px 0"}}/>
-            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v="—" muted/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
+            <InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT TF" v={exitCfg.tf}/><InfoRow k="CHANNEL" v={selectedChannel?(selectedChannel.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="TREND TF" v={channelCfg.tf}/><InfoRow k="DELTA" v="—" muted/><InfoRow k="POC" v="—" muted/><InfoRow k="CONTROLLER" v="—" muted/>
           </div>:<div style={{color:"#64748b"}}>Noch keine Kerze ausgewählt.</div>}
         </section>
       </aside>
@@ -554,6 +625,25 @@ function ExitSettings({cfg,patch}:{cfg:ExitConfig;patch:(p:Partial<ExitConfig>)=
       <span style={{color:"#facc15",fontWeight:900}}>■ × LONG-EXIT · gelb</span>
       <span style={{color:"#e879f9",fontWeight:900}}>■ × SHORT-EXIT · magenta</span>
       <span style={{color:"#64748b"}}>EXIT arbeitet unabhängig. Änderungen wirken sofort und ändern ENTRY nicht.</span>
+    </div>
+  </div>;
+}
+
+function ChannelSettings({cfg,patch}:{cfg:ChannelConfig;patch:(p:Partial<ChannelConfig>)=>void}){
+  const num=(key:keyof ChannelConfig,label:string,step=1)=><label style={{display:"grid",gap:4,fontSize:12,color:"#94a3b8"}}>{label}<input type="number" step={step} value={Number(cfg[key])} onChange={e=>patch({[key]:Number(e.target.value)} as Partial<ChannelConfig>)} style={inputStyle}/></label>;
+  return <div style={{display:"grid",gap:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <label style={{display:"grid",gap:4,fontSize:12,color:"#94a3b8"}}>TREND TF<select value={cfg.tf} onChange={e=>patch({tf:e.target.value})} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select></label>
+      <label style={{display:"flex",alignItems:"end",justifyContent:"space-between",gap:10,paddingBottom:8}}>Modul aktiv<input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/></label>
+      <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,gridColumn:"1 / -1"}}>Trendlinie anzeigen<input type="checkbox" checked={cfg.showLines} onChange={e=>patch({showLines:e.target.checked})}/></label>
+    </div>
+    <div style={{fontWeight:800,color:"#cbd5e1",fontSize:12}}>Supertrend</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{num("atrPeriod","ATR Periode")}{num("multiplier","Multiplikator",0.1)}</div>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>Wilder ATR verwenden<input type="checkbox" checked={cfg.useRmaAtr} onChange={e=>patch({useRmaAtr:e.target.checked})}/></label>
+    <div style={{display:"grid",gap:5,padding:9,border:"1px dashed #334155",borderRadius:8,fontSize:11}}>
+      <span style={{color:"#22c55e",fontWeight:900}}>━━ LONG-Trend · grün</span>
+      <span style={{color:"#ef4444",fontWeight:900}}>━━ SHORT-Trend · rot</span>
+      <span style={{color:"#64748b"}}>Nur Trenddarstellung. Keine Filterung von ENTRY oder EXIT.</span>
     </div>
   </div>;
 }
