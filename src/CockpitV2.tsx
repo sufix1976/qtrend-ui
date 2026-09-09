@@ -444,7 +444,7 @@ export default function CockpitV2(){
   async function load(){
     try{
       setBusy(true); setStatus(`${symbol} ${interval} wird geladen …`);
-      const [rows,base]=await Promise.all([fetchCandles(symbol,interval,5000),fetchCandles(symbol,"1m",12000)]);
+      const [rows,base]=await Promise.all([fetchCandles(symbol,interval,5000),fetchCandles(symbol,"1m",30000)]);
       setCandles(rows); setEntryBase(base); setSelected(rows[rows.length-1]||null);
       setStatus(`${symbol} ${interval} · ${rows.length} Kerzen · ENTRY-Basis ${base.length}×1m`);
       queueMicrotask(()=>chart.current?.timeScale().fitContent());
