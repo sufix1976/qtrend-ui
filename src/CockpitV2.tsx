@@ -6,7 +6,7 @@ import {
   DEFAULT_ENTRY,DEFAULT_EXIT,DEFAULT_CHANNEL,DEFAULT_CONTROLLER,
   calculateEntry,calculateExitCausal,calculateExitLinesVisual,calculateSupertrendCausal,calculateSupertrendVisual,calculateController,calculateBacktest,
   resample,tfSeconds,
-  type Candle,type EntryConfig,type ExitConfig,type ChannelConfig,type ControllerConfig,type EntryRow,type ExitRow,type ControllerRow,type BacktestStats,
+  type Candle,type EntryConfig,type ExitConfig,type ChannelConfig,type ControllerConfig,type EntryRow,type ExitRow,type BacktestStats,
 } from "./cockpitV2Core";
 
 const BACKEND_BASE="https://qtrend-trading-engine.onrender.com";
