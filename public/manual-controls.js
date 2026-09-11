@@ -13,6 +13,7 @@
     #qv2-manual-status{max-width:260px;color:#a5f3fc;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #qv2-manual-events{position:absolute;left:10px;bottom:8px;z-index:18;display:none;gap:5px;align-items:center;max-width:calc(100% - 20px);overflow:hidden;pointer-events:none;font:900 10px system-ui}
     .qv2-mbadge{padding:4px 7px;border-radius:999px;border:1px solid #475569;background:#07101ddd;white-space:nowrap}.qv2-ml{color:#86efac;border-color:#166534}.qv2-ms{color:#fca5a5;border-color:#991b1b}.qv2-me{color:#f8fafc;border-color:#64748b}
+    @media(max-width:900px){#qv2-manual{top:42px;left:8px;right:auto;max-width:calc(100% - 16px);flex-wrap:wrap}#qv2-manual-status{max-width:150px}#qv2-manual button{min-width:64px;padding:6px 8px}}
   `;
   const style=document.createElement("style");style.textContent=css;document.head.appendChild(style);
 
@@ -30,8 +31,24 @@
   box.querySelector("#qv2-ms").onclick=()=>void command("MANUAL_SHORT");
   box.querySelector("#qv2-me").onclick=()=>void command("MANUAL_EXIT");
 
-  function findChartParent(){const labels=[...document.querySelectorAll("div")].filter(el=>String(el.textContent||"").includes("RESEARCH LIVE · TREND"));for(const label of labels){const p=label.parentElement;if(p&&p.querySelector("canvas"))return p;}const canv=document.querySelector("canvas");return canv?.parentElement?.parentElement||null;}
-  function mount(){const cockpit=document.body.innerText.includes("COCKPIT V2 · RENDER RESEARCH"),parent=findChartParent();if(!cockpit||!parent){box.style.display="none";events.style.display="none";return;}if(box.parentElement!==parent)parent.appendChild(box);if(events.parentElement!==parent)parent.appendChild(events);box.style.display="flex";events.style.display="flex";}
+  function findChartParent(){
+    const labels=[...document.querySelectorAll("div")].filter(el=>String(el.textContent||"").includes("RESEARCH LIVE · TREND"));
+    for(const label of labels){
+      let p=label.parentElement;
+      for(let depth=0;p&&depth<6;depth+=1,p=p.parentElement){
+        if(p.querySelector("canvas"))return p;
+      }
+    }
+    const canvases=[...document.querySelectorAll("canvas")];
+    for(const canvas of canvases){
+      let p=canvas.parentElement;
+      for(let depth=0;p&&depth<5;depth+=1,p=p.parentElement){
+        if(String(p.textContent||"").includes("RESEARCH LIVE · TREND"))return p;
+      }
+    }
+    return null;
+  }
+  function mount(){const cockpit=document.body.innerText.includes("COCKPIT V2 · RENDER RESEARCH"),parent=findChartParent();if(!cockpit||!parent){box.style.display="none";events.style.display="none";return;}if(getComputedStyle(parent).position==="static")parent.style.position="relative";if(box.parentElement!==parent)parent.appendChild(box);if(events.parentElement!==parent)parent.appendChild(events);box.style.display="flex";events.style.display="flex";}
 
   async function refreshEvents(){mount();if(box.style.display==="none")return;const {symbol}=current();try{const j=await json(`${BACKEND}/ui/strategy-events?symbol=${encodeURIComponent(MANUAL_QUEUE)}&_ts=${Date.now()}`),rows=Array.isArray(j?.rows)?j.rows:[],items=[];for(const row of rows){if(String(row?.source||"")!=="cockpit_v2_manual")continue;let c;try{c=JSON.parse(String(row.reason||"{}"));}catch{continue;}if(String(c?.symbol||"").toUpperCase()!==symbol)continue;items.push({id:Number(row.id||0),time:Number(row.time||c.time||0),action:String(c.action||"")});}items.sort((a,b)=>b.id-a.id);events.innerHTML=items.slice(0,8).reverse().map(x=>{const label=x.action==="MANUAL_LONG"?"ML":x.action==="MANUAL_SHORT"?"MS":"ME",cls=label==="ML"?"qv2-ml":label==="MS"?"qv2-ms":"qv2-me";return `<span class="qv2-mbadge ${cls}">${label} · ${berlin(x.time)}</span>`;}).join("");}catch{}
   }
