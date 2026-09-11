@@ -15,6 +15,7 @@ type TradingStatus={config:{symbol:string;interval:string;size:number;auto_enabl
 type SqueezePoint={time:number;value:number;color:"lime"|"green"|"red"|"maroon"};
 type Point={time:number;value:number};
 type ResearchResult={version:number;mode:"RESEARCH";symbol:string;generated_at:number;duration_ms:number;view_tf:string;base_candle_count:number;profile:any;chart_candles:Candle[];entry_rows:any[];exit_rows:any[];candidate_exit_rows:any[];channel_rows:any[];controller_rows:any[];channel_line:any[];squeeze_points:SqueezePoint[];lrc_points:Point[];fisher_points:Point[];rsi_exit_points:Point[];backtest:BacktestStats&{closedTrades?:any[]};latest_controller:any};
+type SavedProfileRow={symbol:string;profileId:number|null;createdAt:string;profile:InstrumentProfile|null;trading:TradingStatus["config"]};
 
 const DEFAULT_EXIT:ExitModuleConfig={enabled:true,showMarkers:true,exit1Enabled:true,exit1Tf:"15m",length:20,mult:2,lengthKC:20,multKC:1.5,useTrueRange:true,exit2Enabled:false,exit2Tf:"15m",lrcLength:20,exit3Enabled:false,exit3Tf:"15m",fisherLength:10,fisherThreshold:1.5,exit4Enabled:false,exit4Tf:"30m",rsiLength:14,rsiUpper:70,rsiLower:30};
 const SQZ_COLORS:Record<string,string>={lime:"#00ff00",green:"#008000",red:"#ff0000",maroon:"#800000"};
@@ -48,6 +49,10 @@ export default function CockpitV2(){
  const [liveProfileId,setLiveProfileId]=useState<number|null>(null);
  const [tradingStatus,setTradingStatus]=useState<TradingStatus|null>(null);
  const [booted,setBooted]=useState(false);
+ const [showProfiles,setShowProfiles]=useState(false);
+ const [profilesLoading,setProfilesLoading]=useState(false);
+ const [profilesError,setProfilesError]=useState("");
+ const [savedProfiles,setSavedProfiles]=useState<SavedProfileRow[]>([]);
  const chartHost=useRef<HTMLDivElement>(null),chart=useRef<IChartApi|null>(null),priceSeries=useRef<ISeriesApi<"Candlestick">|null>(null),trendSeries=useRef<ISeriesApi<"Line">|null>(null),sqzSeries=useRef<ISeriesApi<"Histogram">|null>(null),lrcSeries=useRef<ISeriesApi<"Line">|null>(null),fisherSeries=useRef<ISeriesApi<"Line">|null>(null),rsiSeries=useRef<ISeriesApi<"Line">|null>(null),markerApi=useRef<any>(null),candleMapRef=useRef(new Map<number,Candle>()),researchSeq=useRef(0),researchBusy=useRef(false),researchQueued=useRef(false),queuedProfile=useRef<InstrumentProfile|null>(null),queuedViewTf=useRef<string|null>(null),queuedSupersede=useRef(false),symbolRef=useRef(symbol),viewLastTime=useRef(0),tickBusy=useRef(false),profileRef=useRef(profile),intervalRef=useRef(interval);
  profileRef.current=profile;intervalRef.current=interval;symbolRef.current=symbol;
  const candles=viewCandles.length?viewCandles:(research?.chart_candles||[]);
@@ -65,6 +70,23 @@ export default function CockpitV2(){
  const selectedController=selected?[...(research?.controller_rows||[])].reverse().find((r:any)=>Number(r.time)<=selected.time+tfSeconds(interval))||null:null;
 
  async function refreshTradingStatus(){try{const currentSymbol=symbolRef.current,j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol===symbolRef.current)setTradingStatus(j);}catch{}}
+ async function loadAllProfiles(){
+  setShowProfiles(true);setProfilesLoading(true);setProfilesError("");
+  try{
+   const rows=await Promise.all(SYMBOLS.map(async s=>{
+    const [profilesJson,tradingJson]=await Promise.all([
+     fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(`${s}__V2_PROFILE`)}&_ts=${Date.now()}`).catch(()=>({rows:[]})),
+     fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(s)}&_ts=${Date.now()}`).catch(()=>({config:null}))
+    ]);
+    const profileRows=(Array.isArray(profilesJson?.rows)?profilesJson.rows:[]).filter((r:any)=>String(r?.source||"")==="cockpit_v2_profile").sort((a:any,b:any)=>Number(a?.id||0)-Number(b?.id||0));
+    const last=profileRows.at(-1)||null;let parsed:InstrumentProfile|null=null;
+    if(last){try{parsed=normalizeProfile(s,JSON.parse(String(last.reason||"{}")));}catch{parsed=null;}}
+    return{symbol:s,profileId:last?Number(last.id||0)||null:null,createdAt:String(last?.created_at||""),profile:parsed,trading:tradingJson?.config||null} as SavedProfileRow;
+   }));
+   setSavedProfiles(rows);
+  }catch(e){setProfilesError(e instanceof Error?e.message:String(e));}
+  finally{setProfilesLoading(false);}
+ }
  async function bootstrap(){researchSeq.current+=1;researchQueued.current=false;queuedProfile.current=null;queuedViewTf.current=null;queuedSupersede.current=false;setBooted(false);setResearch(null);setViewCandles([]);setSelected(null);setStatus("LIVE-Profil wird geladen …");const currentSymbol=symbolRef.current;let next=readLocal(currentSymbol),pid:null|number=null;try{const j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/snapshot?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol===symbolRef.current&&j?.snapshot?.profile){next=normalizeProfile(currentSymbol,j.snapshot.profile,next);pid=Number(j.snapshot.profile_id||0)||null;}}catch{}if(currentSymbol!==symbolRef.current)return;setProfile(next);profileRef.current=next;setLiveProfileId(pid);setLiveDirty(false);setBooted(true);void refreshTradingStatus();}
  async function runResearch(p:InstrumentProfile=profileRef.current,viewTf:string=intervalRef.current,supersede=false){
   if(researchBusy.current){researchQueued.current=true;queuedProfile.current=p;queuedViewTf.current=viewTf;queuedSupersede.current=queuedSupersede.current||supersede;if(supersede)researchSeq.current+=1;return;}
@@ -110,8 +132,10 @@ export default function CockpitV2(){
    <select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
    <button onClick={()=>setProfile(v=>({...v,chartMode:v.chartMode==="candles"?"heikin":"candles"}))} style={buttonStyle}>{profile.chartMode==="heikin"?"HEIKIN":"KERZEN"}</button>
    <div style={{flex:1,minWidth:260,padding:"8px 12px",borderRadius:7,border:"1px solid #155e75",background:"#082f49",color:"#a5f3fc",fontWeight:800}}>{researching?"RESEARCH rechnet …":status}</div>
+   <button onClick={()=>void loadAllProfiles()} style={{...buttonStyle,background:"#0f3f5f",color:"#cffafe"}}>ALLE PROFILE</button>
    <button onClick={()=>void applyLive()} disabled={!liveDirty} style={{...buttonStyle,background:liveDirty?"#9a3412":"#334155",color:"white",opacity:liveDirty?1:.6}}>LIVE ÜBERNEHMEN</button>
   </div>
+  {showProfiles&&<ProfilesModal rows={savedProfiles} loading={profilesLoading} error={profilesError} onReload={()=>void loadAllProfiles()} onClose={()=>setShowProfiles(false)}/>} 
   <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 365px",gap:8,minHeight:0}}>
    <div style={{...panel,overflow:"hidden",position:"relative",minHeight:0}}>
     <div ref={chartHost} style={{position:"absolute",inset:0}}/>
@@ -127,6 +151,37 @@ export default function CockpitV2(){
     </section>
     <section style={{...panel,padding:10,overflow:"auto"}}><b>INSPECTOR · RESEARCH</b>{selected?<div style={{display:"grid",gap:6,marginTop:8}}><InfoRow k="Zeit" v={chartBerlinTime(selected.time)}/><InfoRow k="Close" v={selected.close}/><InfoRow k="ENTRY" v={selectedEntry?.entry||"NONE"}/><InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="TREND" v={selectedTrend?(selectedTrend.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="CONTROLLER" v={selectedController?.state||"FLAT"}/><InfoRow k="PF" v={stats.profitFactor==null?"—":Number(stats.profitFactor).toFixed(3)}/></div>:null}</section>
    </aside>
+  </div>
+ </div>;
+}
+
+function ProfilesModal({rows,loading,error,onReload,onClose}:{rows:SavedProfileRow[];loading:boolean;error:string;onReload:()=>void;onClose:()=>void}){
+ const cell:CSSProperties={padding:"7px 8px",borderBottom:"1px solid #23324a",borderRight:"1px solid #182236",whiteSpace:"nowrap",fontSize:12};
+ const head:CSSProperties={...cell,position:"sticky",top:0,zIndex:2,background:"#111c2d",color:"#67e8f9",fontWeight:900};
+ const yn=(v:any)=>v?"ON":"OFF";
+ const mod=(enabled:any,tf:any)=>`${yn(enabled)} · ${tf||"—"}`;
+ return <div style={{position:"fixed",inset:0,zIndex:1000,background:"#020617dd",display:"grid",placeItems:"center",padding:20}}>
+  <div style={{width:"min(98vw,1900px)",height:"min(88vh,900px)",...panel,display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden",boxShadow:"0 20px 80px #000"}}>
+   <div style={{display:"flex",alignItems:"center",gap:10,padding:10,borderBottom:"1px solid #334155"}}><b style={{color:"#67e8f9",fontSize:16}}>GESPEICHERTE ENGINE-PROFILE · READ ONLY</b><span style={{color:"#94a3b8"}}>Quelle: cockpit_v2_profile + Trading-Status</span><div style={{flex:1}}/><button onClick={onReload} style={buttonStyle}>NEU LADEN</button><button onClick={onClose} style={{...buttonStyle,background:"#7f1d1d",color:"white"}}>SCHLIESSEN</button></div>
+   <div style={{overflow:"auto",padding:8}}>
+    {loading&&<div style={{padding:20,color:"#a5f3fc",fontWeight:900}}>Profile werden direkt aus der Engine geladen …</div>}
+    {error&&<div style={{padding:12,color:"#fecaca",background:"#450a0a",borderRadius:7}}>Fehler: {error}</div>}
+    {!loading&&!error&&<table style={{borderCollapse:"collapse",minWidth:2600,width:"100%",background:"#070b16"}}>
+     <thead><tr>
+      {['Instrument','Profil TF','Chart','Entry','Fast SMA','Slow SMA','Entry ATR','RSI','MACD F/S/Sig','Trend','Trend Linie','Trend ATR','Trend Multi','Wilder ATR','EXIT Marker','E1','E1 BB Len/Mult','E1 KC Len/Mult','E2','E2 Len','E3','E3 Len/Ext','E4','E4 RSI L/U','Controller','C-Marker','Flip','Größe','AUTO','Profil-ID','Gespeichert'].map(h=><th key={h} style={head}>{h}</th>)}
+     </tr></thead>
+     <tbody>{rows.map(r=>{const p=r.profile,e=p?.modules?.entry,x=p?.modules?.exit,c=p?.modules?.channel,k=p?.modules?.controller;return <tr key={r.symbol} style={{background:r.symbol==="GOLD"?"#0b1626":"transparent"}}>
+      <td style={{...cell,fontWeight:900,color:"#f8fafc"}}>{r.symbol}</td><td style={cell}>{p?.interval||'—'}</td><td style={cell}>{p?.chartMode||'—'}</td>
+      <td style={cell}>{e?mod(e.enabled,e.tf):'—'}</td><td style={cell}>{e?.fastSma??'—'}</td><td style={cell}>{e?.slowSma??'—'}</td><td style={cell}>{e?.atrLen??'—'}</td><td style={cell}>{e?.rsiLen??'—'}</td><td style={cell}>{e?`${e.macdFast}/${e.macdSlow}/${e.macdSignal}`:'—'}</td>
+      <td style={cell}>{c?mod(c.enabled,c.tf):'—'}</td><td style={cell}>{c?yn(c.showLines):'—'}</td><td style={cell}>{c?.atrPeriod??'—'}</td><td style={cell}>{c?.multiplier??'—'}</td><td style={cell}>{c?yn(c.useRmaAtr):'—'}</td>
+      <td style={cell}>{x?yn(x.showMarkers):'—'}</td><td style={cell}>{x?mod(x.exit1Enabled,x.exit1Tf):'—'}</td><td style={cell}>{x?`${x.length}/${x.mult}`:'—'}</td><td style={cell}>{x?`${x.lengthKC}/${x.multKC}`:'—'}</td>
+      <td style={cell}>{x?mod(x.exit2Enabled,x.exit2Tf):'—'}</td><td style={cell}>{x?.lrcLength??'—'}</td><td style={cell}>{x?mod(x.exit3Enabled,x.exit3Tf):'—'}</td><td style={cell}>{x?`${x.fisherLength}/${x.fisherThreshold}`:'—'}</td>
+      <td style={cell}>{x?mod(x.exit4Enabled,x.exit4Tf):'—'}</td><td style={cell}>{x?`${x.rsiLength} · ${x.rsiLower}/${x.rsiUpper}`:'—'}</td>
+      <td style={cell}>{k?yn(k.enabled):'—'}</td><td style={cell}>{k?yn(k.showMarkers):'—'}</td><td style={cell}>{k?yn(k.allowFlip):'—'}</td>
+      <td style={cell}>{r.trading?.size??'—'}</td><td style={{...cell,color:r.trading?.auto_enabled?'#86efac':'#fca5a5',fontWeight:900}}>{r.trading?.auto_enabled?'ON':'OFF'}</td><td style={cell}>{r.profileId??'—'}</td><td style={cell}>{r.createdAt||'—'}</td>
+     </tr>})}</tbody>
+    </table>}
+   </div>
   </div>
  </div>;
 }
