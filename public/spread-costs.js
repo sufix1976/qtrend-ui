@@ -24,21 +24,23 @@
 
   const box=document.createElement('div');
   box.id='qv2-spread-box';
-  box.innerHTML='<span>Ø SPREAD</span><input id="qv2-spread-input" type="number" min="0" step="0.01"><span id="qv2-spread-symbol"></span><span id="qv2-spread-stats">Kosten 0.00 · Brutto 0.00 · Netto 0.00</span>';
+  box.innerHTML='<span>Ø SPREAD</span><input id="qv2-spread-input" type="number" min="0" step="0.01"><span id="qv2-spread-symbol"></span><span id="qv2-spread-stats">Kosten 0.00 · Brutto — · Netto —</span>';
   const inp=box.querySelector('#qv2-spread-input');
   const lab=box.querySelector('#qv2-spread-symbol');
   const statsLab=box.querySelector('#qv2-spread-stats');
 
+  function setText(el,text){if(el&&el.textContent!==text)el.textContent=text;}
+
   function renderStats(){
     const s=getSymbol();
     const spread=getSpread(s);
-    lab.textContent=s;
-    if(document.activeElement!==inp)inp.value=String(spread);
+    setText(lab,s);
+    if(document.activeElement!==inp&&inp.value!==String(spread))inp.value=String(spread);
     const st=lastSymbol===s?lastStats:null;
     if(st){
       const costs=Number(st.spreadCosts||0),raw=Number(st.rawNet||0),net=Number(st.net||0);
-      statsLab.textContent=`Kosten ${costs.toFixed(2)} · Brutto ${raw>=0?'+':''}${raw.toFixed(2)} · Netto ${net>=0?'+':''}${net.toFixed(2)}`;
-    }else statsLab.textContent='Kosten 0.00 · Brutto — · Netto —';
+      setText(statsLab,`Kosten ${costs.toFixed(2)} · Brutto ${raw>=0?'+':''}${raw.toFixed(2)} · Netto ${net>=0?'+':''}${net.toFixed(2)}`);
+    }else setText(statsLab,'Kosten 0.00 · Brutto — · Netto —');
   }
 
   function mount(){
@@ -56,9 +58,8 @@
   inp.addEventListener('change',()=>{
     const s=getSymbol();
     setSpread(s,inp.value);
-    lastStats=null; lastSymbol=s;
+    lastStats=null;lastSymbol=s;
     renderStats();
-    setTimeout(()=>window.dispatchEvent(new Event('qv2-spread-changed')),0);
   });
 
   window.fetch=async function(input,init={}){
@@ -84,12 +85,13 @@
     return r;
   };
 
-  const obs=new MutationObserver(()=>mount());
-  obs.observe(document.body,{subtree:true,childList:true});
-  document.addEventListener('change',e=>{if(e.target instanceof HTMLSelectElement)setTimeout(mount,0)});
-  window.addEventListener('qv2-spread-changed',()=>{
-    const status=[...document.querySelectorAll('div')].find(el=>String(el.textContent||'').includes('RESEARCH')&&String(el.textContent||'').includes('PF'));
-    status?.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  document.addEventListener('change',e=>{
+    if(e.target instanceof HTMLSelectElement)setTimeout(mount,0);
   });
+
+  // Kein MutationObserver: der frühere Observer konnte durch eigene Text-Updates
+  // eine Endlosschleife erzeugen und die gesamte Cockpit-Seite blockieren.
+  const mountTimer=window.setInterval(mount,1000);
+  window.addEventListener('beforeunload',()=>window.clearInterval(mountTimer),{once:true});
   mount();
 })();
