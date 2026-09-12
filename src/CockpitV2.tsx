@@ -113,6 +113,19 @@ export default function CockpitV2(){
  useEffect(()=>{if(!booted)return;const t=window.setTimeout(()=>void runResearch(profileRef.current,interval,true),180);return()=>window.clearTimeout(t);},[booted,profile,interval,symbol]);
  useEffect(()=>{if(!booted)return;const t=window.setInterval(()=>void tickView(),1000),r=window.setInterval(()=>void runResearch(profileRef.current,intervalRef.current,false),15000),s=window.setInterval(()=>void refreshTradingStatus(),5000);return()=>{window.clearInterval(t);window.clearInterval(r);window.clearInterval(s);};},[booted,symbol]);
  useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[c.time,c]));},[candles]);
+ useEffect(()=>{
+  const onOptimizerProfile=(event:Event)=>{
+   const detail=(event as CustomEvent<{symbol?:string;profile?:any}>).detail;
+   if(!detail?.profile)return;
+   const targetSymbol=String(detail.symbol||symbolRef.current).toUpperCase();
+   if(targetSymbol!==symbolRef.current)return;
+   const next=normalizeProfile(targetSymbol,detail.profile,profileRef.current);
+   next.updatedAt=new Date().toISOString();
+   setProfile(next);profileRef.current=next;setLiveDirty(true);setStatus("OPTIMIZER-Kandidat direkt in RESEARCH geladen …");
+  };
+  window.addEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
+  return()=>window.removeEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
+ },[]);
 
  useEffect(()=>{if(!chartHost.current)return;const c=createChart(chartHost.current,{autoSize:true,layout:{background:{color:"#070b16"},textColor:"#dbe4ff",panes:{separatorColor:"#334155",separatorHoverColor:"#475569",enableResize:true}},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:90},timeScale:{borderColor:"#334155",timeVisible:true,secondsVisible:false,tickMarkFormatter:(t:any)=>chartBerlinTime(Number(t))},localization:{timeFormatter:(t:any)=>chartBerlinTime(Number(t))}});const ps=c.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false},0);trendSeries.current=c.addSeries(LineSeries,{lineWidth:3,priceLineVisible:false,lastValueVisible:false},0);sqzSeries.current=c.addSeries(HistogramSeries,{base:0,priceLineVisible:false,lastValueVisible:true},1);lrcSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},2);fisherSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},3);rsiSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},4);chart.current=c;priceSeries.current=ps;markerApi.current=createSeriesMarkers(ps,[]);c.subscribeCrosshairMove(p=>{if(!p.time)return;const row=candleMapRef.current.get(Number(p.time));if(row)setSelected(row);});return()=>{c.remove();chart.current=null;priceSeries.current=null;trendSeries.current=null;sqzSeries.current=null;lrcSeries.current=null;fisherSeries.current=null;rsiSeries.current=null;markerApi.current=null;};},[]);
  useEffect(()=>{priceSeries.current?.setData(shown.map(c=>({time:c.time as Time,open:c.open,high:c.high,low:c.low,close:c.close})));},[shown]);
