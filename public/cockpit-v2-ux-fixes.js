@@ -4,7 +4,9 @@
     #qv2-manual button{min-width:92px!important;padding:9px 12px!important;font-size:12px!important;border-width:2px!important;box-shadow:0 4px 14px #0007!important}
     #qv2-ml{background:#166534!important;border-color:#22c55e!important} #qv2-ms{background:#991b1b!important;border-color:#ef4444!important} #qv2-me{background:#334155!important;border-color:#cbd5e1!important}
     #qv2-manual-status{max-width:150px!important;font-size:11px!important}
-    @media(max-width:900px){#qv2-manual{left:8px!important;right:8px!important;bottom:8px!important;max-width:none!important;justify-content:center!important;flex-wrap:wrap!important}#qv2-manual button{min-width:78px!important;padding:7px 9px!important}}
+    .qv2-topbar-fixed{height:58px!important;min-height:58px!important;max-height:58px!important;flex-wrap:nowrap!important;align-items:center!important;overflow:hidden!important}
+    .qv2-research-status-fixed{height:40px!important;min-height:40px!important;max-height:40px!important;display:flex!important;align-items:center!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:11px!important;line-height:1.1!important}
+    @media(max-width:900px){#qv2-manual{left:8px!important;right:8px!important;bottom:8px!important;max-width:none!important;justify-content:center!important;flex-wrap:wrap!important}#qv2-manual button{min-width:78px!important;padding:7px 9px!important}.qv2-topbar-fixed{height:58px!important;min-height:58px!important;max-height:58px!important}}
   `;
   const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
 
@@ -26,25 +28,15 @@
     }
   }
   function stabilizeResearchStatus(){
-    if(!document.body.innerText.includes('COCKPIT V2 · RENDER RESEARCH'))return;
-    const rows=[...document.querySelectorAll('div')];
-    const box=rows.find(el=>{
+    const title=[...document.querySelectorAll('b')].find(el=>String(el.textContent||'').trim()==='COCKPIT V2 · RENDER RESEARCH');
+    const topbar=title?.parentElement;
+    if(topbar instanceof HTMLElement)topbar.classList.add('qv2-topbar-fixed');
+    if(!(topbar instanceof HTMLElement))return;
+    const box=[...topbar.children].find(el=>{
       const t=String(el.textContent||'').trim();
-      if(!(t==='RESEARCH rechnet …'||t.startsWith('RESEARCH ')||t.startsWith('RESEARCH-Fehler:')))return false;
-      const s=el.style;
-      return String(s.border||'').includes('155e75')||String(s.background||'').includes('082f49');
+      return t==='RESEARCH rechnet …'||t.startsWith('RESEARCH ')||t.startsWith('RESEARCH-Fehler:');
     });
-    if(!(box instanceof HTMLElement))return;
-    box.style.height='44px';
-    box.style.minHeight='44px';
-    box.style.maxHeight='44px';
-    box.style.display='flex';
-    box.style.alignItems='center';
-    box.style.whiteSpace='nowrap';
-    box.style.overflow='hidden';
-    box.style.textOverflow='ellipsis';
-    box.style.fontSize='11px';
-    box.style.lineHeight='1.1';
+    if(box instanceof HTMLElement)box.classList.add('qv2-research-status-fixed');
   }
   function apply(){widenCockpit();stabilizeResearchStatus();}
   const obs=new MutationObserver(apply);obs.observe(document.body,{subtree:true,childList:true,characterData:true});
