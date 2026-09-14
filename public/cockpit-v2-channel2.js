@@ -13,7 +13,9 @@
     try{
       const url=typeof input==='string'?input:String(input?.url||'');
       if(init?.body&&typeof init.body==='string'&&url.includes('/cockpit-v2/research')){
-        const body=JSON.parse(init.body),s=String(body.symbol||body.profile?.symbol||symbol()).toUpperCase();body.profile=patchProfile(body.profile,s);init={...init,body:JSON.stringify(body)};
+        const body=JSON.parse(init.body),s=String(body.symbol||body.profile?.symbol||symbol()).toUpperCase();
+        if(body.profile?.__optimizerChannel2Passthrough){delete body.profile.__optimizerChannel2Passthrough;}else{body.profile=patchProfile(body.profile,s);}
+        init={...init,body:JSON.stringify(body)};
       }else if(init?.body&&typeof init.body==='string'&&url.includes('/ui/strategy-event')){
         const body=JSON.parse(init.body);if(body?.source==='cockpit_v2_profile'&&String(body?.symbol||'').endsWith('__V2_PROFILE')){const s=String(body.symbol).replace(/__V2_PROFILE$/,'').toUpperCase();const profile=JSON.parse(String(body.reason||'{}'));body.reason=JSON.stringify(patchProfile(profile,s));init={...init,body:JSON.stringify(body)};}
       }
