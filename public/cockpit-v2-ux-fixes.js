@@ -25,8 +25,29 @@
       break;
     }
   }
-  function apply(){widenCockpit();}
-  const obs=new MutationObserver(apply);obs.observe(document.body,{subtree:true,childList:true});
+  function stabilizeResearchStatus(){
+    if(!document.body.innerText.includes('COCKPIT V2 · RENDER RESEARCH'))return;
+    const rows=[...document.querySelectorAll('div')];
+    const box=rows.find(el=>{
+      const t=String(el.textContent||'').trim();
+      if(!(t==='RESEARCH rechnet …'||t.startsWith('RESEARCH ')||t.startsWith('RESEARCH-Fehler:')))return false;
+      const s=el.style;
+      return String(s.border||'').includes('155e75')||String(s.background||'').includes('082f49');
+    });
+    if(!(box instanceof HTMLElement))return;
+    box.style.height='44px';
+    box.style.minHeight='44px';
+    box.style.maxHeight='44px';
+    box.style.display='flex';
+    box.style.alignItems='center';
+    box.style.whiteSpace='nowrap';
+    box.style.overflow='hidden';
+    box.style.textOverflow='ellipsis';
+    box.style.fontSize='11px';
+    box.style.lineHeight='1.1';
+  }
+  function apply(){widenCockpit();stabilizeResearchStatus();}
+  const obs=new MutationObserver(apply);obs.observe(document.body,{subtree:true,childList:true,characterData:true});
   window.addEventListener('resize',apply);
   setTimeout(apply,0);setTimeout(apply,800);
 })();
