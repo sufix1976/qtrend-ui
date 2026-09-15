@@ -22,11 +22,24 @@
 
   function symbolSelect(){return [...document.querySelectorAll("select")].find(s=>{const values=[...s.options].map(o=>o.value||o.textContent);return values.includes("GOLD")&&values.includes("US100")&&values.includes("DE40");})||null;}
   function intervalSelect(){return [...document.querySelectorAll("select")].find(s=>{const values=[...s.options].map(o=>o.value||o.textContent);return values.includes("1m")&&values.includes("5m")&&values.includes("30m")&&!values.includes("GOLD");})||null;}
-  function current(){const s=symbolSelect(),t=intervalSelect();return{symbol:String(s?.value||"GOLD").toUpperCase(),interval:String(t?.value||"5m")};}
+  function visibleChartState(){
+    const labels=[...document.querySelectorAll("div")].filter(el=>String(el.textContent||"").includes(" · VIEW ")&&String(el.textContent||"").includes(" · RESEARCH LIVE · TREND "));
+    for(const el of labels){
+      if(!(el instanceof HTMLElement)||el.offsetParent===null)continue;
+      const text=String(el.textContent||"").trim(),m=text.match(/^([A-Z0-9_]+)\s*·\s*VIEW\s+([^\s·]+)/);
+      if(m&&SYMBOLS.includes(String(m[1]).toUpperCase()))return{symbol:String(m[1]).toUpperCase(),interval:String(m[2])};
+    }
+    return null;
+  }
+  function current(){const visible=visibleChartState();if(visible)return visible;const s=symbolSelect(),t=intervalSelect();return{symbol:String(s?.value||"").toUpperCase(),interval:String(t?.value||"5m")};}
   function berlin(ts){try{return new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(new Date(Number(ts)*1000));}catch{return"";}}
   async function json(url,init={}){const r=await fetch(url,{cache:"no-store",...init});const text=await r.text();let j;try{j=JSON.parse(text);}catch{throw new Error(`Keine JSON-Antwort (${r.status})`)}if(!r.ok||j?.ok===false)throw new Error(j?.info||j?.reason||j?.error||`HTTP ${r.status}`);return j;}
   function setBusy(on,text){busy=on;for(const b of box.querySelectorAll("button"))b.disabled=on;const s=box.querySelector("#qv2-manual-status");if(s)s.textContent=text||"MANUELL";}
-  async function command(action){if(busy)return;const {symbol,interval}=current();const label=action==="MANUAL_LONG"?"ML · LONG":action==="MANUAL_SHORT"?"MS · SHORT":"ME · EXIT";if(!window.confirm(`${label} für ${symbol} wirklich ausführen?`))return;setBusy(true,`${label} wird gesendet …`);try{const now=Math.floor(Date.now()/1000),side=action==="MANUAL_LONG"?"long":action==="MANUAL_SHORT"?"short":"flat";await json(`${BACKEND}/ui/strategy-event`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:MANUAL_QUEUE,tf:interval,side,time:now,price:0,source:"cockpit_v2_manual",reason:JSON.stringify({symbol,interval,action,time:now,requested_at:Date.now()})})});setBusy(false,`${label} · gesendet`);setTimeout(()=>setBusy(false,"MANUELL"),3500);setTimeout(()=>void refreshEvents(),1200);}catch(e){setBusy(false,`FEHLER · ${e?.message||e}`);}}
+  async function verifyCommand(symbol,action,requestedAt){
+    const j=await json(`${BACKEND}/ui/strategy-events?symbol=${encodeURIComponent(MANUAL_QUEUE)}&_ts=${Date.now()}`),rows=Array.isArray(j?.rows)?j.rows:[];
+    return rows.some(row=>{if(String(row?.source||"")!=="cockpit_v2_manual")return false;let c;try{c=JSON.parse(String(row.reason||"{}"));}catch{return false;}return String(c?.symbol||"").toUpperCase()===symbol&&String(c?.action||"")===action&&Number(c?.requested_at||0)===requestedAt;});
+  }
+  async function command(action){if(busy)return;const {symbol,interval}=current();if(!SYMBOLS.includes(symbol)){setBusy(false,"FEHLER · Instrument nicht erkannt");return;}const label=action==="MANUAL_LONG"?"ML · LONG":action==="MANUAL_SHORT"?"MS · SHORT":"ME · EXIT";if(!window.confirm(`${label} für ${symbol} wirklich ausführen?`))return;setBusy(true,`${label} ${symbol} wird gesendet …`);try{const now=Math.floor(Date.now()/1000),requestedAt=Date.now(),side=action==="MANUAL_LONG"?"long":action==="MANUAL_SHORT"?"short":"flat";await json(`${BACKEND}/ui/strategy-event`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:MANUAL_QUEUE,tf:interval,side,time:now,price:0,source:"cockpit_v2_manual",reason:JSON.stringify({symbol,interval,action,time:now,requested_at:requestedAt})})});const verified=await verifyCommand(symbol,action,requestedAt);if(!verified)throw new Error("Befehl nicht in Manual Queue bestätigt");setBusy(false,`${label} ${symbol} · bestätigt`);setTimeout(()=>setBusy(false,"MANUELL"),3500);setTimeout(()=>void refreshEvents(),700);}catch(e){setBusy(false,`FEHLER · ${e?.message||e}`);}}
   box.querySelector("#qv2-ml").onclick=()=>void command("MANUAL_LONG");
   box.querySelector("#qv2-ms").onclick=()=>void command("MANUAL_SHORT");
   box.querySelector("#qv2-me").onclick=()=>void command("MANUAL_EXIT");
