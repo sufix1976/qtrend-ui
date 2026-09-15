@@ -7,6 +7,7 @@
   function symbol(){for(const el of document.querySelectorAll('select')){const v=String(el.value||'').toUpperCase();if(SYMBOLS.has(v))return v;}return 'GOLD';}
   function load(s=symbol()){try{return{...defaults,...JSON.parse(localStorage.getItem(key(s))||'{}')}}catch{return{...defaults}}}
   function save(cfg,s=symbol()){localStorage.setItem(key(s),JSON.stringify(cfg));}
+  function fromProfile(profile){const c=profile?.modules?.channel;if(!c||typeof c!=="object")return null;const has=["channel2Enabled","channel2Tf","channel2MaType","channel2MaPeriod"].some(k=>Object.prototype.hasOwnProperty.call(c,k));if(!has)return null;return{channel2Enabled:!!c.channel2Enabled,channel2Tf:String(c.channel2Tf||defaults.channel2Tf),channel2MaType:String(c.channel2MaType||defaults.channel2MaType).toUpperCase(),channel2MaPeriod:Math.max(1,Number(c.channel2MaPeriod)||defaults.channel2MaPeriod)};}
   function patchProfile(profile,s){if(!profile||typeof profile!=="object")return profile;const cfg=load(s);profile.modules=profile.modules||{};profile.modules.channel={...(profile.modules.channel||{}),...cfg};return profile;}
   const nativeFetch=window.fetch.bind(window);
   window.fetch=async function(input,init={}){
@@ -19,26 +20,36 @@
       }else if(init?.body&&typeof init.body==='string'&&url.includes('/ui/strategy-event')){
         const body=JSON.parse(init.body);if(body?.source==='cockpit_v2_profile'&&String(body?.symbol||'').endsWith('__V2_PROFILE')){const s=String(body.symbol).replace(/__V2_PROFILE$/,'').toUpperCase();const profile=JSON.parse(String(body.reason||'{}'));body.reason=JSON.stringify(patchProfile(profile,s));init={...init,body:JSON.stringify(body)};}
       }
-    }catch{}
-    return nativeFetch(input,init);
+      const response=await nativeFetch(input,init);
+      try{
+        if(response.ok&&url.includes('/ui/strategy-events')){
+          const clone=response.clone(),json=await clone.json(),rows=Array.isArray(json)?json:(json?.rows||json?.events||[]);
+          for(const row of rows){if(row?.source!=='cockpit_v2_profile'||!String(row?.symbol||'').endsWith('__V2_PROFILE'))continue;const s=String(row.symbol).replace(/__V2_PROFILE$/,'').toUpperCase();let p=row.reason;if(typeof p==='string'){try{p=JSON.parse(p)}catch{continue}}const cfg=fromProfile(p);if(cfg)save(cfg,s);}
+        }
+      }catch{}
+      return response;
+    }catch{return nativeFetch(input,init);}
   };
   function triggerResearch(){const labels=[...document.querySelectorAll('label')];const l=labels.find(x=>String(x.textContent||'').trim().startsWith('TREND TF'));const sel=l?.querySelector('select');if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}));}
   function styleInput(el){Object.assign(el.style,{background:'#0a1020',border:'1px solid #334155',color:'#e5eefc',borderRadius:'7px',padding:'7px 9px',fontWeight:'700'});}
   function render(){
     const hard=[...document.querySelectorAll('div')].find(x=>String(x.textContent||'').startsWith('HART: Trend LONG')&&x.children.length===0);
     if(!hard)return;
-    const host=hard.parentElement;if(!host||host.querySelector('[data-qv2-channel2]'))return;
-    const cfg=load(),box=document.createElement('div');box.dataset.qv2Channel2='1';Object.assign(box.style,{border:'1px solid #0e7490',borderRadius:'8px',padding:'9px',display:'grid',gap:'7px',background:'#08334455'});
+    const host=hard.parentElement;if(!host)return;
+    const s=symbol(),existing=host.querySelector('[data-qv2-channel2]');
+    if(existing&&existing.dataset.qv2Symbol===s)return;
+    if(existing)existing.remove();
+    const cfg=load(s),box=document.createElement('div');box.dataset.qv2Channel2='1';box.dataset.qv2Symbol=s;Object.assign(box.style,{border:'1px solid #0e7490',borderRadius:'8px',padding:'9px',display:'grid',gap:'7px',background:'#08334455'});
     const title=document.createElement('b');title.textContent='CHANNEL 2 · TREND INDICATOR A';title.style.color='#67e8f9';box.appendChild(title);
     const enabled=document.createElement('label');enabled.textContent='Channel 2 verwenden ';const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!cfg.channel2Enabled;enabled.appendChild(cb);box.appendChild(enabled);
     const tfLabel=document.createElement('label');tfLabel.textContent='TF ';const tf=document.createElement('select');for(const x of TFS){const o=document.createElement('option');o.value=o.textContent=x;tf.appendChild(o)}tf.value=cfg.channel2Tf;styleInput(tf);tfLabel.appendChild(tf);box.appendChild(tfLabel);
     const maLabel=document.createElement('label');maLabel.textContent='MA Typ ';const ma=document.createElement('select');for(const x of MAS){const o=document.createElement('option');o.value=o.textContent=x;ma.appendChild(o)}ma.value=cfg.channel2MaType;styleInput(ma);maLabel.appendChild(ma);box.appendChild(maLabel);
     const lenLabel=document.createElement('label');lenLabel.textContent='MA Länge ';const len=document.createElement('input');len.type='number';len.min='1';len.step='1';len.value=String(cfg.channel2MaPeriod);styleInput(len);lenLabel.appendChild(len);box.appendChild(lenLabel);
     const note=document.createElement('small');note.textContent='OFF = bisheriger Channel 1. ON = Trend Indicator A (Heikin-Ashi intern) ersetzt Channel 1 als Trendfilter. Eigener TF, kausal, kein Offset.';note.style.color='#a5f3fc';box.appendChild(note);
-    const commit=()=>{const next={channel2Enabled:cb.checked,channel2Tf:tf.value,channel2MaType:ma.value,channel2MaPeriod:Math.max(1,Number(len.value)||9)};save(next);triggerResearch();};
+    const commit=()=>{const next={channel2Enabled:cb.checked,channel2Tf:tf.value,channel2MaType:ma.value,channel2MaPeriod:Math.max(1,Number(len.value)||9)};save(next,s);triggerResearch();};
     cb.addEventListener('change',commit);tf.addEventListener('change',commit);ma.addEventListener('change',commit);len.addEventListener('change',commit);
     host.insertBefore(box,hard.nextSibling);
   }
   new MutationObserver(render).observe(document.documentElement,{subtree:true,childList:true});
-  setInterval(render,1000);render();
+  setInterval(render,500);render();
 })();
