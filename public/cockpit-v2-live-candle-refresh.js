@@ -1,8 +1,24 @@
 (()=>{
   const nativeFetch=window.fetch.bind(window);
+  const nativeSlice=Array.prototype.slice;
   const ENGINE_HOST="qtrend-trading-engine.onrender.com";
   const quoteCache=new Map();
   const QUOTE_TTL_MS=1500;
+
+  // CockpitV2 historically trims viewCandles to 1500 on the first live candle
+  // after a research refresh. That makes older controller/exit/LIVE markers
+  // disappear because marker rendering only keeps times still present in the
+  // chart candle set. Preserve the full research window for candle arrays only.
+  Array.prototype.slice=function(start,end){
+    if(start===-1500&&end===undefined&&this.length>1500){
+      const first=this[0],last=this[this.length-1];
+      const candleLike=first&&last&&typeof first==="object"&&typeof last==="object"&&
+        Number.isFinite(Number(first.time))&&Number.isFinite(Number(last.time))&&
+        Number.isFinite(Number(first.open))&&Number.isFinite(Number(last.close));
+      if(candleLike)return nativeSlice.call(this,-30000);
+    }
+    return nativeSlice.call(this,start,end);
+  };
 
   function finite(v){const n=Number(v);return Number.isFinite(n)?n:null;}
   function marketPrice(json){
@@ -65,5 +81,5 @@
     return nativeFetch(input,init);
   };
 
-  console.log("[COCKPIT-V2] live 1m candle synthesized from Capital quote");
+  console.log("[COCKPIT-V2] live candle refresh active; research history preserved");
 })();
