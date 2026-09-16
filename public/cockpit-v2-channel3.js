@@ -1,0 +1,15 @@
+(()=>{
+const SYMBOLS=new Set(['GOLD','US100','US30','DE40','J225','UK100','US500','BTCUSD','ETHUSD','SILVER','OIL_CRUDE','CORN']),TFS=['1m','2m','3m','5m','8m','10m','15m','18m','30m','1h'];
+const sym=()=>{for(const e of document.querySelectorAll('select')){const v=String(e.value||'').toUpperCase();if(SYMBOLS.has(v))return v}return'GOLD'};
+const key=s=>`qtrend:cockpit-v2:channel2:${s}`;
+const load=s=>{try{return JSON.parse(localStorage.getItem(key(s))||'{}')}catch{return{}}};
+const save=(s,p)=>localStorage.setItem(key(s),JSON.stringify({...load(s),...p}));
+const trigger=()=>{const l=[...document.querySelectorAll('label')].find(x=>String(x.textContent||'').trim().startsWith('TREND TF'));l?.querySelector('select')?.dispatchEvent(new Event('change',{bubbles:true}))};
+function style(e){Object.assign(e.style,{background:'#0a1020',border:'1px solid #334155',color:'#e5eefc',borderRadius:'7px',padding:'7px 9px',fontWeight:'700'})}
+function render(){const host=document.querySelector('[data-qv2-channel2]');if(!host)return;const s=sym(),old=host.querySelector('[data-qv2-channel3]');if(old&&old.dataset.symbol===s)return;if(old)old.remove();const c=load(s),box=document.createElement('div');box.dataset.qv2Channel3='1';box.dataset.symbol=s;box.style.cssText='border-top:1px solid #155e75;margin-top:5px;padding-top:9px;display:grid;gap:7px';box.innerHTML='<b style="color:#facc15">CHANNEL 3 · SWING TREND RESEARCH</b><label>Channel 3 verwenden <input data-c3-on type="checkbox"></label><small style="color:#fde68a">Nur UP/DOWN. Geschlossene Kerzen. Wende erst nach ATR-Rücklauf vom laufenden Extrem. Noch kein Daily/Weekly-Kontext.</small>';
+const on=box.querySelector('[data-c3-on]');on.checked=!!c.channel3Enabled;
+const tfL=document.createElement('label');tfL.textContent='Swing TF ';const tf=document.createElement('select');for(const x of TFS){const o=document.createElement('option');o.value=o.textContent=x;tf.appendChild(o)}tf.value=String(c.channel3Tf||'30m');style(tf);tfL.appendChild(tf);box.insertBefore(tfL,box.lastChild);
+function num(label,val,min,step){const l=document.createElement('label');l.textContent=label+' ';const n=document.createElement('input');n.type='number';n.value=String(val);n.min=String(min);n.step=String(step);style(n);l.appendChild(n);box.insertBefore(l,box.lastChild);return n}const atr=num('ATR Länge',c.channel3AtrLength||14,2,1),rev=num('Wende nach ATR',c.channel3ReversalAtr||4,.1,.1);
+const commit=()=>{save(s,{channel3Enabled:on.checked,channel3Tf:tf.value,channel3AtrLength:Math.max(2,Number(atr.value)||14),channel3ReversalAtr:Math.max(.1,Number(rev.value)||4),channel2Enabled:on.checked?true:!!load(s).channel2Enabled});trigger()};for(const e of[on,tf,atr,rev])e.addEventListener('change',commit);host.appendChild(box)}
+new MutationObserver(render).observe(document.documentElement,{subtree:true,childList:true});setInterval(render,500);render();
+})();
