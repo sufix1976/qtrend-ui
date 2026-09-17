@@ -11,7 +11,7 @@
     return exit.closest('section')||exit.parentElement?.parentElement||null;
   }
   function render(){
-    const host=findHost(); if(!host)return;
+    const host=findHost(); if(!host)return false;
     let card=document.getElementById(CARD_ID);
     if(!card){
       card=document.createElement('div'); card.id=CARD_ID;
@@ -25,6 +25,11 @@
        <b>Trail</b><b>PF</b><b>NET</b><b>Trades</b><b>Trail X</b>
        ${TRAILS.map(p=>{const r=byPct(p)||{};return `<span>${p.toFixed(2)}%</span><span>${fmt(r.profitFactor??r.profit_factor,3)}</span><span>${signed(r.net)}</span><span>${r.trades??'—'}</span><span>${r.trail_exits??r.trailExits??'—'}</span>`}).join('')}
       </div><div style="margin-top:7px;color:#94a3b8;font-size:10px">Feste Varianten 0,25 / 0,35 / 0,50 / 0,75 / 1,00 %. Optimizer verändert sie nicht.</div>`;
+    return true;
+  }
+  function renderWhenReady(attempt=0){
+    if(render()||attempt>=20)return;
+    setTimeout(()=>renderWhenReady(attempt+1),250);
   }
   const nativeFetch=window.fetch.bind(window);
   window.fetch=async(...args)=>{
@@ -34,10 +39,11 @@
       if(url.includes('/cockpit-v2/research')){
         const clone=res.clone(),j=await clone.json();
         latest=j?.research?.trail_research||j?.research?.trailResearch||null;
-        queueMicrotask(render);
+        queueMicrotask(()=>renderWhenReady());
       }
     }catch{}
     return res;
   };
-  new MutationObserver(()=>render()).observe(document.documentElement,{childList:true,subtree:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>renderWhenReady(),{once:true});
+  else renderWhenReady();
 })();
