@@ -1,0 +1,32 @@
+name: Patch Cockpit V2 E5 marker
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-e5-marker.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch E5 marker label and color
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/CockpitV2.tsx')
+          s=p.read_text()
+          old='function exitLabel(reason:string){return reason==="TREND_FLIP_EXIT"?"TX":reason.startsWith("EXIT1_")?"E1":reason.startsWith("EXIT2_")?"E2":reason.startsWith("EXIT3_")?"E3":"E4";}\nfunction exitColor(reason:string){return reason==="TREND_FLIP_EXIT"?"#f8fafc":reason.startsWith("EXIT1_")?"#facc15":reason.startsWith("EXIT2_")?"#38bdf8":reason.startsWith("EXIT3_")?"#d946ef":"#f97316";}'
+          new='function isE5Reason(reason:string){return reason.startsWith("RESEARCH_30M_MFE_PNL_EXIT")||reason.startsWith("EXIT5_");}\nfunction exitLabel(reason:string){return reason==="TREND_FLIP_EXIT"?"TX":reason.startsWith("EXIT1_")?"E1":reason.startsWith("EXIT2_")?"E2":reason.startsWith("EXIT3_")?"E3":reason.startsWith("EXIT4_")?"E4":isE5Reason(reason)?"E5":"EXIT";}\nfunction exitColor(reason:string){return reason==="TREND_FLIP_EXIT"?"#f8fafc":reason.startsWith("EXIT1_")?"#facc15":reason.startsWith("EXIT2_")?"#38bdf8":reason.startsWith("EXIT3_")?"#d946ef":reason.startsWith("EXIT4_")?"#f97316":isE5Reason(reason)?"#2dd4bf":"#94a3b8";}'
+          if old not in s:
+              raise SystemExit('target marker functions not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "qtrend-bot"
+          git config user.email "qtrend-bot@users.noreply.github.com"
+          git add src/CockpitV2.tsx
+          git commit -m "fix: label research E5 exits correctly in chart"
+          git push
