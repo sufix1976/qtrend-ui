@@ -4,14 +4,16 @@ import Trainer from "./Trainer";
 import KiEntries from "./KiEntries";
 import FlipKi from "./FlipKi";
 import QMomentumLab from "./QMomentumLab";
+import TrendBuilder from "./TrendBuilder";
 
-type View = "chart" | "trainer" | "ki" | "flip" | "momentum";
+type View = "chart" | "trainer" | "trend" | "ki" | "flip" | "momentum";
 
 function readInitialView(): View {
   const queryView = new URLSearchParams(window.location.search).get("view");
 
   if (queryView === "momentum") return "momentum";
   if (queryView === "trainer") return "trainer";
+  if (queryView === "trend") return "trend";
   if (queryView === "ki") return "ki";
   if (queryView === "flip") return "flip";
 
@@ -20,6 +22,7 @@ function readInitialView(): View {
   if (
     stored === "chart" ||
     stored === "trainer" ||
+    stored === "trend" ||
     stored === "ki" ||
     stored === "flip" ||
     stored === "momentum"
@@ -56,6 +59,13 @@ export default function Workspace() {
         </button>
 
         <button
+          className={view === "trend" ? "active" : ""}
+          onClick={() => open("trend")}
+        >
+          TREND BUILDER
+        </button>
+
+        <button
           className={view === "ki" ? "active" : ""}
           onClick={() => open("ki")}
         >
@@ -82,6 +92,8 @@ export default function Workspace() {
           <NormalChart />
         ) : view === "trainer" ? (
           <Trainer />
+        ) : view === "trend" ? (
+          <TrendBuilder />
         ) : view === "ki" ? (
           <KiEntries />
         ) : view === "flip" ? (
