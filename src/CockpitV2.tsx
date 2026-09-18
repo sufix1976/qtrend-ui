@@ -15,7 +15,6 @@ type InstrumentProfile={symbol:string;interval:string;chartMode:ChartMode;active
 type TradingStatus={config:{symbol:string;interval:string;size:number;auto_enabled:number}|null;event?:{status?:string}|null};
 type SqueezePoint={time:number;value:number;color:"lime"|"green"|"red"|"maroon"};
 type Point={time:number;value:number};
-type TrendZone={from:number;to:number;trend:1|-1};
 type ResearchResult={version:number;mode:"RESEARCH";symbol:string;generated_at:number;duration_ms:number;view_tf:string;base_candle_count:number;profile:any;chart_candles:Candle[];entry_rows:any[];exit_rows:any[];candidate_exit_rows:any[];channel_rows:any[];controller_rows:any[];channel_line:any[];trend_rsi_points?:Array<{time:number;value:number;trend:number}>;squeeze_points:SqueezePoint[];lrc_points:Point[];fisher_points:Point[];rsi_exit_points:Point[];backtest:BacktestStats&{closedTrades?:any[]};latest_controller:any};
 type SavedProfileRow={symbol:string;profileId:number|null;createdAt:string;profile:InstrumentProfile|null;trading:TradingStatus["config"]};
 type ExecutionMark={id:number;time:number;label:string;status:string;action:string;eventId:string};
