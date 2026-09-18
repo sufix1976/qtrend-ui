@@ -94,7 +94,6 @@ export default function CockpitV2(){
  const fisherData=useMemo(()=>stretchPoints(candles,research?.fisher_points||[],interval,exitCfg.exit3Tf),[candles,research?.fisher_points,interval,exitCfg.exit3Tf]);
  const rsiData=useMemo(()=>stretchPoints(candles,research?.rsi_exit_points||[],interval,exitCfg.exit4Tf),[candles,research?.rsi_exit_points,interval,exitCfg.exit4Tf]);
  const liveLrcLock=LIVE_LRC_LOCKS[symbol];
- const liveLrcData=useMemo(()=>liveLrcLock?liveLrcTrend(candles,liveLrcLock.mins,liveLrcLock.n):[],[candles,liveLrcLock?.id]);
  const trendZones=useMemo(()=>calculateTrendZones(candles,research?.channel_line||[],channelCfg,interval),[candles,research?.channel_line,channelCfg.enabled,channelCfg.showTrendZone,channelCfg.trendZoneSensitivity,channelCfg.atrPeriod,interval]);
  const entryByChart=useMemo(()=>{const map=new Map<number,EntryRow>(),sec=tfSeconds(interval);for(const r of research?.entry_rows||[])map.set(Math.floor(Number(r.time)/sec)*sec,r);return map;},[research?.entry_rows,interval]);
  const selectedEntry=selected?entryByChart.get(selected.time)||null:null;
