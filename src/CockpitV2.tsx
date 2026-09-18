@@ -41,6 +41,142 @@ function isE5Reason(reason:string){return reason.startsWith("RESEARCH_30M_MFE_PN
 function exitLabel(reason:string){return reason==="TREND_FLIP_EXIT"?"TX":reason.startsWith("EXIT1_")?"E1":reason.startsWith("EXIT2_")?"E2":reason.startsWith("EXIT3_")?"E3":reason.startsWith("EXIT4_")?"E4":isE5Reason(reason)?"E5":"EXIT";}
 function exitColor(reason:string){return reason==="TREND_FLIP_EXIT"?"#f8fafc":reason.startsWith("EXIT1_")?"#facc15":reason.startsWith("EXIT2_")?"#38bdf8":reason.startsWith("EXIT3_")?"#d946ef":reason.startsWith("EXIT4_")?"#f97316":isE5Reason(reason)?"#2dd4bf":"#94a3b8";}
 function executionColor(label:string){return label==="LIVE L"?"#22c55e":label==="LIVE S"?"#ef4444":label==="LIVE X"?"#f8fafc":label==="X CLOSED"?"#facc15":label==="X STALE"?"#c084fc":label==="X AUTO"?"#94a3b8":"#fb7185";}
+
+
+export default function CockpitV2(){
+ const {symbol,interval,setSymbol,setInterval}=useSharedMarket();
+ const [profile,setProfile]=useState<InstrumentProfile>(()=>readLocal(symbol));
+ const [research,setResearch]=useState<ResearchResult|null>(null);
+ const [viewCandles,setViewCandles]=useState<Candle[]>([]);
+ const [selected,setSelected]=useState<Candle|null>(null);
+ const [activeModule,setActiveModule]=useState<ModuleKey>("exit");
+ const [status,setStatus]=useState("RESEARCH wird vorbereitet …");
+ const [researching,setResearching]=useState(false);
+ const [liveDirty,setLiveDirty]=useState(false);
+ const [liveProfileId,setLiveProfileId]=useState<number|null>(null);
+ const [tradingStatus,setTradingStatus]=useState<TradingStatus|null>(null);
+ const [executionMarks,setExecutionMarks]=useState<ExecutionMark[]>([]);
+ const [booted,setBooted]=useState(false);
+ const [showProfiles,setShowProfiles]=useState(false);
+ const [profilesLoading,setProfilesLoading]=useState(false);
+ const [profilesError,setProfilesError]=useState("");
+ const [savedProfiles,setSavedProfiles]=useState<SavedProfileRow[]>([]);
+ const chartHost=useRef<HTMLDivElement>(null),liveLrcSeries=useRef<ISeriesApi<"Line">|null>(null),zoneLayer=useRef<HTMLDivElement>(null),chart=useRef<IChartApi|null>(null),priceSeries=useRef<ISeriesApi<"Candlestick">|null>(null),trendSeries=useRef<ISeriesApi<"Line">|null>(null),sqzSeries=useRef<ISeriesApi<"Histogram">|null>(null),lrcSeries=useRef<ISeriesApi<"Line">|null>(null),fisherSeries=useRef<ISeriesApi<"Line">|null>(null),rsiSeries=useRef<ISeriesApi<"Line">|null>(null),trendRsiSeries=useRef<ISeriesApi<"Line">|null>(null),markerApi=useRef<any>(null),candleMapRef=useRef(new Map<number,Candle>()),researchSeq=useRef(0),researchBusy=useRef(false),researchQueued=useRef(false),queuedProfile=useRef<InstrumentProfile|null>(null),queuedViewTf=useRef<string|null>(null),queuedSupersede=useRef(false),symbolRef=useRef(symbol),viewLastTime=useRef(0),tickBusy=useRef(false),profileRef=useRef(profile),intervalRef=useRef(interval);
+ profileRef.current=profile;intervalRef.current=interval;symbolRef.current=symbol;
+ const candles=viewCandles.length?viewCandles:(research?.chart_candles||[]);
+ const shown=useMemo(()=>profile.chartMode==="heikin"?heikin(candles):candles,[candles,profile.chartMode]);
+ const stats=research?.backtest||emptyStats;
+ const exitCfg=profile.modules.exit,entryCfg=profile.modules.entry,controllerCfg=profile.modules.controller;
+ const sqzData=useMemo(()=>stretchPoints(candles,research?.squeeze_points||[],interval,exitCfg.exit1Tf,(p:any)=>({color:SQZ_COLORS[p.color]||"#64748b"})),[candles,research?.squeeze_points,interval,exitCfg.exit1Tf]);
+ const lrcData=useMemo(()=>stretchPoints(candles,research?.lrc_points||[],interval,exitCfg.exit2Tf),[candles,research?.lrc_points,interval,exitCfg.exit2Tf]);
+ const fisherData=useMemo(()=>stretchPoints(candles,research?.fisher_points||[],interval,exitCfg.exit3Tf),[candles,research?.fisher_points,interval,exitCfg.exit3Tf]);
+ const rsiData=useMemo(()=>stretchPoints(candles,research?.rsi_exit_points||[],interval,exitCfg.exit4Tf),[candles,research?.rsi_exit_points,interval,exitCfg.exit4Tf]);
+ const entryByChart=useMemo(()=>{const map=new Map<number,EntryRow>(),sec=tfSeconds(interval);for(const r of research?.entry_rows||[])map.set(Math.floor(Number(r.time)/sec)*sec,r);return map;},[research?.entry_rows,interval]);
+ const selectedEntry=selected?entryByChart.get(selected.time)||null:null;
+ const selectedExit=selected?(research?.exit_rows||[]).find((r:any)=>Math.floor((Number(r.time)-1)/tfSeconds(interval))*tfSeconds(interval)===selected.time)||null:null;
+ const selectedTrend=selected?[...(research?.channel_rows||[])].reverse().find((r:any)=>Number(r.time)<=selected.time+tfSeconds(interval))||null:null;
+ const selectedController=selected?[...(research?.controller_rows||[])].reverse().find((r:any)=>Number(r.time)<=selected.time+tfSeconds(interval))||null:null;
+
+ async function refreshTradingStatus(){try{const currentSymbol=symbolRef.current,j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol===symbolRef.current)setTradingStatus(j);}catch{}}
+ async function refreshExecutionMarks(){try{const currentSymbol=symbolRef.current,j=await fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol!==symbolRef.current)return;const rows=(Array.isArray(j?.rows)?j.rows:[]).filter((r:any)=>String(r?.source||"")==="cockpit_v2_execution_status");const marks:ExecutionMark[]=[];for(const row of rows){let x:any=null;try{x=JSON.parse(String(row?.reason||"{}"));}catch{continue;}const label=String(x?.label||"").trim();if(!label)continue;marks.push({id:Number(row?.id||0),time:Number(row?.time||0),label,status:String(x?.status||""),action:String(x?.action||""),eventId:String(x?.event_id||"")});}setExecutionMarks(marks.sort((a,b)=>a.time-b.time||a.id-b.id).slice(-300));}catch{}}
+ async function loadAllProfiles(){
+  setShowProfiles(true);setProfilesLoading(true);setProfilesError("");
+  try{
+   const rows=await Promise.all(SYMBOLS.map(async s=>{
+    const [profilesJson,tradingJson]=await Promise.all([
+     fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(`${s}__V2_PROFILE`)}&_ts=${Date.now()}`).catch(()=>({rows:[]})),
+     fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(s)}&_ts=${Date.now()}`).catch(()=>({config:null}))
+    ]);
+    const profileRows=(Array.isArray(profilesJson?.rows)?profilesJson.rows:[]).filter((r:any)=>String(r?.source||"")==="cockpit_v2_profile").sort((a:any,b:any)=>Number(a?.id||0)-Number(b?.id||0));
+    const last=profileRows.at(-1)||null;let parsed:InstrumentProfile|null=null;
+    if(last){try{parsed=normalizeProfile(s,JSON.parse(String(last.reason||"{}")));}catch{parsed=null;}}
+    return{symbol:s,profileId:last?Number(last.id||0)||null:null,createdAt:String(last?.created_at||""),profile:parsed,trading:tradingJson?.config||null} as SavedProfileRow;
+   }));
+   setSavedProfiles(rows);
+  }catch(e){setProfilesError(e instanceof Error?e.message:String(e));}
+  finally{setProfilesLoading(false);}
+ }
+ async function bootstrap(){researchSeq.current+=1;researchQueued.current=false;queuedProfile.current=null;queuedViewTf.current=null;queuedSupersede.current=false;setBooted(false);setResearch(null);setViewCandles([]);setExecutionMarks([]);setSelected(null);setStatus("LIVE-Profil wird geladen …");const currentSymbol=symbolRef.current;let next=readLocal(currentSymbol),pid:null|number=null;try{const j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/snapshot?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol===symbolRef.current&&j?.snapshot?.profile){next=normalizeProfile(currentSymbol,j.snapshot.profile,next);pid=Number(j.snapshot.profile_id||0)||null;}}catch{}if(currentSymbol!==symbolRef.current)return;setProfile(next);profileRef.current=next;setLiveProfileId(pid);setLiveDirty(false);setBooted(true);void refreshTradingStatus();void refreshExecutionMarks();}
+ async function runResearch(p:InstrumentProfile=profileRef.current,viewTf:string=intervalRef.current,supersede=false){
+  if(researchBusy.current){researchQueued.current=true;queuedProfile.current=p;queuedViewTf.current=viewTf;queuedSupersede.current=queuedSupersede.current||supersede;if(supersede)researchSeq.current+=1;return;}
+  researchBusy.current=true;
+  const requestSymbol=symbolRef.current,seq=++researchSeq.current;
+  setResearching(true);
+  try{
+   const j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/research`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:requestSymbol,view_tf:viewTf,profile:{...p,symbol:requestSymbol}})});
+   if(seq!==researchSeq.current||requestSymbol!==symbolRef.current)return;
+   const r=j.research as ResearchResult;setResearch(r);const rows=normalizeRows(r.chart_candles);setViewCandles(rows);viewLastTime.current=Number(rows.at(-1)?.time||0);if(rows.length&&!selected)setSelected(rows.at(-1)||null);const net=Number(r.backtest?.net||0);setStatus(`RESEARCH ${r.duration_ms} ms · ${r.base_candle_count}×1m · PF ${r.backtest?.profitFactor==null?"—":Number(r.backtest.profitFactor).toFixed(3)} · NET ${net>=0?"+":""}${net.toFixed(2)} · ${r.backtest?.trades||0} Trades`);
+  }catch(e){if(seq===researchSeq.current&&requestSymbol===symbolRef.current)setStatus(`RESEARCH-Fehler: ${e instanceof Error?e.message:String(e)}`);}
+  finally{
+   researchBusy.current=false;
+   if(researchQueued.current){const qp=queuedProfile.current||profileRef.current,qtf=queuedViewTf.current||intervalRef.current,qs=queuedSupersede.current;researchQueued.current=false;queuedProfile.current=null;queuedViewTf.current=null;queuedSupersede.current=false;queueMicrotask(()=>void runResearch(qp,qtf,qs));}
+   else if(requestSymbol===symbolRef.current)setResearching(false);
+  }
+ }
+ function change(mutator:(p:InstrumentProfile)=>InstrumentProfile){setProfile(prev=>{const next=mutator(prev);profileRef.current=next;return next;});setLiveDirty(true);}
+ async function applyLive(){try{setStatus("LIVE-Profil wird übernommen …");const saved={...profileRef.current,symbol,modules:{...profileRef.current.modules,controller:{...profileRef.current.modules.controller,requireTrend:true}},updatedAt:new Date().toISOString()};saveLocal(saved);const j=await fetchJson(`${BACKEND_BASE}/ui/strategy-event`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:`${symbol}__V2_PROFILE`,tf:saved.interval,side:"profile",time:Math.floor(Date.now()/1000),price:0,source:"cockpit_v2_profile",reason:JSON.stringify(saved)})});setLiveProfileId(Number(j?.id||j?.row?.id||0)||liveProfileId);setLiveDirty(false);setStatus("LIVE-Profil übernommen · Research bleibt identisch");}catch(e){setStatus(`LIVE-Fehler: ${e instanceof Error?e.message:String(e)}`);}}
+ async function changeAuto(enabled:boolean){try{await fetchJson(`${BACKEND_BASE}/cockpit-v2/auto`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,enabled})});await refreshTradingStatus();}catch(e){setStatus(`AUTO-Fehler: ${e instanceof Error?e.message:String(e)}`);}}
+ async function tickView(){if(tickBusy.current||!booted)return;tickBusy.current=true;try{const currentSymbol=symbolRef.current,tf=intervalRef.current,j=await fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(currentSymbol)}&interval=${encodeURIComponent(tf)}&limit=2&_ts=${Date.now()}`),rows=normalizeRows(j?.candles);if(currentSymbol!==symbolRef.current||!rows.length)return;const last=rows.at(-1)!;if(Number(last.time)>viewLastTime.current){viewLastTime.current=Number(last.time);setViewCandles(prev=>{const map=new Map(prev.map(c=>[c.time,c]));for(const row of rows)map.set(row.time,row);return[...map.values()].sort((a,b)=>a.time-b.time).slice(-1500);});}else if(profileRef.current.chartMode==="candles"){candleMapRef.current.set(last.time,last);priceSeries.current?.update({time:last.time as Time,open:last.open,high:last.high,low:last.low,close:last.close});}}catch{}finally{tickBusy.current=false;}}
+
+ useEffect(()=>{void bootstrap();},[symbol]);
+ useEffect(()=>{if(!booted)return;const t=window.setTimeout(()=>void runResearch(profileRef.current,interval,true),180);return()=>window.clearTimeout(t);},[booted,profile,interval,symbol]);
+ useEffect(()=>{if(!booted)return;const t=window.setInterval(()=>void tickView(),1000),r=window.setInterval(()=>void runResearch(profileRef.current,intervalRef.current,false),15000),s=window.setInterval(()=>void refreshTradingStatus(),5000),x=window.setInterval(()=>void refreshExecutionMarks(),2000);return()=>{window.clearInterval(t);window.clearInterval(r);window.clearInterval(s);window.clearInterval(x);};},[booted,symbol]);
+ useEffect(()=>{candleMapRef.current=new Map(candles.map(c=>[c.time,c]));},[candles]);
+ useEffect(()=>{
+  const onOptimizerProfile=(event:Event)=>{
+   const detail=(event as CustomEvent<{symbol?:string;profile?:any}>).detail;
+   if(!detail?.profile)return;
+   const targetSymbol=String(detail.symbol||symbolRef.current).toUpperCase();
+   if(targetSymbol!==symbolRef.current)return;
+   const next=normalizeProfile(targetSymbol,detail.profile,profileRef.current);
+   next.updatedAt=new Date().toISOString();
+   setProfile(next);profileRef.current=next;setLiveDirty(true);setStatus("OPTIMIZER-Kandidat direkt in RESEARCH geladen …");
+  };
+  window.addEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
+  return()=>window.removeEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
+ },[]);
+
+ useEffect(()=>{if(!chartHost.current)return;const c=createChart(chartHost.current,{autoSize:true,layout:{background:{color:"#070b16"},textColor:"#dbe4ff",panes:{separatorColor:"#334155",separatorHoverColor:"#475569",enableResize:true}},grid:{vertLines:{color:"#172033"},horzLines:{color:"#172033"}},crosshair:{mode:CrosshairMode.Normal},rightPriceScale:{borderColor:"#334155",minimumWidth:90},timeScale:{borderColor:"#334155",timeVisible:true,secondsVisible:false,tickMarkFormatter:(t:any)=>chartBerlinTime(Number(t))},localization:{timeFormatter:(t:any)=>chartBerlinTime(Number(t))}});const ps=c.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",wickUpColor:"#22c55e",wickDownColor:"#ef4444",borderVisible:false},0);liveLrcSeries.current=c.addSeries(LineSeries,{lineWidth:4,priceLineVisible:false,lastValueVisible:false},0);trendSeries.current=c.addSeries(LineSeries,{lineWidth:3,priceLineVisible:false,lastValueVisible:false},0);sqzSeries.current=c.addSeries(HistogramSeries,{base:0,priceLineVisible:false,lastValueVisible:true},1);lrcSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},2);fisherSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},3);rsiSeries.current=c.addSeries(LineSeries,{lineWidth:2,priceLineVisible:false,lastValueVisible:true},4);trendRsiSeries.current=c.addSeries(LineSeries,{lineWidth:3,priceLineVisible:false,lastValueVisible:true,title:"TREND · 2H RSI(14)"},5);chart.current=c;priceSeries.current=ps;markerApi.current=createSeriesMarkers(ps,[]);c.subscribeCrosshairMove(p=>{if(!p.time)return;const row=candleMapRef.current.get(Number(p.time));if(row)setSelected(row);});return()=>{c.remove();chart.current=null;priceSeries.current=null;liveLrcSeries.current=null;trendSeries.current=null;sqzSeries.current=null;lrcSeries.current=null;fisherSeries.current=null;rsiSeries.current=null;trendRsiSeries.current=null;markerApi.current=null;};},[]);
+ useEffect(()=>{const pts=research?.trend_rsi_points||[];let j=-1;priceSeries.current?.setData(shown.map(x=>{while(j+1<pts.length&&Number(pts[j+1].time)<=Number(x.time))j++;const dir=j>=0?Number(pts[j].trend):0;const base={time:x.time as Time,open:x.open,high:x.high,low:x.low,close:x.close};if(dir===0)return base;const color=dir>0?"#22c55e":"#ef4444";return {...base,color,borderColor:color,wickColor:color}}));},[shown,research?.trend_rsi_points]);
+ useEffect(()=>{liveLrcSeries.current?.applyOptions({visible:false});liveLrcSeries.current?.setData([]);},[]);
+ useEffect(()=>{trendSeries.current?.applyOptions({visible:false});trendSeries.current?.setData([]);trendRsiSeries.current?.setData((research?.trend_rsi_points||[]).map(p=>({time:Number(p.time) as Time,value:Number(p.value),color:Number(p.trend)===1?"#22c55e":"#ef4444"})) as any);const pane=chart.current?.panes()?.[5];if(pane)pane.setHeight(150);},[research?.trend_rsi_points]);
+ useEffect(()=>{sqzSeries.current?.applyOptions({visible:exitCfg.exit1Enabled});lrcSeries.current?.applyOptions({visible:exitCfg.exit2Enabled});fisherSeries.current?.applyOptions({visible:exitCfg.exit3Enabled});rsiSeries.current?.applyOptions({visible:exitCfg.exit4Enabled});sqzSeries.current?.setData(sqzData as any);lrcSeries.current?.setData(lrcData as any);fisherSeries.current?.setData(fisherData as any);rsiSeries.current?.setData(rsiData as any);const panes=chart.current?.panes()||[];[[1,exitCfg.exit1Enabled],[2,exitCfg.exit2Enabled],[3,exitCfg.exit3Enabled],[4,exitCfg.exit4Enabled]].forEach(([i,on]:any)=>{if(panes[i])panes[i].setHeight(on?120:24);});},[sqzData,lrcData,fisherData,rsiData,exitCfg.exit1Enabled,exitCfg.exit2Enabled,exitCfg.exit3Enabled,exitCfg.exit4Enabled]);
+ useEffect(()=>{if(!markerApi.current)return;const sec=tfSeconds(interval),chartTimes=new Set(candles.map(c=>c.time)),markers:any[]=[];for(const r of research?.exit_rows||[]){if(!exitCfg.showMarkers)break;const time=Math.floor((Number(r.time)-1)/sec)*sec;if(!chartTimes.has(time))continue;const reason=String(r.reason||"");markers.push({time:time as Time,position:r.exit==="LONG"?"aboveBar":"belowBar",color:exitColor(reason),shape:"square",text:exitLabel(reason),size:1.25});}if(controllerCfg.showMarkers)for(const r of research?.controller_rows||[]){const time=Math.floor((Number(r.time)-1)/sec)*sec;if(!chartTimes.has(time))continue;const ol=r.action==="OPEN_LONG"||r.action==="FLIP_LONG",os=r.action==="OPEN_SHORT"||r.action==="FLIP_SHORT",el=r.action==="EXIT_LONG";markers.push({time:time as Time,position:ol?"belowBar":os?"aboveBar":el?"aboveBar":"belowBar",color:ol?"#38bdf8":os?"#fb923c":"#f8fafc",shape:ol?"arrowUp":os?"arrowDown":"circle",text:ol?"C LONG":os?"C SHORT":el?"C EXIT L":"C EXIT S",size:2});}for(const m of executionMarks){const time=Math.floor(Number(m.time)/sec)*sec;if(!chartTimes.has(time))continue;const isLong=m.label==="LIVE L",isShort=m.label==="LIVE S",isExit=m.label==="LIVE X";markers.push({time:time as Time,position:isLong?"belowBar":isShort?"aboveBar":isExit?"aboveBar":"aboveBar",color:executionColor(m.label),shape:isLong?"arrowUp":isShort?"arrowDown":"square",text:m.label,size:2.8});}markerApi.current.setMarkers(markers.sort((a:any,b:any)=>Number(a.time)-Number(b.time)));},[research?.exit_rows,research?.controller_rows,executionMarks,candles,interval,exitCfg.showMarkers,controllerCfg.showMarkers]);
+
+ const patchEntry=(p:Partial<EntryConfig>)=>change(v=>({...v,modules:{...v.modules,entry:{...v.modules.entry,...p}}}));
+ const patchExit=(p:Partial<ExitModuleConfig>)=>change(v=>({...v,modules:{...v.modules,exit:{...v.modules.exit,...p}}}));
+ const patchController=(p:Partial<ControllerConfig>)=>change(v=>({...v,modules:{...v.modules,controller:{...v.modules.controller,...p,requireTrend:true}}}));
+
+ return <div style={{height:"calc(100vh - 84px)",minHeight:720,display:"grid",gridTemplateRows:"auto 1fr",gap:8,padding:8,color:"#dbe4ff",background:"#050914"}}>
+  <div style={{...panel,padding:9,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+   <b style={{fontSize:16,color:"#67e8f9"}}>COCKPIT V2 · RENDER RESEARCH</b>
+   <select value={symbol} onChange={e=>setSymbol(e.target.value)} style={inputStyle}>{SYMBOLS.map(x=><option key={x}>{x}</option>)}</select>
+   <select value={interval} onChange={e=>setInterval(e.target.value)} style={inputStyle}>{INTERVALS.map(x=><option key={x}>{x}</option>)}</select>
+   <button onClick={()=>setProfile(v=>({...v,chartMode:v.chartMode==="candles"?"heikin":"candles"}))} style={buttonStyle}>{profile.chartMode==="heikin"?"HEIKIN":"KERZEN"}</button>
+   <div style={{flex:1,minWidth:260,padding:"8px 12px",borderRadius:7,border:"1px solid #155e75",background:"#082f49",color:"#a5f3fc",fontWeight:800}}>{researching?"RESEARCH rechnet …":status}</div>
+   <button onClick={()=>void loadAllProfiles()} style={{...buttonStyle,background:"#0f3f5f",color:"#cffafe"}}>ALLE PROFILE</button>
+   <button onClick={()=>void applyLive()} disabled={!liveDirty} style={{...buttonStyle,background:liveDirty?"#9a3412":"#334155",color:"white",opacity:liveDirty?1:.6}}>LIVE ÜBERNEHMEN</button>
+  </div>
+  {showProfiles&&<ProfilesModal rows={savedProfiles} loading={profilesLoading} error={profilesError} onReload={()=>void loadAllProfiles()} onClose={()=>setShowProfiles(false)}/>} 
+  <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 365px",gap:8,minHeight:0}}>
+   <div style={{...panel,overflow:"hidden",position:"relative",minHeight:0}}>
+    <div ref={chartHost} style={{position:"absolute",inset:0}}/>
+    <div ref={zoneLayer} style={{position:"absolute",inset:0,zIndex:1,pointerEvents:"none",overflow:"hidden"}}/>
+    <div style={{position:"absolute",top:8,left:10,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:800}}>{symbol} · VIEW {interval} · RESEARCH LIVE · TREND 2H RSI(14) · TX {exitCfg.trendExitEnabled?"ON":"OFF"} · E1 {exitCfg.exit1Tf} · E2 {exitCfg.exit2Tf} · E3 {exitCfg.exit3Tf} · E4 {exitCfg.exit4Tf}</div>
+   </div>
+   <aside style={{display:"grid",gridTemplateRows:"minmax(0,3fr) minmax(0,2fr)",gap:8,minHeight:0,overflow:"hidden"}}>
+    <section style={{...panel,padding:10,overflow:"auto"}}>
+     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:10}}>{(["exit","entry","controller"] as ModuleKey[]).map(k=><button key={k} onClick={()=>setActiveModule(k)} style={{...buttonStyle,padding:"7px 3px",fontSize:10,background:activeModule===k?"#4c1d95":"#0a1020"}}>{k.toUpperCase()}</button>)}</div>
+     {activeModule==="exit"&&<ExitSettings cfg={exitCfg} patch={patchExit}/>} 
+     {activeModule==="entry"&&<EntrySettings cfg={entryCfg} patch={patchEntry}/>} 
+     {activeModule==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={stats} trading={tradingStatus} liveDirty={liveDirty} liveProfileId={liveProfileId} onAuto={changeAuto}/>} 
+    </section>
+    <section style={{...panel,padding:10,overflow:"auto"}}><b>INSPECTOR · RESEARCH</b>{selected?<div style={{display:"grid",gap:6,marginTop:8}}><InfoRow k="Zeit" v={chartBerlinTime(selected.time)}/><InfoRow k="Close" v={selected.close}/><InfoRow k="ENTRY" v={selectedEntry?.entry||"NONE"}/><InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="TREND QUELLE" v="2H RSI(14)"/><InfoRow k="TREND" v={selectedTrend?(selectedTrend.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="CONTROLLER" v={selectedController?.state||"FLAT"}/><InfoRow k="PF" v={stats.profitFactor==null?"—":Number(stats.profitFactor).toFixed(3)}/></div>:null}</section>
+   </aside>
+  </div>
+ </div>;
+}
+
 function ProfilesModal({rows,loading,error,onReload,onClose}:{rows:SavedProfileRow[];loading:boolean;error:string;onReload:()=>void;onClose:()=>void}){
  const cell:CSSProperties={padding:"7px 8px",borderBottom:"1px solid #23324a",borderRight:"1px solid #182236",whiteSpace:"nowrap",fontSize:12};
  const head:CSSProperties={...cell,position:"sticky",top:0,zIndex:2,background:"#111c2d",color:"#67e8f9",fontWeight:900};
