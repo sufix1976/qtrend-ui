@@ -11,6 +11,7 @@
   #qv2-e5 .qe5-grid{grid-template-columns:1fr!important}
  }
  `;document.head.appendChild(css);
- function fixToolbar(){const all=[...document.querySelectorAll('#root button')];const take=all.find(b=>/ÜBERNEHMEN|LIVE.*PROFIL|PROFIL.*LIVE/i.test(b.textContent||''));if(!take)return;const row=take.parentElement;if(!row)return;row.style.display='flex';row.style.flexWrap='wrap';row.style.gap='6px';row.style.width='100%';row.style.maxWidth='100%';row.style.overflow='visible';[...row.children].forEach(el=>{el.style.minWidth='0';el.style.flex='1 1 110px'});take.style.order='-1';take.style.flex='1 1 160px';take.style.minWidth='140px'}
+ function hideResearchButtons(){for(const id of ['qtrend-oos-test-button','qtrend-oos-replay-button']){const b=document.getElementById(id);if(b)b.style.display='none'}}
+ function fixToolbar(){hideResearchButtons();const all=[...document.querySelectorAll('#root button')];const take=all.find(b=>/ÜBERNEHMEN|LIVE.*PROFIL|PROFIL.*LIVE/i.test(b.textContent||''));if(!take)return;const row=take.parentElement;if(!row)return;row.style.display='flex';row.style.flexWrap='wrap';row.style.gap='6px';row.style.width='100%';row.style.maxWidth='100%';row.style.overflow='visible';[...row.children].forEach(el=>{el.style.minWidth='0';el.style.flex='1 1 110px'});take.style.order='-1';take.style.flex='1 1 160px';take.style.minWidth='140px'}
  setInterval(fixToolbar,400);fixToolbar();
 })();
