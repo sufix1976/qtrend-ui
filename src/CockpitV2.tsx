@@ -189,7 +189,7 @@ export default function CockpitV2(){
    <div style={{...panel,overflow:"hidden",position:"relative",minHeight:0}}>
     <div ref={chartHost} style={{position:"absolute",inset:0}}/>
     <div ref={zoneLayer} style={{position:"absolute",inset:0,zIndex:1,pointerEvents:"none",overflow:"hidden"}}/>
-    <div style={{position:"absolute",top:8,left:10,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:800}}>{symbol} · VIEW {interval} · RESEARCH LIVE · TREND {channelCfg.tf} · ZONE {channelCfg.showTrendZone?`ON ${Number(channelCfg.trendZoneSensitivity).toFixed(2)}`:"OFF"} · TX {exitCfg.trendExitEnabled?"ON":"OFF"} · E1 {exitCfg.exit1Tf} · E2 {exitCfg.exit2Tf} · E3 {exitCfg.exit3Tf} · E4 {exitCfg.exit4Tf}</div>
+    <div style={{position:"absolute",top:8,left:10,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:800}}>{symbol} · VIEW {interval} · RESEARCH LIVE · TREND {channelCfg.liveLrcEnabled&&liveLrcLock?`LIVE-LRC ${liveLrcLock.id} ${liveLrcLock.mins/60}h/L${liveLrcLock.n}`:`CHANNEL ${channelCfg.tf}`} · ZONE {channelCfg.showTrendZone?`ON ${Number(channelCfg.trendZoneSensitivity).toFixed(2)}`:"OFF"} · TX {exitCfg.trendExitEnabled?"ON":"OFF"} · E1 {exitCfg.exit1Tf} · E2 {exitCfg.exit2Tf} · E3 {exitCfg.exit3Tf} · E4 {exitCfg.exit4Tf}</div>
    </div>
    <aside style={{display:"grid",gridTemplateRows:"minmax(0,3fr) minmax(0,2fr)",gap:8,minHeight:0,overflow:"hidden"}}>
     <section style={{...panel,padding:10,overflow:"auto"}}>
@@ -199,7 +199,7 @@ export default function CockpitV2(){
      {activeModule==="channel"&&<ChannelSettings cfg={channelCfg} patch={patchChannel} liveLrcEnabled={liveLrcEnabled} setLiveLrcEnabled={setLiveLrcEnabled} symbol={symbol} liveLrcLock={liveLrcLock}/>} 
      {activeModule==="controller"&&<ControllerSettings cfg={controllerCfg} patch={patchController} stats={stats} trading={tradingStatus} liveDirty={liveDirty} liveProfileId={liveProfileId} onAuto={changeAuto}/>} 
     </section>
-    <section style={{...panel,padding:10,overflow:"auto"}}><b>INSPECTOR · RESEARCH</b>{selected?<div style={{display:"grid",gap:6,marginTop:8}}><InfoRow k="Zeit" v={chartBerlinTime(selected.time)}/><InfoRow k="Close" v={selected.close}/><InfoRow k="ENTRY" v={selectedEntry?.entry||"NONE"}/><InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="TREND" v={selectedTrend?(selectedTrend.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="CONTROLLER" v={selectedController?.state||"FLAT"}/><InfoRow k="PF" v={stats.profitFactor==null?"—":Number(stats.profitFactor).toFixed(3)}/></div>:null}</section>
+    <section style={{...panel,padding:10,overflow:"auto"}}><b>INSPECTOR · RESEARCH</b>{selected?<div style={{display:"grid",gap:6,marginTop:8}}><InfoRow k="Zeit" v={chartBerlinTime(selected.time)}/><InfoRow k="Close" v={selected.close}/><InfoRow k="ENTRY" v={selectedEntry?.entry||"NONE"}/><InfoRow k="EXIT" v={selectedExit?.exit||"NONE"}/><InfoRow k="EXIT GRUND" v={selectedExit?.reason||"—"}/><InfoRow k="TREND QUELLE" v={channelCfg.liveLrcEnabled&&liveLrcLock?`LIVE-LRC ${liveLrcLock.id}`:`CHANNEL ${channelCfg.tf}`}/><InfoRow k="TREND" v={selectedTrend?(selectedTrend.trend===1?"LONG":"SHORT"):"—"}/><InfoRow k="CONTROLLER" v={selectedController?.state||"FLAT"}/><InfoRow k="PF" v={stats.profitFactor==null?"—":Number(stats.profitFactor).toFixed(3)}/></div>:null}</section>
    </aside>
   </div>
  </div>;
