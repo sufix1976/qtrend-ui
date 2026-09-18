@@ -1,7 +1,7 @@
 import type { Time } from "lightweight-charts";
 
 export type Candle={time:number;open:number;high:number;low:number;close:number;volume?:number};
-export type EntryConfig={enabled:boolean;tf:string;showMarkers:boolean;fastSma:number;slowSma:number;atrLen:number;rsiLen:number;macdFast:number;macdSlow:number;macdSignal:number;expansionMomentum:number;expansionEnergy:number;expansionVolatility:number;expansionCompressionMax:number;compressionMin:number;phaseSwitchMargin:number};
+export type EntryConfig={enabled:boolean;tf:string;showMarkers:boolean;fastSma:number;slowSma:number;atrLen:number;rsiLen:number;macdFast:number;macdSlow:number;macdSignal:number;expansionMomentum:number;expansionEnergy:number;expansionVolatility:number;expansionCompressionMax:number;compressionMin:number;phaseSwitchMargin:number;entryV2Enabled?:boolean;r1Enabled?:boolean;r1Tf?:string;r1LengthKC?:number;r1UseTrueRange?:boolean;r2Enabled?:boolean;r2Tf?:string;r2LrcLength?:number;r3Enabled?:boolean;r3Tf?:string;r3FisherLength?:number;r3FisherThreshold?:number;r4Enabled?:boolean;r4Tf?:string;r4RsiLength?:number;r4RsiUpper?:number;r4RsiLower?:number;r5Enabled?:boolean};
 export type ExitConfig={enabled:boolean;tf:string;showMarkers:boolean;showLines:boolean;fastSma:number;slowSma:number;atrLen:number;rsiLen:number;macdFast:number;macdSlow:number;macdSignal:number;offset:number;useSlowExit:boolean;exitOnTrendFlip:boolean};
 export type ChannelConfig={enabled:boolean;tf:string;showLines:boolean;atrPeriod:number;multiplier:number;useRmaAtr:boolean};
 export type ControllerConfig={enabled:boolean;showMarkers:boolean;requireTrend:boolean;allowFlip:boolean};
@@ -12,7 +12,7 @@ export type ControllerState="FLAT"|"LONG"|"SHORT";
 export type ControllerRow={time:number;action:"OPEN_LONG"|"OPEN_SHORT"|"EXIT_LONG"|"EXIT_SHORT"|"FLIP_LONG"|"FLIP_SHORT";state:ControllerState;reason:"ENTRY"|"EXIT_LAB_EXIT"|"OPPOSITE_ENTRY"};
 export type BacktestStats={trades:number;wins:number;losses:number;grossProfit:number;grossLoss:number;net:number;profitFactor:number|null;winRate:number};
 
-export const DEFAULT_ENTRY:EntryConfig={enabled:true,tf:"5m",showMarkers:true,fastSma:20,slowSma:50,atrLen:14,rsiLen:14,macdFast:2,macdSlow:26,macdSignal:9,expansionMomentum:65,expansionEnergy:45,expansionVolatility:55,expansionCompressionMax:60,compressionMin:62,phaseSwitchMargin:8};
+export const DEFAULT_ENTRY:EntryConfig={enabled:true,tf:"5m",showMarkers:true,fastSma:20,slowSma:50,atrLen:14,rsiLen:14,macdFast:2,macdSlow:26,macdSignal:9,expansionMomentum:65,expansionEnergy:45,expansionVolatility:55,expansionCompressionMax:60,compressionMin:62,phaseSwitchMargin:8,entryV2Enabled:false,r1Enabled:false,r1Tf:"5m",r1LengthKC:20,r1UseTrueRange:true,r2Enabled:false,r2Tf:"5m",r2LrcLength:20,r3Enabled:false,r3Tf:"5m",r3FisherLength:10,r3FisherThreshold:1.5,r4Enabled:false,r4Tf:"5m",r4RsiLength:14,r4RsiUpper:70,r4RsiLower:30,r5Enabled:false};
 export const DEFAULT_EXIT:ExitConfig={enabled:true,tf:"MTF",showMarkers:true,showLines:true,fastSma:20,slowSma:50,atrLen:14,rsiLen:14,macdFast:2,macdSlow:26,macdSignal:9,offset:0,useSlowExit:true,exitOnTrendFlip:false};
 export const DEFAULT_CHANNEL:ChannelConfig={enabled:true,tf:"30m",showLines:true,atrPeriod:10,multiplier:3,useRmaAtr:true};
 export const DEFAULT_CONTROLLER:ControllerConfig={enabled:true,showMarkers:true,requireTrend:true,allowFlip:true};
