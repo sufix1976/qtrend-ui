@@ -6,13 +6,14 @@ import ADTrendLab from "./ADTrendLab";
 import Trainer from "./Trainer";
 import ProfileLab from "./ProfileLab";
 import ExitLab from "./ExitLab";
+import TrendBuilder from "./TrendBuilder";
 import "./App.css";
 
-type View = "chart" | "lab" | "adlab" | "profilelab" | "exitlab" | "cockpit" | "cockpitv2" | "trainer" | "momentum" | "settings";
+type View = "chart" | "lab" | "adlab" | "profilelab" | "exitlab" | "cockpit" | "cockpitv2" | "trainer" | "trendbuilder" | "momentum" | "settings";
 
 function readView(): View {
   const raw = new URLSearchParams(window.location.search).get("view");
-  if (raw === "lab" || raw === "adlab" || raw === "profilelab" || raw === "exitlab" || raw === "cockpit" || raw === "cockpitv2" || raw === "trainer" || raw === "momentum" || raw === "settings") return raw;
+  if (raw === "lab" || raw === "adlab" || raw === "profilelab" || raw === "exitlab" || raw === "cockpit" || raw === "cockpitv2" || raw === "trainer" || raw === "trendbuilder" || raw === "momentum" || raw === "settings") return raw;
   return "chart";
 }
 
@@ -36,8 +37,8 @@ export default function App() {
       <nav className="v8-nav">
         <div className="v8-brand"><b>QTrend V11.0 Dual Exit Research</b><small>Eine Plattform · ein Profil · eine Logik</small></div>
         <div className="v8-tabs">
-          {(["chart","lab","adlab","profilelab","exitlab","cockpit","cockpitv2","trainer","momentum","settings"] as View[]).map(item => (
-            <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item === "adlab" ? "AD LAB" : item === "profilelab" ? "PROFILE LAB" : item === "exitlab" ? "EXIT LAB" : item === "cockpitv2" ? "COCKPIT V2" : item.toUpperCase()}</button>
+          {(["chart","lab","adlab","profilelab","exitlab","cockpit","cockpitv2","trainer","trendbuilder","momentum","settings"] as View[]).map(item => (
+            <button key={item} className={view === item ? "active" : ""} onClick={() => navigate(item)}>{item === "adlab" ? "AD LAB" : item === "profilelab" ? "PROFILE LAB" : item === "exitlab" ? "EXIT LAB" : item === "cockpitv2" ? "COCKPIT V2" : item === "trendbuilder" ? "TREND BUILDER" : item.toUpperCase()}</button>
           ))}
         </div>
       </nav>
@@ -50,6 +51,7 @@ export default function App() {
         {view === "cockpit" && <ExtremeLiveCockpit />}
         {view === "cockpitv2" && <CockpitV2 />}
         {view === "trainer" && <Trainer />}
+        {view === "trendbuilder" && <TrendBuilder />}
         {view === "momentum" && <Placeholder title="MOMENTUM" text="Momentum AI bleibt als eigenes Forschungsmodul erhalten. V8.0 verbindet zunächst LAB und COCKPIT." />}
         {view === "settings" && <Placeholder title="SETTINGS" text="Profile werden jetzt persistent gespeichert und zwischen LAB, COCKPIT und Engine geteilt. Broker, Telegram und Layout folgen schrittweise." />}
       </section>
