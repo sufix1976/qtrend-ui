@@ -78,7 +78,7 @@ function build(c:C[]):V[]{const out:V[]=[];const defs=[
  for(const [id,mins] of fisherDefs){const x=fisherTrend(c,mins,10);out.push({id,family:"FISHER HTF",speed:id.slice(1),trend:x.trend,changes:flips(x.trend),params:`${id.slice(1)} · Fisher Length 10 · Fisher/Trigger Kreuz = Trendwechsel · CLOSED HTF · KAUSAL`,fisher:x.fisher,trigger:x.trigger})}
  return out}
 export default function TrendBuilder(){
- const [symbol,setSymbol]=useState("J225"),[candles,setCandles]=useState<C[]>([]),[sel,setSel]=useState(42),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+ const [symbol,setSymbol]=useState("J225"),[candles,setCandles]=useState<C[]>([]),[sel,setSel]=useState(97),[busy,setBusy]=useState(false),[err,setErr]=useState("");
  const host=useRef<HTMLDivElement>(null),chart=useRef<IChartApi|null>(null);const vars=useMemo(()=>build(candles),[candles]),v=vars[sel];
  async function load(){setBusy(true);setErr("");try{const r=await fetch(`${BACKEND}/v5/candles?symbol=${encodeURIComponent(symbol)}&interval=1m&limit=50000&refreshLatest=false`,{cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||`HTTP ${r.status}`);setCandles((j.candles||[]).map((z:any)=>({time:Number(z.time),open:Number(z.open),high:Number(z.high),low:Number(z.low),close:Number(z.close)})));setSel(97)}catch(e:any){setErr(e.message||String(e))}finally{setBusy(false)}}
  useEffect(()=>{void load()},[symbol]);
