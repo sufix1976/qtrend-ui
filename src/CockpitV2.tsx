@@ -45,7 +45,8 @@ function executionColor(label:string){return label==="LIVE L"?"#22c55e":label===
 export default function CockpitV2(){
  const {symbol,interval,setSymbol,setInterval}=useSharedMarket();
  const [profile,setProfile]=useState<InstrumentProfile>(()=>readLocal(symbol));
- const [research,setResearch]=useState<ResearchResult|null>(null);\n const [trendMacdMinutes,setTrendMacdMinutes]=useState<120|180|240>(120);
+ const [research,setResearch]=useState<ResearchResult|null>(null);
+ const [trendMacdMinutes,setTrendMacdMinutes]=useState<120|180|240>(120);
  const [viewCandles,setViewCandles]=useState<Candle[]>([]);
  const [selected,setSelected]=useState<Candle|null>(null);
  const [activeModule,setActiveModule]=useState<ModuleKey>("exit");
