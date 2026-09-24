@@ -12,9 +12,9 @@ export function bb40OneMinuteTrend(candles: Candle[], nowSeconds: number): Map<n
     previousTime = candle.time;
     window.push(candle.close);
     sum += candle.close;
-    if (window.length > 40) sum -= window.shift()!;
-    if (window.length < 40) continue;
-    const mid = sum / 40;
+    if (window.length > 6) sum -= window.shift()!;
+    if (window.length < 6) continue;
+    const mid = sum / 6;
     if (candle.low > mid) trend = 1;
     else if (candle.high < mid) trend = -1;
     if (trend) result.set(candle.time + 60, trend);
