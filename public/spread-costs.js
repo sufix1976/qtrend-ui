@@ -63,12 +63,13 @@
   });
 
   window.fetch=async function(input,init={}){
-    let isResearch=false,sym='';
+    let isResearch=false,isOptimizer=false,sym='';
     try{
       const url=typeof input==='string'?input:String(input?.url||'');
       isResearch=url.includes('/cockpit-v2/research')&&String(init?.method||'GET').toUpperCase()==='POST'&&typeof init?.body==='string';
       if(isResearch){
         const body=JSON.parse(init.body);
+        isOptimizer=body.__optimizerDiagnostic===true;
         sym=String(body?.symbol||getSymbol()).toUpperCase();
         body.profile={...(body.profile||{}),avgSpread:getSpread(sym)};
         init={...init,body:JSON.stringify(body)};
@@ -79,7 +80,7 @@
       try{
         const j=await r.clone().json();
         const st=j?.research?.backtest;
-        if(st){lastStats=st;lastSymbol=sym;setTimeout(renderStats,0);}
+        if(st&&!isOptimizer){lastStats=st;lastSymbol=sym;setTimeout(renderStats,0);}
       }catch{}
     }
     return r;
