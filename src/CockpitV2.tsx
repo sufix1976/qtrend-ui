@@ -18,7 +18,7 @@ type TradingStatus={config:{symbol:string;interval:string;size:number;auto_enabl
 type SqueezePoint={time:number;value:number;color:"lime"|"green"|"red"|"maroon"};
 type Point={time:number;value:number};
 type ResearchResult={version:number;mode:"RESEARCH";symbol:string;generated_at:number;duration_ms:number;view_tf:string;base_candle_count:number;profile:any;chart_candles:Candle[];entry_rows:any[];exit_rows:any[];candidate_exit_rows:any[];channel_rows:any[];controller_rows:any[];channel_line:any[];magic_atr_trail_rows?:Array<{time:number;value:number}>;magic_atr2_trail_rows?:Array<{time:number;value:number}>;magic_trade_trend_rows?:Array<{time:number;trend:number}>;magic_shadow_atr_rows?:Array<{time:number;value:number;trend:number}>;magic_shadow_break_rows?:Array<{time:number;direction:"LONG"|"SHORT";atr:number;trendMagic:number}>;magic_shadow_trend_rows?:Array<{time:number;trend:number}>;magic_gray_zone_rows?:Array<{time:number;value:number;gray:boolean}>;magic_gray_diagnostic?:{gray:{count:number;net:number;trendFlipLosses:number};other:{count:number;net:number;trendFlipLosses:number}}|null;trend_macd_points?:Array<{time:number;value:number;trend:number}>;rsi_tf_directions?:Record<string,{time:number;value:number;direction:number}|null>;squeeze_points:SqueezePoint[];lrc_points:Point[];fisher_points:Point[];rsi_exit_points:Point[];backtest:BacktestStats&{closedTrades?:any[]};latest_controller:any;magic_exit_diagnostic?:Array<{reason:string;count:number;wins:number;netPoints:number;avgNet:number;avgMfe:number;avgGiveback:number;avgForward15:number|null}>;magic_failure_diagnostic?:{trendFlipLosses:number;neverArmed:number;armed:number;avgMfe:number|null;avgMae:number|null;worst:Array<{entry_time:number;exit_time:number;side:string;mfe:number;mae:number;atrArmed:boolean}>}};
-type SavedProfileRow={symbol:string;profileId:number|null;createdAt:string;profile:InstrumentProfile|null;trading:TradingStatus["config"]};
+type SavedProfileRow={symbol:string;profileId:number|null;createdAt:string;profile:InstrumentProfile|null;researchProfile:InstrumentProfile|null;researchAt:string;trading:TradingStatus["config"]};
 type ExecutionMark={id:number;time:number;label:string;status:string;action:string;eventId:string};
 
 const DEFAULT_MAGIC:MagicStrategyConfig={calcTf:"1m",trendMode:"SHADOW",atr2Period:4,atr2Multiplier:2,tf:"15m",showGrayZone:false,grayChopPeriod:20,grayChopThreshold:61.8,cciPeriod:20,atrPeriod:5,atrMultiplier:1,cciSource:"close",nearPoints:1,flipEntryEnabled:true,pullbackEntryEnabled:true,lineTouchExitEnabled:false,initialStopEnabled:true,profitLockEnabled:true,rsiExitEnabled:true,atrTrailEnabled:false,trailAtrPeriod:14,trailAtrMultiplier:2,trailActivationAtr:1,shadowAtrPeriod:14,shadowAtrMultiplier:2,shadowFullCandle:true,rsiTf:"5m",rsiLength:31,wmaLength:21,initialStopPct:.1,lockTriggerPct:.3,lockedProfitPct:.1};
@@ -26,6 +26,8 @@ const DEFAULT_EXIT:ExitModuleConfig={enabled:true,showMarkers:true,trendExitEnab
 const DEFAULT_TREND_ZONE={showTrendZone:true,trendZoneSensitivity:.45};
 const SQZ_COLORS:Record<string,string>={lime:"#00ff00",green:"#008000",red:"#ff0000",maroon:"#800000"};
 const profileKey=(symbol:string)=>`qtrend:cockpit-v2:profile:${symbol}`;
+const researchDraftKey=(symbol:string)=>`qtrend:cockpit-v2:research-draft:${symbol}`;
+const researchEventSymbol=(symbol:string)=>`${symbol}__V2_RESEARCH_PROFILE`;
 const panel:CSSProperties={border:"1px solid #24324a",background:"#0b1220",borderRadius:10};
 const inputStyle:CSSProperties={background:"#0a1020",border:"1px solid #334155",color:"#e5eefc",borderRadius:7,padding:"7px 9px",fontWeight:700};
 const buttonStyle:CSSProperties={...inputStyle,cursor:"pointer"};
@@ -35,6 +37,9 @@ function defaultProfile(symbol:string):InstrumentProfile{return{strategyMode:"LE
 function normalizeProfile(symbol:string,raw:any,ui?:InstrumentProfile):InstrumentProfile{return{...defaultProfile(symbol),...(raw||{}),symbol,magicStrategy:{...DEFAULT_MAGIC,...(raw?.magicStrategy||{}),shadowAtrPeriod:raw?.magicStrategy?.shadowAtrPeriod??raw?.magicStrategy?.trailAtrPeriod??DEFAULT_MAGIC.shadowAtrPeriod,shadowAtrMultiplier:raw?.magicStrategy?.shadowAtrMultiplier??raw?.magicStrategy?.trailAtrMultiplier??DEFAULT_MAGIC.shadowAtrMultiplier},chartMode:ui?.chartMode||raw?.chartMode||"candles",activeModule:ui?.activeModule||raw?.activeModule||"exit",modules:{entry:{...DEFAULT_ENTRY,...(raw?.modules?.entry||{})},exit:{...DEFAULT_EXIT,...(raw?.modules?.exit||{})},channel:{...DEFAULT_CHANNEL,...DEFAULT_TREND_ZONE,...(raw?.modules?.channel||{})},poc:{...(raw?.modules?.poc||{})},controller:{...DEFAULT_CONTROLLER,...(raw?.modules?.controller||{})}}};}
 function readLocal(symbol:string){try{const raw=localStorage.getItem(profileKey(symbol));return raw?normalizeProfile(symbol,JSON.parse(raw)):defaultProfile(symbol);}catch{return defaultProfile(symbol);}}
 function saveLocal(profile:InstrumentProfile){localStorage.setItem(profileKey(profile.symbol),JSON.stringify(profile));}
+function readResearchDraft(symbol:string):InstrumentProfile|null{try{const raw=localStorage.getItem(researchDraftKey(symbol));return raw?normalizeProfile(symbol,JSON.parse(raw)):null;}catch{return null;}}
+function saveResearchDraft(profile:InstrumentProfile){try{localStorage.setItem(researchDraftKey(profile.symbol),JSON.stringify(profile));}catch{}}
+function latestResearchProfile(symbol:string,rows:any[]):{profile:InstrumentProfile|null;createdAt:string}{const last=(Array.isArray(rows)?rows:[]).filter(r=>String(r?.source||"")==="cockpit_v2_research_profile").sort((a,b)=>Number(a?.id||0)-Number(b?.id||0)).at(-1);if(!last)return{profile:null,createdAt:""};try{const raw=JSON.parse(String(last.reason||"{}"));if(String(raw.symbol||"").toUpperCase()!==symbol)return{profile:null,createdAt:""};return{profile:normalizeProfile(symbol,raw,raw),createdAt:String(last.created_at||"")};}catch{return{profile:null,createdAt:""}}}
 function heikin(c:Candle[]):Candle[]{if(!c.length)return[];const out:Candle[]=[];let po=(c[0].open+c[0].close)/2,pc=(c[0].open+c[0].high+c[0].low+c[0].close)/4;out.push({time:c[0].time,open:po,close:pc,high:Math.max(c[0].high,po,pc),low:Math.min(c[0].low,po,pc),volume:c[0].volume});for(let i=1;i<c.length;i++){const x=c[i],close=(x.open+x.high+x.low+x.close)/4,open=(po+pc)/2;out.push({time:x.time,open,close,high:Math.max(x.high,open,close),low:Math.min(x.low,open,close),volume:x.volume});po=open;pc=close;}return out;}
 async function fetchJson(url:string,init:RequestInit={}){const r=await fetch(url,{cache:"no-store",...init}),text=await r.text();let j:any;try{j=JSON.parse(text);}catch{throw new Error(`Keine JSON-Antwort: ${text.slice(0,120)}`);}if(!r.ok||j?.ok===false)throw new Error(j?.info||j?.reason||j?.error||`HTTP ${r.status}`);return j;}
 function normalizeRows(rows:any[]):Candle[]{return(Array.isArray(rows)?rows:[]).map((c:any)=>({time:Number(c.time),open:Number(c.open),high:Number(c.high),low:Number(c.low),close:Number(c.close),volume:Number(c.volume||0)})).filter((c:Candle)=>[c.time,c.open,c.high,c.low,c.close].every(Number.isFinite)).sort((a:Candle,b:Candle)=>a.time-b.time);}
@@ -62,6 +67,9 @@ export default function CockpitV2(){
  const [status,setStatus]=useState("RESEARCH wird vorbereitet …");
  const [researching,setResearching]=useState(false);
  const [liveDirty,setLiveDirty]=useState(false);
+ const [researchDirty,setResearchDirty]=useState(false);
+ const [researchSaving,setResearchSaving]=useState(false);
+ const [researchSavedAt,setResearchSavedAt]=useState("");
  const [liveProfileId,setLiveProfileId]=useState<number|null>(null);
  const [tradingStatus,setTradingStatus]=useState<TradingStatus|null>(null);
  const [executionMarks,setExecutionMarks]=useState<ExecutionMark[]>([]);
@@ -106,20 +114,40 @@ export default function CockpitV2(){
   setShowProfiles(true);setProfilesLoading(true);setProfilesError("");
   try{
    const rows=await Promise.all(SYMBOLS.map(async s=>{
-    const [profilesJson,tradingJson]=await Promise.all([
+    const [profilesJson,tradingJson,researchJson]=await Promise.all([
      fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(`${s}__V2_PROFILE`)}&_ts=${Date.now()}`).catch(()=>({rows:[]})),
-     fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(s)}&_ts=${Date.now()}`).catch(()=>({config:null}))
+     fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(s)}&_ts=${Date.now()}`).catch(()=>({config:null})),
+     fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(researchEventSymbol(s))}&newest=1&_ts=${Date.now()}`).catch(()=>({rows:[]}))
     ]);
     const profileRows=(Array.isArray(profilesJson?.rows)?profilesJson.rows:[]).filter((r:any)=>String(r?.source||"")==="cockpit_v2_profile").sort((a:any,b:any)=>Number(a?.id||0)-Number(b?.id||0));
     const last=profileRows.at(-1)||null;let parsed:InstrumentProfile|null=null;
     if(last){try{parsed=normalizeProfile(s,JSON.parse(String(last.reason||"{}")));}catch{parsed=null;}}
-    return{symbol:s,profileId:last?Number(last.id||0)||null:null,createdAt:String(last?.created_at||""),profile:parsed,trading:tradingJson?.config||null} as SavedProfileRow;
+    const researchSaved=latestResearchProfile(s,researchJson?.rows);return{symbol:s,profileId:last?Number(last.id||0)||null:null,createdAt:String(last?.created_at||""),profile:parsed,researchProfile:researchSaved.profile,researchAt:researchSaved.createdAt,trading:tradingJson?.config||null} as SavedProfileRow;
    }));
    setSavedProfiles(rows);
   }catch(e){setProfilesError(e instanceof Error?e.message:String(e));}
   finally{setProfilesLoading(false);}
  }
- async function bootstrap(){researchSeq.current+=1;researchQueued.current=false;queuedProfile.current=null;queuedViewTf.current=null;queuedSupersede.current=false;setBooted(false);setResearch(null);setViewCandles([]);setExecutionMarks([]);setSelected(null);setStatus("LIVE-Profil wird geladen …");const currentSymbol=symbolRef.current;let next=readLocal(currentSymbol),pid:null|number=null;try{const j=await fetchJson(`${BACKEND_BASE}/cockpit-v2/snapshot?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`);if(currentSymbol===symbolRef.current&&j?.snapshot?.profile){next=normalizeProfile(currentSymbol,j.snapshot.profile,next);pid=Number(j.snapshot.profile_id||0)||null;}}catch{}if(currentSymbol!==symbolRef.current)return;setProfile(next);profileRef.current=next;setLiveProfileId(pid);setLiveDirty(false);setBooted(true);void refreshTradingStatus();void refreshExecutionMarks();}
+ async function bootstrap(){
+  researchSeq.current+=1;researchQueued.current=false;queuedProfile.current=null;queuedViewTf.current=null;queuedSupersede.current=false;
+  setBooted(false);setResearch(null);setViewCandles([]);setExecutionMarks([]);setSelected(null);setStatus("Profile werden geladen …");
+  const currentSymbol=symbolRef.current,local=readLocal(currentSymbol),draft=readResearchDraft(currentSymbol);
+  const [snapshotResult,researchResult]=await Promise.allSettled([
+   fetchJson(`${BACKEND_BASE}/cockpit-v2/snapshot?symbol=${encodeURIComponent(currentSymbol)}&_ts=${Date.now()}`),
+   fetchJson(`${BACKEND_BASE}/ui/strategy-events?symbol=${encodeURIComponent(researchEventSymbol(currentSymbol))}&newest=1&_ts=${Date.now()}`)
+  ]);
+  if(currentSymbol!==symbolRef.current)return;
+  let next=local,pid:null|number=null;
+  const snapshotPayload=snapshotResult.status==="fulfilled"?snapshotResult.value:null,snap=snapshotPayload?.snapshot;
+  if(snap?.profile){next=normalizeProfile(currentSymbol,snap.profile,local);pid=Number(snap.profile_id||snapshotPayload?.profile_id||0)||null;}
+  const saved=researchResult.status==="fulfilled"?latestResearchProfile(currentSymbol,researchResult.value?.rows):{profile:null,createdAt:""};
+  if(saved.profile)next=saved.profile;
+  const newerDraft=Boolean(draft&&(!saved.profile||Date.parse(draft.updatedAt)>Date.parse(saved.profile.updatedAt)));
+  if(newerDraft&&draft)next=draft;
+  setProfile(next);profileRef.current=next;setLiveProfileId(pid);setLiveDirty(Boolean(saved.profile||newerDraft));
+  setResearchSavedAt(saved.createdAt);setResearchDirty(newerDraft);setBooted(true);
+  void refreshTradingStatus();void refreshExecutionMarks();
+ }
  async function runResearch(p:InstrumentProfile=profileRef.current,viewTf:string=intervalRef.current,supersede=false){
   if(researchBusy.current){researchQueued.current=true;queuedProfile.current=p;queuedViewTf.current=viewTf;queuedSupersede.current=queuedSupersede.current||supersede;if(supersede)researchSeq.current+=1;return;}
   researchBusy.current=true;
@@ -136,13 +164,27 @@ export default function CockpitV2(){
    else if(requestSymbol===symbolRef.current)setResearching(false);
   }
  }
- function change(mutator:(p:InstrumentProfile)=>InstrumentProfile){setProfile(prev=>{const next=mutator(prev);profileRef.current=next;return next;});setLiveDirty(true);}
+ function change(mutator:(p:InstrumentProfile)=>InstrumentProfile){setProfile(prev=>{const next={...mutator(prev),updatedAt:new Date().toISOString()};profileRef.current=next;saveResearchDraft(next);return next;});setLiveDirty(true);setResearchDirty(true);}
+ async function saveResearchProfile(){
+  if(researchSaving)return;
+  const currentSymbol=symbolRef.current,saved={...profileRef.current,symbol:currentSymbol,updatedAt:new Date().toISOString()};
+  setResearchSaving(true);
+  try{
+   await fetchJson(`${BACKEND_BASE}/ui/strategy-event`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:researchEventSymbol(currentSymbol),tf:saved.magicStrategy?.calcTf||saved.interval,side:"profile",time:Math.floor(Date.now()/1000),price:0,source:"cockpit_v2_research_profile",reason:JSON.stringify(saved)})});
+   if(currentSymbol!==symbolRef.current)return;
+   const sameProfile=JSON.stringify({...profileRef.current,updatedAt:""})===JSON.stringify({...saved,updatedAt:""});
+   if(sameProfile){profileRef.current=saved;setProfile(saved);saveResearchDraft(saved);setResearchDirty(false);}
+   setResearchSavedAt(new Date().toISOString());setStatus(`${currentSymbol}: Forschungsprofil gespeichert. LIVE-Profil unverändert.`);
+  }catch(e){if(currentSymbol===symbolRef.current)setStatus(`Speichern fehlgeschlagen: ${e instanceof Error?e.message:String(e)}`);}
+  finally{setResearchSaving(false);}
+ }
  async function applyLive(){if(profileRef.current.strategyMode==="MAGIC_PULLBACK"){setStatus("ATR-Trend-Strategie: nur RESEARCH, Broker-Stop noch nicht angebunden.");return;}try{setStatus("LIVE-Profil wird übernommen …");const saved={...profileRef.current,symbol,updatedAt:new Date().toISOString()};saveLocal(saved);const j=await fetchJson(`${BACKEND_BASE}/ui/strategy-event`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:`${symbol}__V2_PROFILE`,tf:saved.interval,side:"profile",time:Math.floor(Date.now()/1000),price:0,source:"cockpit_v2_profile",reason:JSON.stringify(saved)})});setLiveProfileId(Number(j?.id||j?.row?.id||0)||liveProfileId);setLiveDirty(false);setStatus("LIVE-Profil übernommen · Research bleibt identisch");}catch(e){setStatus(`LIVE-Fehler: ${e instanceof Error?e.message:String(e)}`);}}
  async function changeAuto(enabled:boolean){try{await fetchJson(`${BACKEND_BASE}/cockpit-v2/auto`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol,enabled})});await refreshTradingStatus();}catch(e){setStatus(`AUTO-Fehler: ${e instanceof Error?e.message:String(e)}`);}}
  async function tickView(){if(tickBusy.current||!booted)return;tickBusy.current=true;try{const currentSymbol=symbolRef.current,tf=intervalRef.current,j=await fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(currentSymbol)}&interval=${encodeURIComponent(tf)}&limit=2&_ts=${Date.now()}`),rows=normalizeRows(j?.candles);if(currentSymbol!==symbolRef.current||!rows.length)return;const last=rows.at(-1)!;if(Number(last.time)>viewLastTime.current){viewLastTime.current=Number(last.time);setViewCandles(prev=>{const map=new Map(prev.map(c=>[c.time,c]));for(const row of rows)map.set(row.time,row);return[...map.values()].sort((a,b)=>a.time-b.time).slice(-1500);});}else if(trendDisplayRef.current==="bb40-1m"||profileRef.current.modules.channel.trendSource){setViewCandles(prev=>{const map=new Map(prev.map(c=>[c.time,c]));map.set(last.time,last);return [...map.values()].sort((a,b)=>a.time-b.time).slice(-1500);});}else if(profileRef.current.chartMode==="candles"){candleMapRef.current.set(last.time,last);priceSeries.current?.update({time:last.time as Time,open:last.open,high:last.high,low:last.low,close:last.close});}}catch{}finally{tickBusy.current=false;}}
 
  useEffect(()=>{void bootstrap();},[symbol]);
  useEffect(()=>{const host=window as Window&{__qtrendCockpitV2ResearchProfile?:InstrumentProfile};host.__qtrendCockpitV2ResearchProfile=profile;return()=>{if(host.__qtrendCockpitV2ResearchProfile===profile)delete host.__qtrendCockpitV2ResearchProfile;};},[profile]);
+ useEffect(()=>{if(booted&&profile.symbol===symbol)saveResearchDraft(profile);},[booted,profile,symbol]);
  useEffect(()=>{if(!booted)return;const t=window.setTimeout(()=>void runResearch(profileRef.current,interval,true),180);return()=>window.clearTimeout(t);},[booted,profile,interval,symbol]);
  useEffect(()=>{if(!booted)return;const t=window.setInterval(()=>void tickView(),1000),r=window.setInterval(()=>void runResearch(profileRef.current,intervalRef.current,false),15000),s=window.setInterval(()=>void refreshTradingStatus(),5000),x=window.setInterval(()=>void refreshExecutionMarks(),2000);return()=>{window.clearInterval(t);window.clearInterval(r);window.clearInterval(s);window.clearInterval(x);};},[booted,symbol]);
  useEffect(()=>{if(trendDisplay!=="bb40-1m"&&!showBbBands)return;let alive=true;setBbMinuteCandles([]);setBbDataStatus("BB6 1m lädt …");const load=async(initial:boolean)=>{try{const limit=initial?30000:100;const j=await fetchJson(`${BACKEND_BASE}/v5/candles?symbol=${encodeURIComponent(symbol)}&interval=1m&limit=${limit}&_ts=${Date.now()}`);if(!alive)return;const rows=normalizeRows(j?.candles);if(!rows.length){setBbDataStatus("BB6 1m: keine Daten");return}setBbMinuteCandles(previous=>{const map=new Map((initial?[]:previous).map(c=>[c.time,c]));for(const row of rows)map.set(row.time,row);return [...map.values()].sort((a,b)=>a.time-b.time).slice(-30100)});if(initial)setBbDataStatus(`BB6 1m ab ${chartBerlinTime(rows[0].time)} · nur berechenbare Kerzen sichtbar`);}catch{if(alive)setBbDataStatus("BB6 1m: Datenabruf fehlgeschlagen")}};void load(true);const timer=window.setInterval(()=>void load(false),15000);return()=>{alive=false;window.clearInterval(timer)};},[symbol,trendDisplay,showBbBands]);
@@ -155,7 +197,7 @@ export default function CockpitV2(){
    if(targetSymbol!==symbolRef.current)return;
    const next=normalizeProfile(targetSymbol,detail.profile,profileRef.current);
    next.updatedAt=new Date().toISOString();
-   setProfile(next);profileRef.current=next;setLiveDirty(true);setStatus("OPTIMIZER-Kandidat direkt in RESEARCH geladen …");
+   setProfile(next);profileRef.current=next;saveResearchDraft(next);setResearchDirty(true);setLiveDirty(true);setStatus("OPTIMIZER-Kandidat direkt in RESEARCH geladen …");
   };
   window.addEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
   return()=>window.removeEventListener("qtrend:cockpit-v2:load-research-profile",onOptimizerProfile as EventListener);
@@ -190,6 +232,8 @@ export default function CockpitV2(){
    <button onClick={()=>setProfile(v=>({...v,chartMode:v.chartMode==="candles"?"heikin":"candles"}))} style={buttonStyle}>{profile.chartMode==="heikin"?"HEIKIN":"KERZEN"}</button>
    <div style={{flex:1,minWidth:260,padding:"8px 12px",borderRadius:7,border:"1px solid #155e75",background:"#082f49",color:"#a5f3fc",fontWeight:800}}>{researching?"RESEARCH rechnet …":status}</div>
    <button onClick={()=>void loadAllProfiles()} style={{...buttonStyle,background:"#0f3f5f",color:"#cffafe"}}>ALLE PROFILE</button>
+   <button onClick={()=>void saveResearchProfile()} disabled={!booted||researchSaving} style={{...buttonStyle,background:researchDirty?"#166534":"#0f3f5f",color:"white"}} title="Dauerhaft pro Instrument im Research-Kanal speichern; löst keinen Live-Trade aus">{researchSaving?"SPEICHERT …":"FORSCHUNG SPEICHERN"}</button>
+   <span style={{fontSize:11,color:researchDirty?"#fbbf24":"#86efac"}}>{researchDirty?"Entwurf lokal gesichert":researchSavedAt?"Forschung gespeichert":"Noch nicht gespeichert"}</span>
    <button onClick={()=>void applyLive()} disabled={!liveDirty||profile.strategyMode==="MAGIC_PULLBACK"} title={profile.strategyMode==="MAGIC_PULLBACK"?"RESEARCH: Broker-Stop für LIVE noch nicht angebunden":undefined} style={{...buttonStyle,background:liveDirty&&profile.strategyMode!=="MAGIC_PULLBACK"?"#9a3412":"#334155",color:"white",opacity:liveDirty?1:.6}}>LIVE ÜBERNEHMEN</button>
   </div>
   {showProfiles&&<ProfilesModal rows={savedProfiles} loading={profilesLoading} error={profilesError} onReload={()=>void loadAllProfiles()} onClose={()=>setShowProfiles(false)}/>} 
@@ -197,7 +241,7 @@ export default function CockpitV2(){
    <div style={{...panel,overflow:"hidden",position:"relative",minHeight:0}}>
     <div ref={chartHost} style={{position:"absolute",inset:0}}/>
     <div ref={zoneLayer} style={{position:"absolute",inset:0,zIndex:1,pointerEvents:"none",overflow:"hidden"}}/>
-    <div style={{position:"absolute",top:8,left:10,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:800}}>{symbol} · VIEW {interval} · RESEARCH LIVE · TREND {profile.strategyMode==="MAGIC_PULLBACK"?`ATR 1m · MAGIC ${chosenTrendTf} Rücklauf`:chosenTrendSource?`${chosenTrendSource==="TREND_TRADER"?"TREND TRADER":"TREND MAGIC"} ${chosenTrendTf}`:profile.modules.channel.bb40OneMinuteEnabled?"ALT BB6 · Trend wählen":"ALT · Trend wählen"} · {chosenTrendSource?`${selectedTrendRows.length} bestätigte Werte`:trendDisplay==="bb40-1m"?bbDataStatus:"ALT"} · {profile.strategyMode==="MAGIC_PULLBACK"?"ATR-TREND · MAGIC-RÜCKLAUF · RSI/WMA EXIT · LINIE/STOP einstellbar":`TX ${exitCfg.trendExitEnabled?"ON":"OFF"} · E1 ${exitCfg.exit1Tf} · E2 ${exitCfg.exit2Tf} · E3 ${exitCfg.exit3Tf} · E4 ${exitCfg.exit4Tf}`}</div>{profile.strategyMode!=="MAGIC_PULLBACK"&&<div style={{position:"absolute",top:42,left:10,zIndex:3,display:"flex",gap:5,padding:"5px 7px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:900}}>{([["5m","5m"],["15m","15m"],["30m","30m"],["1h","60m"],["2h","120m"]] as const).map(([key,label])=>{const x=research?.rsi_tf_directions?.[key];const d=Number(x?.direction||0);return <span key={key} title={x?("RSI "+Number(x.value).toFixed(2)):"noch kein Wert"} style={{padding:"2px 5px",borderRadius:4,border:"1px solid #334155",color:d>0?"#22c55e":d<0?"#ef4444":"#94a3b8"}}>{label} {d>0?"↑":d<0?"↓":"·"}</span>})}</div>}
+    <div style={{position:"absolute",top:8,left:10,zIndex:3,padding:"5px 8px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:800}}>{symbol} · VIEW {interval} · RESEARCH LIVE · TREND {profile.strategyMode==="MAGIC_PULLBACK"?`ATR ${profile.magicStrategy?.calcTf||"1m"} · MAGIC ${chosenTrendTf} Rücklauf`:chosenTrendSource?`${chosenTrendSource==="TREND_TRADER"?"TREND TRADER":"TREND MAGIC"} ${chosenTrendTf}`:profile.modules.channel.bb40OneMinuteEnabled?"ALT BB6 · Trend wählen":"ALT · Trend wählen"} · {chosenTrendSource?`${selectedTrendRows.length} bestätigte Werte`:trendDisplay==="bb40-1m"?bbDataStatus:"ALT"} · {profile.strategyMode==="MAGIC_PULLBACK"?"ATR-TREND · MAGIC-RÜCKLAUF · RSI/WMA EXIT · LINIE/STOP einstellbar":`TX ${exitCfg.trendExitEnabled?"ON":"OFF"} · E1 ${exitCfg.exit1Tf} · E2 ${exitCfg.exit2Tf} · E3 ${exitCfg.exit3Tf} · E4 ${exitCfg.exit4Tf}`}</div>{profile.strategyMode!=="MAGIC_PULLBACK"&&<div style={{position:"absolute",top:42,left:10,zIndex:3,display:"flex",gap:5,padding:"5px 7px",borderRadius:6,background:"#08111ecc",border:"1px solid #23324a",fontSize:11,fontWeight:900}}>{([["5m","5m"],["15m","15m"],["30m","30m"],["1h","60m"],["2h","120m"]] as const).map(([key,label])=>{const x=research?.rsi_tf_directions?.[key];const d=Number(x?.direction||0);return <span key={key} title={x?("RSI "+Number(x.value).toFixed(2)):"noch kein Wert"} style={{padding:"2px 5px",borderRadius:4,border:"1px solid #334155",color:d>0?"#22c55e":d<0?"#ef4444":"#94a3b8"}}>{label} {d>0?"↑":d<0?"↓":"·"}</span>})}</div>}
    </div>
    <aside style={{display:"grid",gridTemplateRows:"minmax(0,3fr) minmax(0,2fr)",gap:8,minHeight:0,overflow:"hidden"}}>
     <section style={{...panel,padding:10,overflow:"auto"}}>
@@ -220,16 +264,16 @@ function ProfilesModal({rows,loading,error,onReload,onClose}:{rows:SavedProfileR
  const mod=(enabled:any,tf:any)=>`${yn(enabled)} · ${tf||"—"}`;
  return <div style={{position:"fixed",inset:0,zIndex:1000,background:"#020617dd",display:"grid",placeItems:"center",padding:20}}>
   <div style={{width:"min(98vw,1900px)",height:"min(88vh,900px)",...panel,display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden",boxShadow:"0 20px 80px #000"}}>
-   <div style={{display:"flex",alignItems:"center",gap:10,padding:10,borderBottom:"1px solid #334155"}}><b style={{color:"#67e8f9",fontSize:16}}>GESPEICHERTE ENGINE-PROFILE · READ ONLY</b><span style={{color:"#94a3b8"}}>Quelle: cockpit_v2_profile + Trading-Status</span><div style={{flex:1}}/><button onClick={onReload} style={buttonStyle}>NEU LADEN</button><button onClick={onClose} style={{...buttonStyle,background:"#7f1d1d",color:"white"}}>SCHLIESSEN</button></div>
+   <div style={{display:"flex",alignItems:"center",gap:10,padding:10,borderBottom:"1px solid #334155"}}><b style={{color:"#67e8f9",fontSize:16}}>GESPEICHERTE PROFILE · READ ONLY</b><span style={{color:"#94a3b8"}}>Quelle: Research-Profil und Live-Profil aus der Engine</span><div style={{flex:1}}/><button onClick={onReload} style={buttonStyle}>NEU LADEN</button><button onClick={onClose} style={{...buttonStyle,background:"#7f1d1d",color:"white"}}>SCHLIESSEN</button></div>
    <div style={{overflow:"auto",padding:8}}>
     {loading&&<div style={{padding:20,color:"#a5f3fc",fontWeight:900}}>Profile werden direkt aus der Engine geladen …</div>}
     {error&&<div style={{padding:12,color:"#fecaca",background:"#450a0a",borderRadius:7}}>Fehler: {error}</div>}
     {!loading&&!error&&<table style={{borderCollapse:"collapse",minWidth:2700,width:"100%",background:"#070b16"}}>
      <thead><tr>
-      {['Instrument','Profil TF','Chart','Entry','Fast SMA','Slow SMA','Entry ATR','RSI','MACD F/S/Sig','Trend','Trend Linie','Trend ATR','Trend Multi','Wilder ATR','Trendzone','Zone Sens','EXIT Marker','Trend Exit','E1','E1 BB Len/Mult','E1 KC Len/Mult','E2','E2 Len','E3','E3 Len/Ext','E4','E4 RSI L/U','Controller','C-Marker','Flip','Größe','AUTO','Profil-ID','Gespeichert'].map(h=><th key={h} style={head}>{h}</th>)}
+      {['Instrument','Forschung','Forschung gespeichert','Profil TF','Chart','Entry','Fast SMA','Slow SMA','Entry ATR','RSI','MACD F/S/Sig','Trend','Trend Linie','Trend ATR','Trend Multi','Wilder ATR','Trendzone','Zone Sens','EXIT Marker','Trend Exit','E1','E1 BB Len/Mult','E1 KC Len/Mult','E2','E2 Len','E3','E3 Len/Ext','E4','E4 RSI L/U','Controller','C-Marker','Flip','Größe','AUTO','Profil-ID','Gespeichert'].map(h=><th key={h} style={head}>{h}</th>)}
      </tr></thead>
      <tbody>{rows.map(r=>{const p=r.profile,e=p?.modules?.entry,x=p?.modules?.exit,c=p?.modules?.channel,k=p?.modules?.controller;return <tr key={r.symbol} style={{background:r.symbol==="GOLD"?"#0b1626":"transparent"}}>
-      <td style={{...cell,fontWeight:900,color:"#f8fafc"}}>{r.symbol}</td><td style={cell}>{p?.interval||'—'}</td><td style={cell}>{p?.chartMode||'—'}</td>
+      <td style={{...cell,fontWeight:900,color:"#f8fafc"}}>{r.symbol}</td><td style={cell}>{r.researchProfile?`${r.researchProfile.strategyMode||"LEGACY"} · ${r.researchProfile.magicStrategy?.calcTf||"1m"}`:"—"}</td><td style={cell}>{r.researchAt||"—"}</td><td style={cell}>{p?.interval||'—'}</td><td style={cell}>{p?.chartMode||'—'}</td>
       <td style={cell}>{e?mod(e.enabled,e.tf):'—'}</td><td style={cell}>{e?.fastSma??'—'}</td><td style={cell}>{e?.slowSma??'—'}</td><td style={cell}>{e?.atrLen??'—'}</td><td style={cell}>{e?.rsiLen??'—'}</td><td style={cell}>{e?`${e.macdFast}/${e.macdSlow}/${e.macdSignal}`:'—'}</td>
       <td style={cell}>{c?mod(c.enabled,c.tf):'—'}</td><td style={cell}>{c?yn(c.showLines):'—'}</td><td style={cell}>{c?.atrPeriod??'—'}</td><td style={cell}>{c?.multiplier??'—'}</td><td style={cell}>{c?yn(c.useRmaAtr):'—'}</td><td style={cell}>{c?yn(c.showTrendZone):'—'}</td><td style={cell}>{c?.trendZoneSensitivity??'—'}</td>
       <td style={cell}>{x?yn(x.showMarkers):'—'}</td><td style={cell}>{x?yn(x.trendExitEnabled):'—'}</td><td style={cell}>{x?mod(x.exit1Enabled,x.exit1Tf):'—'}</td><td style={cell}>{x?`${x.length}/${x.mult}`:'—'}</td><td style={cell}>{x?`${x.lengthKC}/${x.multKC}`:'—'}</td>
