@@ -186,7 +186,7 @@ export default function CockpitV2(){
    if(!Number.isFinite(pct)||pct<=0||pct>5){setStatus("Demo-Schutzstopp muss größer 0 und höchstens 5 % sein.");return;}
    const gate=await fetchJson(`${BACKEND_BASE}/cockpit-v2/trading-status?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`) as TradingStatus;
    if(gate?.demo!==true||gate?.execute_orders!==true){setStatus("Broker ist nicht nachweislich als ausführendes DEMO konfiguriert.");return;}
-   const broker=await fetchJson(`${BACKEND_BASE}/ui/broker-state?symbol=${encodeURIComponent(symbol)}&_ts=${Date.now()}`);
+   const broker=await fetchJson(`${BACKEND_BASE}/ui/broker-state?symbol=${encodeURIComponent(symbol)}&fresh=1&_ts=${Date.now()}`);
    if(String(broker?.side||broker?.state||"").toLowerCase()!=="flat"){setStatus("Magic Demo wartet: GOLD hat noch eine Broker-Position. Bestehenden Trade zuerst beenden.");return;}
    if(!(Number(gate?.config?.size)>0)){setStatus("Magic Demo braucht eine gespeicherte GOLD-Positionsgröße.");return;}
   }
