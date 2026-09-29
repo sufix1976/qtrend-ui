@@ -39,17 +39,23 @@
       add('Trend','atr2Period',ints(Number(m.atr2Period),2,100));
       add('Trend','atr2Multiplier',steps(Number(m.atr2Multiplier),.1,10));
     }
-    add('Trend','shadowFullCandle',[!m.shadowFullCandle]);
-    add('Trend','shadowAtrPeriod',ints(Number(m.shadowAtrPeriod),2,100));
-    add('Trend','shadowAtrMultiplier',steps(Number(m.shadowAtrMultiplier),.1,10));
+    if (m.trendMode !== 'MAGIC') {
+      add('Trend','shadowFullCandle',[!m.shadowFullCandle]);
+      add('Trend','shadowAtrPeriod',ints(Number(m.shadowAtrPeriod),2,100));
+      add('Trend','shadowAtrMultiplier',steps(Number(m.shadowAtrMultiplier),.1,10));
+    }
     add('Trend','tf',['1m','5m','15m','30m','1h']);
     add('Trend','cciPeriod',ints(Number(m.cciPeriod),2,100));
-    add('Trend','atrPeriod',ints(Number(m.atrPeriod),2,100));
-    add('Trend','atrMultiplier',steps(Number(m.atrMultiplier),.1,10));
+    // The Magic ATR shapes its line, not the CCI-based direction. The line
+    // affects trades only when a Magic pullback or line-touch exit is enabled.
+    if (m.trendMode !== 'SHADOW' && (m.pullbackEntryEnabled || m.lineTouchExitEnabled)) {
+      add('Trend','atrPeriod',ints(Number(m.atrPeriod),2,100));
+      add('Trend','atrMultiplier',steps(Number(m.atrMultiplier),.1,10));
+    }
     add('Trend','cciSource',['close','hlc3']);
     add('Entry','flipEntryEnabled',[!m.flipEntryEnabled]);
     add('Entry','pullbackEntryEnabled',[!m.pullbackEntryEnabled]);
-    add('Entry','nearPoints',steps(Number(m.nearPoints),0,100));
+    if (m.pullbackEntryEnabled) add('Entry','nearPoints',steps(Number(m.nearPoints),0,100));
     add('Exit','atrTrailEnabled',[!m.atrTrailEnabled]);
     add('Exit','lineTouchExitEnabled',[!m.lineTouchExitEnabled]);
     add('Exit','rsiExitEnabled',[!m.rsiExitEnabled]);
@@ -114,7 +120,7 @@
   }
   function render() {
     const trainEnd=cut, visible=results.slice().sort((a,b)=>b.train.score-a.train.score);
-    body.innerHTML=`<p><b>${esc(symbol)}</b> · ${baseline?.count||0} × 1m · Training: ${new Date(baseline.first*1000).toISOString().slice(0,16)} bis ${new Date(trainEnd*1000).toISOString().slice(0,16)} UTC · Prüfung danach bis ${new Date(baseline.last*1000).toISOString().slice(0,16)} UTC. Trade am Schnitt wird ausgelassen. Trainingsminimum ${Number(byId('qv4-min').value)||40}; je Drittel mindestens 5. Spread-Stress = 1,5 × eingestellter Spread.</p><p><small>Rangfolge nur anhand der ersten 70 %; spätere Daten erscheinen ausschließlich für die vorher festgelegten Finalisten. Unter 20 Trades im Prüfzeitraum ist das Resultat dünn. PF ist Diagnose. Kein automatischer LIVE-Wechsel und keine Simulation des separaten Broker-Schutzstops.</small></p><table><thead><tr><th>#</th><th>Änderung</th><th>Training Trades</th><th>Training Netto</th><th>PF</th><th>Drittel Netto</th><th>Spread ×1,5 Netto</th><th>Trendwechsel-Verluste</th><th>Späterer Prüfzeitraum</th><th>Aktion</th></tr></thead><tbody>${visible.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${r.train.total.trades}${r.train.valid?'':' ⚠'}</td><td class="${r.train.total.net>=0?'good':'bad'}">${signed(r.train.total.net)}</td><td>${money(r.train.total.pf)}</td><td>${r.train.segments.map(s=>`${s.trades}: ${signed(s.net)}`).join(' / ')}</td><td>${signed(r.train.stress.net)}</td><td>${r.train.total.flipLosses}</td><td>${r.final?`${r.holdout.trades} Trades${r.holdout.trades<20?' ⚠ wenig':''} · ${signed(r.holdout.net)} · PF ${money(r.holdout.pf)}`:'gesperrt'}</td><td><button class="qv4-action" data-profile="${results.indexOf(r)}">IN RESEARCH</button></td></tr>`).join('')}</tbody></table><details><summary>Exit-Ursachen der Basis im Training</summary><table><thead><tr><th>Exit</th><th>Trades</th><th>Netto</th></tr></thead><tbody>${Object.entries(results[0]?.train.total.reasons||{}).map(([name,r])=>`<tr><td>${esc(name)}</td><td>${r.count}</td><td>${signed(r.net)}</td></tr>`).join('')}</tbody></table></details>`;
+    body.innerHTML=`<p><b>${esc(symbol)}</b> · ${baseline?.count||0} × 1m · Training: ${new Date(baseline.first*1000).toISOString().slice(0,16)} bis ${new Date(trainEnd*1000).toISOString().slice(0,16)} UTC · Prüfung danach bis ${new Date(baseline.last*1000).toISOString().slice(0,16)} UTC. Trade am Schnitt wird ausgelassen. Trainingsminimum ${Number(byId('qv4-min').value)||40}; je Drittel mindestens 5. Spread-Stress = 1,5 × eingestellter Spread.</p><p><small>Trend-Magic-Richtung = CCI-Vorzeichen. Ihre ATR-Periode und ihr Multiplikator verändern die Magic-Linie, nicht direkt die Richtung. Im Modus „Gestrichelte ATR-Linie“ wirken sie nicht auf Trades; V4 überspringt sie dort. Die gestrichelte Linie hat eigene ATR-Werte.</small></p><p><small>Rangfolge nur anhand der ersten 70 %; spätere Daten erscheinen ausschließlich für die vorher festgelegten Finalisten. Unter 20 Trades im Prüfzeitraum ist das Resultat dünn. PF ist Diagnose. Kein automatischer LIVE-Wechsel und keine Simulation des separaten Broker-Schutzstops.</small></p><table><thead><tr><th>#</th><th>Änderung</th><th>Training Trades</th><th>Training Netto</th><th>PF</th><th>Drittel Netto</th><th>Spread ×1,5 Netto</th><th>Trendwechsel-Verluste</th><th>Späterer Prüfzeitraum</th><th>Aktion</th></tr></thead><tbody>${visible.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${r.train.total.trades}${r.train.valid?'':' ⚠'}</td><td class="${r.train.total.net>=0?'good':'bad'}">${signed(r.train.total.net)}</td><td>${money(r.train.total.pf)}</td><td>${r.train.segments.map(s=>`${s.trades}: ${signed(s.net)}`).join(' / ')}</td><td>${signed(r.train.stress.net)}</td><td>${r.train.total.flipLosses}</td><td>${r.final?`${r.holdout.trades} Trades${r.holdout.trades<20?' ⚠ wenig':''} · ${signed(r.holdout.net)} · PF ${money(r.holdout.pf)}`:'gesperrt'}</td><td><button class="qv4-action" data-profile="${results.indexOf(r)}">IN RESEARCH</button></td></tr>`).join('')}</tbody></table><details><summary>Exit-Ursachen der Basis im Training</summary><table><thead><tr><th>Exit</th><th>Trades</th><th>Netto</th></tr></thead><tbody>${Object.entries(results[0]?.train.total.reasons||{}).map(([name,r])=>`<tr><td>${esc(name)}</td><td>${r.count}</td><td>${signed(r.net)}</td></tr>`).join('')}</tbody></table></details>`;
     const finalists=results.filter(r=>r.final);
     if(finalists.length){
       const comparable=finalists.map(r=>`<tr><td>${esc(r.label)}</td><td>${r.full.trades}</td><td>${signed(r.full.net)}</td><td>${money(r.full.pf)}</td></tr>`).join('');
