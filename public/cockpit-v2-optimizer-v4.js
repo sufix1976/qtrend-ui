@@ -35,6 +35,10 @@
     const steps = (n, low, high) => [n-.5,n+.5,...(wide?[n-1,n+1]:[])].map(v=>Math.round(v*100)/100).filter(v=>v>=low&&v<=high);
     add('Trend','trendMode',['MAGIC','SHADOW','HYBRID']);
     add('Trend','calcTf',['1m','5m','15m']);
+    if (m.trendMode === 'HYBRID') {
+      add('Trend','atr2Period',ints(Number(m.atr2Period),2,100));
+      add('Trend','atr2Multiplier',steps(Number(m.atr2Multiplier),.1,10));
+    }
     add('Trend','shadowFullCandle',[!m.shadowFullCandle]);
     add('Trend','shadowAtrPeriod',ints(Number(m.shadowAtrPeriod),2,100));
     add('Trend','shadowAtrMultiplier',steps(Number(m.shadowAtrMultiplier),.1,10));
@@ -49,9 +53,20 @@
     add('Exit','atrTrailEnabled',[!m.atrTrailEnabled]);
     add('Exit','lineTouchExitEnabled',[!m.lineTouchExitEnabled]);
     add('Exit','rsiExitEnabled',[!m.rsiExitEnabled]);
-    add('Exit','trailAtrPeriod',ints(Number(m.trailAtrPeriod),2,100));
-    add('Exit','trailAtrMultiplier',steps(Number(m.trailAtrMultiplier),.1,10));
-    add('Exit','trailActivationAtr',steps(Number(m.trailActivationAtr),0,10));
+    add('Exit','initialStopEnabled',[!m.initialStopEnabled]);
+    add('Exit','profitLockEnabled',[!m.profitLockEnabled]);
+    if (m.initialStopEnabled) {
+      add('Exit','initialStopPct',[Number((Number(m.initialStopPct)-.05).toFixed(3)),Number((Number(m.initialStopPct)+.05).toFixed(3))].filter(v=>v>0));
+    }
+    if (m.profitLockEnabled) {
+      add('Exit','lockTriggerPct',[Number((Number(m.lockTriggerPct)-.05).toFixed(3)),Number((Number(m.lockTriggerPct)+.05).toFixed(3))].filter(v=>v>0));
+      add('Exit','lockedProfitPct',[Number((Number(m.lockedProfitPct)-.05).toFixed(3)),Number((Number(m.lockedProfitPct)+.05).toFixed(3))].filter(v=>v>=0));
+    }
+    if (m.atrTrailEnabled) {
+      add('Exit','trailAtrPeriod',ints(Number(m.trailAtrPeriod),2,100));
+      add('Exit','trailAtrMultiplier',steps(Number(m.trailAtrMultiplier),.1,10));
+      add('Exit','trailActivationAtr',steps(Number(m.trailActivationAtr),0,10));
+    }
     if (m.rsiExitEnabled) {
       add('Exit','rsiTf',['1m','5m','15m','30m','1h']);
       add('Exit','rsiLength',ints(Number(m.rsiLength),2,100));
@@ -85,6 +100,8 @@
     if(!response.ok)throw new Error(`Research HTTP ${response.status}`);
     const json=await response.json(),r=json?.research;
     if(r?.profile?.strategyMode!=='MAGIC_PULLBACK'||!r?.backtest||!Array.isArray(r.backtest.closedTrades))throw new Error('Keine gültige Trend-Magic-Research-Antwort.');
+    const tally=stats(r.backtest.closedTrades);
+    if(tally.trades!==Number(r.backtest.trades)||Math.abs(tally.net-Number(r.backtest.net))>0.001)throw new Error('Trade-Liste und Research-Gesamtergebnis stimmen nicht überein.');
     const actual=r.profile.magicStrategy||{};
     for(const key of Object.keys(profile.magicStrategy))if(JSON.stringify(actual[key])!==JSON.stringify(profile.magicStrategy[key]))throw new Error(`Server hat ${key} verändert.`);
     const hash=String(r.base_candle_digest||'');
@@ -98,6 +115,12 @@
   function render() {
     const trainEnd=cut, visible=results.slice().sort((a,b)=>b.train.score-a.train.score);
     body.innerHTML=`<p><b>${esc(symbol)}</b> · ${baseline?.count||0} × 1m · Training: ${new Date(baseline.first*1000).toISOString().slice(0,16)} bis ${new Date(trainEnd*1000).toISOString().slice(0,16)} UTC · Prüfung danach bis ${new Date(baseline.last*1000).toISOString().slice(0,16)} UTC. Trade am Schnitt wird ausgelassen. Trainingsminimum ${Number(byId('qv4-min').value)||40}; je Drittel mindestens 5. Spread-Stress = 1,5 × eingestellter Spread.</p><p><small>Rangfolge nur anhand der ersten 70 %; spätere Daten erscheinen ausschließlich für die vorher festgelegten Finalisten. Unter 20 Trades im Prüfzeitraum ist das Resultat dünn. PF ist Diagnose. Kein automatischer LIVE-Wechsel und keine Simulation des separaten Broker-Schutzstops.</small></p><table><thead><tr><th>#</th><th>Änderung</th><th>Training Trades</th><th>Training Netto</th><th>PF</th><th>Drittel Netto</th><th>Spread ×1,5 Netto</th><th>Trendwechsel-Verluste</th><th>Späterer Prüfzeitraum</th><th>Aktion</th></tr></thead><tbody>${visible.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${r.train.total.trades}${r.train.valid?'':' ⚠'}</td><td class="${r.train.total.net>=0?'good':'bad'}">${signed(r.train.total.net)}</td><td>${money(r.train.total.pf)}</td><td>${r.train.segments.map(s=>`${s.trades}: ${signed(s.net)}`).join(' / ')}</td><td>${signed(r.train.stress.net)}</td><td>${r.train.total.flipLosses}</td><td>${r.final?`${r.holdout.trades} Trades${r.holdout.trades<20?' ⚠ wenig':''} · ${signed(r.holdout.net)} · PF ${money(r.holdout.pf)}`:'gesperrt'}</td><td><button class="qv4-action" data-profile="${results.indexOf(r)}">IN RESEARCH</button></td></tr>`).join('')}</tbody></table><details><summary>Exit-Ursachen der Basis im Training</summary><table><thead><tr><th>Exit</th><th>Trades</th><th>Netto</th></tr></thead><tbody>${Object.entries(results[0]?.train.total.reasons||{}).map(([name,r])=>`<tr><td>${esc(name)}</td><td>${r.count}</td><td>${signed(r.net)}</td></tr>`).join('')}</tbody></table></details>`;
+    const finalists=results.filter(r=>r.final);
+    if(finalists.length){
+      const comparable=finalists.map(r=>`<tr><td>${esc(r.label)}</td><td>${r.full.trades}</td><td>${signed(r.full.net)}</td><td>${money(r.full.pf)}</td></tr>`).join('');
+      const robust=finalists.slice(1).filter(r=>r.train.total.net>0&&r.train.stress.net>0&&r.holdout.trades>=20&&r.holdout.net>0);
+      body.insertAdjacentHTML('afterbegin',`<div style="padding:9px;border:1px solid #155e75;margin-bottom:9px"><b>Gesamtzeitraum zum Vergleich mit V3</b> · derselbe Spread und dasselbe Profil. Diese Zahlen fließen nicht in die V4-Auswahl ein.<table style="min-width:500px;width:auto"><thead><tr><th>Finalist</th><th>Trades</th><th>Gesamt Netto</th><th>Gesamt PF</th></tr></thead><tbody>${comparable}</tbody></table><b>${robust.length?`${robust.length} Kandidat(en) mit positivem Training, Spread-Stress und Prüfzeitraum.`:'Kein Kandidat hat Training, Spread-Stress und späteren Prüfzeitraum positiv bestanden.'}</b></div>`);
+    }
     body.querySelectorAll('[data-profile]').forEach(button=>button.onclick=()=>{const r=results[Number(button.dataset.profile)];overlay.style.display='none';window.dispatchEvent(new CustomEvent('qtrend:cockpit-v2:load-research-profile',{detail:{symbol,profile:clone(r.profile)}}));});
   }
   async function run() {
@@ -120,11 +143,12 @@
         put(singles[i],await evaluate(singles[i].profile,true));render();
       }
       if(stopped){status.textContent='Gestoppt. Kein Prüfzeitraum freigegeben.';return;}
-      const best=group=>results.filter(r=>r.group===group&&r.train.valid&&r.train.score>results[0].train.score).sort((a,b)=>b.train.score-a.train.score).slice(0,2);
+      const best=group=>results.filter(r=>r.group===group&&r.train.valid).sort((a,b)=>b.train.score-a.train.score).slice(0,2);
       const pairs=[];
       for(const [ga,gb] of [['Trend','Entry'],['Trend','Exit'],['Entry','Exit']])for(const a of best(ga))for(const b of best(gb)){
         const combined=clone(baseProfile);Object.assign(combined.magicStrategy,a.changes,b.changes);
         if(!combined.magicStrategy.flipEntryEnabled&&!combined.magicStrategy.pullbackEntryEnabled)continue;
+        if(Number(combined.magicStrategy.lockedProfitPct)>=Number(combined.magicStrategy.lockTriggerPct))continue;
         pairs.push({group:'Kombination',label:`${a.label} · ${b.label}`,changes:{...a.changes,...b.changes},profile:combined});
       }
       for(let i=0;i<pairs.length&&!stopped;i++){
@@ -137,7 +161,7 @@
       for(const f of finalists){
         const research=await evaluate(f.profile,true);
         const test=research.trades.filter(t=>Number(t.entry_time)>=cut&&Number(t.exit_time)<=base.last+3600);
-        f.holdout=stats(test);f.final=true;
+        f.holdout=stats(test);f.full=stats(research.trades);f.final=true;
       }
       render();status.textContent=`${symbol}: ${results.length} Profile geprüft · ${finalists.length} vorher ausgewählte Finalisten im späteren Zeitraum angezeigt. V3 und LIVE unverändert.`;
     } catch(error) {status.textContent=`FEHLER: ${error?.message||error}`;}
