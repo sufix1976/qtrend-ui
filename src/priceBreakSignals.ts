@@ -2,7 +2,7 @@ import type { PriceCandle } from './priceBreakTrend';
 import { visualEntries } from './priceBreakVisual';
 export type VisualSignal={time:number;direction:number;kind:'W2'|'PB'|'EXIT'};
 /** Visual candidates only. Directions on EXIT denote the position being closed. */
-export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[],line:(number|null)[],knownThrough:number,distance:number,confirmNext=true){
+export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[],line:(number|null)[],knownThrough:number,distance:number,confirmNext=true,confirmExit=confirmNext){
  const out:VisualSignal[]=visualEntries(c,main,micro,line,knownThrough,false).filter(e=>e.kind==='W2');
  let episode=false,fired=false,near=false,extreme=0;
  const maximum=Math.max(0,Number.isFinite(distance)?distance:0);
@@ -33,7 +33,7 @@ export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[]
   extreme=dir<0?Math.max(extreme,bar.high):Math.min(extreme,bar.low);
  }
  // Mirror the existing small-TF turn logic: a Long leg turning down is a Long exit.
- const exits=visualEntries(c,main.map(d=>-d),micro,line,knownThrough,confirmNext)
+ const exits=visualEntries(c,main.map(d=>-d),micro,line,knownThrough,confirmExit)
   .filter(e=>e.kind==='PB').map(e=>({time:e.time,direction:-e.direction,kind:'EXIT' as const}));
  return [...out,...exits].sort((a,b)=>a.time-b.time);
 }
