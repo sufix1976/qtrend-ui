@@ -156,7 +156,7 @@ export default function TrendBuilder(){
  const [breakN,setBreakN]=useState(10),[breakStart,setBreakStart]=useState(1),[showBreakBounds,setShowBreakBounds]=useState(false);
  const magicRange=useRef<ReturnType<IChartApi["timeScale"]>["getVisibleRange"] extends (...args:any[])=>infer R?R:null>(null);
  const host=useRef<HTMLDivElement>(null),valHost=useRef<HTMLDivElement>(null),rsiHost=useRef<HTMLDivElement>(null),chart=useRef<IChartApi|null>(null),valChart=useRef<IChartApi|null>(null),rsiChart=useRef<IChartApi|null>(null);const legacyVars=useMemo(()=>build(candles),[candles]);
- const breakVars=useMemo(()=>[["HB1M",1],["HB5M",5],["HB15M",15],["HB30M",30],["HB1H",60]].map(([id,mins])=>{
+ const breakVars=useMemo(()=>[["HB1M",1],["HB5M",5],["HB10M",10],["HB15M",15],["HB30M",30],["HB1H",60]].map(([id,mins])=>{
   const minutes=Number(mins),x=priceBreakTrend(candles,minutes,breakN,breakStart);
   return {id:String(id),family:"HOCH/TIEF BRUCH",speed:minutes===60?"1h":`${minutes}m`,trend:x.trend,line:x.line,upper:x.upper,lower:x.lower,events:x.events,changes:x.events.length,
    params:`N ${breakN} vorherige vollständige TF-Kerzen · Schlusskurs außerhalb = Wechsel · sonst Richtung halten · Start ${breakStart===1?"Long":"Short"} · ${x.completeBars} vollständige TF-Kerzen · kausal`} as V;
