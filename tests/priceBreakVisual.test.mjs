@@ -15,7 +15,7 @@ const flip=[1,-1,-1,-1,-1,-1];
 assert.ok(visualEntries(c,flip,micro,line,360).some(e=>e.kind==='W2'&&e.time===180),'second candle after flip, entry only on following open');
 const gap=c.map((x,i)=>({...x,time:x.time+(i>=3?60:0)}));
 assert.equal(visualEntries(gap,main,micro,line,420).filter(e=>e.kind==='PB').length,0,'no turning signal across gap');
-const real=JSON.parse(fs.readFileSync('/tmp/us100-candles.json','utf8')).candles.slice(-2500);
+const real=JSON.parse(fs.readFileSync('/tmp/trend-audit-j225.json','utf8')).candles.slice(-2500);
 for(const mins of [5,10,15]){
  const all=priceBreakTrend(real,mins,2,1,real.at(-1).time+60),small=priceBreakTrend(real,1,2,1,real.at(-1).time+60);
  const full=visualEntries(real,all.trend,small.trend,all.line,real.at(-1).time+60);
@@ -23,3 +23,15 @@ for(const mins of [5,10,15]){
  console.log(`${mins}m: visual candidate prefix stability passed (${full.length} candidates)`);
 }
 console.log('PASS: mirrored turns, close timing, parallel sign, W2 timing, gaps, future independence');
+
+assert.deepEqual(visualEntries(c,main,micro,line,360,true),[{time:300,direction:-1,kind:'PB'}]);
+assert.equal(visualEntries(c,main,micro,line,270,true).length,0,'confirmation must close first');
+const up=c.map(x=>({...x}));up[4].open=up[4].close-1;
+assert.equal(visualEntries(up,main,micro,line,360,true).length,0,'opposite confirmation rejects Short');
+const doji=c.map(x=>({...x}));doji[4].open=doji[4].close;
+assert.equal(visualEntries(doji,main,micro,line,360,true).length,0,'doji rejects');
+assert.deepEqual(visualEntries(mirrored,c.map(()=>1),c.map(()=>-1),line,360,true),[{time:300,direction:1,kind:'PB'}]);
+assert.equal(visualEntries(c,[-1,-1,-1,-1,1,1],micro,line,360,true).filter(e=>e.kind==='PB').length,0,'main flip rejects pending candidate');
+const a=priceBreakTrend(real,10,2,1,real.at(-1).time+60),b=priceBreakTrend(real,1,2,1,real.at(-1).time+60),fullConfirmed=visualEntries(real,a.trend,b.trend,a.line,real.at(-1).time+60,true);
+for(const n of [611,1000,1507,2000]){const p=real.slice(0,n),end=p.at(-1).time+60,pa=priceBreakTrend(p,10,2,1,end),pb=priceBreakTrend(p,1,2,1,end);assert.deepEqual(visualEntries(p,pa.trend,pb.trend,pa.line,end,true),fullConfirmed.filter(e=>e.time<end));}
+console.log('PASS: next-candle confirmation, rejection, mirrored Long, main flip and prefix stability');
