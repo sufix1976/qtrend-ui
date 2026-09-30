@@ -27,7 +27,7 @@ assert.equal(priceBreakTrend(developing,5,1,1,360).completeBars,1);
 assert.equal(priceBreakTrend(developing.filter(c=>c.time!==120),5,1,1,360).completeBars,0,'missing minute must invalidate the TF bucket');
 assert.equal(priceBreakTrend(firstBucket.slice(1),5,1,1,300).completeBars,0,'partial leading TF candle is not used');
 const real=process.argv[2]?JSON.parse(fs.readFileSync(process.argv[2],'utf8')).candles.slice(-2500):Array.from({length:2500},(_,i)=>{const close=100+10*Math.sin(i/37)+3*Math.cos(i/11);return {time:i*60,open:close-.1,high:close+1,low:close-1,close};});
-for(const minutes of [1,5,15,30,60]) {
+for(const minutes of [1,5,10,15,30,60]) {
  const full=priceBreakTrend(real,minutes,10,1,real.at(-1).time+60);
  for(const n of [300,611,1000,1507,2000]) {
   const input=real.slice(0,n),cutoff=input.at(-1).time+60;
@@ -38,4 +38,4 @@ for(const minutes of [1,5,15,30,60]) {
  assert.ok(full.trend.every(t=>t===1||t===-1),'no neutral regime');
  console.log(`${minutes}m: prefix stability passed, ${full.events.length} switches`);
 }
-console.log('PASS: close timing, previous-window bounds, wicks/equality, incomplete TFs, five-TF prefix stability');
+console.log('PASS: close timing, previous-window bounds, wicks/equality, incomplete TFs, six-TF prefix stability');
