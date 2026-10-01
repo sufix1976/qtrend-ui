@@ -1,6 +1,7 @@
 import type { PriceCandle } from './priceBreakTrend';
 export type AtrEntry={time:number;direction:number;kind:string};
 export type AtrExit={time:number;direction:number;reason:'ATR'|'NOT'};
+export type AtrDistanceOptions={mainLine:(number|null)[];shrinkFactor:number};
 
 /** Wilder ATR on complete UTC-aligned TF candles, exposed only after TF close. */
 export function closedAtr(base:PriceCandle[],minutes:number,period:number,knownThrough:number){
@@ -17,26 +18,41 @@ export function closedAtr(base:PriceCandle[],minutes:number,period:number,knownT
 }
 
 /** Visual position state only. X candidates do not close this ATR experiment. */
-export function visualAtrTrail(c:PriceCandle[],trend:number[],atr:(number|null)[],entries:AtrEntry[],notExits:{time:number;direction:number}[],knownThrough:number,factor:number){
+export function visualAtrTrail(c:PriceCandle[],trend:number[],atr:(number|null)[],entries:AtrEntry[],notExits:{time:number;direction:number}[],knownThrough:number,factor:number,dynamic?:AtrDistanceOptions){
  const line:(number|null)[]=c.map(()=>null),directions:number[]=c.map(()=>0),accepted:AtrEntry[]=[],exits:AtrExit[]=[];
  const entryMap=new Map<number,AtrEntry[]>();for(const e of entries){const list=entryMap.get(e.time)||[];list.push(e);entryMap.set(e.time,list);}
  const notMap=new Map<number,number[]>();for(const e of notExits){const list=notMap.get(e.time)||[];list.push(e.direction);notMap.set(e.time,list);}
- let position:{direction:number;extreme:number;stop:number}|null=null,pending:AtrExit|null=null;
+ let position:{direction:number;extreme:number;stop:number;initialAtrDistance:number;initialMainDistance:number;extraDistance:number}|null=null,pending:AtrExit|null=null;
  for(let i=0;i<c.length;i++){
   const b=c[i];let exited=false;
   if(pending&&pending.time===b.time){exits.push(pending);pending=null;position=null;exited=true;}
   if(position&&notMap.get(b.time)?.includes(position.direction)){exits.push({time:b.time,direction:position.direction,reason:'NOT'});position=null;exited=true;}
   if(!position&&!exited&&atr[i]!=null){const entry:AtrEntry|undefined=entryMap.get(b.time)?.find(e=>e.direction===trend[i]);if(entry){
-   position={direction:entry.direction,extreme:b.open,stop:b.open-entry.direction*atr[i]!*factor};accepted.push(entry);}}
+   const main=dynamic?.mainLine[i];
+   if(dynamic&&main==null)continue;
+   position={direction:entry.direction,extreme:b.open,stop:b.open-entry.direction*atr[i]!*factor,initialAtrDistance:atr[i]!*factor,initialMainDistance:main==null?0:Math.max(0,entry.direction*(b.open-main)),extraDistance:0};accepted.push(entry);}}
   if(!position)continue;
   line[i]=position.stop;directions[i]=position.direction;
   if(b.time+60>knownThrough)continue;
   const hit=position.direction>0?b.low<=position.stop:b.high>=position.stop;
   if(hit){const next=c[i+1];if(next)pending={time:next.time,direction:position.direction,reason:'ATR'};continue;}
   // This candle's extreme/new ATR may tighten only the NEXT candle's stop.
+  const previousExtreme=position.extreme;
   position.extreme=position.direction>0?Math.max(position.extreme,b.high):Math.min(position.extreme,b.low);
+  if(dynamic){
+   // Only a new favourable price extreme tightens; a retracement leaves the stop horizontal.
+   const main=dynamic.mainLine[i];
+   if(main!=null&&position.extreme!==previousExtreme){
+    const distance=Math.max(0,position.direction*(position.extreme-main));
+    position.extraDistance=Math.max(position.extraDistance,distance-position.initialMainDistance);
+    const gap=Math.max(0,position.initialAtrDistance-position.extraDistance*Math.max(0,dynamic.shrinkFactor));
+    const candidate=position.extreme-position.direction*gap;
+    position.stop=position.direction>0?Math.max(position.stop,candidate):Math.min(position.stop,candidate);
+   }
+  }else{
   const nextAtr=atr[i+1]??atr[i];if(nextAtr!=null){const candidate=position.extreme-position.direction*nextAtr*factor;
    position.stop=position.direction>0?Math.max(position.stop,candidate):Math.min(position.stop,candidate);}
+  }
  }
  return {line,directions,accepted,exits};
 }

@@ -36,3 +36,26 @@ for(const n of [2,3,4,5,6]){
  assert.deepEqual(partial.exits,r.exits.filter(e=>e.time<end));
 }
 console.log('PASS: closed HTF ATR/warmup/gaps, causal prefixes, mirrored stops, ratchet, correct stop timing, position gating and NOT');
+// User's example: entry ATR gap 40, main-line gap 80; new gap 90 shrinks by 11.
+const dc=[[100,105,90,92],[92,110,91,105],[105,110,80,85],[85,100,82,99],[99,101,95,100]].map(([open,high,low,close],i)=>({time:i*60,open,high,low,close}));
+const dt=dc.map(()=>-1),da=[20,50,80,100,200],de=[{time:0,direction:-1,kind:'PB'}];
+const opts={mainLine:dc.map(()=>180),shrinkFactor:1.1};
+const dr=visualAtrTrail(dc,dt,da,de,[],300,2,opts);
+assert.deepEqual(dr.line,[140,119,119,98,null],'40 - (90 - 80) * 1.1 = 29; retracement leaves stop horizontal');
+assert.deepEqual(dr.exits,[{time:240,direction:-1,reason:'ATR'}],'touch triggers exit on next available open');
+const dm=dc.map(b=>({time:b.time,open:-b.open,close:-b.close,high:-b.low,low:-b.high}));
+const dl=visualAtrTrail(dm,dt.map(()=>1),da,de.map(e=>({...e,direction:1})),[],300,2,{mainLine:opts.mainLine.map(x=>-x),shrinkFactor:1.1});
+assert.deepEqual(dl.line,dr.line.map(x=>x==null?null:-x),'dynamic long/short symmetry');
+assert.deepEqual(dl.exits,dr.exits.map(e=>({...e,direction:1})));
+const zero=visualAtrTrail(dc,dt,da,de,[],300,2,{...opts,shrinkFactor:10});
+assert.equal(zero.line[1],90,'exhausted distance stays zero, never a stop beyond the favourable extreme');
+const constant=visualAtrTrail(dc,dt,da,de,[],300,2,{...opts,shrinkFactor:0});
+assert.equal(constant.line[1],130,'factor zero keeps entry ATR gap, even if later ATR increases');
+const re=visualAtrTrail(dc,dt,da,[...de,{time:240,direction:-1,kind:'PB'}],[],300,2,opts);
+assert.equal(re.accepted.length,1,'no re-entry on the exit candle');
+for(const n of [2,3,4,5]){
+ const partial=visualAtrTrail(dc.slice(0,n),dt.slice(0,n),da.slice(0,n),de,[],n*60,2,{...opts,mainLine:opts.mainLine.slice(0,n)});
+ assert.deepEqual(partial.line,dr.line.slice(0,n),'dynamic trail prefix stability');
+ assert.deepEqual(partial.exits,dr.exits.filter(e=>e.time<n*60));
+}
+console.log('PASS: exact dynamic distance example, frozen entry ATR, horizontal retracement, symmetry, zero boundary and causal prefixes');
