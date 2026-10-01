@@ -2,12 +2,15 @@ import type { PriceCandle } from './priceBreakTrend';
 import { visualEntries } from './priceBreakVisual';
 export type VisualSignal={time:number;direction:number;kind:'W2'|'PB'|'EXIT'};
 /** Visual candidates only. Directions on EXIT denote the position being closed. */
-export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[],line:(number|null)[],knownThrough:number,distance:number,confirmNext=true,confirmExit=confirmNext){
+export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[],line:(number|null)[],knownThrough:number,distance:number,confirmNext=true,confirmExit=confirmNext,minPriorBars=0){
  const out:VisualSignal[]=visualEntries(c,main,micro,line,knownThrough,false).filter(e=>e.kind==='W2');
- let episode=false,fired=false,near=false,extreme=0;
+ let episode=false,fired=false,near=false,extreme=0,priorBars=0;
+ const minimum=Math.max(0,Math.trunc(Number.isFinite(minPriorBars)?minPriorBars:0));
  const maximum=Math.max(0,Number.isFinite(distance)?distance:0);
  for(let i=1;i<c.length;i++){
   const bar=c[i],prev=c[i-1],dir=main[i],level=line[i],next=c[i+1];
+  // Count completed candles in the same 1m trend BEFORE the turning candle.
+  priorBars=prev.time+60===bar.time&&micro[i]===micro[i-1]?priorBars+1:0;
   if(dir!==main[i-1]||prev.time+60!==bar.time){episode=false;fired=false;near=false;}
   if(bar.time+60>knownThrough||!next||next.time!==bar.time+60||level==null||main[i+1]!==dir||micro[i]!==-dir){
    episode=false;fired=false;near=false;continue;
@@ -18,7 +21,7 @@ export function linePullbackSignals(c:PriceCandle[],main:number[],micro:number[]
   if(!episode){episode=true;fired=false;near=gap<=maximum;extreme=dir<0?bar.high:bar.low;continue;}
   near=near||gap<=maximum;
   const turns=dir<0?prev.high>=extreme&&bar.high<prev.high&&bar.close<prev.close:prev.low<=extreme&&bar.low>prev.low&&bar.close>prev.close;
-  if(!fired&&near&&turns){
+  if(!fired&&near&&turns&&priorBars>=minimum){
    let target=i+1;
    if(confirmNext){
     const confirmation=c[target],after=c[target+1];
